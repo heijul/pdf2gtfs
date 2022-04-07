@@ -1,7 +1,19 @@
-pandas~=1.4.1
+pandas==1.4.2
+
+# has dependency: pdfminer.six
+pdfplumber~=0.6.0
+
 pdftotext~=2.2.2
+
 tabula-py~=2.3.0
+
 # Camelot + dependencies
 camelot-py~=0.10.1
 opencv-python~=4.5.5.64
 ghostscript~=0.7
+
+
+# other testing stuff
+pillow~=9.1.0
+matplotlib~=3.5.1
+dataframe_image~=0.1.1
