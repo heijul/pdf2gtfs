@@ -16,6 +16,7 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 
+from datastructures.base import Row, field_from_char, table_from_rows
 from datastructures.timetable import TimeTable
 
 
@@ -196,56 +197,77 @@ class Reader(BaseReader, ABC):
         with open(self.filepath, "rb") as file:
             q = pdfplumber.PDF(file)
             csv_io = StringIO(q.pages[0].to_csv())
+
         # Read csv with pandas.
         w = pd.read_csv(csv_io)
         df = self.clean_df(w)
         # df.to_csv("./testtest.csv")
         self.get_lines(df)
 
+    def read4(self):
+        table_settings = {"vertical_strategy": "text",
+                          "horizontal_strategy": "text"}
+        pdf = pdfplumber.open(self.filepath)
+        tables = pdf.pages[0].extract_tables(table_settings)
+        print(len(tables))
+
     def clean_df(self, df: pd.DataFrame):
         # Maybe: doctop/top, width, height, adv, fontname, size, upright
         columns = ["page_number", "x0", "x1", "y0", "y1", "top", "width", "height", "text", "upright"]
         # Remove lines/curves/rects
-        df = df.where(df["object_type"] == "char"
-                      ).dropna(how="all")
+        df = df.where(df["object_type"] == "char").dropna(how="all")
         # Only select necessary columns.
         return df.reset_index()[columns]
 
     def get_lines(self, df: pd.DataFrame):
-        df = df.round({"top": 0, "x0": 3, "x1": 3, "y0": 3, "y1": 3})
-        grouped = df.groupby("top")
-        lines = []
-        for group_id in grouped.groups:
-            group = grouped.get_group(group_id)
-            fields = self.split_line_into_fields(group)
-            lines.append(self.get_lines_from_fields(fields))
+        # Round to combat tolerances.
+        df = df.round({"top": 0, "x0": 2, "x1": 2, "y0": 2, "y1": 2})
+        # Chars are in the same row if they have the same distance to top.
+        lines = df.groupby("top")
+        rows = []
+        for group_id in lines.groups:
+            line = lines.get_group(group_id)
+            rows.append(self.split_line_into_fields(line))
+        row_list_to_tables(rows)
         return lines
 
-    def get_lines_from_fields(self, fields_list: dict):
-        line = ...
-        pass
+    def split_line_into_fields(self, line: pd.DataFrame) -> Row:
+        fields = []
+        if len(line) == 0:
+            return Row()
 
-    def split_line_into_fields(self, line: pd.DataFrame) -> dict:
-        """ Split a given line into its columns. """
-        # Need x0 here for first line.
-        if len(line["x0"]) == 0:
-            return {}
-        last_x1 = line["x0"].iloc[0]
-        field = [last_x1, 0, ""]
+        for _, char in line.iterrows():
+            # Ignore vertical text
+            if char.upright != 1:
+                continue
+            # Fields are continuous streams of chars.
+            if not fields or char.x0 != fields[-1].x1:
+                fields.append(field_from_char(char))
+                continue
+            fields[-1].add_char(char)
+        return Row().from_list(fields)
 
-        fields: dict[(int, int), object] = {}
 
-        for text, x0, x1 in line[["text", "x0", "x1"]].values:
-            if x0 != last_x1:
-                fields[(field[0], field[1])] = field[2]
-                field = [x0, x1, ""]
-            field[1] = x1
-            field[2] += text
-            last_x1 = x1
-        else:
-            # Need to add the last field to the fields as well.
-            fields[(field[0], field[1])] = field[2]
-        return fields
+def row_list_to_tables(rows: list[Row]):
+    options = {
+        "max_row_distance": 3,
+        }
+
+    tables = []
+    current_rows = [rows[0]]
+
+    for row in rows[1:]:
+        # Ignore rows that are not on page
+        # TODO: needs to check other coordinates as well
+        if row.y0 < 0:
+            continue
+        distance_between_rows = abs(row.y1 - current_rows[-1].y0)
+        if distance_between_rows > options["max_row_distance"]:
+            print(f"Distance between rows: {distance_between_rows}")
+            tables.append(table_from_rows(current_rows))
+            current_rows = []
+        current_rows.append(row)
+    return tables
 
 
 if __name__ == "__main__":
