@@ -1,5 +1,7 @@
+import math
 from dataclasses import dataclass
 from operator import attrgetter
+from statistics import mean
 
 import pandas as pd
 
@@ -36,11 +38,22 @@ def field_from_char(char: pd.Series) -> Field:
     return Field(char.x0, char.x1, char.y0, char.y1, char.text)
 
 
+@dataclass
+class Column(Field):
+    pass
+
+
+def column_from_field(field: Field, text: str = "-") -> Column:
+    return Column(field.x0, field.x1, field.y0, field.y1, text)
+
+
 class Row:
     fields: list[Field]
+    dropped: bool
 
     def __init__(self):
         self.fields = []
+        self.dropped = False
 
     @property
     def x0(self):
@@ -52,11 +65,11 @@ class Row:
 
     @property
     def y0(self):
-        return min([field.y0 for field in self.fields])
+        return min([field.y0 for field in self.fields], default=0)
 
     @property
     def y1(self):
-        return max([field.y1 for field in self.fields])
+        return max([field.y1 for field in self.fields], default=0)
 
     @property
     def text(self):
@@ -100,7 +113,7 @@ class Table:
 
     def to_tsv(self):
         if not self.rows:
-            return ""
+            return f"{self}; Missing rows!"
         format_str = "\t".join(["{:30}"] + (len(self.rows[0]) - 1) * ["{:>5}"])
         return "\n".join([format_str.format(*row) for row in self.rows])
 
@@ -109,7 +122,7 @@ def table_from_rows(raw_rows) -> Table:
     # Turns the list of rows of varying column count into a
     # proper table, where each row has the same number of columns.
     idx, header = _get_header(raw_rows)
-    rows = _get_rows(raw_rows[idx:])
+    rows, dropped_rows = _get_rows(raw_rows[idx:])
     table = Table(rows)
     print(table.to_tsv())
     return table
@@ -144,66 +157,72 @@ def field_text_generator(fields, columns):
         yield text if text else column.text
 
 
-def _get_columns_from_row(row) -> list[Field]:
+def _get_columns_from_row(row) -> list[Column]:
     columns = []
     for field in row.fields:
-        column_field = field_from_char(field)
-        column_field.text = "-"
-        columns.append(column_field)
+        column = column_from_field(field)
+        columns.append(column)
     return columns
 
 
 def _get_columns_from_rows(rows):
     # Get all columns from each row
-    raw_columns: list[Field] = []
-    for row in rows:
-        raw_columns += _get_columns_from_row(row)
+    raw_columns = [_get_columns_from_row(row) for row in rows]
+    clean_columns = drop_invalid_rows(raw_columns, rows)
+    return merge_columns(clean_columns)
+
+
+def drop_invalid_rows(raw_columns: list[list[Column]], rows: list[Row]
+                      ) -> (list[Column], list):
+    def dissimilar() -> bool:
+        # TODO: Add constant/config instead of magic number.
+        return (count / count_mean) < 0.5
+
+    # Drop rows, with columns which are too dissimilar from the others
+    counts = [len(columns) for columns in raw_columns]
+    count_mean = mean(counts)
+    clean_columns = []
+
+    for i, (row, count) in enumerate(zip(rows, counts)):
+        if dissimilar():
+            row.dropped = True
+            continue
+        clean_columns += raw_columns[i]
+
+    return clean_columns
+
+
+def merge_columns(clean_columns: list[Column]):
     # Merge overlapping columns
     columns = []
-    for current in sorted(raw_columns, key=attrgetter("x0")):
+    for column in sorted(clean_columns, key=attrgetter("x0")):
         if not columns:
-            columns.append(current)
+            columns.append(column)
             continue
         last = columns[-1]
-        if last.x0 <= current.x0 <= last.x1:
-            columns[-1].x1 = max(last.x1, current.x1)
-            columns[-1].y0 = min(last.y0, current.y0)
-            columns[-1].y1 = max(last.y1, current.y1)
+        if last.x0 <= column.x0 <= last.x1:
+            columns[-1].x1 = max(last.x1, column.x1)
+            columns[-1].y0 = min(last.y0, column.y0)
+            columns[-1].y1 = max(last.y1, column.y1)
             continue
-        if current.x0 >= last.x1:
-            columns.append(current)
+        if column.x0 >= last.x1:
+            columns.append(column)
             continue
     return columns
 
 
-def _get_rows(raw_rows) -> list:
+def _get_rows(raw_rows) -> (list[str], list[Row]):
     if len(raw_rows) == 0:
         return []
-    # Get column fields
-    """
-    column_dict = {}
-    for row in raw_rows:
-        fields = row.fields
-        for field in fields:
-            column_field = field_from_char(field)
-            column_field.text = ""
-            column_dict[field.x0] = max(field.x1, column_dict.get(field.x0, 0))
-    # Merge overlapping columns
-    sorted_column_dict = sorted(column_dict.items())
-    columns = [sorted_column_dict[0]]
-    for start, end in sorted_column_dict[1:]:
-        prev_start, prev_end = columns[-1]
-        if start == prev_start and end == prev_end:
-            continue
-        columns.append((start, end))
-    """
     columns = _get_columns_from_rows(raw_rows)
     # Get fixed size rows
     rows = []
     for raw_row in raw_rows:
+        if raw_row.dropped:
+            continue
         row = []
         for field_text in field_text_generator(raw_row.fields, columns):
             row.append(field_text)
         rows.append(row)
 
-    return rows
+    return rows, [row for row in raw_rows if row.dropped]
