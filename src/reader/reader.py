@@ -66,24 +66,27 @@ def get_chars_dataframe_from_page(page):
     chars = pd.DataFrame(char_list)
     return chars
 
+
 class Reader(BaseReader, ABC):
     def read(self):
         for page in extract_pages(self.filepath):
             page_chars = get_chars_dataframe_from_page(page)
-            self.get_lines(page_chars)
+            rows = self.get_lines(page_chars)
+            table_rows = split_rows_into_tables(rows)
+            create_tables_from_rows(table_rows)
             break
 
-    def get_lines(self, df: pd.DataFrame):
+    def get_lines(self, df: pd.DataFrame) -> list[Row]:
         # Round to combat tolerances.
         df = df.round({"top": 0, "x0": 2, "x1": 2, "y0": 2, "y1": 2})
         # Chars are in the same row if they have the same distance to top.
+        # TODO: 'by' as function to include top tolerances
         lines = df.groupby("top")
         rows = []
         for group_id in lines.groups:
             line = lines.get_group(group_id)
             rows.append(self.split_line_into_fields(line))
-        row_list_to_tables(rows)
-        return lines
+        return rows
 
     def split_line_into_fields(self, line: pd.DataFrame) -> Row:
         fields = []
@@ -92,7 +95,7 @@ class Reader(BaseReader, ABC):
 
         for _, char in line.iterrows():
             # Ignore vertical text
-            if char.upright != 1:
+            if not char.upright:
                 continue
             # Fields are continuous streams of chars.
             if not fields or char.x0 != fields[-1].x1:
@@ -102,31 +105,41 @@ class Reader(BaseReader, ABC):
         return Row().from_list(fields)
 
 
-def row_list_to_tables(rows: list[Row]):
+def split_rows_into_tables(rows: list[Row]):
     options = {
         "max_row_distance": 3,
         }
 
-    tables = []
+    table_rows = []
     current_rows = [rows[0]]
 
     for row in rows[1:]:
-        # Ignore rows that are not on page
-        # TODO: needs to check other coordinates as well
-        if row.y0 < 0:
-            continue
         distance_between_rows = abs(row.y1 - current_rows[-1].y0)
         if distance_between_rows > options["max_row_distance"]:
             print(f"Distance between rows: {distance_between_rows}")
-            tables.append(table_from_rows(current_rows))
+            table_rows.append(current_rows)
             current_rows = []
         current_rows.append(row)
-    return tables
+    else:
+        if current_rows:
+            table_rows.append(current_rows)
+    return table_rows
+
+
+def create_tables_from_rows(table_rows: list[list[Row]]):
+    raw_tables = map(table_from_rows, table_rows)
+    # Merge raw tables which are close
+    ...
+    # Handle wrappers which are not proper tables (Days, etc.)
+    ...
+    # Handle annotations TODO: Maybe move to table_from_rows as with header
+    ...
+    return raw_tables
 
 
 if __name__ == "__main__":
     # noinspection PyPackageRequirements
     fnames = ["./data/vag_linie_eins.pdf", "./data/rmv_u1.pdf",
-              "./data/rmv_u1_pdfact_vis.pdf"]
-    r_custom = Reader(fnames[0])
-    r_custom.read()
+              "./data/rmv_g10.pdf"]
+    reader = Reader(fnames[2])
+    reader.read()
