@@ -6,7 +6,7 @@ from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine
 
 from datastructures.internal.field import field_from_char
-from datastructures.internal.row import Row
+from datastructures.internal import Row
 from datastructures.internal.table import table_from_rows
 from utils import contains_bbox
 

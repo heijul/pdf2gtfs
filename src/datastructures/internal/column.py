@@ -2,7 +2,7 @@ from operator import attrgetter
 from statistics import mean
 
 from datastructures.internal.field import Field, Column
-from datastructures.internal.row import Row
+from datastructures.internal import Row
 
 
 def column_from_field(field: Field, text: str = "-") -> Column:

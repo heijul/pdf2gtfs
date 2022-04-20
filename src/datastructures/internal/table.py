@@ -4,7 +4,7 @@ import pandas as pd
 
 from datastructures.internal.column import get_columns_from_rows
 from datastructures.internal.field import field_text_generator
-from datastructures.internal.row import Row
+from datastructures.internal import Row
 
 
 # TODO: Move to config + make extendable
@@ -92,7 +92,6 @@ class Table:
                 continue
             self.df[i] = pd.to_datetime(
                 self.df[i], format="%H.%M", errors="coerce")
-        print(self.to_tsv)
 
     def to_tsv(self):
         if not self.rows:
@@ -113,7 +112,7 @@ def table_from_rows(raw_rows) -> Table | None:
     idx, header = __get_header(raw_rows)
     row_texts = __get_row_texts(raw_rows[idx:])
     table = Table(row_texts)
-    print(table.to_tsv())
+    print(table.df_to_tsv())
     return table
 
 
