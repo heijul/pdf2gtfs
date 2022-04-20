@@ -7,6 +7,7 @@ from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine
 
 from datastructures.base import Row, field_from_char, table_from_rows
+from utils import contains_bbox
 
 
 pd.set_option('display.max_colwidth', None)
@@ -14,8 +15,8 @@ BASE_DIR = Path("/mnt/gamma/uni/modules/thesis/pdf2gtfs/")
 
 
 class BaseReader:
-    filepath: ClassVar[Path]
-    out_path: ClassVar[Path]
+    filepath: Path
+    out_path: Path
 
     def __init__(self, filename: str = None):
         if not filename:
@@ -32,13 +33,6 @@ class BaseReader:
     @abstractmethod
     def transform(self):
         pass
-
-
-def contains_bbox(container, bbox):
-    return (container[0] <= bbox[0] <= container[2] and
-            container[1] <= bbox[1] <= container[3] and
-            container[0] <= bbox[2] <= container[2] and
-            container[1] <= bbox[3] <= container[3])
 
 
 def get_chars_dataframe_from_page(page):

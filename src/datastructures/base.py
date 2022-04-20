@@ -1,4 +1,3 @@
-import math
 from dataclasses import dataclass
 from operator import attrgetter
 from statistics import mean
@@ -7,6 +6,9 @@ import pandas as pd
 
 
 # TODO: Move to config + make extendable
+from utils import contains_bbox
+
+
 HEADER_IDENTIFIER = ["Montag - Freitag",
                      "Samstag",
                      "Sonntag",
@@ -27,11 +29,12 @@ class Field:
         self.y1 = max(self.y1, char.y1)
         self.text += char.text
 
+    @property
+    def bbox(self):
+        return self.x0, self.y0, self.x1, self.y1
+
     def contains(self, other) -> bool:
-        return (self.x0 <= other.x0 <= self.x1 and
-                self.x0 <= other.x1 <= self.x1 and
-                self.y0 <= other.y0 <= self.y1 and
-                self.y0 <= other.y1 <= self.y1)
+        return contains_bbox(self.bbox, other.bbox)
 
 
 def field_from_char(char: pd.Series) -> Field:
