@@ -5,3 +5,5 @@ pdfact/
 xpdf-tools-linux-4.03/
 data/
 
+old/
+.ipynb_checkpoints/
