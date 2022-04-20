@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import ClassVar
 
 import pandas as pd
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine
 
-from datastructures.base import Row, field_from_char, table_from_rows
+from datastructures.internal.field import Row, field_from_char, table_from_rows
 from utils import contains_bbox
 
 

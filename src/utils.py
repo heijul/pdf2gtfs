@@ -20,5 +20,3 @@ def contains_bbox(container_bbox, bbox):
             container_bbox[1] <= bbox[1] <= container_bbox[3] and
             container_bbox[0] <= bbox[2] <= container_bbox[2] and
             container_bbox[1] <= bbox[3] <= container_bbox[3])
-
-

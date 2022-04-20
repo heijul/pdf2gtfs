@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from datastructures.basestructures import (
+from datastructures.gtfs_output.basestructures import (
     UIDDataClass, BaseContainer, ContainerObjectType)
-from datastructures.location import Location
+from datastructures.gtfs_output.location import Location
 
 
 @dataclass(init=False)

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
-from datastructures.basestructures import UIDDataClass, BaseContainer
-from datastructures.stop import Stop
+from datastructures.gtfs_output.basestructures import UIDDataClass, BaseContainer
+from datastructures.gtfs_output.stop import Stop
 
 
 @dataclass
