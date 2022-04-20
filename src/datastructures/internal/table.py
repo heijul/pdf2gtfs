@@ -1,26 +1,98 @@
-from operator import attrgetter
-from statistics import mean
+from itertools import cycle
 
-from datastructures.internal.column import Column, column_from_field
+import pandas as pd
+
+from datastructures.internal.column import get_columns_from_rows
+from datastructures.internal.field import field_text_generator
 from datastructures.internal.row import Row
 
 
 # TODO: Move to config + make extendable
-HEADER_IDENTIFIER = ["Montag - Freitag",
-                     "Samstag",
-                     "Sonntag",
-                     "Sonn- und Feiertag"]
+HEADER_IDENTIFIER = ["montag - freitag",
+                     "samstag",
+                     "sonntag",
+                     "sonn- und feiertag",
+                     ]
+
+REPEAT_IDENTIFIER = {"start": ["alle"],
+                     "interval": ["num"],
+                     "end": ["min", "min."],
+                     }
 
 
 class Table:
     def __init__(self, rows, auto_expand=True):
         self.rows = rows
+        self.df = self._dataframe_from_rows()
+        auto_expand = len(self.rows) if auto_expand else False
         if auto_expand:
             self._expand()
 
+    def _dataframe_from_rows(self) -> pd.DataFrame:
+        return pd.DataFrame(self.rows)
+
     def _expand(self):
+        def __get_repeat_identifier_start_idx() -> int:
+            """ Return first index where the value equals any
+            repeat identifier or -1 if there is none.
+            """
+            cond = False
+            for identifier in REPEAT_IDENTIFIER["start"]:
+                cond |= column == identifier
+            index = column.where(cond).dropna().index
+            return index[0] if index.size else -1
+
+        def __get_repeat_interval() -> list[int]:
+            repeat_intervals = []
+            current = ""
+            for char in column[row_idx + 1]:
+                if char.isnumeric():
+                    current += char
+                elif char == " ":
+                    continue
+                else:
+                    repeat_intervals.append(int(current))
+                    current = ""
+            if current:
+                repeat_intervals.append(int(current))
+            return repeat_intervals
+
         # Turn "Alle x min" into proper columns.
-        ...
+        repeats = []
+        for column_idx in self.df:
+            column = self.df[column_idx]
+            row_idx = __get_repeat_identifier_start_idx()
+
+            if row_idx == -1 or row_idx + 1 > column.size:
+                continue
+            repeats.append((column_idx, __get_repeat_interval()))
+
+        columns = []
+        for (column_idx, intervals) in repeats:
+            prev_column = pd.to_datetime(self.df[column_idx - 1], format="%H.%M")
+            next_column = pd.to_datetime(self.df[column_idx + 1], format="%H.%M")
+            interval_cycle = cycle([pd.Timedelta(minutes=interval)
+                                    for interval in intervals])
+            while True:
+                column = prev_column + next(interval_cycle)
+                if column[0] >= next_column[0]:
+                    break
+                columns.append((column_idx, column))
+                prev_column = column
+        for i, (column_idx, column) in enumerate(columns):
+            self.df.insert(column_idx + i, f".{i}", column)
+        print(self.df)
+        for (column_idx, _) in repeats:
+            self.df.drop(column_idx, axis=1, inplace=True)
+
+        # Fix column names and transform columns to datetime.
+        self.df.columns = range(len(self.df.columns))
+        for i in self.df.columns:
+            if i < 2:
+                continue
+            self.df[i] = pd.to_datetime(
+                self.df[i], format="%H.%M", errors="coerce")
+        print(self.to_tsv)
 
     def to_tsv(self):
         if not self.rows:
@@ -29,111 +101,53 @@ class Table:
         return "\n".join([format_str.format(*row) for row in self.rows])
 
 
-def table_from_rows(raw_rows) -> Table:
+def table_from_rows(raw_rows) -> Table | None:
     # Turns the list of rows of varying column count into a
     # proper table, where each row has the same number of columns.
-    idx, header = _get_header(raw_rows)
-    rows, dropped_rows = _get_rows(raw_rows[idx:])
-    table = Table(rows)
+
+    # TODO: Do this properly.
+    # Ignore tables with too few rows.
+    if len(raw_rows) < 10:
+        return None
+
+    idx, header = __get_header(raw_rows)
+    row_texts = __get_row_texts(raw_rows[idx:])
+    table = Table(row_texts)
     print(table.to_tsv())
     return table
 
 
-def _get_header(raw_rows) -> (int, list[Row]):
+def __get_header(raw_rows: list[Row]) -> (int, list[Row]):
+    """ Returns the index of the first datarow and a list of headers. """
     header = []
     i = 0
     for row in raw_rows:
-        row_text = row.text.strip()
+        row_text = row.text.strip().lower()
         if any([row_text.startswith(head) for head in HEADER_IDENTIFIER]):
             i += 1
             header.append(row)
             continue
+        # No need to check for header if we are already at the body.
         break
+
     return i, header
 
 
-def field_text_generator(fields, columns):
-    field_index = 0
-    column_index = 0
-    while field_index < len(fields) or column_index < len(columns):
-        column = columns[column_index]
-        column_index += 1
-        text = ""
-        # Needed in case multiple fields are within the current column
-        while (field_index < len(fields)
-               and column.contains(fields[field_index])):
-            text += fields[field_index].text
-            field_index += 1
-
-        yield text if text else column.text
-
-
-def _get_columns_from_row(row) -> list[Column]:
-    columns = []
-    for field in row.fields:
-        column = column_from_field(field)
-        columns.append(column)
-    return columns
-
-
-def _get_columns_from_rows(rows):
-    # Get all columns from each row
-    raw_columns = [_get_columns_from_row(row) for row in rows]
-    clean_columns = drop_invalid_rows(raw_columns, rows)
-    return merge_columns(clean_columns)
-
-
-def drop_invalid_rows(raw_columns: list[list[Column]], rows: list[Row]
-                      ) -> (list[Column], list):
-    def dissimilar() -> bool:
-        # TODO: Add constant/config instead of magic number.
-        return (count / count_mean) < 0.5
-
-    # Drop rows, with columns which are too dissimilar from the others
-    counts = [len(columns) for columns in raw_columns]
-    count_mean = mean(counts)
-    clean_columns = []
-
-    for i, (row, count) in enumerate(zip(rows, counts)):
-        if dissimilar():
-            row.dropped = True
-            continue
-        clean_columns += raw_columns[i]
-
-    return clean_columns
-
-
-def merge_columns(clean_columns: list[Column]):
-    # Merge overlapping columns
-    columns = []
-    for column in sorted(clean_columns, key=attrgetter("x0")):
-        if not columns:
-            columns.append(column)
-            continue
-        last = columns[-1]
-        if last.x0 <= column.x0 <= last.x1:
-            columns[-1].x1 = max(last.x1, column.x1)
-            columns[-1].y0 = min(last.y0, column.y0)
-            columns[-1].y1 = max(last.y1, column.y1)
-            continue
-        if column.x0 >= last.x1:
-            columns.append(column)
-            continue
-    return columns
-
-
-def _get_rows(raw_rows) -> (list[str], list[Row]):
+def __get_row_texts(raw_rows: list[Row]) -> list[list[str]]:
     if len(raw_rows) == 0:
         return []
-    columns = _get_columns_from_rows(raw_rows)
-    # Get fixed size rows
-    rows = []
+
+    row_texts = []
+    columns = get_columns_from_rows(raw_rows)
+
     for raw_row in raw_rows:
         if raw_row.dropped:
             continue
-        row = []
-        for field_text in field_text_generator(raw_row.fields, columns):
-            row.append(field_text)
-        rows.append(row)
 
-    return rows, [row for row in raw_rows if row.dropped]
+        row_text = []
+
+        for field_text in field_text_generator(raw_row.fields, columns):
+            row_text.append(field_text)
+        row_texts.append(row_text)
+
+    return row_texts

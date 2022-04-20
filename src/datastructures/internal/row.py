@@ -35,6 +35,10 @@ class Row:
     def values(self):
         return self.x0, self.x1, self.y0, self.y1, self.fields
 
+    @property
+    def count(self):
+        return len(self.fields)
+
     def add(self, new_field: Field):
         """ Adds new_field to the list of fields, preserving order. """
         i = 0
@@ -51,6 +55,9 @@ class Row:
 
     def get_columns(self):
         return [(field.x0, field.x1) for field in self.fields]
+
+    def __iter__(self):
+        return self.fields
 
     def __repr__(self):
         return (f"Row(x0={self.x0}, x1={self.x1}, "

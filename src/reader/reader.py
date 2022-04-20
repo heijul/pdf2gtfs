@@ -5,7 +5,9 @@ import pandas as pd
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine
 
-from datastructures.internal.field import Row, field_from_char, table_from_rows
+from datastructures.internal.field import field_from_char
+from datastructures.internal.row import Row
+from datastructures.internal.table import table_from_rows
 from utils import contains_bbox
 
 
@@ -62,7 +64,9 @@ def get_chars_dataframe_from_page(page):
 
 class Reader(BaseReader, ABC):
     def read(self):
-        for page in extract_pages(self.filepath):
+        for i, page in enumerate(extract_pages(self.filepath)):
+            if i != 1:
+                continue
             page_chars = get_chars_dataframe_from_page(page)
             rows = self.get_lines(page_chars)
             table_rows = split_rows_into_tables(rows)
@@ -123,16 +127,16 @@ def create_tables_from_rows(table_rows: list[list[Row]]):
     raw_tables = map(table_from_rows, table_rows)
     # Merge raw tables which are close
     ...
-    # Handle wrappers which are not proper tables (Days, etc.)
+    # Handle "wrapper"-tables which are not proper tables (Days, etc.)
     ...
     # Handle annotations TODO: Maybe move to table_from_rows as with header
     ...
-    return raw_tables
+    return list(raw_tables)
 
 
 if __name__ == "__main__":
     # noinspection PyPackageRequirements
     fnames = ["./data/vag_linie_eins.pdf", "./data/rmv_u1.pdf",
               "./data/rmv_g10.pdf"]
-    reader = Reader(fnames[2])
+    reader = Reader(fnames[0])
     reader.read()
