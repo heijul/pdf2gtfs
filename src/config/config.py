@@ -11,7 +11,7 @@ INVALID_CONFIG_EXIT_CODE = 1
 class _Config:
     properties = {"time_format": str,
                   "header_identifier": list,
-                  "repeat_identifier": str,
+                  "repeat_identifier": list,
                   }
 
     def __init__(self):

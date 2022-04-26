@@ -17,4 +17,6 @@ header_identifier: [
 # try to expand the given repeat interval.
 # TODO: Explain this properly.
 # TODO: Maybe turn into list?
-repeat_identifier: "alle"
+repeat_identifier: [
+  "alle",
+]
