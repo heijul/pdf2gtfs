@@ -8,20 +8,18 @@ from yaml.scanner import ScannerError
 INVALID_CONFIG_EXIT_CODE = 1
 
 
-class Config:
+class _Config:
     properties = {"time_format": str,
                   "header_identifier": list,
                   "repeat_identifier": str,
                   }
 
-    def __init__(self, path: Path | None = None):
+    def __init__(self):
         # Always load default config first, to allow users to overwrite
         # only specific properties.
         self.load_config(None)
-        if path:
-            self.load_config(path)
 
-    def load_config(self, path: Path | None):
+    def load_config(self, path: Path | None = None):
         if not path:
             path = self.default_config_path
 
@@ -45,12 +43,12 @@ class Config:
 
     def _validate_no_missing_properties(self):
         missing_keys = []
-        for key in Config.properties.keys():
+        for key in _Config.properties.keys():
             if hasattr(self, key):
                 continue
             missing_keys.append(key)
 
-        if not missing_keys:
+        if missing_keys:
             print("The following keys are required, but are missing in "
                   "the configuration: {}".format("\n".join(missing_keys)) +
                   "This usually only happens, if the default configuration "
@@ -81,7 +79,7 @@ class Config:
     def __str__(self):
         base_string = "\nCurrent configuration: [\n{}\n]"
 
-        property_names = list(Config.properties.keys()) + ["base_path"]
+        property_names = list(_Config.properties.keys()) + ["base_path"]
         max_name_len = max(len(name) for name in property_names)
         prop_strings = [f"\t{name:{max_name_len}}: {getattr(self, name)}"
                         for name in property_names]
@@ -105,13 +103,13 @@ def _read_yaml(path: Path) -> tuple[dict[str, Any], bool]:
 
 def _validate_config_item(key: str, value: Any) -> bool:
     def _validate_config_key() -> bool:
-        if key not in Config.properties:
+        if key not in _Config.properties:
             print(f"ERROR: Invalid config key: {key}")
             return False
         return True
 
     def _validate_config_type() -> bool:
-        typ = Config.properties.get(key)
+        typ = _Config.properties.get(key)
         if not isinstance(value, typ):
             print(f"ERROR: Invalid config type for {key}. "
                   f"Expected '{typ}', got '{type(value)}' instead.")
@@ -122,6 +120,8 @@ def _validate_config_item(key: str, value: Any) -> bool:
 
 
 if __name__ == "__main__":
-    config = Config()
+    config = _Config()
     print(config.header_identifier)
     print(config)
+
+Config = _Config()
