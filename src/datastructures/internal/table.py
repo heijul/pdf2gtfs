@@ -5,19 +5,7 @@ import pandas as pd
 from datastructures.internal.column import get_columns_from_rows
 from datastructures.internal.field import field_text_generator
 from datastructures.internal import Row
-
-
-# TODO: Move to config + make extendable
-HEADER_IDENTIFIER = ["montag - freitag",
-                     "samstag",
-                     "sonntag",
-                     "sonn- und feiertag",
-                     ]
-
-REPEAT_IDENTIFIER = {"start": ["alle"],
-                     "interval": ["num"],
-                     "end": ["min", "min."],
-                     }
+from config.config import Config
 
 
 class Table:
@@ -37,7 +25,7 @@ class Table:
             repeat identifier or -1 if there is none.
             """
             cond = False
-            for identifier in REPEAT_IDENTIFIER["start"]:
+            for identifier in Config.repeat_identifier:
                 cond |= column == identifier
             index = column.where(cond).dropna().index
             return index[0] if index.size else -1
@@ -69,8 +57,10 @@ class Table:
 
         columns = []
         for (column_idx, intervals) in repeats:
-            prev_column = pd.to_datetime(self.df[column_idx - 1], format="%H.%M")
-            next_column = pd.to_datetime(self.df[column_idx + 1], format="%H.%M")
+            prev_column = pd.to_datetime(self.df[column_idx - 1],
+                                         format=Config.time_format)
+            next_column = pd.to_datetime(self.df[column_idx + 1],
+                                         format=Config.time_format)
             interval_cycle = cycle([pd.Timedelta(minutes=interval)
                                     for interval in intervals])
             while True:
@@ -112,7 +102,7 @@ def table_from_rows(raw_rows) -> Table | None:
     idx, header = __get_header(raw_rows)
     row_texts = __get_row_texts(raw_rows[idx:])
     table = Table(row_texts)
-    print(table.df_to_tsv())
+    print(table.to_tsv())
     return table
 
 
@@ -122,11 +112,12 @@ def __get_header(raw_rows: list[Row]) -> (int, list[Row]):
     i = 0
     for row in raw_rows:
         row_text = row.text.strip().lower()
-        if any([row_text.startswith(head) for head in HEADER_IDENTIFIER]):
+        if any([row_text.startswith(head)
+                for head in Config.header_identifier]):
             i += 1
             header.append(row)
             continue
-        # No need to check for header if we are already at the body.
+        # No need to check for a header if we are already at the body.
         break
 
     return i, header

@@ -2,9 +2,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import pandas as pd
+# noinspection PyPackageRequirements
 from pdfminer.high_level import extract_pages
+# noinspection PyPackageRequirements
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine
 
+from config.config import Config
 from datastructures.internal.field import field_from_char
 from datastructures.internal import Row
 from datastructures.internal.table import table_from_rows
@@ -12,7 +15,6 @@ from utils import contains_bbox
 
 
 pd.set_option('display.max_colwidth', None)
-BASE_DIR = Path("/mnt/gamma/uni/modules/thesis/pdf2gtfs/")
 
 
 class BaseReader:
@@ -22,10 +24,10 @@ class BaseReader:
     def __init__(self, filename: str = None):
         if not filename:
             filename = "./data/vag_linie_eins.pdf"
-        self.filepath = BASE_DIR.joinpath(Path(filename)).resolve()
+        self.filepath = Config.base_path.joinpath(Path(filename)).resolve()
 
         output_name = Path(f"./data/out/{self.filepath.stem}")
-        self.out_path = BASE_DIR.joinpath(output_name)
+        self.out_path = Config.base_path.joinpath(output_name)
 
     @abstractmethod
     def read(self):
