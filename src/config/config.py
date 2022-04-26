@@ -119,9 +119,4 @@ def _validate_config_item(key: str, value: Any) -> bool:
     return _validate_config_key() and _validate_config_type()
 
 
-if __name__ == "__main__":
-    config = _Config()
-    print(config.header_identifier)
-    print(config)
-
 Config = _Config()
