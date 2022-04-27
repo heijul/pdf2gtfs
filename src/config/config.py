@@ -34,7 +34,7 @@ class _Config:
 
         valid &= self._validate_no_missing_properties()
 
-        if valid:
+        if not valid:
             print("ERROR: Tried loading invalid configuration file. Exiting.")
             quit(INVALID_CONFIG_EXIT_CODE)
 

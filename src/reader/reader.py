@@ -134,11 +134,3 @@ def create_tables_from_rows(table_rows: list[list[Row]]):
     # Handle annotations TODO: Maybe move to table_from_rows as with header
     ...
     return list(raw_tables)
-
-
-if __name__ == "__main__":
-    # noinspection PyPackageRequirements
-    fnames = ["./data/vag_linie_eins.pdf", "./data/rmv_u1.pdf",
-              "./data/rmv_g10.pdf"]
-    reader = Reader(fnames[0])
-    reader.read()
