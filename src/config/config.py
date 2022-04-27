@@ -8,14 +8,30 @@ from yaml.scanner import ScannerError
 INVALID_CONFIG_EXIT_CODE = 1
 
 
+class InvalidPropertyTypeError(BaseException):
+    pass
+
+
+class MissingRequiredPropertyError(BaseException):
+    pass
+
+
 class ConfigProperty:
-    def __init__(self, attr):
+    def __init__(self, attr, attr_type):
         self.attr = "__" + attr
+        self.type = attr_type
 
     def __get__(self, obj, objtype=None):
-        return getattr(obj, self.attr)
+        try:
+            return getattr(obj, self.attr)
+        except AttributeError:
+            raise MissingRequiredPropertyError
 
     def __set__(self, obj, value):
+        if not isinstance(value, self.type):
+            print(f"ERROR: Invalid config type for {self.attr}. "
+                  f"Expected '{self.type}', got '{type(value)}' instead.")
+            raise InvalidPropertyTypeError
         setattr(obj, self.attr, value)
 
 
@@ -25,9 +41,9 @@ class _Config:
                   "repeat_identifier": list,
                   }
 
-    time_format = ConfigProperty("time_format")
-    header_identifier = ConfigProperty("header_identifier")
-    repeat_identifier = ConfigProperty("repeat_identifier")
+    time_format = ConfigProperty("time_format", str)
+    header_identifier = ConfigProperty("header_identifier", list)
+    repeat_identifier = ConfigProperty("repeat_identifier", list)
 
     def __init__(self):
         # Always load default config first, to allow users to overwrite
@@ -42,10 +58,13 @@ class _Config:
 
         for key, value in data.items():
             # Even if an item is invalid, continue reading to find all errors.
-            if not _validate_config_item(key, value):
+            try:
+                if key not in _Config.properties:
+                    print(f"ERROR: Invalid config key: {key}")
+                    raise InvalidPropertyTypeError
+                setattr(self, key, value)
+            except InvalidPropertyTypeError:
                 valid = False
-                continue
-            setattr(self, key, value)
 
         valid &= self._validate_no_missing_properties()
 
@@ -61,14 +80,18 @@ class _Config:
                 setattr(self, name, value)
 
     def _validate_no_missing_properties(self):
-        missing_keys = [key for key in _Config.properties.keys()
-                        if not hasattr(self, key)]
+        missing_keys = []
+        for key in _Config.properties:
+            try:
+                getattr(self, key)
+            except MissingRequiredPropertyError:
+                missing_keys.append(key)
 
         if missing_keys:
-            print("The following keys are required, but are missing in "
-                  "the configuration: {}. ".format("\n".join(missing_keys)) +
-                  "This usually only happens, if the default configuration "
-                  "was changed, instead of creating a custom one.")
+            print("The following values are required, but are missing in "
+                  "the configuration: ['{}']. This usually only happens, "
+                  "if the default configuration was changed, instead of "
+                  "creating a custom one.".format("', '".join(missing_keys)))
             return False
         return True
 
@@ -105,22 +128,7 @@ def _read_yaml(path: Path) -> tuple[dict[str, Any], bool]:
     return {}, False
 
 
-def _validate_config_item(key: str, value: Any) -> bool:
-    def _validate_config_key() -> bool:
-        if key not in _Config.properties:
-            print(f"ERROR: Invalid config key: {key}")
-            return False
-        return True
-
-    def _validate_config_type() -> bool:
-        typ = _Config.properties.get(key)
-        if not isinstance(value, typ):
-            print(f"ERROR: Invalid config type for {key}. "
-                  f"Expected '{typ}', got '{type(value)}' instead.")
-            return False
-        return True
-
-    return _validate_config_key() and _validate_config_type()
-
-
 Config = _Config()
+
+if __name__ == '__main__':
+    pass
