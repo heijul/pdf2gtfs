@@ -19,3 +19,7 @@ header_identifier: [
 repeat_identifier: [
   "alle",
 ]
+
+# The minimum number of consecutive lines required, for something to be
+# recognized as a table.
+min_table_rows: 5

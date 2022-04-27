@@ -39,11 +39,13 @@ class _Config:
     properties = {"time_format": str,
                   "header_identifier": list,
                   "repeat_identifier": list,
+                  "min_table_rows": int,
                   }
 
     time_format = ConfigProperty("time_format", str)
     header_identifier = ConfigProperty("header_identifier", list)
     repeat_identifier = ConfigProperty("repeat_identifier", list)
+    min_table_rows = ConfigProperty("min_table_rows", int)
 
     def __init__(self):
         # Always load default config first, to allow users to overwrite

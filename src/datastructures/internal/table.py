@@ -96,7 +96,7 @@ def table_from_rows(raw_rows) -> Table | None:
 
     # TODO: Do this properly.
     # Ignore tables with too few rows.
-    if len(raw_rows) < 10:
+    if len(raw_rows) < Config.min_table_rows:
         return None
 
     idx, header = __get_header(raw_rows)
