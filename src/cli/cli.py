@@ -3,11 +3,17 @@ from argparse import ArgumentParser, Namespace
 from config.config import Config
 
 
-def parse_args() -> Namespace:
+def parse_args(args: list | None = None):
+    parser = get_parser()
+    args_ns = parser.parse_args(args)
+    update_config(args_ns)
+
+
+def get_parser() -> ArgumentParser:
     parser = ArgumentParser("pdf2gtfs")
     _add_required_arguments(parser)
     _add_optional_arguments(parser)
-    return parser.parse_args()
+    return parser
 
 
 def update_config(args_ns: Namespace):
