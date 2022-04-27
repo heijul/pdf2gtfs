@@ -1,3 +1,4 @@
+from argparse import Namespace
 from pathlib import Path
 from typing import Any
 
@@ -38,8 +39,12 @@ class _Config:
             print("ERROR: Tried loading invalid configuration file. Exiting.")
             quit(INVALID_CONFIG_EXIT_CODE)
 
-    def load_params(self, params: dict):
-        ...
+    def load_args(self, args: list[tuple[str, Any]]):
+        for name, value in args:
+            if value is None:
+                continue
+            if name in _Config.properties:
+                setattr(self, name, value)
 
     def _validate_no_missing_properties(self):
         missing_keys = []

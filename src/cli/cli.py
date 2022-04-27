@@ -1,5 +1,7 @@
 from argparse import ArgumentParser, Namespace
 
+from config.config import Config
+
 
 def parse_args() -> Namespace:
     parser = ArgumentParser("pdf2gtfs")
@@ -8,8 +10,10 @@ def parse_args() -> Namespace:
     return parser.parse_args()
 
 
-def update_config(parser: ArgumentParser):
-    ...
+def update_config(args_ns: Namespace):
+    args = [(arg, getattr(args_ns, arg))
+            for arg in dir(args_ns) if not arg.startswith("_")]
+    Config.load_args(args)
 
 
 def _add_required_arguments(parser: ArgumentParser):
