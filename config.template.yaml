@@ -1,11 +1,12 @@
 # Default configuration.
 
 # The format of the times given in the table.
-# See strftime for valid formats.
+# Type: List of strings in strftime format
 time_format: "%H.%M"
 
 # The names of the "headers" of the table.
-# List of strings. Will be turned to all lowercase internally.
+# Will be turned to all lowercase internally.
+# Type: List of strings
 header_identifier: [
   "montag - freitag",
   "samstag",
@@ -16,10 +17,12 @@ header_identifier: [
 # If a column does not hold any time data and begins with this identifier,
 # try to expand the given repeat interval.
 # TODO: Explain this properly.
+# Type: List of strings
 repeat_identifier: [
   "alle",
 ]
 
 # The minimum number of consecutive lines required, for something to be
 # recognized as a table.
+# Type: int
 min_table_rows: 5
