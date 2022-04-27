@@ -29,6 +29,8 @@ def _add_required_arguments(parser: ArgumentParser):
 
 
 def _add_optional_arguments(parser: ArgumentParser):
+    # TODO: Use the _Config.properties to get the name, type and help
+    #  + add help to _Config.properties
     parser.add_argument("--time_format", type=str,
                         help="The format of the timestrings of the pdf table")
     parser.add_argument("--header_identifier", type=list,
