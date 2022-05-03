@@ -13,7 +13,7 @@ class TimeTable:
 
     def _set_value_indices(self, raw_table):
         # Start index is the first index, at which to expect a value.
-        # End index is the last index + 1 at which to expect a value. (may be oob)
+        # End index is the last index + 1 at which to expect a value. (maybe oob)
         self.value_start_idx = 0
         self.value_end_idx = 0
         seen_value = False

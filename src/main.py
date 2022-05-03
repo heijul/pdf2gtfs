@@ -1,5 +1,4 @@
 from reader.reader import Reader
-from config.config import Config
 
 
 def try_reader():

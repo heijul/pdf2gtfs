@@ -7,7 +7,7 @@ from pdfminer.high_level import extract_pages
 # noinspection PyPackageRequirements
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
 
-from config.config import Config
+from config import Config
 from datastructures.internal.field import field_from_char
 from datastructures.internal import Row
 from datastructures.internal.table import table_from_rows

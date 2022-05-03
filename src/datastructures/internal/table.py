@@ -5,7 +5,7 @@ import pandas as pd
 from datastructures.internal.column import get_columns_from_rows
 from datastructures.internal.field import field_text_generator
 from datastructures.internal import Row
-from config.config import Config
+from config import Config
 
 
 class Table:

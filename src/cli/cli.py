@@ -1,6 +1,6 @@
 from argparse import ArgumentParser, Namespace
 
-from config.config import Config
+from config import Config
 
 
 def parse_args(args: list | None = None):

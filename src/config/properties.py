@@ -1,5 +1,5 @@
-from config.errors import (InvalidPropertyTypeError,
-                           MissingRequiredPropertyError)
+from config.errors import (
+    InvalidPropertyTypeError, MissingRequiredPropertyError)
 
 
 class ConfigProperty:
@@ -48,4 +48,3 @@ class PagesConfigProperty(ConfigProperty):
             value = self._clean_value(value)
 
         super().__set__(obj, value)
-
