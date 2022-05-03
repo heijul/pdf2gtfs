@@ -26,3 +26,8 @@ repeat_identifier: [
 # recognized as a table.
 # Type: int
 min_table_rows: 5
+
+# Which pages to consider for extraction. Defaults to 'all' for all pages.
+# Type: String of comma-separated ints or 'all'.
+# TODO: Extend to allow for ranges.
+pages: "all"

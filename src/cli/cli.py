@@ -37,3 +37,5 @@ def _add_optional_arguments(parser: ArgumentParser):
                         help="Which identifiers are used for the headers")
     parser.add_argument("--repeat_identifier", type=list,
                         help="How repeating times are identified")
+    parser.add_argument("--pages", type=str,
+                        help="The pages to consider for table extraction.")
