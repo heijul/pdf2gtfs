@@ -5,7 +5,7 @@ import pandas as pd
 # noinspection PyPackageRequirements
 from pdfminer.high_level import extract_pages
 # noinspection PyPackageRequirements
-from pdfminer.layout import LTTextBox, LTChar, LTTextLine
+from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
 
 from config.config import Config
 from datastructures.internal.field import field_from_char
@@ -38,7 +38,17 @@ class BaseReader:
         pass
 
 
-def get_chars_dataframe_from_page(page):
+def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
+    def unpack_char(element: LTChar):
+        return {"x0": element.x0,
+                "x1": element.x1,
+                "y0": element.y0,
+                "y1": element.y1,
+                "top": page.bbox[3] - element.bbox[3],
+                "text": element.get_text(),
+                "upright": element.upright,
+                }
+
     char_list = []
     for page_element in page:
         if not isinstance(page_element, LTTextBox):
@@ -51,29 +61,26 @@ def get_chars_dataframe_from_page(page):
                     continue
                 if not contains_bbox(page.bbox, textline_element.bbox):
                     continue
-                char = {"x0": textline_element.x0,
-                        "x1": textline_element.x1,
-                        "y0": textline_element.y0,
-                        "y1": textline_element.y1,
-                        "top": page.bbox[3] - textline_element.bbox[3],
-                        "text": textline_element.get_text(),
-                        "upright": textline_element.upright,
-                        }
-                char_list.append(char)
+
+                char_list.append(unpack_char(textline_element))
+
     chars = pd.DataFrame(char_list)
+
     return chars
 
 
 class Reader(BaseReader, ABC):
-    def read(self):
+    def read(self) -> None:
         for i, page in enumerate(extract_pages(self.filepath)):
             if i != 1:
                 continue
-            page_chars = get_chars_dataframe_from_page(page)
-            rows = self.get_lines(page_chars)
-            table_rows = split_rows_into_tables(rows)
-            create_tables_from_rows(table_rows)
-            break
+            self.read_page(page)
+
+    def read_page(self, page: LTPage):
+        page_chars = get_chars_dataframe_from_page(page)
+        rows = self.get_lines(page_chars)
+        table_rows = split_rows_into_tables(rows)
+        create_tables_from_rows(table_rows)
 
     def get_lines(self, df: pd.DataFrame) -> list[Row]:
         # Round to combat tolerances.
