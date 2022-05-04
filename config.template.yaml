@@ -5,7 +5,7 @@
 time_format: "%H.%M"
 
 # The names of the "headers" of the table.
-# Will be turned to all lowercase internally.
+#  Will be turned to all lowercase internally.
 # Type: List of strings
 header_identifier: [
   "montag - freitag",
@@ -15,7 +15,7 @@ header_identifier: [
 ]
 
 # If a column does not hold any time data and begins with this identifier,
-# try to expand the given repeat interval.
+#  try to expand the given repeat interval.
 # TODO: Explain this properly.
 # Type: List of strings
 repeat_identifier: [
@@ -23,7 +23,7 @@ repeat_identifier: [
 ]
 
 # The minimum number of consecutive lines required, for something to be
-# recognized as a table.
+#  recognized as a table.
 # Type: int
 min_table_rows: 5
 
@@ -31,3 +31,9 @@ min_table_rows: 5
 # Type: String of comma-separated ints or 'all'.
 # TODO: Extend to allow for ranges.
 pages: "all"
+
+# Maximum vertical distance in pixel between two rows, to be considered on
+#  the same table. Basically checks if:
+#   ((y_max of first row) - (y_min of second row)) <= max_row_distance
+# Type: int
+max_row_distance: 3

@@ -17,6 +17,7 @@ class _Config:
                   "repeat_identifier",
                   "min_table_rows",
                   "pages",
+                  "max_row_distance",
                   ]
 
     time_format = Property("time_format", str)
@@ -24,6 +25,7 @@ class _Config:
     repeat_identifier = Property("repeat_identifier", list)
     min_table_rows = Property("min_table_rows", int)
     pages = PagesProperty("pages")
+    max_row_distance = Property("max_row_distance", int)
 
     def __init__(self):
         # Always load default config first, to allow users to overwrite

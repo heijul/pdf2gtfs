@@ -112,16 +112,12 @@ class Reader(BaseReader, ABC):
 
 
 def split_rows_into_tables(rows: list[Row]):
-    options = {
-        "max_row_distance": 3,
-        }
-
     table_rows = []
     current_rows = [rows[0]]
 
     for row in rows[1:]:
         distance_between_rows = abs(row.y1 - current_rows[-1].y0)
-        if distance_between_rows > options["max_row_distance"]:
+        if distance_between_rows > Config.max_row_distance:
             print(f"Distance between rows: {distance_between_rows}")
             table_rows.append(current_rows)
             current_rows = []
