@@ -1,7 +1,9 @@
-from reader.reader import Reader
+from reader import Reader
+from config import Config
 
 
 def try_reader():
+    Config.pages = [1]
     # noinspection PyPackageRequirements
     fnames = ["./data/vag_linie_eins.pdf", "./data/rmv_u1.pdf",
               "./data/rmv_g10.pdf"]
