@@ -12,12 +12,12 @@ from config.properties import ConfigProperty, PagesConfigProperty
 class _Config:
     INVALID_CONFIG_EXIT_CODE = 1
 
-    properties = {"time_format": str,
-                  "header_identifier": list,
-                  "repeat_identifier": list,
-                  "min_table_rows": int,
-                  "pages": str,
-                  }
+    properties = ["time_format",
+                  "header_identifier",
+                  "repeat_identifier",
+                  "min_table_rows",
+                  "pages",
+                  ]
 
     time_format = ConfigProperty("time_format", str)
     header_identifier = ConfigProperty("header_identifier", list)
@@ -86,7 +86,7 @@ class _Config:
     def __str__(self):
         base_string = "\nCurrent configuration: [\n{}\n]"
 
-        property_names = list(_Config.properties.keys()) + ["base_path"]
+        property_names = _Config.properties + ["base_path"]
         max_name_len = max(len(name) for name in property_names)
         prop_strings = [f"\t{name:{max_name_len}}: {getattr(self, name)}"
                         for name in property_names]
