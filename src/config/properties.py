@@ -2,7 +2,7 @@ from config.errors import (
     InvalidPropertyTypeError, MissingRequiredPropertyError)
 
 
-class ConfigProperty:
+class Property:
     def __init__(self, attr, attr_type):
         self.attr = "__" + attr
         self.type = attr_type
@@ -21,7 +21,7 @@ class ConfigProperty:
         setattr(obj, self.attr, value)
 
 
-class PagesConfigProperty(ConfigProperty):
+class PagesProperty(Property):
     def __init__(self, attr, *_):
         super().__init__(attr, list)
 

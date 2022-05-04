@@ -6,7 +6,7 @@ from yaml.scanner import ScannerError
 
 from config.errors import (
     InvalidPropertyTypeError, MissingRequiredPropertyError)
-from config.properties import ConfigProperty, PagesConfigProperty
+from config.properties import Property, PagesProperty
 
 
 class _Config:
@@ -19,11 +19,11 @@ class _Config:
                   "pages",
                   ]
 
-    time_format = ConfigProperty("time_format", str)
-    header_identifier = ConfigProperty("header_identifier", list)
-    repeat_identifier = ConfigProperty("repeat_identifier", list)
-    min_table_rows = ConfigProperty("min_table_rows", int)
-    pages = PagesConfigProperty("pages")
+    time_format = Property("time_format", str)
+    header_identifier = Property("header_identifier", list)
+    repeat_identifier = Property("repeat_identifier", list)
+    min_table_rows = Property("min_table_rows", int)
+    pages = PagesProperty("pages")
 
     def __init__(self):
         # Always load default config first, to allow users to overwrite
