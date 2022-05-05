@@ -48,3 +48,11 @@ class PagesProperty(Property):
             value = self._clean_value(value)
 
         super().__set__(obj, value)
+
+
+class FilenameProperty(Property):
+    def __get__(self, obj, objtype=None):
+        try:
+            return getattr(obj, self.attr)
+        except AttributeError:
+            return ""

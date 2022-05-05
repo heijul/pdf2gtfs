@@ -6,7 +6,7 @@ from yaml.scanner import ScannerError
 
 from config.errors import (
     InvalidPropertyTypeError, MissingRequiredPropertyError)
-from config.properties import Property, PagesProperty
+from config.properties import Property, PagesProperty, FilenameProperty
 
 
 class _Config:
@@ -18,6 +18,7 @@ class _Config:
                   "min_table_rows",
                   "pages",
                   "max_row_distance",
+                  "filename",
                   ]
 
     time_format = Property("time_format", str)
@@ -26,6 +27,7 @@ class _Config:
     min_table_rows = Property("min_table_rows", int)
     pages = PagesProperty("pages")
     max_row_distance = Property("max_row_distance", int)
+    filename = FilenameProperty("filename", str)
 
     def __init__(self):
         # Always load default config first, to allow users to overwrite
