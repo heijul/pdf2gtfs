@@ -45,7 +45,29 @@ class Table:
                 repeat_intervals.append(int(current))
             return repeat_intervals
 
+        def df_to_csv():
+            # Basically does what pd.DataFrame.to_csv does but returns it
+            #  as string. Only for demonstration purposes.
+            format_str = "\t".join(["{:30}"] +
+                                   (self.df.columns.size - 1) * ["{:>5}"])
+            times = []
+            for _, series in self.df.iterrows():
+                times.append([])
+                for field in series:
+                    text = str(field)
+                    if isinstance(field, pd.Timestamp):
+                        text = field.strftime("%H:%M")
+                    elif field is pd.NaT:
+                        text = ""
+                    times[-1].append(text)
+            return "\n".join([format_str.format(*row) for row in times])
+
+
+        # TODO: Split this into multiple functions/Create class RepeatColumn.
+        #  Timedeltas probably need to use the proper year/day, so will need
+        #  to do the actual expansion later...
         # Turn "Alle x min" into proper columns.
+        # Get the indices of all columns, which contain a repeat identifier.
         repeats = []
         for column_idx in self.df:
             column = self.df[column_idx]
@@ -55,6 +77,7 @@ class Table:
                 continue
             repeats.append((column_idx, __get_repeat_interval()))
 
+        # Repeatedly apply the interval to the previous column.
         columns = []
         for (column_idx, intervals) in repeats:
             prev_column = pd.to_datetime(self.df[column_idx - 1],
@@ -69,9 +92,13 @@ class Table:
                     break
                 columns.append((column_idx, column))
                 prev_column = column
+
+        # Insert the repeated columns into their proper position.
         for i, (column_idx, column) in enumerate(columns):
             self.df.insert(column_idx + i, f".{i}", column)
+
         print(self.df)
+        # Remove all columns, which contain the repeat identifier.
         for (column_idx, _) in repeats:
             self.df.drop(column_idx, axis=1, inplace=True)
 
@@ -80,10 +107,12 @@ class Table:
         for i in self.df.columns:
             if i < 2:
                 continue
+            # TODO: Errors should be handled properly
             self.df[i] = pd.to_datetime(
-                self.df[i], format="%H.%M", errors="coerce")
+                self.df[i], format=Config.time_format, errors="coerce")
+        print(df_to_csv())
 
-    def to_tsv(self):
+    def to_csv(self):
         if not self.rows:
             return f"{self}; Missing rows!"
         format_str = "\t".join(["{:30}"] + (len(self.rows[0]) - 1) * ["{:>5}"])
@@ -102,7 +131,7 @@ def table_from_rows(raw_rows) -> Table | None:
     idx, header = __get_header(raw_rows)
     row_texts = __get_row_texts(raw_rows[idx:])
     table = Table(row_texts)
-    print(table.to_tsv())
+    print(table.to_csv())
     return table
 
 
