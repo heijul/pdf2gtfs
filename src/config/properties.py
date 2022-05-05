@@ -35,7 +35,7 @@ class PagesProperty(Property):
             assert isinstance(raw_value, str)
             if raw_value == "all":
                 # TODO: Create/Use Page class or use infinite sequence.
-                return list(range(100))
+                return list(range(1, 100))
             pages = raw_value.replace(" ", "").split(",")
             assert len(pages) >= 1
             assert all([page.isnumeric() for page in pages])
