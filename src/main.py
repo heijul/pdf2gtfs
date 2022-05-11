@@ -16,3 +16,6 @@ if __name__ == "__main__":
     parse_args()
 
     try_reader()
+
+
+# TODO: Anschlüsse über an/ab rausfinden + evtl. Schwellenwert

@@ -17,6 +17,8 @@ def get_columns_from_rows(rows: list[Row]):
 
 
 def __merge_columns(clean_columns: list[Column]):
+    # TODO: Check if "Betzenhauser Torplatz" first breaks anything
+    # TODO: Check rmv Si field
     # Merge overlapping columns
     columns = []
     for column in sorted(clean_columns, key=attrgetter("x0")):
@@ -54,6 +56,7 @@ def __drop_invalid_rows(raw_columns: list[list[Column]], rows: list[Row]
     count_mean = mean(counts)
     clean_columns = []
 
+    # TODO: Check if this causes problems
     for i, (row, count) in enumerate(zip(rows, counts)):
         if dissimilar():
             row.dropped = True
