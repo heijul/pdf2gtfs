@@ -21,6 +21,7 @@ class _Config:
                   "filename",
                   ]
 
+    # TODO: Check if Property can update _Config.properties -> less repetition
     time_format = Property("time_format", str)
     header_identifier = Property("header_identifier", list)
     repeat_identifier = Property("repeat_identifier", list)
@@ -30,11 +31,12 @@ class _Config:
     filename = FilenameProperty("filename", str)
 
     def __init__(self):
-        # Always load default config first, to allow users to overwrite
-        # only specific properties.
+        # Always load default config first, before loading any custom config
+        # or program parameters.
         self.load_config(None)
 
     def load_config(self, path: Path | None = None):
+        # TODO: Check if file exists -> warning message
         if not path:
             path = self.default_config_path
 
@@ -57,6 +59,7 @@ class _Config:
             quit(_Config.INVALID_CONFIG_EXIT_CODE)
 
     def load_args(self, args: list[tuple[str, Any]]):
+        # TODO: Check if config file is given as arg -> load before all others
         for name, value in args:
             if value is None:
                 continue
@@ -113,6 +116,3 @@ def _read_yaml(path: Path) -> tuple[dict[str, Any], bool]:
 
 
 Config = _Config()
-
-if __name__ == '__main__':
-    pass
