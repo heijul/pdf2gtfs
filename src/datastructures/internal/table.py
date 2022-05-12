@@ -1,4 +1,5 @@
 from itertools import cycle
+from statistics import mean
 
 import pandas as pd
 
@@ -31,6 +32,7 @@ class Table:
             return index[0] if index.size else -1
 
         def __get_repeat_interval() -> list[int]:
+            # TODO: Should " ".join the whole column.
             repeat_intervals = []
             current = ""
             for char in column[row_idx + 1]:
@@ -43,6 +45,8 @@ class Table:
                     current = ""
             if current:
                 repeat_intervals.append(int(current))
+            if Config.repeat_strategy == "mean":
+                return [mean(repeat_intervals)]
             return repeat_intervals
 
         def df_to_csv():
@@ -62,6 +66,10 @@ class Table:
                     times[-1].append(text)
             return "\n".join([format_str.format(*row) for row in times])
 
+        def get_timedelta(_interval):
+            _minutes = int(_interval)
+            _seconds = round((_interval - _minutes) * 60)
+            return pd.Timedelta(minutes=_minutes, seconds=_seconds)
 
         # TODO: Split this into multiple functions/Create class RepeatColumn.
         #  Timedeltas probably need to use the proper year/day, so will need
@@ -84,8 +92,8 @@ class Table:
                                          format=Config.time_format)
             next_column = pd.to_datetime(self.df[column_idx + 1],
                                          format=Config.time_format)
-            interval_cycle = cycle([pd.Timedelta(minutes=interval)
-                                    for interval in intervals])
+            interval_cycle = cycle(
+                [get_timedelta(interval) for interval in intervals])
             while True:
                 column = prev_column + next(interval_cycle)
                 if column[0] >= next_column[0]:
