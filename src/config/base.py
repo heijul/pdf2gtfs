@@ -38,7 +38,10 @@ class _Config(InstanceDescriptorMixin):
         self._initialize_config_properties()
         # Always load default config first, before loading any custom config
         # or program parameters.
-        self.load_config(None)
+        default_config_loaded = self.load_config(None)
+        if not default_config_loaded:
+            print(f"ERROR: Default config could not be loaded. Exiting...")
+            quit(_Config.INVALID_CONFIG_EXIT_CODE)
 
     def _initialize_config_properties(self):
         self.properties = []
@@ -50,10 +53,17 @@ class _Config(InstanceDescriptorMixin):
         self.max_row_distance = Property(self, "max_row_distance", int)
         self.filename = FilenameProperty(self, "filename", str)
 
-    def load_config(self, path: Path | None = None):
-        # TODO: Check if file exists -> warning message
+    def load_config(self, path: Path | None = None) -> bool:
+        """ Load the given config. If no config is given, load the default one.
+
+        :param path: Path to config file, or None to load the default config.
+        :return: True, if loading was a success, False if any errors occurred.
+        """
         if not path:
             path = self.default_config_path
+        if not path.exists():
+            print(f"WARNING: File does not exist: {path}\nSkipping")
+            return False
 
         data, valid = _read_yaml(path)
 
@@ -70,8 +80,10 @@ class _Config(InstanceDescriptorMixin):
         valid &= self._validate_no_missing_properties()
 
         if not valid:
-            print("ERROR: Tried loading invalid configuration file. Exiting.")
+            print("ERROR: Tried to load invalid configuration file. Exiting.")
             quit(_Config.INVALID_CONFIG_EXIT_CODE)
+
+        return True
 
     def load_args(self, args: list[tuple[str, Any]]):
         # TODO: Check if config file is given as arg -> load before all others
