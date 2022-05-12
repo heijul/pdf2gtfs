@@ -17,8 +17,8 @@ def get_parser() -> ArgumentParser:
 
 
 def update_config(args_ns: Namespace):
-    args = [(arg, getattr(args_ns, arg))
-            for arg in dir(args_ns) if not arg.startswith("_")]
+    args = {arg: getattr(args_ns, arg)
+            for arg in dir(args_ns) if not arg.startswith("_")}
     Config.load_args(args)
 
 
@@ -31,11 +31,18 @@ def _add_required_arguments(parser: ArgumentParser):
 def _add_optional_arguments(parser: ArgumentParser):
     # TODO: Use the _Config.properties to get the name, type and help
     #  + add help to _Config.properties
-    parser.add_argument("--time_format", type=str,
-                        help="The format of the timestrings of the pdf table")
-    parser.add_argument("--header_identifier", type=list,
-                        help="Which identifiers are used for the headers")
-    parser.add_argument("--repeat_identifier", type=list,
-                        help="How repeating times are identified")
-    parser.add_argument("--pages", type=str,
-                        help="The pages to consider for table extraction.")
+    text = ("A strftime format string describing the format of the "
+            "timestrings of the pdf table. ")
+    parser.add_argument("--time_format", type=str, help=text)
+    text = ("Which identifiers are used for the headers. Check the default "
+            "config for more information.")
+    parser.add_argument("--header_identifier", type=list, help=text)
+    text = ("How repeating times are identified. Check the default "
+            "config for more information.")
+    parser.add_argument("--repeat_identifier", type=list, help=text)
+    text = ("Only extract the tables of these pages. "
+            "Either 'all', or a list of ints separated by commas.")
+    parser.add_argument("--pages", type=str, help=text)
+    text = ("Path to a configuration file. If given multiple times, all "
+            "files will be read in the order given.")
+    parser.add_argument("--config", action="append", type=str, help=text)

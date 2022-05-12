@@ -62,7 +62,7 @@ class _Config(InstanceDescriptorMixin):
         if not path:
             path = self.default_config_path
         if not path.exists():
-            print(f"WARNING: File does not exist: {path}\nSkipping")
+            print(f"WARNING: File does not exist, skipping: {path}")
             return False
 
         data, valid = _read_yaml(path)
@@ -85,9 +85,11 @@ class _Config(InstanceDescriptorMixin):
 
         return True
 
-    def load_args(self, args: list[tuple[str, Any]]):
-        # TODO: Check if config file is given as arg -> load before all others
-        for name, value in args:
+    def load_args(self, args: dict[str, Any]):
+        for path in args.pop("config", []):
+            self.load_config(Path(path).resolve())
+
+        for name, value in args.items():
             if value is None:
                 continue
             if name in self.properties:
