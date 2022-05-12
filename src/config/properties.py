@@ -1,11 +1,23 @@
+""" Descriptors for the properties of the Config.
+
+This is to enable a 'Config.some_property'-lookup, without the
+need to hard-code each property.
+"""
+
 from config.errors import (
     InvalidPropertyTypeError, MissingRequiredPropertyError)
 
 
 class Property:
-    def __init__(self, attr, attr_type):
+    def __init__(self, cls, attr, attr_type):
+        self._register(cls, attr)
         self.attr = "__" + attr
         self.type = attr_type
+
+    def _register(self, cls, attr):
+        """ Ensure the instance using this property knows of its existence. """
+        self.cls = cls
+        self.cls.properties.append(attr)
 
     def __get__(self, obj, objtype=None):
         try:
@@ -22,8 +34,8 @@ class Property:
 
 
 class PagesProperty(Property):
-    def __init__(self, attr, *_):
-        super().__init__(attr, list)
+    def __init__(self, cls, attr, *_):
+        super().__init__(cls, attr, list)
 
     def _clean_value(self, raw_value) -> list[int]:
         """ Turn the raw_value into a list of ints indicating the pages.

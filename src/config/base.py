@@ -9,31 +9,46 @@ from config.errors import (
 from config.properties import Property, PagesProperty, FilenameProperty
 
 
-class _Config:
+class InstanceDescriptorMixin:
+    """ Enable descriptors on an instance instead of a class.
+    See https://blog.brianbeck.com/post/74086029/instance-descriptors
+    """
+
+    def __getattribute__(self, name):
+        value = object.__getattribute__(self, name)
+        if hasattr(value, '__get__'):
+            value = value.__get__(self, self.__class__)
+        return value
+
+    def __setattr__(self, name, value):
+        try:
+            obj = object.__getattribute__(self, name)
+        except AttributeError:
+            pass
+        else:
+            if hasattr(obj, '__set__'):
+                return obj.__set__(self, value)
+        return object.__setattr__(self, name, value)
+
+
+class _Config(InstanceDescriptorMixin):
     INVALID_CONFIG_EXIT_CODE = 1
 
-    properties = ["time_format",
-                  "header_identifier",
-                  "repeat_identifier",
-                  "min_table_rows",
-                  "pages",
-                  "max_row_distance",
-                  "filename",
-                  ]
-
-    # TODO: Check if Property can update _Config.properties -> less repetition
-    time_format = Property("time_format", str)
-    header_identifier = Property("header_identifier", list)
-    repeat_identifier = Property("repeat_identifier", list)
-    min_table_rows = Property("min_table_rows", int)
-    pages = PagesProperty("pages")
-    max_row_distance = Property("max_row_distance", int)
-    filename = FilenameProperty("filename", str)
-
     def __init__(self):
+        self._initialize_config_properties()
         # Always load default config first, before loading any custom config
         # or program parameters.
         self.load_config(None)
+
+    def _initialize_config_properties(self):
+        self.properties = []
+        self.time_format = Property(self, "time_format", str)
+        self.header_identifier = Property(self, "header_identifier", list)
+        self.repeat_identifier = Property(self, "repeat_identifier", list)
+        self.min_table_rows = Property(self, "min_table_rows", int)
+        self.pages = PagesProperty(self, "pages", list)
+        self.max_row_distance = Property(self, "max_row_distance", int)
+        self.filename = FilenameProperty(self, "filename", str)
 
     def load_config(self, path: Path | None = None):
         # TODO: Check if file exists -> warning message
@@ -45,7 +60,7 @@ class _Config:
         for key, value in data.items():
             # Even if an item is invalid, continue reading to find all errors.
             try:
-                if key not in _Config.properties:
+                if key not in self.properties:
                     print(f"ERROR: Invalid config key: {key}")
                     raise InvalidPropertyTypeError
                 setattr(self, key, value)
@@ -63,12 +78,12 @@ class _Config:
         for name, value in args:
             if value is None:
                 continue
-            if name in _Config.properties:
+            if name in self.properties:
                 setattr(self, name, value)
 
     def _validate_no_missing_properties(self):
         missing_keys = []
-        for key in _Config.properties:
+        for key in self.properties:
             try:
                 getattr(self, key)
             except MissingRequiredPropertyError:
@@ -93,8 +108,10 @@ class _Config:
     def __str__(self):
         base_string = "\nCurrent configuration: [\n{}\n]"
 
-        property_names = _Config.properties + ["base_path"]
+        property_names = self.properties + ["base_path"]
         max_name_len = max(len(name) for name in property_names)
+        # TODO: Add apostrophes around strings
+        # TODO: Check if this fails, if a property is not set (MissingProperty)
         prop_strings = [f"\t{name:{max_name_len}}: {getattr(self, name)}"
                         for name in property_names]
 
