@@ -17,15 +17,23 @@ header_identifier: [
 ]
 
 # If a column does not hold any time data and begins with this identifier,
-#   try to expand the given repeat interval.
-# Example: If a table contains a column (B) containing "Alle 5 min.",
-#   this means between the times of the column left (A) and right (C) of B,
-#   the times should be repeated every 5 minutes.
+#   try to expand the given repeat interval. For example if a table contains
+#   a column (B) containing "Alle 5 min.", this means between the times
+#   of the column left (A) and right (C) of B, the times should be repeated
+#   every 5 minutes. The repeat_identifier are used to identify these columns.
 #
 # Type: List of strings
 repeat_identifier: [
   "alle",
 ]
+
+# How to expand the repeating column, if the repeating times occur in a range.
+#
+# Type   : string. Either "cycle" and "average".
+# Example: "Alle 7-8 min." with "cycle" would alternate between using 7 and 8
+#    minutes, while "average" would always use 7.5 minutes
+# TODO: Implement
+repeat_strategy: "cycle"
 
 # The minimum number of consecutive lines required, for something to be
 #   recognized as a table.

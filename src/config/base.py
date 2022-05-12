@@ -47,6 +47,7 @@ class _Config(InstanceDescriptorMixin):
         self.time_format = Property(self, "time_format", str)
         self.header_identifier = Property(self, "header_identifier", list)
         self.repeat_identifier = Property(self, "repeat_identifier", list)
+        self.repeat_strategy = Property(self, "repeat_strategy", str)
         self.min_table_rows = Property(self, "min_table_rows", int)
         self.pages = PagesProperty(self, "pages", Pages)
         self.max_row_distance = Property(self, "max_row_distance", int)
