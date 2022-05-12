@@ -18,7 +18,9 @@ header_identifier: [
 
 # If a column does not hold any time data and begins with this identifier,
 #   try to expand the given repeat interval.
-# TODO: Explain this properly.
+# Example: If a table contains a column (B) containing "Alle 5 min.",
+#   this means between the times of the column left (A) and right (C) of B,
+#   the times should be repeated every 5 minutes.
 #
 # Type: List of strings
 repeat_identifier: [
