@@ -4,9 +4,10 @@ from typing import Any
 from yaml import safe_load, YAMLError
 from yaml.scanner import ScannerError
 
-from config.errors import (
-    InvalidPropertyTypeError, MissingRequiredPropertyError)
-from config.properties import Property, PagesProperty, FilenameProperty
+from config.errors import (INVALID_CONFIG_EXIT_CODE,
+                           InvalidPropertyTypeError,
+                           MissingRequiredPropertyError)
+from config.properties import Property, PagesProperty, FilenameProperty, Pages
 
 
 class InstanceDescriptorMixin:
@@ -32,8 +33,6 @@ class InstanceDescriptorMixin:
 
 
 class _Config(InstanceDescriptorMixin):
-    INVALID_CONFIG_EXIT_CODE = 1
-
     def __init__(self):
         self._initialize_config_properties()
         # Always load default config first, before loading any custom config
@@ -41,7 +40,7 @@ class _Config(InstanceDescriptorMixin):
         default_config_loaded = self.load_config(None)
         if not default_config_loaded:
             print(f"ERROR: Default config could not be loaded. Exiting...")
-            quit(_Config.INVALID_CONFIG_EXIT_CODE)
+            quit(INVALID_CONFIG_EXIT_CODE)
 
     def _initialize_config_properties(self):
         self.properties = []
@@ -49,7 +48,7 @@ class _Config(InstanceDescriptorMixin):
         self.header_identifier = Property(self, "header_identifier", list)
         self.repeat_identifier = Property(self, "repeat_identifier", list)
         self.min_table_rows = Property(self, "min_table_rows", int)
-        self.pages = PagesProperty(self, "pages", list)
+        self.pages = PagesProperty(self, "pages", Pages)
         self.max_row_distance = Property(self, "max_row_distance", int)
         self.filename = FilenameProperty(self, "filename", str)
 
@@ -81,7 +80,7 @@ class _Config(InstanceDescriptorMixin):
 
         if not valid:
             print("ERROR: Tried to load invalid configuration file. Exiting.")
-            quit(_Config.INVALID_CONFIG_EXIT_CODE)
+            quit(INVALID_CONFIG_EXIT_CODE)
 
         return True
 
@@ -131,7 +130,8 @@ class _Config(InstanceDescriptorMixin):
         property_names = self.properties + ["base_path", "default_config_path"]
         max_name_len = max(len(name) for name in property_names)
 
-        # TODO: Check if this fails, if a property is not set (MissingProperty)
+        # This can only fail if some properties are missing. However, in
+        # that case we have already quit.
         prop_strings = [get_property_string(name, getattr(self, name))
                         for name in property_names]
 
