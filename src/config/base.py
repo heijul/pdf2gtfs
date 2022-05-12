@@ -120,13 +120,19 @@ class _Config(InstanceDescriptorMixin):
         return self.base_path.joinpath("config.template.yaml")
 
     def __str__(self):
+        string_like = (str, Path)
+
+        def get_property_string(_name, _value):
+            wrapper = "'" if isinstance(_value, string_like) else ""
+            return f"\t{_name:{max_name_len}}: {wrapper}{_value}{wrapper}"
+
         base_string = "\nCurrent configuration: [\n{}\n]"
 
-        property_names = self.properties + ["base_path"]
+        property_names = self.properties + ["base_path", "default_config_path"]
         max_name_len = max(len(name) for name in property_names)
-        # TODO: Add apostrophes around strings
+
         # TODO: Check if this fails, if a property is not set (MissingProperty)
-        prop_strings = [f"\t{name:{max_name_len}}: {getattr(self, name)}"
+        prop_strings = [get_property_string(name, getattr(self, name))
                         for name in property_names]
 
         return base_string.format("\n".join(prop_strings))
