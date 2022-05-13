@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from itertools import cycle
 from statistics import mean
+from pathlib import Path
 
 import pandas as pd
 
@@ -16,6 +19,15 @@ class Table:
         auto_expand = len(self.rows) if auto_expand else False
         if auto_expand:
             self._expand()
+
+    @staticmethod
+    def from_csv(path: Path | str) -> Table:
+        table = Table([], False)
+        table.df = pd.read_csv(path, index_col=0)
+        return table
+
+    def to_csv(self, path: Path | str):
+        self.df.to_csv(path)
 
     def _dataframe_from_rows(self) -> pd.DataFrame:
         return pd.DataFrame(self.rows)
@@ -120,7 +132,7 @@ class Table:
                 self.df[i], format=Config.time_format, errors="coerce")
         print(df_to_csv())
 
-    def to_csv(self):
+    def to_csv_str(self):
         if not self.rows:
             return f"{self}; Missing rows!"
         format_str = "\t".join(["{:30}"] + (len(self.rows[0]) - 1) * ["{:>5}"])
@@ -139,7 +151,7 @@ def table_from_rows(raw_rows) -> Table | None:
     idx, header = __get_header(raw_rows)
     row_texts = __get_row_texts(raw_rows[idx:])
     table = Table(row_texts)
-    print(table.to_csv())
+    print(table.to_csv_str())
     return table
 
 
