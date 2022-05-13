@@ -72,7 +72,7 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
 class Reader(BaseReader, ABC):
     def read(self) -> None:
         for i, page in enumerate(extract_pages(self.filepath), 1):
-            if i not in Config.pages:
+            if not Config.pages.page_is_active(i):
                 continue
             self.read_page(page)
 
