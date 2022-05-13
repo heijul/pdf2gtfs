@@ -45,4 +45,4 @@ def _add_optional_arguments(parser: ArgumentParser):
     parser.add_argument("--pages", type=str, help=text)
     text = ("Path to a configuration file. If given multiple times, all "
             "files will be read in the order given.")
-    parser.add_argument("--config", action="append", type=str, help=text)
+    parser.add_argument("--config", action="append", type=str, help=text, default=[])
