@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 # noinspection PyPackageRequirements
 from pdfminer.high_level import extract_pages
+from pdfminer.layout import LAParams
 # noinspection PyPackageRequirements
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
 
@@ -64,6 +65,8 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
                 if not contains_bbox(page.bbox, textline_element.bbox):
                     continue
                 # TODO: Find a way to skip invisible text.
+                #  Note: Does not seem to be possible as it appears to have
+                #  the same color as the visible text?!
 
                 char_list.append(unpack_char(textline_element))
 
@@ -74,8 +77,13 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
 #  the proper access level, or not, in order to make it replaceable.
 class Reader(BaseReader, ABC):
     def read(self) -> None:
+        # Disable advanced layout analysis.
+        laparams = LAParams(boxes_flow=None)
+
         pages = extract_pages(self.filepath,
+                              laparams=laparams,
                               page_numbers=Config.pages.page_numbers)
+
         for page in pages:
             self.read_page(page)
 
