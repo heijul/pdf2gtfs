@@ -10,13 +10,17 @@ import pandas as pd
 from config import Config
 
 
-class Bbox:
+class BBox:
     def __init__(
             self, x0: float = 0, x1: float = 1, y0: float = 0, y1: float = 1):
         self.x0 = x0
         self.x1 = x1
         self.y0 = y0
         self.y1 = y1
+
+    @staticmethod
+    def from_series(series: pd.Series):
+        return BBox(series.x0, series.x1, series.y0, series.y1)
 
     @property
     def size(self):
@@ -25,6 +29,26 @@ class Bbox:
     @property
     def is_valid(self):
         return self.x0 < self.x1 and self.y0 < self.y1 and self.size > (0, 0)
+
+    def copy(self) -> BBox:
+        return BBox(self.x0, self.x1, self.y0, self.y1)
+
+    def contains_vertical(self, other: BBox):
+        return self._contains(other, "x")
+
+    def contains_horizontal(self, other: BBox):
+        return self._contains(other, "y")
+
+    def contains(self, other: BBox, strict: bool = False) -> bool:
+        return (self.contains_vertical(other) and
+                self.contains_horizontal(other) and
+                (not strict or self.is_valid and other.is_valid))
+
+    def merge(self, other: BBox):
+        self.x0 = min(self.x0, other.x0)
+        self.x1 = max(self.x1, other.x1)
+        self.y0 = min(self.y0, other.y0)
+        self.y1 = max(self.y1, other.y1)
 
     def _contains(self, other, axis):
         def _get(cls, bound):
@@ -38,44 +62,57 @@ class Bbox:
 
         return lower <= other_lower <= upper and lower <= other_upper <= upper
 
-    def contains_vertical(self, other: Bbox):
-        return self._contains(other, "x")
-
-    def contains_horizontal(self, other: Bbox):
-        return self._contains(other, "y")
-
-    def contains(self, other: Bbox, strict: bool = False) -> bool:
-        return (self.contains_vertical(other) and
-                self.contains_horizontal(other) and
-                (not strict or self.is_valid and other.is_valid))
-
-    def merge(self, other: Bbox):
-        self.x0 = min(self.x0, other.x0)
-        self.x1 = max(self.x1, other.x1)
-        self.y0 = min(self.y0, other.y0)
-        self.y1 = max(self.y1, other.y1)
-
     def __repr__(self):
         return f"BBox(x0={self.x0}, x1={self.x1}, y0={self.y0}, y1={self.y1})"
 
 
-class Field:
-    def __init__(self, bbox: Bbox, text: str,
+class BBoxObject:
+    def __init__(self, bbox: BBox | None = None) -> None:
+        self._set_bbox(bbox)
+
+    def merge(self, other: BBoxObject | BBox):
+        other_bbox = other if isinstance(other, BBox) else other.bbox
+        self.bbox.x0 = min(self.bbox.x0, other_bbox.x0)
+        self.bbox.x1 = max(self.bbox.x1, other_bbox.x1)
+        self.bbox.y0 = min(self.bbox.y0, other_bbox.y0)
+        self.bbox.y1 = max(self.bbox.y1, other_bbox.y1)
+
+    def _set_bbox(self, bbox: BBox | None) -> None:
+        self.bbox = BBox() if bbox is None else bbox
+
+    def _distance(self, other: FieldContainer, axis: str) -> float:
+        # TODO: Move to bbox
+        lower, upper = sorted([self, other], key=attrgetter(f"bbox.{axis}0"))
+        if lower.bbox.x0 == upper.bbox.x0:
+            return 0
+        return (getattr(lower.bbox, f"{axis}1") -
+                getattr(upper.bbox, f"{axis}0"))
+
+    def _set_bbox_from_list(self, bbobjects: list[BBoxObject]):
+        # TODO: Check default.
+        if not bbobjects:
+            self._set_bbox(None)
+        bbox = bbobjects[0].bbox.copy()
+        for obj in bbobjects[1:]:
+            bbox.merge(obj.bbox)
+
+        self._set_bbox(bbox)
+
+
+class Field(BBoxObject):
+    def __init__(self, bbox: BBox, text: str,
                  row: Row = None, column: Column = None):
-        self.bbox = bbox
+        super().__init__(bbox)
         self.text = text
         self.row = row
         self.column = column
 
     @staticmethod
     def from_char(char: pd.Series) -> Field:
-        bbox = Bbox(char.x0, char.x1, char.y0, char.y1)
-        return Field(bbox, char.text)
+        return Field(BBox.from_series(char), char.text)
 
     def add_char(self, char: pd.Series) -> None:
-        self.bbox.x1 = max(self.bbox.x1, char.x1)
-        self.bbox.y0 = min(self.bbox.y0, char.y0)
-        self.bbox.y1 = max(self.bbox.y1, char.y1)
+        self.merge(BBox.from_series(char))
         self.text += char.text
 
     def __str__(self):
@@ -85,11 +122,11 @@ class Field:
         return f"'{self.text}'"
 
 
-class FieldContainer:
-    def __init__(self, table: Table = None):
+class FieldContainer(BBoxObject):
+    def __init__(self, table: Table = None, bbox: BBox = None):
+        super().__init__(bbox)
         self.table = table
         self._fields: list[Field] = []
-        self.bbox = Bbox()
         self.field_attr = self.__class__.__name__.lower()
 
     @property
@@ -107,18 +144,8 @@ class FieldContainer:
 
         self._fields = value
 
-    def set_bbox(self, bbox: Bbox) -> None:
-        self.bbox = bbox
-
     def set_bbox_from_fields(self) -> None:
-        self.bbox = Bbox(min([f.bbox.x0 for f in self.fields], default=0),
-                         max([f.bbox.x1 for f in self.fields], default=1),
-                         min([f.bbox.y0 for f in self.fields], default=0),
-                         max([f.bbox.y1 for f in self.fields], default=1))
-
-    def merge_bbox(self, bbox: Bbox) -> None:
-        # TODO: mb move to column
-        self.bbox.merge(bbox)
+        self._set_bbox_from_list(self.fields)
 
     def _add_field(self, new_field: Field, axis: str):
         i = 0
@@ -131,14 +158,6 @@ class FieldContainer:
             i += 1
         # TODO: Check if field.row/.column is updated.
         self.fields.insert(i, new_field)
-
-    def _distance(self, other: FieldContainer, axis: str) -> float:
-        # TODO: Move to bbox
-        lower, upper = sorted([self, other], key=attrgetter(f"bbox.{axis}0"))
-        if lower.bbox.x0 == upper.bbox.x0:
-            return 0
-        return (getattr(lower.bbox, f"{axis}1") -
-                getattr(upper.bbox, f"{axis}0"))
 
     def __str__(self):
         return str([str(f) for f in self.fields])
@@ -154,8 +173,8 @@ class RowTypes(Enum):
 class Row(FieldContainer):
     sparse: bool
 
-    def __init__(self, table: Table = None):
-        super().__init__(table)
+    def __init__(self, table: Table = None, bbox: BBox = None):
+        super().__init__(table, bbox)
 
         self._type = None
 
@@ -172,17 +191,9 @@ class Row(FieldContainer):
     def distance(self, other: Row) -> float:
         return self._distance(other, "y")
 
-    def get_field_spans_x(self):
-        return [(field.bbox.x0, field.bbox.x1) for field in self.fields]
-
     def set_table(self, table: Table):
         self.table = table
         self.detect_type()
-
-    @property
-    def sparse(self):
-        # TODO: Add constant/config instead of magic number.
-        return (len(self.fields) / self.table.mean_row_field_count) < 0.5
 
     @property
     def type(self):
@@ -192,7 +203,6 @@ class Row(FieldContainer):
 
     @type.setter
     def type(self, value):
-        # TODO: Maybe use Config.annotation_identifier instead of this!?
         if value != RowTypes.ANNOTATION:
             raise Exception(
                 "Can not manually set another type than annotations.")
@@ -250,13 +260,15 @@ class Row(FieldContainer):
                 f"fields=[{fields_repr}])")
 
 
+# TODO: Add ColumnType(Enum)
+
+
 class Column(FieldContainer):
     def __init__(self, table: Table = None,
                  fields: list[Field] = None,
-                 bbox: Bbox = Bbox()):
-        super().__init__(table)
+                 bbox: BBox = None):
+        super().__init__(table, bbox)
         self.fields = fields or []
-        self.bbox = bbox
 
     @property
     def is_data_column(self):
@@ -347,8 +359,11 @@ class Table:
             if _column_x_is_overlapping(last, column):
                 last.merge(column)
 
+        self.columns = columns
+
         # Try to fit the 'RowTypes.OTHER'-rows into the established data rows
         #  and update their type accordingly.
+        # TODO: Maybe use Config.annotation_identifier instead of this!?
         for row in self.rows:
             if row.type != RowTypes.OTHER:
                 continue
