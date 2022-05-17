@@ -74,14 +74,9 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
 #  the proper access level, or not, in order to make it replaceable.
 class Reader(BaseReader, ABC):
     def read(self) -> None:
-        # TODO: Use param page_numbers instead.
-        # TODO: page_numbers is 0-indexed
-
-        pages = extract_pages(self.filepath, page_numbers=[2])
-        self.read_page(list(pages)[0])
-        for i, page in enumerate(extract_pages(self.filepath), 1):
-            if not Config.pages.page_is_active(i):
-                continue
+        pages = extract_pages(self.filepath,
+                              page_numbers=Config.pages.page_numbers)
+        for page in pages:
             self.read_page(page)
 
     def save_pages_to_csv(self, page_num):

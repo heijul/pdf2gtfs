@@ -35,7 +35,7 @@ class Property:
 
 class Pages:
     def __init__(self, pages_string: str = "all"):
-        self.pages = set()
+        self._pages = set()
         self._set_value(pages_string)
         self.validate()
 
@@ -47,6 +47,10 @@ class Pages:
             return
 
         self.all = True
+        # pdfminer uses 0-indexed pages or None for all pages.
+        self.page_numbers = [page - 1 for page in self._pages]
+        if not self.page_numbers:
+            self.page_numbers = None
 
     def _set_pages(self, pages_string):
         def _handle_non_numeric_pages(non_num_string):
@@ -63,34 +67,29 @@ class Pages:
 
         for value_str in pages_string.split(","):
             if not str.isnumeric(value_str):
-                self.pages.update(_handle_non_numeric_pages(value_str))
+                self._pages.update(_handle_non_numeric_pages(value_str))
                 continue
-            self.pages.add(int(value_str))
+            self._pages.add(int(value_str))
 
         self.all = False
-        self.pages = sorted(self.pages)
+        self._pages = sorted(self._pages)
 
     def validate(self):
         if self.all:
             return
 
         # Page numbers are positive and start with 1.
-        invalid_pages = [page for page in self.pages if page < 1]
+        invalid_pages = [page for page in self._pages if page < 1]
         for page in invalid_pages:
             print(f"WARNING: Skipping invalid page '{page}'. "
                   f"Reason: Pages should be positive and begin with 1.")
-            self.pages.remove(page)
-        if not self.pages:
+            self._pages.remove(page)
+        if not self._pages:
             print("ERROR: No valid pages given. Check the log for more info.")
             quit(INVALID_CONFIG_EXIT_CODE)
 
-    def page_is_active(self, page):
-        if self.all:
-            return True
-        return page in self.pages
-
     def __str__(self):
-        return "all" if self.all else str(list(self.pages))
+        return "all" if self.all else str(list(self._pages))
 
 
 class PagesProperty(Property):
