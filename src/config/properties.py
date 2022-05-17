@@ -35,22 +35,22 @@ class Property:
 
 class Pages:
     def __init__(self, pages_string: str = "all"):
-        self._pages = set()
+        self.pages = set()
         self._set_value(pages_string)
         self.validate()
 
     def _set_value(self, pages_string):
         pages_string = pages_string.replace(" ", "")
 
+        # TODO: Redo.
         if pages_string != "all":
             self._set_pages(pages_string)
+            # pdfminer uses 0-indexed pages or None for all pages.
+            self.page_numbers = [page - 1 for page in self.pages]
             return
 
         self.all = True
-        # pdfminer uses 0-indexed pages or None for all pages.
-        self.page_numbers = [page - 1 for page in self._pages]
-        if not self.page_numbers:
-            self.page_numbers = None
+        self.page_numbers = None
 
     def _set_pages(self, pages_string):
         def _handle_non_numeric_pages(non_num_string):
@@ -67,29 +67,29 @@ class Pages:
 
         for value_str in pages_string.split(","):
             if not str.isnumeric(value_str):
-                self._pages.update(_handle_non_numeric_pages(value_str))
+                self.pages.update(_handle_non_numeric_pages(value_str))
                 continue
-            self._pages.add(int(value_str))
+            self.pages.add(int(value_str))
 
         self.all = False
-        self._pages = sorted(self._pages)
+        self.pages = sorted(self.pages)
 
     def validate(self):
         if self.all:
             return
 
         # Page numbers are positive and start with 1.
-        invalid_pages = [page for page in self._pages if page < 1]
+        invalid_pages = [page for page in self.pages if page < 1]
         for page in invalid_pages:
             print(f"WARNING: Skipping invalid page '{page}'. "
                   f"Reason: Pages should be positive and begin with 1.")
-            self._pages.remove(page)
-        if not self._pages:
+            self.pages.remove(page)
+        if not self.pages:
             print("ERROR: No valid pages given. Check the log for more info.")
             quit(INVALID_CONFIG_EXIT_CODE)
 
     def __str__(self):
-        return "all" if self.all else str(list(self._pages))
+        return "all" if self.all else str(list(self.pages))
 
 
 class PagesProperty(Property):
