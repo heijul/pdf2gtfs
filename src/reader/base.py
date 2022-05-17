@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from operator import attrgetter
 from pathlib import Path
 
 import pandas as pd
@@ -8,9 +9,7 @@ from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
 
 from config import Config
-from datastructures.internal.field import field_from_char
-from datastructures.internal import Row
-from datastructures.internal.table import table_from_rows
+from datastructures.internal.row import Table, Row, Field
 from utils import contains_bbox
 
 
@@ -56,31 +55,61 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
         for textbox_element in page_element:
             if not isinstance(textbox_element, LTTextLine):
                 continue
+            # TODO: Using LTTextLine instead of chars probably makes more sense
             for textline_element in textbox_element:
                 if not isinstance(textline_element, LTChar):
                     continue
+                # TODO: Check why this can even happen.
+                # Skip objects which are not on the page.
                 if not contains_bbox(page.bbox, textline_element.bbox):
                     continue
+                # TODO: Find a way to skip invisible text.
 
                 char_list.append(unpack_char(textline_element))
 
-    chars = pd.DataFrame(char_list)
-
-    return chars
+    return pd.DataFrame(char_list)
 
 
+# TODO: No need for a class here I guess. Just use toplevel functions with
+#  the proper access level, or not, in order to make it replaceable.
 class Reader(BaseReader, ABC):
     def read(self) -> None:
+        # TODO: Use param page_numbers instead.
+        # TODO: page_numbers is 0-indexed
+
+        pages = extract_pages(self.filepath, page_numbers=[2])
+        self.read_page(list(pages)[0])
         for i, page in enumerate(extract_pages(self.filepath), 1):
             if not Config.pages.page_is_active(i):
                 continue
             self.read_page(page)
 
+    def save_pages_to_csv(self, page_num):
+        pages = extract_pages(self.filepath, page_numbers=[page_num])
+        for page in pages:
+            df = get_chars_dataframe_from_page(page)
+            df.to_csv(f"page_char_cache_{page_num}.csv")
+            df = df.round({"top": 0, "x0": 2, "x1": 2, "y0": 2, "y1": 2})
+            df.to_csv(f"page_char_cache_{page_num}_rounded.csv")
+            break
+
+    def read_cached_page(self, page_num):
+        page_chars = pd.read_csv(f"page_char_cache_{page_num}.csv",
+                                 index_col=0)
+        tables = self.get_tables_from_chars(page_chars)
+        print(tables)
+
     def read_page(self, page: LTPage):
         page_chars = get_chars_dataframe_from_page(page)
-        rows = self.get_lines(page_chars)
-        table_rows = split_rows_into_tables(rows)
-        create_tables_from_rows(table_rows)
+        tables = self.get_tables_from_chars(page_chars)
+        print(tables)
+
+    def get_tables_from_chars(self, chars: pd.DataFrame) -> list[Table]:
+        rows = self.get_lines(chars)
+        tables = Table.split_rows_into_tables(rows)
+        for table in tables:
+            table.generate_data_columns_from_rows()
+        return tables
 
     def get_lines(self, df: pd.DataFrame) -> list[Row]:
         # Round to combat tolerances.
@@ -91,49 +120,26 @@ class Reader(BaseReader, ABC):
         rows = []
         for group_id in lines.groups:
             line = lines.get_group(group_id)
-            rows.append(self.split_line_into_fields(line))
+            row = Row.from_fields(self.split_line_into_fields(line))
+            rows.append(row)
         return rows
 
-    def split_line_into_fields(self, line: pd.DataFrame) -> Row:
+    def split_line_into_fields(self, line: pd.DataFrame) -> list[Field]:
         fields = []
         if len(line) == 0:
-            return Row()
+            return fields
 
-        for _, char in line.iterrows():
+        sorted_line = sorted([f[1] for f in list(line.iterrows())],
+                             key=attrgetter("x0"))
+        for char in sorted_line:
             # Ignore vertical text
             if not char.upright:
+                print(f"A {char}")
                 continue
             # Fields are continuous streams of chars.
-            if not fields or char.x0 != fields[-1].x1:
-                fields.append(field_from_char(char))
+            if not fields or char.x0 != fields[-1].bbox.x1:
+                fields.append(Field.from_char(char))
                 continue
             fields[-1].add_char(char)
-        return Row().from_list(fields)
 
-
-def split_rows_into_tables(rows: list[Row]):
-    table_rows = []
-    current_rows = [rows[0]]
-
-    for row in rows[1:]:
-        distance_between_rows = abs(row.y1 - current_rows[-1].y0)
-        if distance_between_rows > Config.max_row_distance:
-            print(f"Distance between rows: {distance_between_rows}")
-            table_rows.append(current_rows)
-            current_rows = []
-        current_rows.append(row)
-    else:
-        if current_rows:
-            table_rows.append(current_rows)
-    return table_rows
-
-
-def create_tables_from_rows(table_rows: list[list[Row]]):
-    raw_tables = map(table_from_rows, table_rows)
-    # Merge raw tables which are close
-    ...
-    # Handle "wrapper"-tables which are not proper tables (Days, etc.)
-    ...
-    # Handle annotations TODO: Maybe move to table_from_rows as with header
-    ...
-    return list(raw_tables)
+        return fields
