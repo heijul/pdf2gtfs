@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 # noinspection PyPackageRequirements
 from pdfminer.high_level import extract_pages
+# noinspection PyPackageRequirements
 from pdfminer.layout import LAParams
 # noinspection PyPackageRequirements
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
