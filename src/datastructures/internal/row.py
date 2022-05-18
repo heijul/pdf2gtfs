@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import Enum
 from operator import attrgetter
 from statistics import mean
+from typing import TypeVar
 
 import pandas as pd
 
@@ -159,11 +160,32 @@ class FieldContainer(BBoxObject):
         # TODO: Check if field.row/.column is updated.
         self.fields.insert(i, new_field)
 
+    def _contains_time_data(self):
+        """ Check if any field contains time data. """
+        # TODO: Maybe add threshold as with sparsity?
+        # TODO: Big problem when encountering dates ("nicht am 05.06")
+        # TODO: Maybe add (bbox.x0 - table.bbox.x0) < X as a requirement?
+        field_texts = [str(field.text) for field in self.fields]
+        for field_text in field_texts:
+            try:
+                datetime.strptime(field_text, Config.time_format)
+                return True
+            except ValueError:
+                pass
+        return False
+
     def __str__(self):
         return str([str(f) for f in self.fields])
 
+    def __iter__(self):
+        return self.fields.__iter__()
 
-class RowTypes(Enum):
+
+class FieldContainerType(Enum):
+    pass
+
+
+class RowType(FieldContainerType):
     HEADER = 1
     DATA = 2
     OTHER = 3
@@ -203,10 +225,10 @@ class Row(FieldContainer):
 
     @type.setter
     def type(self, value):
-        if value != RowTypes.ANNOTATION:
+        if value != RowType.ANNOTATION:
             raise Exception(
                 "Can not manually set another type than annotations.")
-        self._type = RowTypes.ANNOTATION
+        self._type = RowType.ANNOTATION
 
     def detect_type(self):
         def _contains_header_identifier():
@@ -215,31 +237,22 @@ class Row(FieldContainer):
             return any([head in field_texts
                         for head in Config.header_identifier])
 
-        def _contains_time_data():
-            """ Check if any field contains time data. """
-            # TODO: Maybe add threshold as with sparsity?
-            # TODO: Big problem when encountering dates ("nicht am 05.06")
-            # TODO: Maybe add (bbox.x0 - table.bbox.x0) < X as a requirement?
-            field_texts = [str(field.text) for field in self.fields]
-            for field_text in field_texts:
-                try:
-                    datetime.strptime(field_text, Config.time_format)
-                    return True
-                except ValueError:
-                    pass
-            return False
+        def previous_row_is_header():
+            previous = self.table.rows.prev(self)
+            if not previous:
+                return False
+            return previous.type == RowType.HEADER
 
         # Once a row was recognized as annotation it stays an annotation.
-        if self._type and self._type == RowTypes.ANNOTATION:
-            self._type = RowTypes.ANNOTATION
+        if self._type and self._type == RowType.ANNOTATION:
             return
-        if _contains_time_data():
-            self._type = RowTypes.DATA
+        if self._contains_time_data():
+            self._type = RowType.DATA
             return
-        if _contains_header_identifier():
-            self._type = RowTypes.HEADER
+        if previous_row_is_header() and _contains_header_identifier():
+            self._type = RowType.HEADER
             return
-        self._type = RowTypes.OTHER
+        self._type = RowType.OTHER
 
     def fits_column_scheme(self, columns: list[Column]):
         for field in self.fields:
@@ -260,7 +273,10 @@ class Row(FieldContainer):
                 f"fields=[{fields_repr}])")
 
 
-# TODO: Add ColumnType(Enum)
+class ColumnType(FieldContainerType):
+    STOP = 1
+    STOP_ANNOTATION = 2
+    DATA = 3
 
 
 class Column(FieldContainer):
@@ -271,8 +287,20 @@ class Column(FieldContainer):
         self.fields = fields or []
 
     @property
-    def is_data_column(self):
-        return ...
+    def type(self) -> ColumnType:
+        if not hasattr(self, "_type"):
+            self._detect_type()
+        return self._type
+
+    def _detect_type(self):
+        previous = self.table.columns.prev(self).type
+        has_time_data = self._contains_time_data()
+        if not previous:
+            self._type = ColumnType.STOP
+        elif previous == ColumnType.STOP and not has_time_data:
+            self._type = ColumnType.STOP_ANNOTATION
+        else:
+            self._type = ColumnType.DATA
 
     def merge(self, other: Column):
         # Merge bbox.
@@ -306,25 +334,102 @@ class RepeatColumn(Column):
         ...
 
 
+FC = TypeVar("FC", bound=FieldContainer)
+
+
+class FieldContainerList:
+    def __init__(self, table):
+        self.table = table
+        self.objects = []
+
+    def add(self, obj: FieldContainer):
+        # TODO: Add insert logic depending on x0/y0, if necessary
+        self.objects.append(obj)
+        obj.table = self.table
+
+    def prev(self, current: FC) -> FC | None:
+        return self._get_neighbor(current, -1)
+
+    def next(self, current: FC) -> FC | None:
+        return self._get_neighbor(current, 1)
+
+    def of_type(self, typ: FieldContainerType) -> list[FC]:
+        return [obj for obj in self.objects if obj.type == typ]
+
+    @classmethod
+    def from_list(cls, table: Table, objects: list[FC]) -> FieldContainerList:
+        instance = cls(table)
+        for obj in objects:
+            instance.add(obj)
+        return instance
+
+    def _get_neighbor(self, current: FC, delta: int) -> FC | None:
+        index = self.objects.index(current)
+        valid_index = index and index < len(self.objects)
+        return self.objects[index + delta] if valid_index else None
+
+    def __iter__(self):
+        return self.objects.__iter__()
+
+
+class ColumnList(FieldContainerList):
+    def prev(self, current: Column) -> Column | None:
+        return super().prev(current)
+
+    def next(self, current: Column) -> Column | None:
+        return super().next(current)
+
+    def of_type(self, typ: ColumnType) -> list[ColumnList]:
+        return super().of_type(typ)
+
+
+class RowList(FieldContainerList):
+    def prev(self, current: Row) -> Row | None:
+        return super().prev(current)
+
+    def next(self, current: Row) -> Row | None:
+        return super().next(current)
+
+    def of_type(self, typ: RowType) -> list[RowList]:
+        return super().of_type(typ)
+
+    @property
+    def mean_row_field_count(self):
+        if not self.objects:
+            return 0
+        return mean([len(row.fields) for row in self.objects])
+
+
 class Table:
     def __init__(self, rows: list[Row] = None, columns: list[Column] = None):
-        self._set_rows(rows or [])
+        self.rows = rows or []
         self.columns = columns or []
 
     @property
-    def rows(self):
+    def rows(self) -> RowList:
         return self._rows
+
+    @rows.setter
+    def rows(self, rows: list[Row] | RowList):
+        if isinstance(rows, RowList):
+            self._rows = rows
+        else:
+            self._rows = RowList.from_list(self, rows)
+
+    @property
+    def columns(self) -> ColumnList:
+        return self._columns
+
+    @columns.setter
+    def columns(self, columns: list[Column] | ColumnList):
+        if isinstance(columns, ColumnList):
+            self._columns = columns
+        else:
+            self._columns = ColumnList.from_list(self, columns)
 
     @property
     def header_rows(self):
-        return [row for row in self.rows if row.type == RowTypes.HEADER]
-
-    def _set_rows(self, rows: list[Row]):
-        self._rows = rows
-        self.mean_row_field_count = mean([len(r.fields) for r in self._rows])
-        # Needs to be done for all rows in case the mean has changed.
-        for row in self._rows:
-            row.set_table(self)
+        return self.rows.of_type(RowType.HEADER)
 
     def generate_data_columns_from_rows(self):
         def _get_bounds(_column: Column):
@@ -337,13 +442,13 @@ class Table:
             #  for columns that are only touching.
             return b1[0] <= b2[0] <= b1[1] or b1[0] <= b2[1] <= b1[1]
 
-        data_rows = [row for row in self.rows if row.type == RowTypes.DATA]
+        data_rows = self.rows.of_type(RowType.DATA)
         if not data_rows:
             return
 
         # Generate single-field columns from the rows.
         field_columns = [Column.from_field(self, field)
-                         for row in data_rows for field in row.fields]
+                         for row in data_rows for field in row]
 
         # Merge vertically overlapping columns.
         columns: list[Column] = []
@@ -365,10 +470,10 @@ class Table:
         #  and update their type accordingly.
         # TODO: Maybe use Config.annotation_identifier instead of this!?
         for row in self.rows:
-            if row.type != RowTypes.OTHER:
+            if row.type != RowType.OTHER:
                 continue
             if row.fits_column_scheme(columns):
-                row.type = RowTypes.ANNOTATION
+                row.type = RowType.ANNOTATION
 
     @staticmethod
     def split_rows_into_tables(rows: list[Row]) -> list[Table]:
