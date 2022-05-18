@@ -9,6 +9,7 @@ from typing import TypeVar
 import pandas as pd
 
 from config import Config
+from datastructures.internal.base import BaseField, BaseContainer
 
 
 class BBox:
@@ -100,13 +101,11 @@ class BBoxObject:
         self._set_bbox(bbox)
 
 
-class Field(BBoxObject):
-    def __init__(self, bbox: BBox, text: str,
-                 row: Row = None, column: Column = None):
-        super().__init__(bbox)
+class Field(BaseField, BBoxObject):
+    def __init__(self, bbox: BBox, text: str):
+        BaseField.__init__(self, {"row": Row, "column": Column})
+        BBoxObject.__init__(self, bbox)
         self.text = text
-        self.row = row
-        self.column = column
 
     @staticmethod
     def from_char(char: pd.Series) -> Field:
@@ -123,42 +122,26 @@ class Field(BBoxObject):
         return f"'{self.text}'"
 
 
-class FieldContainer(BBoxObject):
+class FieldContainer(BaseContainer, BBoxObject):
     def __init__(self, table: Table = None, bbox: BBox = None):
-        super().__init__(bbox)
+        BaseContainer.__init__(self)
+        BBoxObject.__init__(self, bbox)
         self.table = table
-        self._fields: list[Field] = []
-        self.field_attr = self.__class__.__name__.lower()
-
-    @property
-    def fields(self) -> list[Field]:
-        return self._fields
-
-    @fields.setter
-    def fields(self, value: list[fields]) -> None:
-        # Deregister row for old fields.
-        for field in self._fields:
-            setattr(field, self.field_attr, None)
-        # Register row for new fields.
-        for field in value:
-            setattr(field, self.field_attr, self)
-
-        self._fields = value
 
     def set_bbox_from_fields(self) -> None:
         self._set_bbox_from_list(self.fields)
 
     def _add_field(self, new_field: Field, axis: str):
-        i = 0
+        index = 0
         lookup_field = f"{axis}0"
         for field in self.fields:
             field_lookup = getattr(field.bbox, lookup_field)
             new_field_lookup = getattr(new_field.bbox, lookup_field)
             if field_lookup < new_field_lookup:
                 break
-            i += 1
-        # TODO: Check if field.row/.column is updated.
-        self.fields.insert(i, new_field)
+            index += 1
+
+        super()._add_field(new_field, index)
 
     def _contains_time_data(self):
         """ Check if any field contains time data. """
@@ -193,8 +176,6 @@ class RowType(FieldContainerType):
 
 
 class Row(FieldContainer):
-    sparse: bool
-
     def __init__(self, table: Table = None, bbox: BBox = None):
         super().__init__(table, bbox)
 
@@ -319,19 +300,6 @@ class Column(FieldContainer):
     @staticmethod
     def from_field(table, field):
         return Column(table, [field], field.bbox)
-
-
-class RepeatColumn(Column):
-    start_column: Column = None
-    end_column: Column = None
-
-    def __init__(self, table: Table = None):
-        super().__init__(table)
-        self.field_attr = "column"
-
-    def expand(self) -> list[Column]:
-        """ Expand the column into a list of columns. """
-        ...
 
 
 FC = TypeVar("FC", bound=FieldContainer)
