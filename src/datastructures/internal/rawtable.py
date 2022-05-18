@@ -4,12 +4,17 @@ from datetime import datetime
 from enum import Enum
 from operator import attrgetter
 from statistics import mean
-from typing import TypeVar
+from typing import TypeVar, TYPE_CHECKING, Generic
 
 import pandas as pd
 
 from config import Config
 from datastructures.internal.base import BaseField, BaseContainer
+if TYPE_CHECKING:
+    from datastructures.internal.timetable import TimeTable
+
+
+FC = TypeVar("FC", bound="FieldContainer")
 
 
 class BBox:
@@ -302,13 +307,10 @@ class Column(FieldContainer):
         return Column(table, [field], field.bbox)
 
 
-FC = TypeVar("FC", bound=FieldContainer)
-
-
-class FieldContainerList:
-    def __init__(self, table):
+class FieldContainerList(Generic[FC]):
+    def __init__(self, table: Table):
         self.table = table
-        self.objects = []
+        self.objects: list[FC] = []
 
     def add(self, obj: FieldContainer):
         # TODO: Add insert logic depending on x0/y0, if necessary
@@ -325,7 +327,7 @@ class FieldContainerList:
         return [obj for obj in self.objects if obj.type == typ]
 
     @classmethod
-    def from_list(cls, table: Table, objects: list[FC]) -> FieldContainerList:
+    def from_list(cls, table: Table, objects: list[FC]) -> FieldContainerList[FC]:
         instance = cls(table)
         for obj in objects:
             instance.add(obj)
@@ -337,29 +339,17 @@ class FieldContainerList:
         return self.objects[index + delta] if valid_index else None
 
     def __iter__(self):
-        return self.objects.__iter__()
+        return self.objects
 
 
-class ColumnList(FieldContainerList):
-    def prev(self, current: Column) -> Column | None:
-        return super().prev(current)
-
-    def next(self, current: Column) -> Column | None:
-        return super().next(current)
-
-    def of_type(self, typ: ColumnType) -> list[ColumnList]:
-        return super().of_type(typ)
+class ColumnList(FieldContainerList[Column]):
+    pass
 
 
-class RowList(FieldContainerList):
-    def prev(self, current: Row) -> Row | None:
-        return super().prev(current)
-
-    def next(self, current: Row) -> Row | None:
-        return super().next(current)
-
-    def of_type(self, typ: RowType) -> list[RowList]:
-        return super().of_type(typ)
+class RowList(FieldContainerList[Row]):
+    def __init__(self, table: Table):
+        super().__init__(table)
+        self.objects: list[Row] = []
 
     @property
     def mean_row_field_count(self):
@@ -378,7 +368,7 @@ class Table:
         return self._rows
 
     @rows.setter
-    def rows(self, rows: list[Row] | RowList):
+    def rows(self, rows: list[Row] | RowList) -> None:
         if isinstance(rows, RowList):
             self._rows = rows
         else:
@@ -459,3 +449,9 @@ class Table:
             if current_rows:
                 tables.append(Table(current_rows))
         return tables
+
+    def to_timetable(self) -> TimeTable:
+        from datastructures.internal.timetable import TimeTable
+
+        table = TimeTable.from_raw_table(self)
+        return table

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypeVar, Type, Any
+from typing import TypeVar, Type
 
 
 class BaseContainer:
@@ -45,8 +45,7 @@ class BaseField:
         for attr in self.containers:
             setattr(self, attr, None)
 
-    def register(self, attr: str, to: Any):
-
+    def register(self, attr: str, to: BaseContainerT):
         if attr not in self.containers:
             raise Exception(
                 f"Attribute {attr} not in attr_list {self.containers}.")
