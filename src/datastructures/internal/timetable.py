@@ -47,16 +47,26 @@ class TDataField(TField):
 
 
 class TAnnotationField(TField):
-    def __init__(self, timetable: TimeTable, text: str):
+    def __init__(self, timetable: TimeTable,
+                 text: str, annotates: TFieldContainer | None = None):
         super().__init__(timetable)
         self.text = text
+        self._annotates = annotates
+
+    @property
+    def annotates(self):
+        return self._annotates
+
+    @annotates.setter
+    def annotates(self, value: TFieldContainer):
+        self._annotates = value
 
 
-class TStopAnnotationField(TAnnotationField):
+class TRowAnnotationField(TAnnotationField):
     ...
 
 
-class TDataAnnotationField(TAnnotationField):
+class TColumnAnnotationField(TAnnotationField):
     ...
 
 
