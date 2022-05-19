@@ -57,6 +57,9 @@ class BaseContainer(Generic[FieldT]):
     def add_reference_to_field(self, field: FieldT) -> None:
         setattr(field, self.field_attr, self)
 
+    def add_field(self, new_field: FieldT):
+        self._add_field(new_field, len(self.fields))
+
     def _add_field(self, new_field: FieldT, index: int):
         self.fields.insert(index, new_field)
         self.add_reference_to_field(new_field)
@@ -82,11 +85,14 @@ class BaseContainer(Generic[FieldT]):
 
 class BaseContainerList(Generic[TableTypeT, ContainerT]):
     def __init__(self, table: TableTypeT):
-        self.objects: list[ContainerT] = []
+        self._objects: list[ContainerT] = []
         self.table = table
 
+    def get_objects(self) -> list[ContainerT]:
+        return self._objects
+
     def add(self, obj: ContainerT):
-        self.objects.append(obj)
+        self._objects.append(obj)
         self._update_reference(obj)
 
     def _update_reference(self, obj: ContainerT):
@@ -108,10 +114,10 @@ class BaseContainerList(Generic[TableTypeT, ContainerT]):
 
     def _get_neighbour(self, current: ContainerT, delta: int
                        ) -> ContainerT | None:
-        neighbour_index = self.objects.index(current) + delta
-        valid_index = 0 <= neighbour_index < len(self.objects)
+        neighbour_index = self._objects.index(current) + delta
+        valid_index = 0 <= neighbour_index < len(self._objects)
 
-        return self.objects[neighbour_index] if valid_index else None
+        return self._objects[neighbour_index] if valid_index else None
 
     def __iter__(self):
-        return iter(self.objects)
+        return iter(self._objects)

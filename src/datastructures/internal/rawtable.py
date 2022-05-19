@@ -333,7 +333,7 @@ class Column(FieldContainer):
 class FieldContainerList(Generic[TableT, FieldContainerT],
                          BaseContainerList[TableT, FieldContainerT]):
     def of_type(self, typ: FieldContainerType) -> list[FieldContainerT]:
-        return [obj for obj in self.objects if obj.type == typ]
+        return [obj for obj in self._objects if obj.type == typ]
 
 
 class ColumnList(FieldContainerList[TableT, Column]):
