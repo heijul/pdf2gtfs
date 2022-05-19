@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Type, Generic, TypeVar
 
 from config import Config
-from datastructures.internal.base import BaseContainer, BaseField
+from datastructures.internal.base import BaseContainer, BaseField, BaseContainerList
+
+
+TFieldContainerT = TypeVar("TFieldContainerT", bound="TFieldContainer")
+TimeTableT = TypeVar("TimeTableT", bound="TimeTable")
+TColumnT = TypeVar("TColumnT", bound="TColumn")
+TRowT = TypeVar("TRowT", bound="TRow")
 
 
 class TField(BaseField):
@@ -84,6 +91,19 @@ class TRepeatColumn(TColumn):
 
 class TRow(TFieldContainer):
     ...
+
+
+class TContainerList(Generic[TimeTableT, TFieldContainerT],
+                     BaseContainerList[TimeTableT, TFieldContainer]):
+    pass
+
+
+class TRowList(TContainerList[TimeTableT, TColumnT]):
+    pass
+
+
+class TColumnList(TContainerList[TimeTableT, TRowT]):
+    pass
 
 
 class TimeTable:

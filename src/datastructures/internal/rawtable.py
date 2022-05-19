@@ -21,6 +21,7 @@ FieldT = TypeVar("FieldT", bound="Field")
 RowT = TypeVar("RowT", bound="Row")
 ColumnT = TypeVar("ColumnT", bound="Column")
 FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")
+TableT = TypeVar("TableT", bound="Table")
 
 
 # TODO: Maybe change to 'proper bbox' (x0, y0, x1, y1).
@@ -329,34 +330,17 @@ class Column(FieldContainer):
         return Column(table, [field], field.bbox)
 
 
-class FieldContainerList(Generic[FieldContainerT],
-                         BaseContainerList[FieldContainerT]):
-
-    def __init__(self, table: Table):
-        Generic.__init__(self)
-        BaseContainerList.__init__(self)
-        self.table = table
-
-    def _update_reference(self, obj: FieldContainer):
-        obj.table = self.table
-
+class FieldContainerList(Generic[TableT, FieldContainerT],
+                         BaseContainerList[TableT, FieldContainerT]):
     def of_type(self, typ: FieldContainerType) -> list[FieldContainerT]:
         return [obj for obj in self.objects if obj.type == typ]
 
-    @classmethod
-    def from_list(cls, table: Table, objects: list[FieldContainerT]
-                  ) -> FieldContainerList[FieldContainerT]:
-        instance = cls(table)
-        for obj in objects:
-            instance.add(obj)
-        return instance
 
-
-class ColumnList(FieldContainerList[Column]):
+class ColumnList(FieldContainerList[TableT, Column]):
     pass
 
 
-class RowList(FieldContainerList[Row]):
+class RowList(FieldContainerList[TableT, Row]):
     def __init__(self, table: Table):
         super().__init__(table)
         self.objects: list[Row] = []

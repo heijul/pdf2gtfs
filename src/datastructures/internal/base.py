@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import TypeVar, Generic, Iterable
+from typing import TypeVar, Generic
 
 
 FieldT = TypeVar("FieldT", bound="BaseField")
 ContainerT = TypeVar("ContainerT", bound="BaseContainer")
+TableTypeT = TypeVar("TableTypeT")
+BaseContainerListT = TypeVar("BaseContainerListT", bound="BaseContainerList")
 
 
 class BaseContainerReference(Generic[FieldT, ContainerT]):
@@ -78,22 +80,31 @@ class BaseContainer(Generic[FieldT]):
         return self.fields.__iter__()
 
 
-class BaseContainerList(Generic[ContainerT]):
-    def __init__(self):
+class BaseContainerList(Generic[TableTypeT, ContainerT]):
+    def __init__(self, table: TableTypeT):
         self.objects: list[ContainerT] = []
+        self.table = table
 
     def add(self, obj: ContainerT):
         self.objects.append(obj)
         self._update_reference(obj)
 
     def _update_reference(self, obj: ContainerT):
-        pass
+        obj.table = self.table
 
     def prev(self, current: ContainerT) -> ContainerT | None:
         return self._get_neighbour(current, -1)
 
     def next(self, current: ContainerT) -> ContainerT | None:
         return self._get_neighbour(current, 1)
+
+    @classmethod
+    def from_list(cls, table: TableTypeT, objects: list[ContainerT]
+                  ) -> BaseContainerListT[TableTypeT, ContainerT]:
+        instance = cls(table)
+        for obj in objects:
+            instance.add(obj)
+        return instance
 
     def _get_neighbour(self, current: ContainerT, delta: int
                        ) -> ContainerT | None:
@@ -102,5 +113,5 @@ class BaseContainerList(Generic[ContainerT]):
 
         return self.objects[neighbour_index] if valid_index else None
 
-    def __iter__(self) -> Iterable[ContainerT]:
-        return self.objects.__iter__()
+    def __iter__(self):
+        return iter(self.objects)
