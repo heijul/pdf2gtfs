@@ -9,7 +9,7 @@ from datastructures.internal.base import BaseContainer, BaseField
 
 class TField(BaseField):
     def __init__(self, timetable: TimeTable):
-        super().__init__({"row": TRow, "column": TColumn})
+        super().__init__()
         self.timetable = timetable
 
 

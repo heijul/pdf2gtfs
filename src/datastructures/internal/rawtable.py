@@ -9,15 +9,23 @@ from typing import TypeVar, TYPE_CHECKING, Generic
 import pandas as pd
 
 from config import Config
-from datastructures.internal.base import BaseField, BaseContainer
+from datastructures.internal.base import (
+    BaseField, BaseContainer, BaseContainerReference, BaseContainerList)
+
+
 if TYPE_CHECKING:
     from datastructures.internal.timetable import TimeTable
 
 
-FC = TypeVar("FC", bound="FieldContainer")
+FieldT = TypeVar("FieldT", bound="Field")
+RowT = TypeVar("RowT", bound="Row")
+ColumnT = TypeVar("ColumnT", bound="Column")
+FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")
 
 
+# TODO: Maybe change to 'proper bbox' (x0, y0, x1, y1).
 class BBox:
+    """ Bounding box. Represented as (x0, x1, y0, y1). """
     def __init__(
             self, x0: float = 0, x1: float = 1, y0: float = 0, y1: float = 1):
         self.x0 = x0
@@ -74,6 +82,8 @@ class BBox:
 
 
 class BBoxObject:
+    """ Baseclass for objects which have a bbox. """
+
     def __init__(self, bbox: BBox | None = None) -> None:
         self._set_bbox(bbox)
 
@@ -106,9 +116,20 @@ class BBoxObject:
         self._set_bbox(bbox)
 
 
+class FieldRowReference(BaseContainerReference[FieldT, RowT]):
+    pass
+
+
+class FieldColumnReference(BaseContainerReference[FieldT, ColumnT]):
+    pass
+
+
 class Field(BaseField, BBoxObject):
+    row: Row = FieldRowReference()
+    column: Column = FieldColumnReference()
+
     def __init__(self, bbox: BBox, text: str):
-        BaseField.__init__(self, {"row": Row, "column": Column})
+        BaseField.__init__(self)
         BBoxObject.__init__(self, bbox)
         self.text = text
 
@@ -127,7 +148,24 @@ class Field(BaseField, BBoxObject):
         return f"'{self.text}'"
 
 
-class FieldContainer(BaseContainer, BBoxObject):
+class FieldContainerType(Enum):
+    pass
+
+
+class RowType(FieldContainerType):
+    HEADER = 1
+    DATA = 2
+    OTHER = 3
+    ANNOTATION = 4
+
+
+class ColumnType(FieldContainerType):
+    STOP = 1
+    STOP_ANNOTATION = 2
+    DATA = 3
+
+
+class FieldContainer(BaseContainer[Field], BBoxObject):
     def __init__(self, table: Table = None, bbox: BBox = None):
         BaseContainer.__init__(self)
         BBoxObject.__init__(self, bbox)
@@ -167,17 +205,6 @@ class FieldContainer(BaseContainer, BBoxObject):
 
     def __iter__(self):
         return self.fields.__iter__()
-
-
-class FieldContainerType(Enum):
-    pass
-
-
-class RowType(FieldContainerType):
-    HEADER = 1
-    DATA = 2
-    OTHER = 3
-    ANNOTATION = 4
 
 
 class Row(FieldContainer):
@@ -259,12 +286,6 @@ class Row(FieldContainer):
                 f"fields=[{fields_repr}])")
 
 
-class ColumnType(FieldContainerType):
-    STOP = 1
-    STOP_ANNOTATION = 2
-    DATA = 3
-
-
 class Column(FieldContainer):
     def __init__(self, table: Table = None,
                  fields: list[Field] = None,
@@ -279,11 +300,12 @@ class Column(FieldContainer):
         return self._type
 
     def _detect_type(self):
-        previous = self.table.columns.prev(self).type
-        has_time_data = self._contains_time_data()
+        previous = self.table.columns.prev(self)
         if not previous:
             self._type = ColumnType.STOP
-        elif previous == ColumnType.STOP and not has_time_data:
+            return
+        has_time_data = self._contains_time_data()
+        if previous.type == ColumnType.STOP and not has_time_data:
             self._type = ColumnType.STOP_ANNOTATION
         else:
             self._type = ColumnType.DATA
@@ -307,39 +329,27 @@ class Column(FieldContainer):
         return Column(table, [field], field.bbox)
 
 
-class FieldContainerList(Generic[FC]):
-    def __init__(self, table: Table):
-        self.table = table
-        self.objects: list[FC] = []
+class FieldContainerList(Generic[FieldContainerT],
+                         BaseContainerList[FieldContainerT]):
 
-    def add(self, obj: FieldContainer):
-        # TODO: Add insert logic depending on x0/y0, if necessary
-        self.objects.append(obj)
+    def __init__(self, table: Table):
+        Generic.__init__(self)
+        BaseContainerList.__init__(self)
+        self.table = table
+
+    def _update_reference(self, obj: FieldContainer):
         obj.table = self.table
 
-    def prev(self, current: FC) -> FC | None:
-        return self._get_neighbor(current, -1)
-
-    def next(self, current: FC) -> FC | None:
-        return self._get_neighbor(current, 1)
-
-    def of_type(self, typ: FieldContainerType) -> list[FC]:
+    def of_type(self, typ: FieldContainerType) -> list[FieldContainerT]:
         return [obj for obj in self.objects if obj.type == typ]
 
     @classmethod
-    def from_list(cls, table: Table, objects: list[FC]) -> FieldContainerList[FC]:
+    def from_list(cls, table: Table, objects: list[FieldContainerT]
+                  ) -> FieldContainerList[FieldContainerT]:
         instance = cls(table)
         for obj in objects:
             instance.add(obj)
         return instance
-
-    def _get_neighbor(self, current: FC, delta: int) -> FC | None:
-        index = self.objects.index(current)
-        valid_index = index and index < len(self.objects)
-        return self.objects[index + delta] if valid_index else None
-
-    def __iter__(self):
-        return self.objects
 
 
 class ColumnList(FieldContainerList[Column]):

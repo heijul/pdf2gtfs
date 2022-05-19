@@ -1,34 +1,75 @@
 from __future__ import annotations
 
-from typing import TypeVar, Type
+from typing import TypeVar, Generic, Iterable
 
 
-class BaseContainer:
+FieldT = TypeVar("FieldT", bound="BaseField")
+ContainerT = TypeVar("ContainerT", bound="BaseContainer")
+
+
+class BaseContainerReference(Generic[FieldT, ContainerT]):
+    """ Descriptor for the row/column references of the fields. """
+
+    def __set_name__(self, owner, name):
+        self.public_name = name
+        self.private_name = f"_{name}"
+        setattr(owner, self.private_name, None)
+
+    def __get__(self, obj: FieldT, objtype=None) -> ContainerT:
+        return getattr(obj, self.private_name)
+
+    def __set__(self, obj: FieldT, value: ContainerT) -> None:
+        old_value: ContainerT = getattr(obj, self.private_name)
+        if old_value:
+            old_value.remove_field(obj)
+
+        setattr(obj, self.private_name, value)
+
+
+class BaseField:
+    """ Baseclass for fields with a row and a column. """
+
+    row = BaseContainerReference()
+    column = BaseContainerReference()
+
     def __init__(self):
-        self._fields: list[BaseFieldT] = []
+        self._row = None
+        self._column = None
+
+
+class BaseContainer(Generic[FieldT]):
+    def __init__(self):
+        self._fields: list[FieldT] = []
         self.field_attr = self.__class__.__name__.lower()
 
     @property
-    def fields(self) -> list[BaseFieldT]:
+    def fields(self) -> list[FieldT]:
         return self._fields
 
     @fields.setter
-    def fields(self, value: list[BaseFieldT]) -> None:
-        for field in self._fields:
-            field.register(self.field_attr, self)
+    def fields(self, fields: list[FieldT]) -> None:
+        for field in fields:
+            self.add_reference_to_field(field)
+        self._fields = fields
 
-        self._fields = value
+    def add_reference_to_field(self, field: FieldT) -> None:
+        setattr(field, self.field_attr, self)
 
-    def deregister_field(self, field):
+    def _add_field(self, new_field: FieldT, index: int):
+        self.fields.insert(index, new_field)
+        self.add_reference_to_field(new_field)
+
+    def remove_field(self, field: FieldT) -> None:
+        """ Remove the field from this container.
+
+        Does not delete the field, only removes it from our fields.
+        Will be called by the BaseContainerReference descriptor.
+        """
         try:
             self.fields.remove(field)
         except ValueError:
             print("WARNING: "
                   "Tried to deregister field which was not in fields.")
-
-    def _add_field(self, new_field: BaseFieldT, index: int):
-        self.fields.insert(index, new_field)
-        new_field.register(self.field_attr, self)
 
     def __str__(self):
         return str([str(f) for f in self.fields])
@@ -37,36 +78,29 @@ class BaseContainer:
         return self.fields.__iter__()
 
 
-class BaseField:
-    """ BaseField which exists inside one or more containers. """
+class BaseContainerList(Generic[ContainerT]):
+    def __init__(self):
+        self.objects: list[ContainerT] = []
 
-    def __init__(self, containers: dict[str, Type[BaseContainerT]]):
-        self.containers = containers
-        for attr in self.containers:
-            setattr(self, attr, None)
+    def add(self, obj: ContainerT):
+        self.objects.append(obj)
+        self._update_reference(obj)
 
-    def register(self, attr: str, to: BaseContainerT):
-        if attr not in self.containers:
-            raise Exception(
-                f"Attribute {attr} not in attr_list {self.containers}.")
-        if to and not isinstance(to, self.containers.get(attr)):
-            raise Exception(f"Invalid attribute type. Expected "
-                            f"'{self.containers[attr]}', got '{type(to)}'")
+    def _update_reference(self, obj: ContainerT):
+        pass
 
-        self.deregister(attr)
-        setattr(self, attr, to)
+    def prev(self, current: ContainerT) -> ContainerT | None:
+        return self._get_neighbour(current, -1)
 
-    def deregister(self, attr_name: str):
-        if attr_name not in self.containers:
-            raise Exception(
-                f"Attribute {attr_name} not in attr_list {self.containers}.")
+    def next(self, current: ContainerT) -> ContainerT | None:
+        return self._get_neighbour(current, 1)
 
-        attr_value = getattr(self, attr_name)
-        if attr_value:
-            attr_value.deregister_field(self)
-        setattr(self, attr_name, None)
+    def _get_neighbour(self, current: ContainerT, delta: int
+                       ) -> ContainerT | None:
+        neighbour_index = self.objects.index(current) + delta
+        valid_index = 0 <= neighbour_index < len(self.objects)
 
+        return self.objects[neighbour_index] if valid_index else None
 
-BaseContainerT = TypeVar("BaseContainerT", bound="BaseContainer")
-BaseFieldT = TypeVar("BaseFieldT", bound="BaseField")
-
+    def __iter__(self) -> Iterable[ContainerT]:
+        return self.objects.__iter__()
