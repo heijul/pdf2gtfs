@@ -6,24 +6,36 @@ from typing import Type, Generic, TypeVar
 
 from config import Config
 from datastructures.internal.base import BaseContainer, BaseField, BaseContainerList
+import datastructures.internal.rawtable as raw
 
 
 TFieldContainerT = TypeVar("TFieldContainerT", bound="TFieldContainer")
 TimeTableT = TypeVar("TimeTableT", bound="TimeTable")
 TColumnT = TypeVar("TColumnT", bound="TColumn")
 TRowT = TypeVar("TRowT", bound="TRow")
+TFieldValueT = TypeVar("TFieldValueT")
 
 
-class TField(BaseField):
+class TField(BaseField, Generic[TFieldValueT]):
     def __init__(self, timetable: TimeTable):
         super().__init__()
         self.timetable = timetable
+        self.value: TFieldValueT | None = None
+
+    def _set_value(self, raw_field: raw.Field) -> None:
+        self.value = raw_field.text
+
+    @staticmethod
+    def from_raw_field(timetable: TimeTable, raw_field: raw.Field) -> TField:
+        field = TField(timetable)
+        field._set_value(raw_field)
+        return field
 
 
-class TStopField(TField):
-    def __init__(self, timetable: TimeTable, name: str):
-        super().__init__(timetable)
-        self.name = name
+class TStopField(TField[str]):
+    @staticmethod
+    def _clean_value(raw_field: raw.Field) -> TFieldValueT:
+        return raw_field.text.strip()
 
 
 @dataclass
@@ -32,12 +44,16 @@ class TimeData:
     minutes: int
 
 
-class TDataField(TField):
-    data: TimeData | None
-
-    def __init__(self, timetable: TimeTable, data_str: str):
-        super().__init__(timetable)
-        self._set_data(data_str)
+class TDataField(TField[TimeData]):
+    def _set_value(self, raw_field: raw.Field) -> None:
+        text = raw_field.text.strip()
+        try:
+            dt = datetime.strptime(text, Config.time_format)
+            value = TimeData(dt.hour, dt.minute)
+        except ValueError:
+            print(f"WARNING: Timedata {text} could not be parsed.")
+            value = None
+        self.value = value
 
     @property
     def valid(self):
@@ -53,12 +69,10 @@ class TDataField(TField):
         self.data = TimeData(data.hour, data.minute)
 
 
-class TAnnotationField(TField):
-    def __init__(self, timetable: TimeTable,
-                 text: str, annotates: TFieldContainer | None = None):
-        super().__init__(timetable)
-        self.text = text
-        self._annotates = annotates
+class TAnnotationField(TField[str]):
+    def _set_value(self, raw_field: raw.Field) -> None:
+        self.value = raw_field.text.strip()
+        # TODO: Update self.annotates
 
     @property
     def annotates(self):
@@ -69,15 +83,20 @@ class TAnnotationField(TField):
         self._annotates = value
 
 
-class TRowAnnotationField(TAnnotationField):
-    ...
+class TStopAnnotationField(TAnnotationField):
+    def _set_value(self, raw_field: raw.Field) -> None:
+        super()._set_value(raw_field)
+        # TODO: Set self.annotates
 
 
-class TColumnAnnotationField(TAnnotationField):
-    ...
+class TDataColumnAnnotationField(TAnnotationField):
+    def _set_value(self, raw_field: raw.Field) -> None:
+        super()._set_value(raw_field)
+        # TODO: Set self.annotates
+        # TODO: Update type of annotates -> add Generic to TAnnotationField
 
 
-class TFieldContainer(BaseContainer):
+class TFieldContainer(BaseContainer[TField]):
     ...
 
 
@@ -106,5 +125,44 @@ class TColumnList(TContainerList[TimeTableT, TRowT]):
     pass
 
 
+def _get_field_type(raw_field: raw.Field) -> Type[TField]:
+    if raw_field.column.type == raw.ColumnType.STOP:
+        return TStopField
+    if raw_field.column.type == raw.ColumnType.STOP_ANNOTATION:
+        return TStopAnnotationField
+    if raw_field.row.type == raw.RowType.ANNOTATION:
+        return TDataColumnAnnotationField
+    if raw_field.row.type == raw.RowType.DATA:
+        return TDataField
+    return TField[str]
+
+
 class TimeTable:
-    ...
+    def __init__(self):
+        self.rows: TRowList = TRowList(self)
+        self.columns: TColumnList = TColumnList(self)
+
+    @staticmethod
+    def from_raw_table(raw_table: raw.Table) -> TimeTable:
+        def _get_or_create_row(_raw_row: raw.Row) -> TRow:
+            _row = rows.get(_raw_row)
+            if not _row:
+                _row = TRow()
+                table.rows.add(_row)
+            return _row
+
+        table = TimeTable()
+        rows: dict[raw.Row, TRow] = {}
+
+        for raw_column in raw_table.columns:
+            column = TColumn()
+            table.columns.add(column)
+
+            for raw_field in raw_column:
+                field = _get_field_type(raw_field
+                                        ).from_raw_field(table, raw_field)
+                row = _get_or_create_row(raw_field.row)
+                column.add_field(field)
+                row.add_field(field)
+
+        return table
