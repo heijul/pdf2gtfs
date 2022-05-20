@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Type
 
 
 FieldT = TypeVar("FieldT", bound="BaseField")
@@ -56,7 +56,7 @@ class BaseContainer(Generic[FieldT, TableTypeT]):
         self._fields = fields
 
     @property
-    def table(self) -> TableTypeT:
+    def table(self) -> Type[TableTypeT]:
         return self._table
 
     @table.setter

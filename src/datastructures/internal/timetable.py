@@ -15,6 +15,7 @@ TimeTableT = TypeVar("TimeTableT", bound="TimeTable")
 TColumnT = TypeVar("TColumnT", bound="TColumn")
 TRowT = TypeVar("TRowT", bound="TRow")
 TFieldValueT = TypeVar("TFieldValueT")
+TFieldT = TypeVar("TFieldT", bound="TField")
 
 
 class TField(BaseField, Generic[TFieldValueT]):
@@ -105,11 +106,12 @@ class TDataColumnAnnotationField(TAnnotationField):
         # TODO: Update type of annotates -> add Generic to TAnnotationField
 
 
-class TFieldContainer(BaseContainer[TField, TimeTableT]):
+class TFieldContainer(Generic[TFieldT, TimeTableT],
+                      BaseContainer[TFieldT, TimeTableT]):
     ...
 
 
-class TColumn(TFieldContainer):
+class TColumn(TFieldContainer[TField, TimeTableT]):
     def __init__(self):
         super().__init__()
         self.field_attr = "column"
@@ -123,7 +125,7 @@ class TRepeatColumn(TColumn):
     ...
 
 
-class TRow(TFieldContainer):
+class TRow(TFieldContainer[TField, TimeTableT]):
     def __init__(self):
         super().__init__()
         self.field_attr = "row"
@@ -133,16 +135,15 @@ class TRow(TFieldContainer):
         return self.table.rows.index(self)
 
 
-class TContainerList(Generic[TimeTableT, TFieldContainerT],
-                     BaseContainerList[TimeTableT, TFieldContainer]):
+class TContainerList(BaseContainerList[TimeTableT, TFieldContainerT]):
     pass
 
 
-class TRowList(TContainerList[TimeTableT, TColumnT]):
+class TRowList(TContainerList[TimeTableT, TRowT]):
     pass
 
 
-class TColumnList(TContainerList[TimeTableT, TRowT]):
+class TColumnList(TContainerList[TimeTableT, TColumnT]):
     pass
 
 
