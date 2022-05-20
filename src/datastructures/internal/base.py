@@ -39,10 +39,11 @@ class BaseField:
         self._column = None
 
 
-class BaseContainer(Generic[FieldT]):
+class BaseContainer(Generic[FieldT, TableTypeT]):
     def __init__(self):
         self._fields: list[FieldT] = []
         self.field_attr = self.__class__.__name__.lower()
+        self._table = None
 
     @property
     def fields(self) -> list[FieldT]:
@@ -53,6 +54,14 @@ class BaseContainer(Generic[FieldT]):
         for field in fields:
             self.add_reference_to_field(field)
         self._fields = fields
+
+    @property
+    def table(self) -> TableTypeT:
+        return self._table
+
+    @table.setter
+    def table(self, table: TableTypeT):
+        self._table = table
 
     def add_reference_to_field(self, field: FieldT) -> None:
         setattr(field, self.field_attr, self)
@@ -82,6 +91,10 @@ class BaseContainer(Generic[FieldT]):
     def __iter__(self):
         return self.fields.__iter__()
 
+    def __repr__(self):
+        name = self.__class__.__name__
+        return f"{name}(fields: {str(self)}"
+
 
 class BaseContainerList(Generic[TableTypeT, ContainerT]):
     def __init__(self, table: TableTypeT):
@@ -104,6 +117,9 @@ class BaseContainerList(Generic[TableTypeT, ContainerT]):
     def next(self, current: ContainerT) -> ContainerT | None:
         return self._get_neighbour(current, 1)
 
+    def index(self, obj: ContainerT) -> int:
+        return self._objects.index(obj)
+
     @classmethod
     def from_list(cls, table: TableTypeT, objects: list[ContainerT]
                   ) -> BaseContainerListT[TableTypeT, ContainerT]:
@@ -121,3 +137,11 @@ class BaseContainerList(Generic[TableTypeT, ContainerT]):
 
     def __iter__(self):
         return iter(self._objects)
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        obj_str = "\n\t".join([str(obj) for obj in self._objects])
+        return f"{name}(\n\t{obj_str})"
+
+    def __len__(self):
+        return self._objects.__len__()

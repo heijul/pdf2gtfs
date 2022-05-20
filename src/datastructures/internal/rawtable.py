@@ -166,7 +166,7 @@ class ColumnType(FieldContainerType):
     DATA = 3
 
 
-class FieldContainer(BaseContainer[Field], BBoxObject):
+class FieldContainer(BaseContainer[Field, TableT], BBoxObject):
     def __init__(self, table: Table = None, bbox: BBox = None):
         BaseContainer.__init__(self)
         BBoxObject.__init__(self, bbox)

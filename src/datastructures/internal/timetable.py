@@ -5,7 +5,8 @@ from datetime import datetime
 from typing import Type, Generic, TypeVar
 
 from config import Config
-from datastructures.internal.base import BaseContainer, BaseField, BaseContainerList
+from datastructures.internal.base import (
+    BaseContainer, BaseField, BaseContainerList)
 import datastructures.internal.rawtable as raw
 
 
@@ -25,17 +26,25 @@ class TField(BaseField, Generic[TFieldValueT]):
     def _set_value(self, raw_field: raw.Field) -> None:
         self.value = raw_field.text
 
-    @staticmethod
-    def from_raw_field(timetable: TimeTable, raw_field: raw.Field) -> TField:
-        field = TField(timetable)
+    @classmethod
+    def from_raw_field(cls, timetable: TimeTable, raw_field: raw.Field
+                       ) -> TField:
+        field = cls(timetable)
         field._set_value(raw_field)
         return field
 
+    def __str__(self):
+        return f"{self.value}"
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        return (f"{name}(row_id: {self.row.id}, "
+                f"col_id: {self.column.id}, value: '{self.value}')")
+
 
 class TStopField(TField[str]):
-    @staticmethod
-    def _clean_value(raw_field: raw.Field) -> TFieldValueT:
-        return raw_field.text.strip()
+    def _set_value(self, raw_field: raw.Field) -> None:
+        self.value = raw_field.text.strip()
 
 
 @dataclass
@@ -96,12 +105,18 @@ class TDataColumnAnnotationField(TAnnotationField):
         # TODO: Update type of annotates -> add Generic to TAnnotationField
 
 
-class TFieldContainer(BaseContainer[TField]):
+class TFieldContainer(BaseContainer[TField, TimeTableT]):
     ...
 
 
 class TColumn(TFieldContainer):
-    ...
+    def __init__(self):
+        super().__init__()
+        self.field_attr = "column"
+
+    @property
+    def id(self):
+        return self.table.columns.index(self)
 
 
 class TRepeatColumn(TColumn):
@@ -109,7 +124,13 @@ class TRepeatColumn(TColumn):
 
 
 class TRow(TFieldContainer):
-    ...
+    def __init__(self):
+        super().__init__()
+        self.field_attr = "row"
+
+    @property
+    def id(self):
+        return self.table.rows.index(self)
 
 
 class TContainerList(Generic[TimeTableT, TFieldContainerT],
@@ -149,6 +170,7 @@ class TimeTable:
             if not _row:
                 _row = TRow()
                 table.rows.add(_row)
+                rows[_raw_row] = _row
             return _row
 
         table = TimeTable()
@@ -164,5 +186,15 @@ class TimeTable:
                 row = _get_or_create_row(raw_field.row)
                 column.add_field(field)
                 row.add_field(field)
-
+        print(table.rows)
         return table
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        field_count = (
+            len(set([field for row in self.rows for field in row])),
+            len(set([field for col in self.columns for field in col])))
+
+        return (f"{name}(row_count={len(self.rows)}, "
+                f"column_count={len(self.columns)}, "
+                f"field_count={field_count})")
