@@ -101,7 +101,8 @@ class BBoxObject:
     def _distance(self, other: FieldContainer, axis: str) -> float:
         # TODO: Move to bbox
         lower, upper = sorted([self, other], key=attrgetter(f"bbox.{axis}0"))
-        if lower.bbox.x0 == upper.bbox.x0:
+        # TODO: Why x0 instead of {axis}0 !?!
+        if getattr(lower.bbox, f"{axis}0") == getattr(upper.bbox, f"{axis}0"):
             return 0
         return (getattr(lower.bbox, f"{axis}1") -
                 getattr(upper.bbox, f"{axis}0"))
@@ -110,6 +111,7 @@ class BBoxObject:
         # TODO: Check default.
         if not bbobjects:
             self._set_bbox(None)
+            return
         bbox = bbobjects[0].bbox.copy()
         for obj in bbobjects[1:]:
             bbox.merge(obj.bbox)
@@ -139,8 +141,12 @@ class Field(BaseField, BBoxObject):
         return Field(BBox.from_series(char), char.text)
 
     def add_char(self, char: pd.Series) -> None:
-        self.merge(BBox.from_series(char))
+        super().merge(BBox.from_series(char))
         self.text += char.text
+
+    def merge(self, other: Field):
+        super().merge(other.bbox)
+        self.text += other.text
 
     def __str__(self):
         return str(self.text)
@@ -184,15 +190,14 @@ class FieldContainer(BaseContainer[Field, TableT], BBoxObject):
             if field_lookup < new_field_lookup:
                 break
             index += 1
-
-        super()._add_field(new_field, index)
+        super()._add_field_at_index(new_field, index)
 
     def _contains_time_data(self):
         """ Check if any field contains time data. """
         # TODO: Maybe add threshold as with sparsity?
         # TODO: Big problem when encountering dates ("nicht am 05.06")
         # TODO: Maybe add (bbox.x0 - table.bbox.x0) < X as a requirement?
-        field_texts = [str(field.text) for field in self.fields]
+        field_texts = [str(field.text).strip() for field in self.fields]
         for field_text in field_texts:
             try:
                 datetime.strptime(field_text, Config.time_format)
@@ -209,6 +214,7 @@ class FieldContainer(BaseContainer[Field, TableT], BBoxObject):
 
 
 class Row(FieldContainer):
+    # TODO: Instead of using enum for types use subclasses.
     def __init__(self, table: Table = None, bbox: BBox = None):
         super().__init__(table, bbox)
 
@@ -224,8 +230,8 @@ class Row(FieldContainer):
     def add_field(self, new_field: Field):
         self._add_field(new_field, "x")
 
-    def distance(self, other: Row) -> float:
-        return self._distance(other, "y")
+    def distance(self, other: Row, axis: str = "y") -> float:
+        return self._distance(other, axis)
 
     def set_table(self, table: Table):
         self.table = table
@@ -254,7 +260,7 @@ class Row(FieldContainer):
         def previous_row_is_header():
             previous = self.table.rows.prev(self)
             if not previous:
-                return False
+                return True
             return previous.type == RowType.HEADER
 
         # Once a row was recognized as annotation it stays an annotation.
@@ -292,7 +298,7 @@ class Column(FieldContainer):
                  fields: list[Field] = None,
                  bbox: BBox = None):
         super().__init__(table, bbox)
-        self.fields = fields or []
+        self.fields: list[Field] = fields or []
 
     @property
     def type(self) -> ColumnType:
@@ -319,6 +325,12 @@ class Column(FieldContainer):
             self.add_field(field)
 
     def add_field(self, new_field: Field):
+        # TODO: Maybe do in one loop in _add_field instead of two.
+        for field in self.fields:
+            if field.row == new_field.row:
+                new_field.text = " " + new_field.text
+                field.merge(new_field)
+                return
         self._add_field(new_field, "y")
 
     def __repr__(self):
@@ -343,13 +355,13 @@ class ColumnList(FieldContainerList[TableT, Column]):
 class RowList(FieldContainerList[TableT, Row]):
     def __init__(self, table: Table):
         super().__init__(table)
-        self.objects: list[Row] = []
+        self._objects: list[Row] = []
 
     @property
     def mean_row_field_count(self):
-        if not self.objects:
+        if not self._objects:
             return 0
-        return mean([len(row.fields) for row in self.objects])
+        return mean([len(row.fields) for row in self._objects])
 
 
 class Table:
@@ -406,15 +418,15 @@ class Table:
         columns: list[Column] = []
         for column in sorted(field_columns, key=attrgetter("bbox.x0")):
             if not columns:
-                columns.append(column)
+                columns.append(Column.from_field(self, column.fields[0]))
                 continue
             last = columns[-1]
             # Do not try to merge columns in the same row.
             if last.bbox.x1 <= column.bbox.x0:
-                columns.append(column)
+                columns.append(Column.from_field(self, column.fields[0]))
                 continue
             if _column_x_is_overlapping(last, column):
-                last.merge(column)
+                last.add_field(column.fields[0])
 
         self.columns = columns
 
@@ -431,11 +443,18 @@ class Table:
     def split_rows_into_tables(rows: list[Row]) -> list[Table]:
         tables = []
         current_rows = [rows[0]]
-
+        min_row_count = 3
         for row in rows[1:]:
-            distance_between_rows = abs(row.distance(current_rows[-1]))
-            if distance_between_rows > Config.max_row_distance:
-                print(f"Distance between rows: {distance_between_rows}")
+            if not row.fields:
+                continue
+            y_distance = abs(row.distance(current_rows[-1], "y"))
+            x_distance = abs(row.distance(current_rows[-1], "x"))
+            if x_distance != 0 and y_distance > Config.max_row_distance:
+                # TODO: Add to config
+                if len(current_rows) < min_row_count:
+                    current_rows = [row]
+                    continue
+                print(f"Distance between rows: {y_distance}")
                 tables.append(Table(current_rows))
                 current_rows = []
             current_rows.append(row)
@@ -449,3 +468,13 @@ class Table:
 
         table = TimeTable.from_raw_table(self)
         return table
+
+    def get_header_from_column(self, column: Column) -> str:
+        # TODO: There should be only a single header row.
+        for row in self.rows.of_type(RowType.HEADER):
+            for i, field in enumerate(row, 1):
+                next_field = row.fields[i] if i < len(row.fields) else None
+                if not next_field or next_field.bbox.x0 >= column.bbox.x1:
+                    return field.text
+
+        return ""

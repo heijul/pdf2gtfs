@@ -67,9 +67,9 @@ class BaseContainer(Generic[FieldT, TableTypeT]):
         setattr(field, self.field_attr, self)
 
     def add_field(self, new_field: FieldT):
-        self._add_field(new_field, len(self.fields))
+        self._add_field_at_index(new_field, len(self.fields))
 
-    def _add_field(self, new_field: FieldT, index: int):
+    def _add_field_at_index(self, new_field: FieldT, index: int):
         self.fields.insert(index, new_field)
         self.add_reference_to_field(new_field)
 
