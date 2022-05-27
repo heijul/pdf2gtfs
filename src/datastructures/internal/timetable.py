@@ -53,6 +53,10 @@ class TimeData:
     hours: int
     minutes: int
 
+    def __add__(self, other) -> TimeData:
+        return TimeData(self.hours + other.hours,
+                        self.minutes + other.minutes)
+
 
 class TDataField(TField[TimeData]):
     def _set_value(self, raw_field: raw.Field) -> None:
@@ -159,36 +163,175 @@ def _get_field_type(raw_field: raw.Field) -> Type[TField]:
     return TField[str]
 
 
+class Stop:
+    def __init__(self, name: str, annot: str = "", connection: bool = False):
+        self.name = name
+        self.annotation = annot
+        self.is_connection = connection
+
+    def __eq__(self, other):
+        return self.name == other.name and self.annotation == other.annotation
+
+    def __hash__(self):
+        return hash(self.name + " " + self.annotation)
+
+    def __str__(self):
+        # Add a/d for arrival/departure, depending on annotation.
+        annot = {"": "", "an": "[a]", "ab": "[d]"}[self.annotation.strip()]
+        return self.name.strip() + " " + annot
+
+
+class StopList:
+    def __init__(self):
+        self._stops: list[Stop] = []
+
+    @property
+    def all_stops(self):
+        return self._stops
+
+    @property
+    def stops(self):
+        return [stop for stop in self._stops if not stop.is_connection]
+
+    def add_stop(self, stop: Stop) -> None:
+        self._stops.append(stop)
+
+    def add_annotation(self, text: str,
+                       *, stop: Stop = None, stop_id: int = None) -> None:
+        if stop_id is not None:
+            stop = self.stops[stop_id]
+        stop.annotation = text
+
+
+# TODO: Rename.
+class Weekdays:
+    days: list[int]
+
+    def __init__(self, raw_header_text: str):
+        self._set_days(raw_header_text)
+
+    def _set_days(self, raw_value: str) -> None:
+        # TODO: Use config for this. header_identifier should then be updated
+        #  to be a dict instead. Or add another config item...
+        value = raw_value.replace(" ", "").lower()
+        if value == "montag-freitag":
+            self.days = list(range(0, 5))
+        elif value == "samstag":
+            self.days = [5]
+        elif value in ["sonntag", "sonn-undfeiertag"]:
+            self.days = [6]
+        else:
+            self.days = []
+
+
+class TimeTableEntry:
+    def __init__(self, raw_header_text: str = "") -> None:
+        self._values: dict[Stop, TimeData] = {}
+        self._annotations: list[str] = []
+        self.days: Weekdays = Weekdays(raw_header_text)
+
+    @property
+    def values(self) -> dict[Stop, TimeData]:
+        return self._values
+
+    def set_value(self, stop: Stop, value: TimeData) -> None:
+        self._values[stop] = value
+
+    def get_value(self, stop: Stop) -> TimeData | None:
+        return self._values.get(stop)
+
+    def add_annotation(self, annotation: str) -> None:
+        self._annotations.append(annotation)
+
+
+def get_stop_annotation_index(raw_table: raw.Table, raw_field: raw.Field):
+    """ Returns the index of the stop this annotation is for. """
+    i = raw_table.rows.index(raw_field.row)
+
+    for row in list(raw_table.rows):
+        if row.type == raw.RowType.DATA:
+            break
+        i -= 1
+    return i
+
+
 class TimeTable:
     def __init__(self):
         self.rows: TRowList = TRowList(self)
         self.columns: TColumnList = TColumnList(self)
+        self.stops = StopList()
+        self.entries: list[TimeTableEntry()] = []
+
+    def detect_connection(self):
+        """ Detect stops which are actually connections.
+
+        Will search for reoccurring stops and mark every stop within the
+        cycle as a connection. Stops with different arrival/departure times
+        will not be added as connections because of how range works.
+        """
+
+        cycles: dict[str, list[int]] = {}
+        for i, stop in enumerate(self.stops.all_stops):
+            cycle = cycles.setdefault(stop.name, [])
+            cycle.append(i)
+
+        indices = []
+        for cycle in cycles.values():
+            if len(cycle) == 1:
+                continue
+            start_idx = sorted(cycle)[0] + 1
+            end_idx = sorted(cycle)[-1]
+
+            # Prevent marking every stop as connection if it's a round trip.
+            if start_idx == 0 and end_idx == len(self.stops.stops) - 1:
+                continue
+            indices += list(range(start_idx, end_idx))
+            for stop in self.stops.all_stops[start_idx:end_idx]:
+                stop.is_connection = True
 
     @staticmethod
     def from_raw_table(raw_table: raw.Table) -> TimeTable:
-        def _get_or_create_row(_raw_row: raw.Row) -> TRow:
-            _row = rows.get(_raw_row)
-            if not _row:
-                _row = TRow()
-                table.rows.add(_row)
-                rows[_raw_row] = _row
-            return _row
-
         table = TimeTable()
-        rows: dict[raw.Row, TRow] = {}
 
-        for raw_column in raw_table.columns:
-            column = TColumn()
-            table.columns.add(column)
+        for raw_column in list(raw_table.columns):
+            raw_header_text = raw_table.get_header_from_column(raw_column)
+            table.entries.append(TimeTableEntry(raw_header_text))
 
             for raw_field in raw_column:
-                field = _get_field_type(raw_field
-                                        ).from_raw_field(table, raw_field)
-                row = _get_or_create_row(raw_field.row)
-                column.add_field(field)
-                row.add_field(field)
-        print(table.rows)
+                if raw_field.column.type == raw.ColumnType.STOP:
+                    if raw_field.row.type == raw.RowType.DATA:
+                        stop = Stop(raw_field.text)
+                        table.stops.add_stop(stop)
+                    continue
+                if raw_field.column.type == raw.ColumnType.STOP_ANNOTATION:
+                    index = get_stop_annotation_index(raw_table, raw_field)
+                    table.stops.add_annotation(raw_field.text, stop_id=index)
+                elif raw_field.row.type == raw.RowType.ANNOTATION:
+                    table.entries[-1].add_annotation(raw_field.text)
+                elif raw_field.row.type == raw.RowType.DATA:
+                    index = get_stop_annotation_index(raw_table, raw_field)
+                    stop = table.stops.stops[index]
+                    table.entries[-1].set_value(stop, raw_field.text)
+            # TODO: Check why this happens and fix it.
+            if not table.entries[-1].values:
+                del table.entries[-1]
+
+        table.detect_connection()
+        if table.stops.stops:
+            print(table)
         return table
+
+    def __str__(self):
+        # Entry columns + stop column
+        base_text = "{:30}" + "{:>6}" * len(self.entries)
+        texts = []
+        for stop in self.stops.stops:
+            text = [str(stop)]
+            for entry in self.entries:
+                value = entry.get_value(stop)
+                text.append(value if value else "-")
+            texts.append(base_text.format(*text).strip())
+        return "TimeTable:\n\t" + "\n\t".join(texts)
 
     def __repr__(self):
         name = self.__class__.__name__
