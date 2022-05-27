@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Type, Generic, TypeVar
+from typing import Type, Generic, TypeVar, Optional
 
 from config import Config
 from datastructures.internal.base import (
@@ -84,6 +84,10 @@ class TDataField(TField[TimeData]):
 
 
 class TAnnotationField(TField[str]):
+    def __init__(self, timetable: TimeTable):
+        super().__init__(timetable)
+        self._annotates: Optional[TFieldContainerT] = None
+
     def _set_value(self, raw_field: raw.Field) -> None:
         self.value = raw_field.text.strip()
         # TODO: Update self.annotates
