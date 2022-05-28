@@ -113,17 +113,29 @@ class Reader(BaseReader, ABC):
         tables = Table.split_rows_into_tables(rows)
         for table in tables:
             table.generate_data_columns_from_rows()
+            table.to_timetable()
+        print("Tables:", len(tables))
         return tables
 
     def get_lines(self, df: pd.DataFrame) -> list[Row]:
+        def normalize(char):
+            char["top"] = (round(char["top"] / mean_char_height)
+                           * mean_char_height)
+            return char
+
+        mean_char_height = round((df["y1"] - df["y0"]).mean())
+
         # Round to combat tolerances.
         df = df.round({"top": 0, "x0": 2, "x1": 2, "y0": 2, "y1": 2})
         # Chars are in the same row if they have the same distance to top.
-        # TODO: 'by' as function to include top tolerances
-        lines = df.groupby("top")
+        lines = df.apply(normalize, axis=1).groupby("top")
+
         rows = []
         for group_id in lines.groups:
-            line = lines.get_group(group_id)
+            try:
+                line = lines.get_group(group_id)
+            except KeyError:
+                continue
             row = Row.from_fields(self.split_line_into_fields(line))
             rows.append(row)
         return rows
@@ -138,7 +150,7 @@ class Reader(BaseReader, ABC):
         for char in sorted_line:
             # Ignore vertical text
             if not char.upright:
-                print(f"A {char}")
+                print(f"Skipping vertical char '{char}'...")
                 continue
             # Fields are continuous streams of chars.
             if not fields or char.x0 != fields[-1].bbox.x1:
