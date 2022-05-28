@@ -101,11 +101,13 @@ class BBoxObject:
     def _distance(self, other: FieldContainer, axis: str) -> float:
         # TODO: Move to bbox
         lower, upper = sorted([self, other], key=attrgetter(f"bbox.{axis}0"))
-        # TODO: Why x0 instead of {axis}0 !?!
-        if getattr(lower.bbox, f"{axis}0") == getattr(upper.bbox, f"{axis}0"):
-            return 0
-        return (getattr(lower.bbox, f"{axis}1") -
-                getattr(upper.bbox, f"{axis}0"))
+        lower_0 = getattr(lower.bbox, f"{axis}0")
+        lower_1 = getattr(lower.bbox, f"{axis}1")
+        upper_0 = getattr(upper.bbox, f"{axis}0")
+        upper_1 = getattr(upper.bbox, f"{axis}1")
+        return min([abs(lower_0 - upper_0),
+                    abs(lower_1 - upper_0),
+                    abs(lower_1 - upper_1)])
 
     def _set_bbox_from_list(self, bbobjects: list[BBoxObject]):
         # TODO: Check default.
@@ -258,7 +260,11 @@ class Row(FieldContainer):
                         for head in Config.header_identifier])
 
         def previous_row_is_header():
-            previous = self.table.rows.prev(self)
+            try:
+                previous = self.table.rows.prev(self)
+            except AttributeError:
+                # No table set yet -> no header
+                return False
             if not previous:
                 return True
             return previous.type == RowType.HEADER
@@ -452,6 +458,9 @@ class Table:
             if x_distance != 0 and y_distance > Config.max_row_distance:
                 # TODO: Add to config
                 if len(current_rows) < min_row_count:
+                    print("Dropped rows with too much distance:\n\t"
+                          "Distance (x, y):", x_distance, y_distance,
+                          "Rows:", [str(r) for r in current_rows])
                     current_rows = [row]
                     continue
                 print(f"Distance between rows: {y_distance}")
@@ -466,8 +475,7 @@ class Table:
     def to_timetable(self) -> TimeTable:
         from datastructures.internal.timetable import TimeTable
 
-        table = TimeTable.from_raw_table(self)
-        return table
+        return TimeTable.from_raw_table(self)
 
     def get_header_from_column(self, column: Column) -> str:
         # TODO: There should be only a single header row.
