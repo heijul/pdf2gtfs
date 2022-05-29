@@ -60,11 +60,15 @@ class BBox:
                 self.contains_horizontal(other) and
                 (not strict or self.is_valid and other.is_valid))
 
-    def merge(self, other: BBox):
+    def merge(self, other: BBox) -> None:
         self.x0 = min(self.x0, other.x0)
         self.x1 = max(self.x1, other.x1)
         self.y0 = min(self.y0, other.y0)
         self.y1 = max(self.y1, other.y1)
+
+    def set(self, coordinate: str, value: float) -> None:
+        assert coordinate in ["x0", "x1", "y0", "y1"]
+        setattr(self, coordinate, value)
 
     def _contains(self, other, axis):
         def _get(cls, bound):
@@ -281,15 +285,32 @@ class Row(FieldContainer):
         self._type = RowType.OTHER
 
     def fits_column_scheme(self, columns: list[Column]):
+        # Generate bbox for the stops, where we want to ignore the scheme.
+        stop_bbox = None
+        for column in columns:
+            if column.type == ColumnType.DATA:
+                break
+            if stop_bbox is None:
+                stop_bbox = column.bbox.copy()
+                continue
+            stop_bbox.merge(column.bbox.copy())
+
         for field in self.fields:
             field_fits = False
+            if stop_bbox and stop_bbox.contains_vertical(field.bbox):
+                continue
             # TODO: Instead of checking if column.bbox.contains, create
             #  new bbox with x0 = column[i].bbox.x0, x1 = column[i+1].bbox.x1
             for column in columns:
+                if column.type != ColumnType.DATA:
+                    continue
                 if column.bbox.contains_vertical(field.bbox):
                     field_fits = True
+                    field.column = column
                     break
             if not field_fits:
+                for _field in self.fields:
+                    _field.column = None
                 return False
         return True
 
@@ -433,6 +454,18 @@ class Table:
                 continue
             if _column_x_is_overlapping(last, column):
                 last.add_field(column.fields[0])
+
+        # Expand columns so their x-bounds are in the center between columns.
+        last = columns[0] if len(columns) else None
+        dist = 0
+        for column in columns[1:]:
+            dist = column.bbox.x0 - last.bbox.x1
+            new_bound = round(last.bbox.x1 + dist / 2, 2)
+
+            last.bbox.set("x1", new_bound)
+            column.bbox.set("x0", new_bound)
+            last = column
+        last.bbox.set("x1", round(last.bbox.x1 + dist / 2, 2))
 
         self.columns = columns
 
