@@ -6,7 +6,7 @@ from config import Config
 from datastructures.internal.enums import RowType
 from datastructures.internal.container import Row, Column
 from datastructures.internal.lists import RowList, ColumnList
-from datastructures.timetable.timetable import TimeTable
+from datastructures.timetable.table import TimeTable
 
 
 class Table:
