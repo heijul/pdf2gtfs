@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from pathlib import Path
+from time import time
 
 import pandas as pd
 # noinspection PyPackageRequirements
@@ -80,12 +81,13 @@ class Reader(BaseReader, ABC):
     def read(self) -> None:
         # Disable advanced layout analysis.
         laparams = LAParams(boxes_flow=None)
-
+        t = time()
         pages = extract_pages(self.filepath,
                               laparams=laparams,
                               page_numbers=Config.pages.page_numbers)
 
         for page in pages:
+            print(f"Reading took: {time() - t:.4} seconds.")
             self.read_page(page)
 
     def save_pages_to_csv(self, page_num):
