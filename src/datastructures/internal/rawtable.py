@@ -38,17 +38,19 @@ class BBox:
         self.y1 = y1
 
     @staticmethod
-    def from_series(series: pd.Series, top: float | None = None):
+    def from_series(series: pd.Series) -> BBox:
         """ Creates a bbox from a series.
 
-        If top is given, the series' coordinate origin should be the
-        bottom-left corner and will be converted.
+        If series has a top attribute, the series' coordinate origin will
+        be recognized as the bottom-left corner and will be converted.
         """
 
         y0 = series.y0
         y1 = series.y1
+        top = getattr(series, "top", None)
         if top is not None:
-            y1 = top + y0 - y1
+            height = y1 - y0
+            y1 = top + height
             y0 = top
         return BBox(series.x0, y0, series.x1, y1)
 
@@ -104,7 +106,16 @@ class BBoxObject:
     """ Baseclass for objects which have a bbox. """
 
     def __init__(self, bbox: BBox | None = None) -> None:
+        self._bbox = None
         self._set_bbox(bbox)
+
+    @property
+    def bbox(self) -> BBox:
+        return self._bbox
+
+    @bbox.setter
+    def bbox(self, bbox: BBox) -> None:
+        self._bbox = bbox.copy()
 
     def merge(self, other: BBoxObject | BBox):
         other_bbox = other if isinstance(other, BBox) else other.bbox
@@ -207,7 +218,7 @@ class FieldContainer(BaseContainer[Field, TableT], BBoxObject):
         for field in self.fields:
             field_lookup = getattr(field.bbox, lookup_field)
             new_field_lookup = getattr(new_field.bbox, lookup_field)
-            if field_lookup < new_field_lookup:
+            if field_lookup >= new_field_lookup:
                 break
             index += 1
         super()._add_field_at_index(new_field, index)
