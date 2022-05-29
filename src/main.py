@@ -1,7 +1,12 @@
+import logging
+
 from reader import Reader
 from config import Config
 from cli.cli import parse_args
 from sys import argv
+
+
+logger = logging.getLogger(__name__)
 
 
 def try_reader():
@@ -15,7 +20,8 @@ if __name__ == "__main__":
     argv.append("--pages=1")
     argv.append(fnames[3])
     parse_args()
-    print(f"Reading the following pages: {Config.pages.pages}.")
+    logging.basicConfig(level=20)
+    logger.info(f"Reading the following pages: {Config.pages.pages}.")
 
     try_reader()
 

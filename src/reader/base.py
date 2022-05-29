@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from pathlib import Path
@@ -18,6 +19,7 @@ from utils import contains_bbox
 
 
 pd.set_option('display.max_colwidth', None)
+logger = logging.getLogger(__name__)
 
 
 class BaseReader:
@@ -89,8 +91,8 @@ class Reader(BaseReader, ABC):
 
         for page in pages:
             page_num = Config.pages.pages[page.pageid - 1]
-            print(f"Basic reading of page {page_num} took: "
-                  f"{time() - t:.4} seconds.")
+            logger.info(f"Basic reading of page {page_num} took: "
+                        f"{time() - t:.4} seconds.")
             self.read_page(page)
             t = time()
 
@@ -107,12 +109,12 @@ class Reader(BaseReader, ABC):
         page_chars = pd.read_csv(f"page_char_cache_{page_num}.csv",
                                  index_col=0)
         tables = self.get_tables_from_chars(page_chars)
-        print(tables)
+        logger.info(f"Number of tables found: {len(tables)}")
 
     def read_page(self, page: LTPage):
         page_chars = get_chars_dataframe_from_page(page)
         tables = self.get_tables_from_chars(page_chars)
-        print(tables)
+        logger.info(f"Number of tables found: {len(tables)}")
 
     def get_tables_from_chars(self, chars: pd.DataFrame) -> list[Table]:
         rows = self.get_lines(chars)
@@ -120,7 +122,6 @@ class Reader(BaseReader, ABC):
         for table in tables:
             table.generate_data_columns_from_rows()
             table.to_timetable()
-        print("Tables:", len(tables))
         return tables
 
     def get_lines(self, df: pd.DataFrame) -> list[Row]:
@@ -156,7 +157,7 @@ class Reader(BaseReader, ABC):
         for char in sorted_line:
             # Ignore vertical text
             if not char.upright:
-                print(f"Skipping vertical char '{char}'...")
+                logger.debug(f"Skipping vertical char '{char}'...")
                 continue
             # Fields are continuous streams of chars.
             if not fields or char.x0 != fields[-1].bbox.x1:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from operator import attrgetter
 
 from config import Config
@@ -7,6 +8,9 @@ from datastructures.internal.enums import RowType
 from datastructures.internal.container import Row, Column
 from datastructures.internal.lists import RowList, ColumnList
 from datastructures.timetable.table import TimeTable
+
+
+logger = logging.getLogger(__name__)
 
 
 class Table:
@@ -111,12 +115,14 @@ class Table:
                 if len(current_rows) < min_row_count:
                     # TODO: Should not drop the table,
                     #  but use it to enhance the others
-                    print("Dropped rows with too much distance:\n\t"
-                          "Distance (x, y):", x_distance, y_distance,
-                          "Rows:", [str(r) for r in current_rows])
+                    # TODO: Change row_str to be " ".join([str(fields)]
+                    row_str = "\n\t\t".join([str(r) for r in current_rows])
+                    logger.debug("Dropped rows:\n\tDistance (x, y):"
+                                 f"({x_distance}, {y_distance})"
+                                 f"Rows:\n\t\t{row_str}")
                     current_rows = [row]
                     continue
-                print(f"Distance between rows: {y_distance}")
+                logger.info(f"Distance between rows: {y_distance}")
                 tables.append(Table(current_rows))
                 current_rows = []
             current_rows.append(row)

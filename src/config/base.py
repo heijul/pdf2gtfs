@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,9 @@ from config.errors import (INVALID_CONFIG_EXIT_CODE,
                            InvalidPropertyTypeError,
                            MissingRequiredPropertyError)
 from config.properties import Property, PagesProperty, FilenameProperty, Pages
+
+
+logger = logging.getLogger(__name__)
 
 
 class InstanceDescriptorMixin:
@@ -39,7 +43,7 @@ class _Config(InstanceDescriptorMixin):
         # or program parameters.
         default_config_loaded = self.load_config(None)
         if not default_config_loaded:
-            print(f"ERROR: Default config could not be loaded. Exiting...")
+            logger.error("Default config could not be loaded. Exiting...")
             quit(INVALID_CONFIG_EXIT_CODE)
 
     def _initialize_config_properties(self):
@@ -62,7 +66,7 @@ class _Config(InstanceDescriptorMixin):
         if not path:
             path = self.default_config_path
         if not path.exists():
-            print(f"WARNING: File does not exist, skipping: {path}")
+            logger.warning(f"File does not exist, skipping: {path}")
             return False
 
         data, valid = _read_yaml(path)
@@ -71,7 +75,7 @@ class _Config(InstanceDescriptorMixin):
             # Even if an item is invalid, continue reading to find all errors.
             try:
                 if key not in self.properties:
-                    print(f"ERROR: Invalid config key: {key}")
+                    logger.error(f"Invalid config key: {key}")
                     raise InvalidPropertyTypeError
                 setattr(self, key, value)
             except InvalidPropertyTypeError:
@@ -80,7 +84,8 @@ class _Config(InstanceDescriptorMixin):
         valid &= self._validate_no_missing_properties()
 
         if not valid:
-            print("ERROR: Tried to load invalid configuration file. Exiting.")
+            logger.error("Tried to load invalid configuration file "
+                         f"'{path}'. Exiting...")
             quit(INVALID_CONFIG_EXIT_CODE)
 
         return True
@@ -104,10 +109,11 @@ class _Config(InstanceDescriptorMixin):
                 missing_keys.append(key)
 
         if missing_keys:
-            print("The following values are required, but are missing in "
-                  "the configuration: ['{}']. This usually only happens, "
-                  "if the default configuration was changed, instead of "
-                  "creating a custom one.".format("', '".join(missing_keys)))
+            logger.warning(
+                "The following values are required, but are missing in "
+                "the configuration: ['{}']. This usually only happens, "
+                "if the default configuration was changed, instead of "
+                "creating a custom one.".format("', '".join(missing_keys)))
             return False
         return True
 
@@ -149,7 +155,7 @@ def _read_yaml(path: Path) -> tuple[dict[str, Any], bool]:
             message = "\n\t".join(str(error).split("\n"))
         else:
             message = str(error)
-        print(f"ERROR: Could not read configuration:\n\t{message}")
+        logger.error(f"Could not read configuration:\n\t{message}")
     return {}, False
 
 

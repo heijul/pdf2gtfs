@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 import datastructures.internal.table as raw
 from datastructures.internal.enums import ColumnType
 from datastructures.timetable.entries import TimeTableEntry
 from datastructures.timetable.stops import Stop
+
+
+logger = logging.getLogger(__name__)
 
 
 class StopList:
@@ -95,7 +100,7 @@ class TimeTable:
 
         table.detect_connection()
         if table.stops.stops:
-            print(table)
+            logger.info(table)
         return table
 
     def __str__(self):

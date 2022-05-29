@@ -3,9 +3,14 @@
 This is to enable a 'Config.some_property'-lookup, without the
 need to hard-code each property.
 """
+import logging
+
 from config.errors import (INVALID_CONFIG_EXIT_CODE,
                            InvalidPropertyTypeError,
                            MissingRequiredPropertyError)
+
+
+logger = logging.getLogger(__name__)
 
 
 class Property:
@@ -27,8 +32,9 @@ class Property:
 
     def __set__(self, obj, value):
         if not isinstance(value, self.type):
-            print(f"ERROR: Invalid config type for {self.attr}. "
-                  f"Expected '{self.type}', got '{type(value)}' instead.")
+            logger.error(
+                f"Invalid config type for {self.attr}. "
+                f"Expected '{self.type}', got '{type(value)}' instead.")
             raise InvalidPropertyTypeError
         setattr(obj, self.attr, value)
 
@@ -61,8 +67,8 @@ class Pages:
                     return set(range(int(start), int(end) + 1))
                 except ValueError:
                     pass
-            print(f"WARNING: Skipping invalid page '{non_num_string}'. "
-                  f"Reason: Non-numeric and not a proper range.")
+            logger.warning(f"Skipping invalid page '{non_num_string}'. "
+                           f"Reason: Non-numeric and not a proper range.")
             return set()
 
         for value_str in pages_string.split(","):
@@ -81,11 +87,11 @@ class Pages:
         # Page numbers are positive and start with 1.
         invalid_pages = [page for page in self.pages if page < 1]
         for page in invalid_pages:
-            print(f"WARNING: Skipping invalid page '{page}'. "
-                  f"Reason: Pages should be positive and begin with 1.")
+            logger.warning(f"Skipping invalid page '{page}'. Reason: "
+                           f"Pages should be positive and begin with 1.")
             self.pages.remove(page)
         if not self.pages:
-            print("ERROR: No valid pages given. Check the log for more info.")
+            logger.error("No valid pages given. Check the log for more info.")
             quit(INVALID_CONFIG_EXIT_CODE)
 
     def __str__(self):
