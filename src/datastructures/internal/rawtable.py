@@ -24,19 +24,33 @@ FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")
 TableT = TypeVar("TableT", bound="Table")
 
 
-# TODO: Maybe change to 'proper bbox' (x0, y0, x1, y1).
 class BBox:
-    """ Bounding box. Represented as (x0, x1, y0, y1). """
+    """ Bounding box. Represented as (x0, y0, x1, y1).
+
+    Origin is the upper left corner. First two coordinates represent the
+    top-left corner of the bbox; the other two the bottom-right corner.
+    """
     def __init__(
-            self, x0: float = 0, x1: float = 1, y0: float = 0, y1: float = 1):
+            self, x0: float = 0, y0: float = 0, x1: float = 1, y1: float = 1):
         self.x0 = x0
-        self.x1 = x1
         self.y0 = y0
+        self.x1 = x1
         self.y1 = y1
 
     @staticmethod
-    def from_series(series: pd.Series):
-        return BBox(series.x0, series.x1, series.y0, series.y1)
+    def from_series(series: pd.Series, top: float | None = None):
+        """ Creates a bbox from a series.
+
+        If top is given, the series' coordinate origin should be the
+        bottom-left corner and will be converted.
+        """
+
+        y0 = series.y0
+        y1 = series.y1
+        if top is not None:
+            y1 = top + y0 - y1
+            y0 = top
+        return BBox(series.x0, y0, series.x1, y1)
 
     @property
     def size(self):
@@ -47,7 +61,7 @@ class BBox:
         return self.x0 < self.x1 and self.y0 < self.y1 and self.size > (0, 0)
 
     def copy(self) -> BBox:
-        return BBox(self.x0, self.x1, self.y0, self.y1)
+        return BBox(self.x0, self.y0, self.x1, self.y1)
 
     def contains_vertical(self, other: BBox):
         return self._contains(other, "x")
@@ -62,12 +76,12 @@ class BBox:
 
     def merge(self, other: BBox) -> None:
         self.x0 = min(self.x0, other.x0)
-        self.x1 = max(self.x1, other.x1)
         self.y0 = min(self.y0, other.y0)
+        self.x1 = max(self.x1, other.x1)
         self.y1 = max(self.y1, other.y1)
 
     def set(self, coordinate: str, value: float) -> None:
-        assert coordinate in ["x0", "x1", "y0", "y1"]
+        assert coordinate in ["x0", "y0", "x1", "y1"]
         setattr(self, coordinate, value)
 
     def _contains(self, other, axis):
@@ -83,7 +97,7 @@ class BBox:
         return lower <= other_lower <= upper and lower <= other_upper <= upper
 
     def __repr__(self):
-        return f"BBox(x0={self.x0}, x1={self.x1}, y0={self.y0}, y1={self.y1})"
+        return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
 
 
 class BBoxObject:
@@ -95,8 +109,8 @@ class BBoxObject:
     def merge(self, other: BBoxObject | BBox):
         other_bbox = other if isinstance(other, BBox) else other.bbox
         self.bbox.x0 = min(self.bbox.x0, other_bbox.x0)
-        self.bbox.x1 = max(self.bbox.x1, other_bbox.x1)
         self.bbox.y0 = min(self.bbox.y0, other_bbox.y0)
+        self.bbox.x1 = max(self.bbox.x1, other_bbox.x1)
         self.bbox.y1 = max(self.bbox.y1, other_bbox.y1)
 
     def _set_bbox(self, bbox: BBox | None) -> None:
@@ -491,6 +505,8 @@ class Table:
             if x_distance != 0 and y_distance > Config.max_row_distance:
                 # TODO: Add to config
                 if len(current_rows) < min_row_count:
+                    # TODO: Should not drop the table,
+                    #  but use it to enhance the others
                     print("Dropped rows with too much distance:\n\t"
                           "Distance (x, y):", x_distance, y_distance,
                           "Rows:", [str(r) for r in current_rows])
