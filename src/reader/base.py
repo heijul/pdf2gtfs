@@ -87,8 +87,11 @@ class Reader(BaseReader, ABC):
                               page_numbers=Config.pages.page_numbers)
 
         for page in pages:
-            print(f"Reading took: {time() - t:.4} seconds.")
+            page_num = Config.pages.pages[page.pageid - 1]
+            print(f"Basic reading of page {page_num} took: "
+                  f"{time() - t:.4} seconds.")
             self.read_page(page)
+            t = time()
 
     def save_pages_to_csv(self, page_num):
         pages = extract_pages(self.filepath, page_numbers=[page_num])
