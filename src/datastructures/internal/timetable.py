@@ -11,10 +11,11 @@ class TimeData:
 
 
 class Stop:
-    def __init__(self, name: str, annot: str = "", connection: bool = False):
+    def __init__(self, name: str, raw_row_id: int):
         self.name = name
-        self.annotation = annot
-        self.is_connection = connection
+        self.raw_row_id = raw_row_id
+        self.annotation = ""
+        self.is_connection = False
 
     def __eq__(self, other):
         return self.name == other.name and self.annotation == other.annotation
@@ -43,10 +44,15 @@ class StopList:
     def add_stop(self, stop: Stop) -> None:
         self._stops.append(stop)
 
+    def get_from_id(self, row_id: int):
+        for stop in self.stops:
+            if stop.raw_row_id == row_id:
+                return stop
+
     def add_annotation(self, text: str,
                        *, stop: Stop = None, stop_id: int = None) -> None:
         if stop_id is not None:
-            stop = self.stops[stop_id]
+            stop = self.get_from_id(stop_id)
         stop.annotation = text
 
 
@@ -91,17 +97,6 @@ class TimeTableEntry:
         self._annotations.append(annotation)
 
 
-def get_stop_annotation_index(raw_table: raw.Table, raw_field: raw.Field):
-    """ Returns the index of the stop this annotation is for. """
-    i = raw_table.rows.index(raw_field.row)
-
-    for row in list(raw_table.rows):
-        if row.type == raw.RowType.DATA:
-            break
-        i -= 1
-    return i
-
-
 class TimeTable:
     def __init__(self):
         self.stops = StopList()
@@ -143,19 +138,20 @@ class TimeTable:
             table.entries.append(TimeTableEntry(raw_header_text))
 
             for raw_field in raw_column:
+                row_id = raw_table.rows.index(raw_field.row)
                 if raw_field.column.type == raw.ColumnType.STOP:
                     if raw_field.row.type == raw.RowType.DATA:
-                        stop = Stop(raw_field.text)
+                        stop = Stop(raw_field.text, row_id)
                         table.stops.add_stop(stop)
                     continue
                 if raw_field.column.type == raw.ColumnType.STOP_ANNOTATION:
-                    index = get_stop_annotation_index(raw_table, raw_field)
-                    table.stops.add_annotation(raw_field.text, stop_id=index)
+                    table.stops.add_annotation(raw_field.text, stop_id=row_id)
                 elif raw_field.row.type == raw.RowType.ANNOTATION:
-                    table.entries[-1].add_annotation(raw_field.text)
+                    # Ignore row annotations for now.
+                    # TODO: Implement this.
+                    pass
                 elif raw_field.row.type == raw.RowType.DATA:
-                    index = get_stop_annotation_index(raw_table, raw_field)
-                    stop = table.stops.stops[index]
+                    stop = table.stops.get_from_id(row_id)
                     table.entries[-1].set_value(stop, raw_field.text)
             # TODO: Check why this happens and fix it.
             if not table.entries[-1].values:
