@@ -8,5 +8,7 @@ data/
 old/
 .ipynb_checkpoints/
 
+*.csv
+
 # drawio backups
 *.bkp

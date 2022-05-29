@@ -42,11 +42,15 @@ class Pages:
     def _set_value(self, pages_string):
         pages_string = pages_string.replace(" ", "")
 
+        # TODO: Redo.
         if pages_string != "all":
             self._set_pages(pages_string)
+            # pdfminer uses 0-indexed pages or None for all pages.
+            self.page_numbers = [page - 1 for page in self.pages]
             return
 
         self.all = True
+        self.page_numbers = None
 
     def _set_pages(self, pages_string):
         def _handle_non_numeric_pages(non_num_string):
@@ -83,11 +87,6 @@ class Pages:
         if not self.pages:
             print("ERROR: No valid pages given. Check the log for more info.")
             quit(INVALID_CONFIG_EXIT_CODE)
-
-    def page_is_active(self, page):
-        if self.all:
-            return True
-        return page in self.pages
 
     def __str__(self):
         return "all" if self.all else str(list(self.pages))

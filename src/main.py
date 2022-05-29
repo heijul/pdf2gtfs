@@ -11,9 +11,11 @@ def try_reader():
 
 if __name__ == "__main__":
     fnames = ["./data/vag_linie_eins.pdf", "./data/rmv_u1.pdf",
-              "./data/rmv_g10.pdf"]
-    argv.append(fnames[0])
+              "./data/rmv_g10.pdf", "./data/vag_linie_eins_new.pdf", "./data/test.pdf"]
+    argv.append("--pages=1")
+    argv.append(fnames[3])
     parse_args()
+    print(f"Reading the following pages: {Config.pages.pages}.")
 
     try_reader()
 
