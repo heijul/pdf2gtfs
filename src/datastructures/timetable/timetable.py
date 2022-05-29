@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import datastructures.internal.rawtable as raw
+import datastructures.internal.table as raw
+from datastructures.internal.enums import ColumnType
 
 
 @dataclass
@@ -139,12 +140,12 @@ class TimeTable:
 
             for raw_field in raw_column:
                 row_id = raw_table.rows.index(raw_field.row)
-                if raw_field.column.type == raw.ColumnType.STOP:
+                if raw_field.column.type == ColumnType.STOP:
                     if raw_field.row.type == raw.RowType.DATA:
                         stop = Stop(raw_field.text, row_id)
                         table.stops.add_stop(stop)
                     continue
-                if raw_field.column.type == raw.ColumnType.STOP_ANNOTATION:
+                if raw_field.column.type == ColumnType.STOP_ANNOTATION:
                     table.stops.add_annotation(raw_field.text, stop_id=row_id)
                 elif raw_field.row.type == raw.RowType.ANNOTATION:
                     # Ignore row annotations for now.

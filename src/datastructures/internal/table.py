@@ -1,192 +1,139 @@
 from __future__ import annotations
 
-from itertools import cycle
-from statistics import mean
-from pathlib import Path
+from operator import attrgetter
 
-import pandas as pd
-
-from datastructures.internal.column import get_columns_from_rows
-from datastructures.internal.field import field_text_generator
-from datastructures.internal import Row
 from config import Config
+from datastructures.internal.enums import RowType
+from datastructures.internal.container import Row, Column
+from datastructures.internal.lists import RowList, ColumnList
+from datastructures.timetable.timetable import TimeTable
 
 
 class Table:
-    def __init__(self, rows, auto_expand=True):
-        self.rows = rows
-        self.df = self._dataframe_from_rows()
-        auto_expand = len(self.rows) if auto_expand else False
-        if auto_expand:
-            self._expand()
+    def __init__(self, rows: list[Row] = None, columns: list[Column] = None):
+        self.rows = rows or []
+        self.columns = columns or []
+
+    @property
+    def rows(self) -> RowList:
+        return self._rows
+
+    @rows.setter
+    def rows(self, rows: list[Row] | RowList) -> None:
+        if isinstance(rows, RowList):
+            self._rows = rows
+        else:
+            self._rows = RowList.from_list(self, rows)
+
+    @property
+    def columns(self) -> ColumnList:
+        return self._columns
+
+    @columns.setter
+    def columns(self, columns: list[Column] | ColumnList):
+        if isinstance(columns, ColumnList):
+            self._columns = columns
+        else:
+            self._columns = ColumnList.from_list(self, columns)
+
+    @property
+    def header_rows(self):
+        return self.rows.of_type(RowType.HEADER)
+
+    def generate_data_columns_from_rows(self):
+        def _get_bounds(_column: Column):
+            return _column.bbox.x0, _column.bbox.x1
+
+        def _column_x_is_overlapping(_c1: Column, field_column: Column):
+            b1 = _get_bounds(_c1)
+            b2 = _get_bounds(field_column)
+            # Do not use equality here to prevent returning true
+            #  for columns that are only touching.
+            return b1[0] <= b2[0] <= b1[1] or b1[0] <= b2[1] <= b1[1]
+
+        data_rows = self.rows.of_type(RowType.DATA)
+        if not data_rows:
+            return
+
+        # Generate single-field columns from the rows.
+        field_columns = [Column.from_field(self, field)
+                         for row in data_rows for field in row]
+
+        # Merge vertically overlapping columns.
+        columns: list[Column] = []
+        for column in sorted(field_columns, key=attrgetter("bbox.x0")):
+            if not columns:
+                columns.append(Column.from_field(self, column.fields[0]))
+                continue
+            last = columns[-1]
+            # Do not try to merge columns in the same row.
+            if last.bbox.x1 <= column.bbox.x0:
+                columns.append(Column.from_field(self, column.fields[0]))
+                continue
+            if _column_x_is_overlapping(last, column):
+                last.add_field(column.fields[0])
+
+        # Expand columns so their x-bounds are in the center between columns.
+        last = columns[0] if len(columns) else None
+        dist = 0
+        for column in columns[1:]:
+            dist = column.bbox.x0 - last.bbox.x1
+            new_bound = round(last.bbox.x1 + dist / 2, 2)
+
+            last.bbox.set("x1", new_bound)
+            column.bbox.set("x0", new_bound)
+            last = column
+        last.bbox.set("x1", round(last.bbox.x1 + dist / 2, 2))
+
+        self.columns = columns
+
+        # Try to fit the 'RowTypes.OTHER'-rows into the established data rows
+        #  and update their type accordingly.
+        # TODO: Maybe use Config.annotation_identifier instead of this!?
+        for row in self.rows:
+            if row.type != RowType.OTHER:
+                continue
+            if row.fits_column_scheme(columns):
+                row.type = RowType.ANNOTATION
 
     @staticmethod
-    def from_csv(path: Path | str) -> Table:
-        table = Table([], False)
-        table.df = pd.read_csv(path, index_col=0)
-        return table
-
-    def to_csv(self, path: Path | str):
-        self.df.to_csv(path)
-
-    def _dataframe_from_rows(self) -> pd.DataFrame:
-        return pd.DataFrame(self.rows)
-
-    def _expand(self):
-        def __get_repeat_identifier_start_idx() -> int:
-            """ Return first index where the value equals any
-            repeat identifier or -1 if there is none.
-            """
-            cond = False
-            for identifier in Config.repeat_identifier:
-                cond |= column == identifier
-            index = column.where(cond).dropna().index
-            return index[0] if index.size else -1
-
-        def __get_repeat_interval() -> list[int]:
-            # TODO: Should " ".join the whole column.
-            repeat_intervals = []
-            current = ""
-            for char in column[row_idx + 1]:
-                if char.isnumeric():
-                    current += char
-                elif char == " ":
+    def split_rows_into_tables(rows: list[Row]) -> list[Table]:
+        tables = []
+        current_rows = [rows[0]]
+        min_row_count = 3
+        for row in rows[1:]:
+            if not row.fields:
+                continue
+            y_distance = abs(row.distance(current_rows[-1], "y"))
+            x_distance = abs(row.distance(current_rows[-1], "x"))
+            if x_distance != 0 and y_distance > Config.max_row_distance:
+                # TODO: Add to config
+                if len(current_rows) < min_row_count:
+                    # TODO: Should not drop the table,
+                    #  but use it to enhance the others
+                    print("Dropped rows with too much distance:\n\t"
+                          "Distance (x, y):", x_distance, y_distance,
+                          "Rows:", [str(r) for r in current_rows])
+                    current_rows = [row]
                     continue
-                else:
-                    repeat_intervals.append(int(current))
-                    current = ""
-            if current:
-                repeat_intervals.append(int(current))
-            if Config.repeat_strategy == "mean":
-                return [mean(repeat_intervals)]
-            return repeat_intervals
+                print(f"Distance between rows: {y_distance}")
+                tables.append(Table(current_rows))
+                current_rows = []
+            current_rows.append(row)
+        else:
+            if current_rows:
+                tables.append(Table(current_rows))
+        return tables
 
-        def df_to_csv():
-            # Basically does what pd.DataFrame.to_csv does but returns it
-            #  as string. Only for demonstration purposes.
-            format_str = "\t".join(["{:30}"] +
-                                   (self.df.columns.size - 1) * ["{:>5}"])
-            times = []
-            for _, series in self.df.iterrows():
-                times.append([])
-                for field in series:
-                    text = str(field)
-                    if isinstance(field, pd.Timestamp):
-                        text = field.strftime("%H:%M")
-                    elif field is pd.NaT:
-                        text = ""
-                    times[-1].append(text)
-            return "\n".join([format_str.format(*row) for row in times])
+    def to_timetable(self) -> TimeTable:
+        return TimeTable.from_raw_table(self)
 
-        def get_timedelta(_interval):
-            _minutes = int(_interval)
-            _seconds = round((_interval - _minutes) * 60)
-            return pd.Timedelta(minutes=_minutes, seconds=_seconds)
+    def get_header_from_column(self, column: Column) -> str:
+        # TODO: There should be only a single header row.
+        for row in self.rows.of_type(RowType.HEADER):
+            for i, field in enumerate(row, 1):
+                next_field = row.fields[i] if i < len(row.fields) else None
+                if not next_field or next_field.bbox.x0 >= column.bbox.x1:
+                    return field.text
 
-        # TODO: Split this into multiple functions/Create class RepeatColumn.
-        #  Timedeltas probably need to use the proper year/day, so will need
-        #  to do the actual expansion later...
-        # Turn "Alle x min" into proper columns.
-        # Get the indices of all columns, which contain a repeat identifier.
-        repeats = []
-        for column_idx in self.df:
-            column = self.df[column_idx]
-            row_idx = __get_repeat_identifier_start_idx()
-
-            if row_idx == -1 or row_idx + 1 > column.size:
-                continue
-            repeats.append((column_idx, __get_repeat_interval()))
-
-        # Repeatedly apply the interval to the previous column.
-        columns = []
-        for (column_idx, intervals) in repeats:
-            prev_column = pd.to_datetime(self.df[column_idx - 1],
-                                         format=Config.time_format)
-            next_column = pd.to_datetime(self.df[column_idx + 1],
-                                         format=Config.time_format)
-            interval_cycle = cycle(
-                [get_timedelta(interval) for interval in intervals])
-            while True:
-                column = prev_column + next(interval_cycle)
-                if column[0] >= next_column[0]:
-                    break
-                columns.append((column_idx, column))
-                prev_column = column
-
-        # Insert the repeated columns into their proper position.
-        for i, (column_idx, column) in enumerate(columns):
-            self.df.insert(column_idx + i, f".{i}", column)
-
-        print(self.df)
-        # Remove all columns, which contain the repeat identifier.
-        for (column_idx, _) in repeats:
-            self.df.drop(column_idx, axis=1, inplace=True)
-
-        # Fix column names and transform columns to datetime.
-        self.df.columns = range(len(self.df.columns))
-        for i in self.df.columns:
-            if i < 2:
-                continue
-            # TODO: Errors should be handled properly
-            self.df[i] = pd.to_datetime(
-                self.df[i], format=Config.time_format, errors="coerce")
-        print(df_to_csv())
-
-    def to_csv_str(self):
-        if not self.rows:
-            return f"{self}; Missing rows!"
-        format_str = "\t".join(["{:30}"] + (len(self.rows[0]) - 1) * ["{:>5}"])
-        return "\n".join([format_str.format(*row) for row in self.rows])
-
-
-def table_from_rows(raw_rows) -> Table | None:
-    # Turns the list of rows of varying column count into a
-    # proper table, where each row has the same number of columns.
-
-    # TODO: Do this properly.
-    # Ignore tables with too few rows.
-    if len(raw_rows) < Config.min_table_rows:
-        return None
-
-    idx, header = __get_header(raw_rows)
-    row_texts = __get_row_texts(raw_rows[idx:])
-    table = Table(row_texts)
-    print(table.to_csv_str())
-    return table
-
-
-def __get_header(raw_rows: list[Row]) -> (int, list[Row]):
-    """ Returns the index of the first datarow and a list of headers. """
-    header = []
-    i = 0
-    for row in raw_rows:
-        row_text = row.text.strip().lower()
-        if any([row_text.startswith(head)
-                for head in Config.header_identifier]):
-            i += 1
-            header.append(row)
-            continue
-        # No need to check for a header if we are already at the body.
-        break
-
-    return i, header
-
-
-def __get_row_texts(raw_rows: list[Row]) -> list[list[str]]:
-    if len(raw_rows) == 0:
-        return []
-
-    row_texts = []
-    columns = get_columns_from_rows(raw_rows)
-
-    for raw_row in raw_rows:
-        if raw_row.dropped:
-            continue
-
-        row_text = []
-
-        for field_text in field_text_generator(raw_row.fields, columns):
-            row_text.append(field_text)
-        row_texts.append(row_text)
-
-    return row_texts
+        return ""
