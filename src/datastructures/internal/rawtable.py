@@ -98,6 +98,32 @@ class BBox:
 
         return lower <= other_lower <= upper and lower <= other_upper <= upper
 
+    def distance(self, other: BBox, axis: str | None = None) -> float:
+        """ Return the absolute distance of self to other on the given axis.
+
+        If no axis is given return the minimum distance on either axis."""
+        assert axis in ["x", "y", None]
+
+        if axis is not None:
+            return self._distance(other, axis)
+        return min([self._distance(other, "x"), self._distance(other, "y")])
+
+    def _distance(self, other: BBox, axis: str) -> float:
+        """ Returns the minimal distance between two bboxes on the given axis.
+
+        If one bbox is contained by the other, return the minimal distance
+        of the contained bbox to the others' bounds.
+        """
+        self_0 = getattr(self, f"{axis}0")
+        self_1 = getattr(self, f"{axis}1")
+        other_0 = getattr(other, f"{axis}0")
+        other_1 = getattr(other, f"{axis}1")
+
+        return min([abs(self_0 - other_0),
+                    abs(self_0 - other_1),
+                    abs(self_1 - other_0),
+                    abs(self_1 - other_1)])
+
     def __repr__(self):
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
 
@@ -106,16 +132,15 @@ class BBoxObject:
     """ Baseclass for objects which have a bbox. """
 
     def __init__(self, bbox: BBox | None = None) -> None:
-        self._bbox = None
-        self._set_bbox(bbox)
+        self.bbox = bbox
 
     @property
     def bbox(self) -> BBox:
         return self._bbox
 
     @bbox.setter
-    def bbox(self, bbox: BBox) -> None:
-        self._bbox = bbox.copy()
+    def bbox(self, bbox: BBox | None) -> None:
+        self._bbox = BBox() if bbox is None else bbox.copy()
 
     def merge(self, other: BBoxObject | BBox):
         other_bbox = other if isinstance(other, BBox) else other.bbox
@@ -124,30 +149,12 @@ class BBoxObject:
         self.bbox.x1 = max(self.bbox.x1, other_bbox.x1)
         self.bbox.y1 = max(self.bbox.y1, other_bbox.y1)
 
-    def _set_bbox(self, bbox: BBox | None) -> None:
-        self.bbox = BBox() if bbox is None else bbox
+    def _set_bbox_from_list(self, bbox_objects: list[BBoxObject]):
+        bbox = bbox_objects[0].bbox.copy() if bbox_objects else None
+        for bbox_object in bbox_objects[1:]:
+            bbox.merge(bbox_object.bbox)
 
-    def _distance(self, other: FieldContainer, axis: str) -> float:
-        # TODO: Move to bbox
-        lower, upper = sorted([self, other], key=attrgetter(f"bbox.{axis}0"))
-        lower_0 = getattr(lower.bbox, f"{axis}0")
-        lower_1 = getattr(lower.bbox, f"{axis}1")
-        upper_0 = getattr(upper.bbox, f"{axis}0")
-        upper_1 = getattr(upper.bbox, f"{axis}1")
-        return min([abs(lower_0 - upper_0),
-                    abs(lower_1 - upper_0),
-                    abs(lower_1 - upper_1)])
-
-    def _set_bbox_from_list(self, bbobjects: list[BBoxObject]):
-        # TODO: Check default.
-        if not bbobjects:
-            self._set_bbox(None)
-            return
-        bbox = bbobjects[0].bbox.copy()
-        for obj in bbobjects[1:]:
-            bbox.merge(obj.bbox)
-
-        self._set_bbox(bbox)
+        self.bbox = bbox
 
 
 class FieldRowReference(BaseContainerReference[FieldT, RowT]):
@@ -262,7 +269,7 @@ class Row(FieldContainer):
         self._add_field(new_field, "x")
 
     def distance(self, other: Row, axis: str = "y") -> float:
-        return self._distance(other, axis)
+        return self.bbox.distance(other.bbox, axis)
 
     def set_table(self, table: Table):
         self.table = table
