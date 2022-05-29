@@ -25,8 +25,8 @@ class Stop:
 
     def __str__(self):
         # Add a/d for arrival/departure, depending on annotation.
-        annot = {"": "", "an": "[a]", "ab": "[d]"}[self.annotation.strip()]
-        return self.name.strip() + " " + annot
+        annots = {"an": " [a]", "ab": " [d]"}
+        return self.name.strip() + annots.get(self.annotation.strip(), "")
 
 
 class StopList:
