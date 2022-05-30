@@ -24,6 +24,8 @@ header_values: {
 
 # The country + subdivision (state/province) code used to get the holidays.
 # See https://pypi.org/project/holidays/ for a list of possible values.
+# If no subdivision exists for a country, simply do not set subdivision or
+#    set it to the empty string.
 #
 # Type: dict of string to string
 holiday_code:

@@ -71,7 +71,7 @@ class HolidayCodeProperty(Property):
     def __init__(self, cls, attr):
         super().__init__(cls, attr, dict)
 
-    def validate(self, value: (str, str)):
+    def validate(self, value: dict[str, str]):
         super().validate(value)
 
         supported_countries = list_supported_countries()
@@ -86,7 +86,7 @@ class HolidayCodeProperty(Property):
                            f"country '{country}' of {self.attr} entry.")
             raise err.InvalidHolidayCode
 
-    def __set__(self, obj, value: Any):
+    def __set__(self, obj, value: dict):
         self.validate(value)
         setattr(obj, self.attr, (value.get("country"), value.get("sub")))
 
