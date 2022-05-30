@@ -81,7 +81,7 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
 # TODO: No need for a class here I guess. Just use toplevel functions with
 #  the proper access level, or not, in order to make it replaceable.
 class Reader(BaseReader, ABC):
-    def read(self) -> None:
+    def read(self):
         # Disable advanced layout analysis.
         laparams = LAParams(boxes_flow=None)
         t = time()
@@ -89,12 +89,14 @@ class Reader(BaseReader, ABC):
                               laparams=laparams,
                               page_numbers=Config.pages.page_numbers)
 
+        timetables = []
         for page in pages:
             page_num = Config.pages.pages[page.pageid - 1]
             logger.info(f"Basic reading of page {page_num} took: "
                         f"{time() - t:.4} seconds.")
-            self.read_page(page)
+            timetables += self.read_page(page)
             t = time()
+        return timetables
 
     def save_pages_to_csv(self, page_num):
         pages = extract_pages(self.filepath, page_numbers=[page_num])
@@ -115,14 +117,16 @@ class Reader(BaseReader, ABC):
         page_chars = get_chars_dataframe_from_page(page)
         tables = self.get_tables_from_chars(page_chars)
         logger.info(f"Number of tables found: {len(tables)}")
+        return tables
 
-    def get_tables_from_chars(self, chars: pd.DataFrame) -> list[Table]:
+    def get_tables_from_chars(self, chars: pd.DataFrame):
         rows = self.get_lines(chars)
         tables = Table.split_rows_into_tables(rows)
+        timetables = []
         for table in tables:
             table.generate_data_columns_from_rows()
-            table.to_timetable()
-        return tables
+            timetables.append(table.to_timetable())
+        return timetables
 
     def get_lines(self, df: pd.DataFrame) -> list[Row]:
         def normalize(char):

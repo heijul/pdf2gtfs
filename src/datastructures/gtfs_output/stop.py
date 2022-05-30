@@ -1,27 +1,29 @@
 from dataclasses import dataclass
 
 from datastructures.gtfs_output.basestructures import (
-    UIDDataClass, BaseContainer, ContainerObjectType)
-from datastructures.gtfs_output.location import Location
+    BaseDataClass, BaseContainer)
 
 
 @dataclass(init=False)
-class Stop(UIDDataClass):
-    name: str
-    location: Location | None = None
+class Stop(BaseDataClass):
+    stop_id: str
+    stop_name: str
+    stop_lat: float
+    stop_lon: float
 
-    def __init__(self, name, location=None):
+    def __init__(self, name: str, lat: float = -1, lon: float = -1):
         super().__init__()
-        self.name = name
-        self.location = location
-        Stops.add(self)
-
-    def set_location(self, location: Location):
-        self.location = location
+        self.stop_id = str(self.id)
+        self.stop_name = name.strip()
+        self.stop_lat = lat
+        self.stop_lon = lon
 
 
 class Stops(BaseContainer):
-    _objects: dict[int, ContainerObjectType] = {}
+    entries: dict[int, Stop] = {}
 
-    def __repr__(self):
-        return f"{self.__name__!r}: {self._objects!r}"
+    def __init__(self):
+        super().__init__("stops.txt", Stop)
+
+    def add(self, stop_name: str) -> None:
+        super()._add(Stop(stop_name))

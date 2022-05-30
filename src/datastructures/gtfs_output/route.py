@@ -1,26 +1,52 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, Field
+from enum import Enum
 
-from datastructures.gtfs_output.basestructures import UIDDataClass, BaseContainer
-from datastructures.gtfs_output.stop import Stop
+from datastructures.gtfs_output.basestructures import (
+    BaseDataClass, BaseContainer)
+
+
+class RouteType(Enum):
+    Tram = 0
+    StreetCar = 0
+    LightRail = 0
+    Subway = 1
+    Metro = 1
+    Rail = 2
+    Bus = 3
+    Ferry = 4
+    CableTram = 5
+    AerialLift = 6
+    Funicular = 7
+    Trolleybus = 11
+    Monorail = 12
 
 
 @dataclass
-class Route(UIDDataClass):
-    name: str
-    stops: list[Stop] = field(default_factory=list)
+class Route(BaseDataClass):
+    route_id: int
+    route_short_name: str
+    route_long_name: str
+    route_type: RouteType
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, route_long_name: str) -> None:
         super().__init__()
-        # TODO: route_type + agency + name?
-        self.name = name
-        self.stops: list[Stop] = list()
-        Routes.add(self)
+        self.route_id = self.id
+        self.route_long_name = route_long_name
 
-    def add_stop(self, stop: Stop, index: int = -1):
-        if index == -1:
-            index = len(self.stops)
-        self.stops.insert(index, stop)
+        # TODO: Make configurable
+        self.route_short_name = ""
+        self.route_type: RouteType = RouteType.Bus
+
+    def get_field_value(self, field: Field):
+        value = super().get_field_value(field)
+        if field.type != RouteType:
+            return value
+        return value.value
 
 
 class Routes(BaseContainer):
-    pass
+    def __init__(self):
+        super().__init__("routes.txt", Route)
+
+    def add(self, name: str) -> None:
+        super()._add(Route(name))

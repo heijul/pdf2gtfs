@@ -1,4 +1,7 @@
 import logging
+
+from datastructures.gtfs_output.handler import GTFSHandler
+from datastructures.gtfs_output.timetable import TimeTable
 from p2g_logging import initialize_logging
 
 from reader import Reader
@@ -12,7 +15,16 @@ logger = logging.getLogger(__name__)
 
 def try_reader():
     reader = Reader(Config.filename)
-    reader.read()
+    timetables = reader.read()
+    return timetables
+
+
+def try_gtfs_output(timetables: list[TimeTable]):
+    assert len(timetables) > 0
+    gtfs_handler = GTFSHandler()
+    gtfs_handler.timetable_to_gtfs(timetables[0])
+    gtfs_handler.write_files()
+
 
 
 if __name__ == "__main__":
@@ -25,7 +37,8 @@ if __name__ == "__main__":
 
     logger.info(f"Reading the following pages: {Config.pages.pages}.")
 
-    try_reader()
+    tables = try_reader()
+    try_gtfs_output(tables)
 
 
 # TODO: Anschlüsse über an/ab rausfinden + evtl. Schwellenwert
