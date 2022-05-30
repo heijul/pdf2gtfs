@@ -1,4 +1,5 @@
 # TODO: Rename.
+from config import Config
 from datastructures.timetable.datatypes import TimeData
 from datastructures.timetable.stops import Stop
 
@@ -7,20 +8,7 @@ class Weekdays:
     days: list[int]
 
     def __init__(self, raw_header_text: str):
-        self._set_days(raw_header_text)
-
-    def _set_days(self, raw_value: str) -> None:
-        # TODO: Use config for this. header_identifier should then be updated
-        #  to be a dict instead. Or add another config item...
-        value = raw_value.replace(" ", "").lower()
-        if value == "montag-freitag":
-            self.days = list(range(0, 5))
-        elif value == "samstag":
-            self.days = [5]
-        elif value in ["sonntag", "sonn-undfeiertag"]:
-            self.days = [6]
-        else:
-            self.days = []
+        self.days = Config.header_values.get(raw_header_text.strip(), [])
 
 
 class TimeTableEntry:

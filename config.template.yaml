@@ -1,20 +1,33 @@
 # Default configuration.
+# Info for string values: leading/trailing whitespace will be stripped.
+#   This also applies to stringlists (e.g. "1,2, 3" is equal to "1,2,3").
 
 # The format of the times given in the table.
 #
 # Type: String in strftime format
 time_format: "%H.%M"
 
-# The names of the "headers" of the table.
-#   Will be turned to all lowercase internally.
+# The names of the "headers" of the table and their respective weekday index.
+#   Keys will be turned to all lowercase internally.
+#   Weekday index between "0" and "6", where "0" stands for monday.
+#   "h" is used for holidays. If "h" is given as an index,
+#   holiday_location has to be set as well.
 #
-# Type: List of strings
-header_identifier: [
-  "montag - freitag",
-  "samstag",
-  "sonntag",
-  "sonn- und feiertag",
-]
+# Type: Mapping of string to list of char
+header_values: {
+  "montag - freitag": "0,1,2,3,4",
+  "samstag": "5",
+  "sonntag": "6",
+  "sonn- und feiertag": "6,h",
+}
+
+# The country + subdivision (state/province) code used to get the holidays.
+# See https://pypi.org/project/holidays/ for a list of possible values.
+#
+# Type: dict of string to string
+holiday_code:
+  country: "DE"
+  subdivision: "BW"
 
 # If a column does not hold any time data and begins with this identifier,
 #   try to expand the given repeat interval. For example if a table contains

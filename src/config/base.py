@@ -5,10 +5,9 @@ from typing import Any
 from yaml import safe_load, YAMLError
 from yaml.scanner import ScannerError
 
-from config.errors import (INVALID_CONFIG_EXIT_CODE,
-                           InvalidPropertyTypeError,
-                           MissingRequiredPropertyError)
-from config.properties import Property, PagesProperty, FilenameProperty, Pages
+import config.errors as err
+from config.properties import (Property, PagesProperty, FilenameProperty,
+                               HolidayCodeProperty, HeaderValuesProperty)
 
 
 logger = logging.getLogger(__name__)
@@ -44,16 +43,17 @@ class _Config(InstanceDescriptorMixin):
         default_config_loaded = self.load_config(None)
         if not default_config_loaded:
             logger.error("Default config could not be loaded. Exiting...")
-            quit(INVALID_CONFIG_EXIT_CODE)
+            quit(err.INVALID_CONFIG_EXIT_CODE)
 
     def _initialize_config_properties(self):
         self.properties = []
         self.time_format = Property(self, "time_format", str)
-        self.header_identifier = Property(self, "header_identifier", list)
+        self.header_values = HeaderValuesProperty(self, "header_values")
+        self.holiday_code = HolidayCodeProperty(self, "holiday_code")
         self.repeat_identifier = Property(self, "repeat_identifier", list)
         self.repeat_strategy = Property(self, "repeat_strategy", str)
         self.min_table_rows = Property(self, "min_table_rows", int)
-        self.pages = PagesProperty(self, "pages", Pages)
+        self.pages = PagesProperty(self, "pages")
         self.max_row_distance = Property(self, "max_row_distance", int)
         self.filename = FilenameProperty(self, "filename", str)
 
@@ -76,9 +76,9 @@ class _Config(InstanceDescriptorMixin):
             try:
                 if key not in self.properties:
                     logger.error(f"Invalid config key: {key}")
-                    raise InvalidPropertyTypeError
+                    raise err.InvalidPropertyTypeError
                 setattr(self, key, value)
-            except InvalidPropertyTypeError:
+            except err.InvalidPropertyTypeError:
                 valid = False
 
         valid &= self._validate_no_missing_properties()
@@ -86,7 +86,7 @@ class _Config(InstanceDescriptorMixin):
         if not valid:
             logger.error("Tried to load invalid configuration file "
                          f"'{path}'. Exiting...")
-            quit(INVALID_CONFIG_EXIT_CODE)
+            quit(err.INVALID_CONFIG_EXIT_CODE)
 
         return True
 
@@ -105,7 +105,7 @@ class _Config(InstanceDescriptorMixin):
         for key in self.properties:
             try:
                 getattr(self, key)
-            except MissingRequiredPropertyError:
+            except err.MissingRequiredPropertyError:
                 missing_keys.append(key)
 
         if missing_keys:

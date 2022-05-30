@@ -172,8 +172,7 @@ class Row(FieldContainer):
         def _contains_header_identifier():
             """ Check if any of the fields contain a header identifier. """
             field_texts = [str(field.text).lower() for field in self.fields]
-            return any([head in field_texts
-                        for head in Config.header_identifier])
+            return any([head in field_texts for head in Config.header_values])
 
         def previous_row_is_header():
             try:

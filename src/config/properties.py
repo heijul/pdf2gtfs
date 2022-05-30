@@ -4,10 +4,11 @@ This is to enable a 'Config.some_property'-lookup, without the
 need to hard-code each property.
 """
 import logging
+from typing import Any
 
-from config.errors import (INVALID_CONFIG_EXIT_CODE,
-                           InvalidPropertyTypeError,
-                           MissingRequiredPropertyError)
+from holidays.utils import list_supported_countries
+
+import config.errors as err
 
 
 logger = logging.getLogger(__name__)
@@ -28,15 +29,66 @@ class Property:
         try:
             return getattr(obj, self.attr)
         except AttributeError:
-            raise MissingRequiredPropertyError
+            raise err.MissingRequiredPropertyError
 
-    def __set__(self, obj, value):
-        if not isinstance(value, self.type):
-            logger.error(
-                f"Invalid config type for {self.attr}. "
-                f"Expected '{self.type}', got '{type(value)}' instead.")
-            raise InvalidPropertyTypeError
+    def validate(self, value: Any):
+        self._validate_type(value)
+
+    def _validate_type(self, value: Any):
+        if isinstance(value, self.type):
+            return
+        logger.error(
+            f"Invalid config type for {self.attr}. "
+            f"Expected '{self.type}', got '{type(value)}' instead.")
+        raise err.InvalidPropertyTypeError
+
+    def __set__(self, obj, value: Any):
+        self.validate(value)
         setattr(obj, self.attr, value)
+
+
+class HeaderValuesProperty(Property):
+    def __init__(self, cls, attr):
+        super().__init__(cls, attr, dict)
+
+    def validate(self, value: dict):
+        super().validate(value)
+        for ident, days in value.items():
+            if not isinstance(ident, str):
+                raise err.InvalidPropertyTypeError
+            if not isinstance(days, str):
+                raise err.InvalidPropertyTypeError
+            for day in days.split(","):
+                day = day.strip()
+                if len(day) != 1:
+                    raise err.InvalidHeaderDays
+                if day == "h" or (day.isnumeric() and 0 <= int(day) <= 6):
+                    continue
+                raise err.InvalidHeaderDays
+
+
+class HolidayCodeProperty(Property):
+    def __init__(self, cls, attr):
+        super().__init__(cls, attr, dict)
+
+    def validate(self, value: (str, str)):
+        super().validate(value)
+
+        supported_countries = list_supported_countries()
+        country = value.get("country")
+        if country is None or country not in supported_countries:
+            logger.warning(f"Invalid country code '{country}' "
+                           f"for {self.attr} entry.")
+            raise err.InvalidHolidayCode
+        sub = value.get("subdivision")
+        if sub and sub not in supported_countries[country]:
+            logger.warning(f"Invalid subdivision code '{sub}' for valid "
+                           f"country '{country}' of {self.attr} entry.")
+            raise err.InvalidHolidayCode
+
+    def __set__(self, obj, value: Any):
+        self.validate(value)
+        setattr(obj, self.attr, (value.get("country"), value.get("sub")))
 
 
 class Pages:
@@ -92,14 +144,14 @@ class Pages:
             self.pages.remove(page)
         if not self.pages:
             logger.error("No valid pages given. Check the log for more info.")
-            quit(INVALID_CONFIG_EXIT_CODE)
+            quit(err.INVALID_CONFIG_EXIT_CODE)
 
     def __str__(self):
         return "all" if self.all else str(list(self.pages))
 
 
 class PagesProperty(Property):
-    def __init__(self, cls, attr, *_):
+    def __init__(self, cls, attr):
         super().__init__(cls, attr, Pages)
 
     def __set__(self, obj, value):

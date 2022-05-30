@@ -1,10 +1,21 @@
 INVALID_CONFIG_EXIT_CODE = 1
 
 
-class InvalidPropertyTypeError(BaseException):
+class PropertyException(BaseException):
     pass
 
 
-class MissingRequiredPropertyError(BaseException):
+class InvalidPropertyTypeError(PropertyException):
     pass
 
+
+class MissingRequiredPropertyError(PropertyException):
+    pass
+
+
+class InvalidHolidayCode(PropertyException):
+    pass
+
+
+class InvalidHeaderDays(PropertyException):
+    pass
