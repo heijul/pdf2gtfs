@@ -1,4 +1,5 @@
 import logging
+from p2g_logging import initialize_logging
 
 from reader import Reader
 from config import Config
@@ -20,7 +21,8 @@ if __name__ == "__main__":
     argv.append("--pages=1")
     argv.append(fnames[3])
     parse_args()
-    logging.basicConfig(level=20)
+    initialize_logging(logging.DEBUG)
+
     logger.info(f"Reading the following pages: {Config.pages.pages}.")
 
     try_reader()
