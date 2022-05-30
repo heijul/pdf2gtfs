@@ -55,6 +55,7 @@ class _Config(InstanceDescriptorMixin):
         self.min_table_rows = Property(self, "min_table_rows", int)
         self.pages = PagesProperty(self, "pages")
         self.max_row_distance = Property(self, "max_row_distance", int)
+        self.min_row_count = Property(self, "min_row_count", int)
         self.filename = FilenameProperty(self, "filename", str)
 
     def load_config(self, path: Path | None = None) -> bool:

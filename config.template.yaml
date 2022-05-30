@@ -65,3 +65,8 @@ pages: "all"
 #
 # Type: int
 max_row_distance: 3
+
+# Minimum number of rows to be considered as valid table.
+#
+# Type: int
+min_row_count: 5

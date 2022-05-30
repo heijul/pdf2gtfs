@@ -104,22 +104,20 @@ class Table:
     def split_rows_into_tables(rows: list[Row]) -> list[Table]:
         tables = []
         current_rows = [rows[0]]
-        min_row_count = 3
         for row in rows[1:]:
             if not row.fields:
                 continue
             y_distance = abs(row.distance(current_rows[-1], "y"))
             x_distance = abs(row.distance(current_rows[-1], "x"))
             if x_distance != 0 and y_distance > Config.max_row_distance:
-                # TODO: Add to config
-                if len(current_rows) < min_row_count:
+                if len(current_rows) < Config.min_row_count:
                     # TODO: Should not drop the table,
                     #  but use it to enhance the others
                     # TODO: Change row_str to be " ".join([str(fields)]
-                    row_str = "\n\t\t".join([str(r) for r in current_rows])
+                    row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
                     logger.debug("Dropped rows:\n\tDistance (x, y):"
-                                 f"({x_distance}, {y_distance})"
-                                 f"Rows:\n\t\t{row_str}")
+                                 f"({x_distance}, {y_distance})\n\t"
+                                 f"Rows: [{row_str}]")
                     current_rows = [row]
                     continue
                 logger.info(f"Distance between rows: {y_distance}")
