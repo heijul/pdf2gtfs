@@ -161,28 +161,23 @@ class Row(FieldContainer):
             self.detect_type()
         return self._type
 
-    @type.setter
-    def type(self, value):
-        if value != RowType.ANNOTATION:
-            raise Exception(
-                "Can not manually set another type than annotations.")
-        self._type = RowType.ANNOTATION
-
     def detect_type(self):
-        def _contains_header_identifier():
-            """ Check if any of the fields contain a header identifier. """
+        # TODO: REDO.
+        def _contains(idents: list[str]):
+            """ Check if any of the fields contain any of the identifier. """
             field_texts = [str(field.text).lower() for field in self.fields]
-            return any([head in field_texts for head in Config.header_values])
+            return any([ident.strip().lower() in field_texts
+                        for ident in idents])
 
-        def previous_row_is_header():
+        def previous_row_is(_type: RowType):
             try:
                 previous = self.table.rows.prev(self)
             except AttributeError:
-                # No table set yet -> no header
+                # No table set yet
                 return False
             if not previous:
                 return True
-            return previous.type == RowType.HEADER
+            return previous.type == _type
 
         # Once a row was recognized as annotation it stays an annotation.
         if self._type and self._type == RowType.ANNOTATION:
@@ -190,8 +185,14 @@ class Row(FieldContainer):
         if self._contains_time_data():
             self._type = RowType.DATA
             return
-        if previous_row_is_header() and _contains_header_identifier():
+        previous_row_is_header = previous_row_is(RowType.HEADER)
+        if previous_row_is_header and _contains(Config.header_values):
             self._type = RowType.HEADER
+            return
+        previous_row_is_annot = previous_row_is(RowType.ANNOTATION)
+        if ((previous_row_is_header or previous_row_is_annot)
+                and _contains(Config.annot_identifier)):
+            self._type = RowType.ANNOTATION
             return
         self._type = RowType.OTHER
 

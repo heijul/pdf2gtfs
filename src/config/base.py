@@ -57,6 +57,8 @@ class _Config(InstanceDescriptorMixin):
         self.max_row_distance = Property(self, "max_row_distance", int)
         self.min_row_count = Property(self, "min_row_count", int)
         self.filename = FilenameProperty(self, "filename", str)
+        self.annot_identifier = Property(self, "annot_identifier", list)
+        self.route_identifier = Property(self, "route_identifier", list)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

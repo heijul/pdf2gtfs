@@ -94,6 +94,8 @@ class Table:
         # Try to fit the 'RowTypes.OTHER'-rows into the established data rows
         #  and update their type accordingly.
         # TODO: Maybe use Config.annotation_identifier instead of this!?
+        # TODO: This still somewhat needs to be done...
+        #  columns will have to be updated...
         for row in self.rows:
             if row.type != RowType.OTHER:
                 continue

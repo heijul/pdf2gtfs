@@ -1,6 +1,7 @@
 # Default configuration.
 # Info for string values: leading/trailing whitespace will be stripped.
 #   This also applies to stringlists (e.g. "1,2, 3" is equal to "1,2,3").
+#   They will also be made lowercase, unless they are part of a format spec.
 
 # The format of the times given in the table.
 #
@@ -28,6 +29,19 @@ header_values: {
 holiday_code:
   country: "DE"
   subdivision: "BW"
+
+# Identifies rows, which add special meaning to some columns.
+#
+# Type: List of strings
+annot_identifier: ["Verkehrshinweis"]
+
+# Identifies rows, which hold information about the specific route the
+#   column is part of.
+# E.g. If a table has a row starting with this identifier, try to match the
+#   data columns with the entries of that row.
+#
+# Type: List of strings
+route_identifier: ["Linie"]
 
 # If a column does not hold any time data and begins with this identifier,
 #   try to expand the given repeat interval. For example if a table contains
