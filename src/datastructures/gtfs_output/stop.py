@@ -26,4 +26,12 @@ class Stops(BaseContainer):
         super().__init__("stops.txt", Stop)
 
     def add(self, stop_name: str) -> None:
+        if self.get_from_name(stop_name):
+            return
         super()._add(Stop(stop_name))
+
+    def get_from_name(self, name):
+        for entry in self.entries.values():
+            if entry.stop_name != name:
+                continue
+            return entry

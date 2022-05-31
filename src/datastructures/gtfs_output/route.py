@@ -48,5 +48,7 @@ class Routes(BaseContainer):
     def __init__(self):
         super().__init__("routes.txt", Route)
 
-    def add(self, name: str) -> None:
-        super()._add(Route(name))
+    def add(self, name: str) -> Route:
+        route = Route(name)
+        super()._add(route)
+        return route

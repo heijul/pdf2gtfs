@@ -19,9 +19,15 @@ class BaseDataClass:
     def get_field_value(self, field: Field):
         return getattr(self, field.name)
 
+    def _to_output(self, field: Field):
+        value = self.get_field_value(field)
+        if hasattr(value, "to_output") and callable(value.to_output):
+            return value.to_output()
+        return str(value)
+
     def to_output(self) -> str:
         # TODO: Add escape for strings
-        return ",".join(map(str, map(self.get_field_value, fields(self))))
+        return ",".join(map(self._to_output, fields(self)))
 
 
 ContainerObjectType = TypeVar("ContainerObjectType", bound=BaseDataClass)
@@ -36,13 +42,14 @@ class BaseContainer:
         self.entries: dict[int, ContainerObjectType] = {}
 
     def _add(self, entry: ContainerObjectType) -> None:
+        # TODO: Needs to check if entry exists already
         self.entries[entry.id] = entry
 
     def to_output(self):
         field_names = self.entry_type.get_field_names()
         entry_output = "\n".join(
             map(lambda entry: entry.to_output(), self.entries.values()))
-        return f"{field_names}\n{entry_output}"
+        return f"{field_names}\n{entry_output}\n"
 
     def write(self, path: Path):
         self._write(path, self.to_output())
