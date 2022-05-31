@@ -37,6 +37,10 @@ class StopList:
             stop = self.get_from_id(stop_id)
         stop.annotation = text
 
+    def clean(self):
+        for stop in self._stops:
+            stop.clean()
+
 
 class TimeTable:
     def __init__(self):
@@ -102,6 +106,9 @@ class TimeTable:
         if table.stops.stops:
             logger.info(table)
         return table
+
+    def clean_values(self):
+        self.stops.clean()
 
     def __str__(self):
         # Entry columns + stop column

@@ -26,6 +26,7 @@ class GTFSHandler:
     def timetable_to_gtfs(self, timetable: TimeTable):
         print(self)
         print(timetable)
+        timetable.clean_values()
         for stop in timetable.stops.stops:
             self.stops.add(stop.name)
         stop_entries = list(self.stops.entries.values())
@@ -46,12 +47,12 @@ class GTFSHandler:
                 continue
             arrival = value
             departure = value
+            stop_id = self.stops.get(stop.name).stop_id
             if i + 1 < len(entry.values):
                 next_stop, next_value = list(entry.values.items())[i + 1]
-                if next_stop.name.strip() == stop.name.strip():
+                if self.stops.get(next_stop.name).stop_id == stop_id:
                     departure = next_value
                     skip_next = True
-            stop_id = self.stops.get_from_name(stop.name.strip()).stop_id
             self.stop_times.add(trip.trip_id, stop_id, i, arrival, departure)
 
     def write_files(self):

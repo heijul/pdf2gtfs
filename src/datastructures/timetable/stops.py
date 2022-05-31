@@ -5,6 +5,9 @@ class Stop:
         self.annotation = ""
         self.is_connection = False
 
+    def clean(self):
+        self.name = self.name.strip()
+
     def __eq__(self, other):
         return self.name == other.name and self.annotation == other.annotation
 
