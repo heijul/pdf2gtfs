@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Callable
 
 from datastructures.gtfs_output.base import (BaseContainer,
                                              BaseDataClass)
@@ -27,3 +28,6 @@ class Trips(BaseContainer):
         entry = TripEntry(route_id, service_id)
         self._add(entry)
         return entry
+
+    def get_factory(self, service_id, route_id) -> Callable[[], TripEntry]:
+        return lambda: self.add(route_id, service_id)

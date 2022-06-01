@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -9,11 +10,14 @@ from datastructures.gtfs_output.stop import Stops
 from datastructures.gtfs_output.stop_times import StopTimes
 from datastructures.gtfs_output.trips import Trips
 from datastructures.gtfs_output.agency import Agency
-from datastructures.timetable.entries import TimeTableEntry
+from datastructures.timetable.entries import TimeTableRepeatEntry
 
 
 if TYPE_CHECKING:
     from datastructures.timetable.table import TimeTable
+
+
+logger = logging.getLogger(__name__)
 
 
 class GTFSHandler:
@@ -30,7 +34,6 @@ class GTFSHandler:
         self.agency.add()
 
     def timetable_to_gtfs(self, timetable: TimeTable):
-        print(self)
         print(timetable)
         timetable.clean_values()
         for stop in timetable.stops.stops:
@@ -40,29 +43,45 @@ class GTFSHandler:
                       f"-{stop_entries[-1].stop_name}")
         route_id = self.routes.add(route_name).route_id
 
-        for entry in timetable.entries:
-            self.add_entry(route_id, entry)
+        stop_times = self.generate_stop_times(route_id, timetable.entries)
+        # Merge stop_times
+        for times in stop_times:
+            self.stop_times.merge(times)
 
-    def add_entry(self, route_id: int, entry: TimeTableEntry):
-        service_id = self.calendar.add(entry.days.days).service_id
-        trip = self.trips.add(route_id, service_id)
-        skip_next = False
-        for i, (stop, value) in enumerate(entry.values.items()):
-            if skip_next:
-                skip_next = False
+    def generate_stop_times(self, route_id, entries) -> list[StopTimes]:
+        # TODO: Explaaaain
+        stop_times = []
+        prev = None
+        repeat = None
+        for entry in entries:
+            if isinstance(entry, TimeTableRepeatEntry):
+                repeat = entry
                 continue
-            arrival = value
-            departure = value
-            stop_id = self.stops.get(stop.name).stop_id
-            if i + 1 < len(entry.values):
-                next_stop, next_value = list(entry.values.items())[i + 1]
-                if self.stops.get(next_stop.name).stop_id == stop_id:
-                    departure = next_value
-                    skip_next = True
-            self.stop_times.add(trip.trip_id, stop_id, i, arrival, departure)
+
+            service_id = self.calendar.add(entry.days.days).service_id
+            trip = self.trips.add(route_id, service_id)
+            times = StopTimes()
+            times.add_multiple(trip.trip_id, self.stops, entry.values)
+            stop_times.append(times)
+
+            if not repeat:
+                prev = times
+                continue
+
+            if not prev:
+                # TODO: Not very informative.
+                logger.error("No previous column to repeat")
+                repeat = None
+                continue
+
+            trip_factory = self.trips.get_factory(service_id, route_id)
+            stop_times += StopTimes.add_repeat(
+                prev, times, repeat.deltas, trip_factory)
+            repeat = None
+
+        return stop_times
 
     def write_files(self):
-        print(self)
         path = Path("../out/").resolve()
         path.mkdir(exist_ok=True)
         self.agency.write(path)
