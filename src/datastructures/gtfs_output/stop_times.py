@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime as dt
 
 from config import Config
-from datastructures.gtfs_output.basestructures import BaseDataClass, BaseContainer
+from datastructures.gtfs_output.base import BaseDataClass, BaseContainer
 
 
 @dataclass

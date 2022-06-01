@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import datetime as dt
 from dataclasses import fields, dataclass
 
-from datastructures.gtfs_output.basestructures import BaseContainer, BaseDataClass
+from datastructures.gtfs_output.base import BaseContainer, BaseDataClass
 
 
 @dataclass

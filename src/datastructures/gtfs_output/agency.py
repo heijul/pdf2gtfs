@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from datastructures.gtfs_output.basestructures import (
+from datastructures.gtfs_output.base import (
     BaseDataClass, BaseContainer)
 
 
