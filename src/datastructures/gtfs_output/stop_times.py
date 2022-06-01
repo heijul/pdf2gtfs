@@ -43,7 +43,10 @@ class StopTimes(BaseContainer):
 
         times = []
         for time in time_str:
-            dt_time = dt.strptime(time, Config.time_format)
+            try:
+                dt_time = dt.strptime(time, Config.time_format)
+            except ValueError:
+                return
             times.append(Time(dt_time.hour, dt_time.minute))
         entry = StopTimesEntry(trip_id, stop_id, stop_sequence, *times)
         self._add(entry)
