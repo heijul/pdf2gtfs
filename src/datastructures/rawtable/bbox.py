@@ -18,20 +18,7 @@ class BBox:
 
     @staticmethod
     def from_series(series: pd.Series) -> BBox:
-        """ Creates a bbox from a series.
-
-        If series has a top attribute, the series' coordinate origin will
-        be recognized as the bottom-left corner and will be converted.
-        """
-
-        y0 = series.y0
-        y1 = series.y1
-        top = getattr(series, "top", None)
-        if top is not None:
-            height = y1 - y0
-            y1 = top + height
-            y0 = top
-        return BBox(series.x0, y0, series.x1, y1)
+        return BBox(series.x0, series.y0, series.x1, series.y1)
 
     @property
     def size(self):

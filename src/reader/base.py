@@ -47,9 +47,9 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
     def unpack_char(element: LTChar):
         return {"x0": element.x0,
                 "x1": element.x1,
-                "y0": element.y0,
-                "y1": element.y1,
-                "top": page.bbox[3] - element.bbox[3],
+                "y0": page.y0 - element.y0,
+                "y1": page.y0 - element.y0 + element.height,
+                "top": page.y0 - element.y0,
                 "text": element.get_text(),
                 "upright": element.upright,
                 }
