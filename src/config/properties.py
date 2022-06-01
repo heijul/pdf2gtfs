@@ -66,6 +66,12 @@ class HeaderValuesProperty(Property):
                     continue
                 raise err.InvalidHeaderDays
 
+    def __set__(self, obj, value: dict):
+        self.validate(value)
+        for ident, days in value.items():
+            value[ident] = list(days.split(","))
+        setattr(obj, self.attr, value)
+
 
 class HolidayCodeProperty(Property):
     def __init__(self, cls, attr):
