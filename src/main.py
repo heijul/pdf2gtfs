@@ -1,7 +1,6 @@
 import logging
 
 from datastructures.gtfs_output.handler import GTFSHandler
-from datastructures.gtfs_output.timetable import TimeTable
 from p2g_logging import initialize_logging
 
 from reader import Reader
@@ -19,7 +18,7 @@ def try_reader():
     return timetables
 
 
-def try_gtfs_output(timetables: list[TimeTable]):
+def try_gtfs_output(timetables):
     assert len(timetables) > 0
     gtfs_handler = GTFSHandler()
     gtfs_handler.timetable_to_gtfs(timetables[0])
