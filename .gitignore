@@ -4,7 +4,7 @@ tabula-java/
 pdfact/
 xpdf-tools-linux-4.03/
 data/
-gtfs_output/
+out/
 
 old/
 .ipynb_checkpoints/

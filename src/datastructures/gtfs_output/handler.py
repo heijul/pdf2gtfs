@@ -63,7 +63,7 @@ class GTFSHandler:
 
     def write_files(self):
         print(self)
-        path = Path("../gtfs_output/").resolve()
+        path = Path("../out/").resolve()
         path.mkdir(exist_ok=True)
         self.agency.write(path)
         self.stops.write(path)
