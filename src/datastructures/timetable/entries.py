@@ -6,7 +6,11 @@ class Weekdays:
     days: list[str]
 
     def __init__(self, raw_header_text: str):
-        self.days = Config.header_values.get(raw_header_text.strip(), [])
+        self.days = Config.header_values.get(
+            raw_header_text.lower().strip(), [])
+
+    def __repr__(self):
+        return str(self.days)
 
 
 class TimeTableEntry:
