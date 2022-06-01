@@ -31,3 +31,9 @@ class TimeTableEntry:
 
     def add_annotation(self, annotation: str) -> None:
         self._annotations.append(annotation)
+
+
+class TimeTableRepeatEntry(TimeTableEntry):
+    def __init__(self, raw_header_text: str = "") -> None:
+        super().__init__(raw_header_text)
+        self.deltas: list[int] = [5]

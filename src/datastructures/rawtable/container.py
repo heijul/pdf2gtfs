@@ -214,7 +214,7 @@ class Row(FieldContainer):
             # TODO: Instead of checking if column.bbox.contains, create
             #  new bbox with x0 = column[i].bbox.x0, x1 = column[i+1].bbox.x1
             for column in columns:
-                if column.type != ColumnType.DATA:
+                if column.type not in (ColumnType.DATA, ColumnType.REPEAT):
                     continue
                 if column.bbox.contains_vertical(field.bbox):
                     field_fits = True
@@ -247,14 +247,26 @@ class Column(FieldContainer):
 
     def _detect_type(self):
         previous = self.table.columns.prev(self)
+
         if not previous:
             self._type = ColumnType.STOP
             return
+
         has_time_data = self._contains_time_data()
-        if previous.type == ColumnType.STOP and not has_time_data:
+        has_repeat_identifier = self._contains_repeat_identifier()
+
+        if has_repeat_identifier:
+            self._type = ColumnType.REPEAT
+        elif previous.type == ColumnType.STOP and not has_time_data:
             self._type = ColumnType.STOP_ANNOTATION
         else:
             self._type = ColumnType.DATA
+
+    def _contains_repeat_identifier(self):
+        # TODO: iterate through fields -> check for ident -> check for num
+        #  -> (maybe check for min/min.)
+        return any([f.text.lower() in Config.repeat_identifier
+                    for f in self.fields])
 
     def merge(self, other: Column):
         # Merge bbox.

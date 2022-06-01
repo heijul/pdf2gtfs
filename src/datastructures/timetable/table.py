@@ -4,7 +4,7 @@ import logging
 
 import datastructures.rawtable.table as raw
 from datastructures.rawtable.enums import ColumnType
-from datastructures.timetable.entries import TimeTableEntry
+from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
 from datastructures.timetable.stops import Stop
 
 
@@ -80,7 +80,11 @@ class TimeTable:
 
         for raw_column in list(raw_table.columns):
             raw_header_text = raw_table.get_header_from_column(raw_column)
-            table.entries.append(TimeTableEntry(raw_header_text))
+            if raw_column.type == ColumnType.REPEAT:
+                entry = TimeTableRepeatEntry(raw_header_text)
+            else:
+                entry = TimeTableEntry(raw_header_text)
+            table.entries.append(entry)
 
             for raw_field in raw_column:
                 row_id = raw_table.rows.index(raw_field.row)
