@@ -3,9 +3,9 @@ from __future__ import annotations
 from statistics import mean
 from typing import Generic, TypeVar
 
-from datastructures.internal.container import Row
-from datastructures.internal.enums import FieldContainerType
-import datastructures.internal.table as tbl
+from datastructures.rawtable.container import Row
+from datastructures.rawtable.enums import FieldContainerType
+import datastructures.rawtable.table as tbl
 
 
 FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")

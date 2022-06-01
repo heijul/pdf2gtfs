@@ -4,9 +4,9 @@ import logging
 from operator import attrgetter
 
 from config import Config
-from datastructures.internal.enums import RowType
-from datastructures.internal.container import Row, Column
-from datastructures.internal.lists import RowList, ColumnList
+from datastructures.rawtable.enums import RowType
+from datastructures.rawtable.container import Row, Column
+from datastructures.rawtable.lists import RowList, ColumnList
 from datastructures.timetable.table import TimeTable
 
 

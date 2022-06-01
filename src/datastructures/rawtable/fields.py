@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pandas as pd
-from datastructures.internal.bbox import BBoxObject, BBox
-from datastructures.internal.container import (
+from datastructures.rawtable.bbox import BBoxObject, BBox
+from datastructures.rawtable.container import (
     Row, Column, FieldRowReference, FieldColumnReference)
 
 

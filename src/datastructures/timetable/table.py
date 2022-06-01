@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 
-import datastructures.internal.table as raw
-from datastructures.internal.enums import ColumnType
+import datastructures.rawtable.table as raw
+from datastructures.rawtable.enums import ColumnType
 from datastructures.timetable.entries import TimeTableEntry
 from datastructures.timetable.stops import Stop
 

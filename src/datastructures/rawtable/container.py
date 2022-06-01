@@ -4,13 +4,13 @@ from datetime import datetime
 from typing import TypeVar, Generic, TYPE_CHECKING, Type
 
 from config import Config
-from datastructures.internal.bbox import BBoxObject, BBox
-from datastructures.internal.enums import RowType, ColumnType
+from datastructures.rawtable.bbox import BBoxObject, BBox
+from datastructures.rawtable.enums import RowType, ColumnType
 
 
 if TYPE_CHECKING:
-    from datastructures.internal.table import Table
-    from datastructures.internal.fields import Field
+    from datastructures.rawtable.table import Table
+    from datastructures.rawtable.fields import Field
 
 RowT = TypeVar("RowT", bound="Row")
 ColumnT = TypeVar("ColumnT", bound="Column")

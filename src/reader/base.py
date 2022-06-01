@@ -13,8 +13,8 @@ from pdfminer.layout import LAParams
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
 
 from config import Config
-from datastructures.internal.fields import Field
-from datastructures.internal.table import Table, Row
+from datastructures.rawtable.fields import Field
+from datastructures.rawtable.table import Table, Row
 from utils import contains_bbox
 
 
