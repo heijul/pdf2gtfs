@@ -4,6 +4,7 @@ tabula-java/
 pdfact/
 xpdf-tools-linux-4.03/
 data/
+gtfs_output/
 
 old/
 .ipynb_checkpoints/
@@ -12,3 +13,4 @@ old/
 
 # drawio backups
 *.bkp
+
