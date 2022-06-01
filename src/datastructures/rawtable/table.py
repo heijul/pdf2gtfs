@@ -91,6 +91,7 @@ class Table:
 
         self.columns = columns
 
+        """
         # Try to fit the 'RowTypes.OTHER'-rows into the established data rows
         #  and update their type accordingly.
         # TODO: Maybe use Config.annotation_identifier instead of this!?
@@ -101,6 +102,7 @@ class Table:
                 continue
             if row.fits_column_scheme(columns):
                 row.type = RowType.ANNOTATION
+        """
 
     @staticmethod
     def split_rows_into_tables(rows: list[Row]) -> list[Table]:
@@ -109,16 +111,14 @@ class Table:
         for row in rows[1:]:
             if not row.fields:
                 continue
-            y_distance = abs(row.distance(current_rows[-1], "y"))
-            x_distance = abs(row.distance(current_rows[-1], "x"))
-            if x_distance != 0 and y_distance > Config.max_row_distance:
+            y_distance = row.distance(current_rows[-1], "y")
+            if y_distance > Config.max_row_distance:
                 if len(current_rows) < Config.min_row_count:
                     # TODO: Should not drop the table,
                     #  but use it to enhance the others
                     # TODO: Change row_str to be " ".join([str(fields)]
                     row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
-                    logger.debug("Dropped rows:\n\tDistance (x, y):"
-                                 f"({x_distance}, {y_distance})\n\t"
+                    logger.debug("Dropped rows:\n\tDistance: {y_distance}\n\t"
                                  f"Rows: [{row_str}]")
                     current_rows = [row]
                     continue
