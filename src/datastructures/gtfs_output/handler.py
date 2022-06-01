@@ -8,6 +8,7 @@ from datastructures.gtfs_output.route import Routes
 from datastructures.gtfs_output.stop import Stops
 from datastructures.gtfs_output.stop_times import StopTimes
 from datastructures.gtfs_output.trips import Trips
+from datastructures.gtfs_output.agency import Agency
 from datastructures.timetable.entries import TimeTableEntry
 
 
@@ -17,11 +18,16 @@ if TYPE_CHECKING:
 
 class GTFSHandler:
     def __init__(self):
+        self._agency = Agency()
         self._stops = Stops()
         self._routes = Routes()
         self._calendar = Calendar()
         self._trips = Trips()
         self._stop_times = StopTimes()
+        self._setup()
+
+    def _setup(self):
+        self.agency.add()
 
     def timetable_to_gtfs(self, timetable: TimeTable):
         print(self)
@@ -59,11 +65,16 @@ class GTFSHandler:
         print(self)
         path = Path("../gtfs_output/").resolve()
         path.mkdir(exist_ok=True)
+        self.agency.write(path)
         self.stops.write(path)
         self.routes.write(path)
         self.calendar.write(path)
         self.trips.write(path)
         self.stop_times.write(path)
+
+    @property
+    def agency(self):
+        return self._agency
 
     @property
     def routes(self):
