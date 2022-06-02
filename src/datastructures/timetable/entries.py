@@ -36,4 +36,30 @@ class TimeTableEntry:
 class TimeTableRepeatEntry(TimeTableEntry):
     def __init__(self, raw_header_text: str = "") -> None:
         super().__init__(raw_header_text)
-        self.deltas: list[int] = [5]
+
+    @property
+    def deltas(self):
+        def to_int_list(_value_str):
+            try:
+                _values = list(map(int, _value_str.split("-")))
+            except ValueError:
+                return None
+            if len(_values) == 2:
+                return range(_values[0], _values[1] + 1)
+
+            return [_values[0]] if len(_values) else None
+
+        start = False
+        for value_str in self.values.values():
+            if value_str.lower() in Config.repeat_identifier:
+                start = True
+                continue
+            value_str = value_str.replace(" ", "")
+            if not start or not value_str:
+                continue
+
+            value = to_int_list(value_str)
+            if not value:
+                continue
+            return value
+        return []
