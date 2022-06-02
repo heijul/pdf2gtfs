@@ -30,4 +30,6 @@ class Trips(BaseContainer):
         return entry
 
     def get_factory(self, service_id, route_id) -> Callable[[], TripEntry]:
+        """ Returns a function which creates a new TripEntry for the
+        given service and route. """
         return lambda: self.add(route_id, service_id)

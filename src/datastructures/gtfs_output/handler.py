@@ -44,12 +44,18 @@ class GTFSHandler:
         route_id = self.routes.add(route_name).route_id
 
         stop_times = self.generate_stop_times(route_id, timetable.entries)
-        # Merge stop_times
+        # Add generated stop_times to ours.
         for times in stop_times:
             self.stop_times.merge(times)
 
     def generate_stop_times(self, route_id, entries) -> list[StopTimes]:
-        # TODO: Explaaaain
+        """ Generate the full stop_times of the given entries.
+
+        Will remember the previous stop_times created and use the previous and
+        current (i.e. stop_times before and after the repeat column) to
+        generate the stop_times for the repeat column.
+        """
+
         stop_times = []
         prev = None
         repeat = None
@@ -58,6 +64,7 @@ class GTFSHandler:
                 repeat = entry
                 continue
 
+            # Create new stop_times for current entry.
             service_id = self.calendar.add(entry.days.days).service_id
             trip = self.trips.add(route_id, service_id)
             times = StopTimes()
@@ -73,7 +80,7 @@ class GTFSHandler:
                 logger.error("No previous column to repeat")
                 repeat = None
                 continue
-
+            # Create stop_times between prev and times.
             trip_factory = self.trips.get_factory(service_id, route_id)
             stop_times += StopTimes.add_repeat(
                 prev, times, repeat.deltas, trip_factory)
