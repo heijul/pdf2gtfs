@@ -92,9 +92,10 @@ class HolidayCodeProperty(Property):
                            f"country '{country}' of {self.attr} entry.")
             raise err.InvalidHolidayCode
 
-    def __set__(self, obj, value: dict):
-        self.validate(value)
-        setattr(obj, self.attr, (value.get("country"), value.get("sub")))
+    def __set__(self, obj, raw_value: dict):
+        self.validate(raw_value)
+        value = (raw_value.get("country"), raw_value.get("subdivision"))
+        setattr(obj, self.attr, value)
 
 
 class Pages:
