@@ -9,7 +9,7 @@ from typing import Callable
 
 from config import Config
 from datastructures.gtfs_output.base import BaseDataClass, BaseContainer
-from datastructures.gtfs_output.stop import Stops
+from datastructures.gtfs_output.gtfsstop import GTFSStops
 from datastructures.timetable.stops import Stop
 from datastructures.gtfs_output.trips import TripEntry
 
@@ -91,7 +91,7 @@ class StopTimes(BaseContainer):
         return entry
 
     def add_multiple(
-            self, trip_id: int, stops: Stops, time_strings: dict[Stop: str]
+            self, trip_id: int, stops: GTFSStops, time_strings: dict[Stop: str]
             ) -> list[StopTimesEntry]:
         """ Creates a new entry for each time_string. """
 

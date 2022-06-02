@@ -44,6 +44,7 @@ class ServiceDay(ABC):
     def __eq__(self, other: ServiceDay):
         return self.date == other.date
 
+
 class StartDate(ServiceDay):
     @property
     def default_date(self):

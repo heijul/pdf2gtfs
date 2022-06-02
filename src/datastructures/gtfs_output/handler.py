@@ -10,7 +10,7 @@ from config import Config
 from datastructures.gtfs_output.calendar import Calendar
 from datastructures.gtfs_output.calendar_dates import CalendarDates
 from datastructures.gtfs_output.route import Routes
-from datastructures.gtfs_output.stop import Stops
+from datastructures.gtfs_output.gtfsstop import GTFSStops
 from datastructures.gtfs_output.stop_times import StopTimes
 from datastructures.gtfs_output.trips import Trips
 from datastructures.gtfs_output.agency import Agency
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class GTFSHandler:
     def __init__(self):
         self._agency = Agency()
-        self._stops = Stops()
+        self._stops = GTFSStops()
         self._routes = Routes()
         self._calendar = Calendar()
         self._trips = Trips()

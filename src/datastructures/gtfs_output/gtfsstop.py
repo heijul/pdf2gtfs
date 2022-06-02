@@ -5,7 +5,7 @@ from datastructures.gtfs_output.base import (
 
 
 @dataclass(init=False)
-class Stop(BaseDataClass):
+class GTFSStop(BaseDataClass):
     stop_id: int
     stop_name: str
     stop_lat: float
@@ -19,16 +19,16 @@ class Stop(BaseDataClass):
         self.stop_lon = lon
 
 
-class Stops(BaseContainer):
-    entries: dict[int, Stop] = {}
+class GTFSStops(BaseContainer):
+    entries: dict[int, GTFSStop] = {}
 
     def __init__(self):
-        super().__init__("stops.txt", Stop)
+        super().__init__("stops.txt", GTFSStop)
 
     def add(self, stop_name: str) -> None:
         if self.get(stop_name):
             return
-        super()._add(Stop(stop_name))
+        super()._add(GTFSStop(stop_name))
 
     def get(self, name):
         for entry in self.entries.values():
