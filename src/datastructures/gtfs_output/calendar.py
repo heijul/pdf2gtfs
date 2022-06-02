@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 import datetime as dt
 from dataclasses import fields, dataclass
@@ -8,6 +10,9 @@ from datastructures.gtfs_output.base import BaseContainer, BaseDataClass
 @dataclass
 class DayIsActive:
     active: bool = True
+
+    def __eq__(self, other: DayIsActive) -> bool:
+        return self.active == other.active
 
     def to_output(self) -> str:
         return str(int(self.active))
@@ -36,6 +41,8 @@ class ServiceDay(ABC):
     def to_output(self) -> str:
         return self.date.strftime("%Y%m%d")
 
+    def __eq__(self, other: ServiceDay):
+        return self.date == other.date
 
 class StartDate(ServiceDay):
     @property
@@ -83,6 +90,7 @@ class CalendarEntry(BaseDataClass):
     def __init__(self):
         super().__init__()
         self.service_id = self.id
+        self.on_holidays = False
         self._set_dates()
 
     def _set_dates(self):
@@ -90,20 +98,50 @@ class CalendarEntry(BaseDataClass):
         self.start_date = StartDate()
         self.end_date = EndDate()
 
+    def same_dates(self, other: CalendarEntry) -> bool:
+        """ Return if all self and other are active on the same dates. """
+        if (self.start_date != other.start_date or
+                self.end_date != other.end_date):
+            return False
+        for name in _WEEKDAY_NAMES:
+            if getattr(self, name) != getattr(other, name):
+                return False
+        return self.on_holidays == other.on_holidays
+
 
 class Calendar(BaseContainer):
+    entries: dict[str, CalendarEntry]
+
     def __init__(self):
         super().__init__("calendar.txt", CalendarEntry)
 
     def add(self, days: list[str]) -> CalendarEntry:
         entry = CalendarEntry()
-        weekday_names = [f.name for f in fields(entry)
-                         if f.type == DayIsActive]
         for day in days:
             # Holidays will be in the calendar_dates.
             if day == "h":
+                entry.on_holidays = True
                 continue
-            setattr(entry, weekday_names[int(day)], DayIsActive(True))
+            setattr(entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
 
+        entry = self.get_existing(entry)
         self._add(entry)
         return entry
+
+    def _add(self, entry: CalendarEntry) -> None:
+        if entry.id in self.entries:
+            return
+        super()._add(entry)
+
+    def get_existing(self, new_entry: CalendarEntry) -> CalendarEntry | None:
+        """ Return new_entry if no other entry exists with the same dates.
+        Otherwise, return the existing entry. """
+
+        for entry in self.entries.values():
+            if entry.same_dates(new_entry):
+                return entry
+        return new_entry
+
+
+_WEEKDAY_NAMES = [field.name for field in fields(CalendarEntry)
+                  if field.type == "DayIsActive"]
