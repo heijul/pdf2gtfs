@@ -3,8 +3,12 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
+from holidays.utils import country_holidays
+from datetime import datetime as dt
 
+from config import Config
 from datastructures.gtfs_output.calendar import Calendar
+from datastructures.gtfs_output.calendar_dates import CalendarDates
 from datastructures.gtfs_output.route import Routes
 from datastructures.gtfs_output.stop import Stops
 from datastructures.gtfs_output.stop_times import StopTimes
@@ -28,6 +32,7 @@ class GTFSHandler:
         self._calendar = Calendar()
         self._trips = Trips()
         self._stop_times = StopTimes()
+        self._calendar_dates = CalendarDates()
         self._setup()
 
     def _setup(self):
@@ -47,6 +52,8 @@ class GTFSHandler:
         # Add generated stop_times to ours.
         for times in stop_times:
             self.stop_times.merge(times)
+
+        self.generate_calendar_dates()
 
     def generate_stop_times(self, route_id, entries) -> list[StopTimes]:
         """ Generate the full stop_times of the given entries.
@@ -88,6 +95,29 @@ class GTFSHandler:
 
         return stop_times
 
+    def generate_calendar_dates(self):
+        # TODO: Should not disable service for sundays on holidays which
+        #  fall on sundays... However this should also not make a difference
+
+        holiday_service_ids = []
+        normal_service_ids = []
+        for entry in self.calendar.entries.values():
+            if entry.on_holidays:
+                holiday_service_ids.append(entry.service_id)
+            else:
+                normal_service_ids.append(entry.service_id)
+
+        # TODO: Set years to Config.years, once set
+        holidays = country_holidays(
+            Config.holiday_code[0], Config.holiday_code[1],
+            years=dt.now().year)
+
+        for holiday in holidays:
+            for service_id in holiday_service_ids:
+                self.calendar_dates.add(service_id, holiday, True)
+            for service_id in normal_service_ids:
+                self.calendar_dates.add(service_id, holiday, False)
+
     def write_files(self):
         path = Path("../out/").resolve()
         path.mkdir(exist_ok=True)
@@ -97,6 +127,7 @@ class GTFSHandler:
         self.calendar.write(path)
         self.trips.write(path)
         self.stop_times.write(path)
+        self.calendar_dates.write(path)
 
     @property
     def agency(self):
@@ -121,3 +152,7 @@ class GTFSHandler:
     @property
     def stop_times(self):
         return self._stop_times
+
+    @property
+    def calendar_dates(self):
+        return self._calendar_dates
