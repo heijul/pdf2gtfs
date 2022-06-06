@@ -113,6 +113,75 @@ class GTFSHandler:
                 self.calendar_dates.add(date.service_id, holiday, True)
             for date in non_holiday_dates:
                 self.calendar_dates.add(date.service_id, holiday, False)
+        self.add_annotation_dates()
+
+    def add_annotation_dates(self):
+        msg = ""
+        state = "start"
+        # Get annotations.
+        annots = set()
+        raw_annots = [e.annotations for e in self.calendar.entries]
+        for annot in raw_annots:
+            annots = set.union(annots, annot)
+        current = annots.pop()
+        annot_values: dict[str, list[tuple[dt.date, bool]]] = {}
+
+        while current:
+            # Get input
+            if state == "start":
+                msg = (f"Found this annotation '{current}'. "
+                       f"What action do you want "
+                       f"to take (S)kip, (A)pply, (H)elp, (Q)uit?")
+            elif state == "apply":
+                msg = (f"Enter a date (YYYYMMDD) where service is different "
+                       f"than usual, or 'd' if there are no other different "
+                       f"dates for this annotation:")
+            msg += "\n> "
+            inp = input(msg).strip().lower()
+
+            # Handle state.
+            if state == "start":
+                if inp == "a":
+                    state = "apply"
+                    continue
+                if inp == "s":
+                    if not annots:
+                        break
+                    current = annots.pop()
+                    continue
+                if inp == "q":
+                    break
+            elif state == "apply":
+                try:
+                    date = dt.strptime(inp, "%Y%m%d")
+                except ValueError:
+                    print("Invalid date.")
+                    continue
+                msg = (f"Should the services with this annotation be active "
+                       f"[y,yes] on the given date or not [n]?\n> ")
+                inp = input(msg).strip().lower()
+                active = inp in ["y", "yes"]
+                annot_values[current] = (annot_values.setdefault(current, [])
+                                         + [(date, active)])
+
+        def get_services_with_annot(_annot):
+            return [e for e in self.calendar.entries
+                    if _annot in e.annotations]
+        """
+        # Testing...
+        annot_values = {'*': [(dt.strptime('20221224', "%Y%m%d"), False),
+                              (dt.strptime('20221225', "%Y%m%d"), False),
+                              (dt.strptime('20221231', "%Y%m%d"), False),
+                              (dt.strptime('20220414', "%Y%m%d"), False),
+                              (dt.strptime('20220417', "%Y%m%d"), False),
+                              (dt.strptime('20220605', "%Y%m%d"), False)]}
+        """
+        for annot, values in annot_values.items():
+            services = get_services_with_annot(annot)
+            for service in services:
+                for value, active in values:
+                    self.calendar_dates.add(
+                        service.service_id, value, active)
 
     def write_files(self):
         path = Path("../out/").resolve()
