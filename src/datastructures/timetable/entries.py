@@ -16,8 +16,16 @@ class Weekdays:
 class TimeTableEntry:
     def __init__(self, raw_header_text: str = "") -> None:
         self._values: dict[Stop, str] = {}
-        self._annotations: list[str] = []
+        self._annotations: set[str] = set()
         self.days: Weekdays = Weekdays(raw_header_text)
+
+    @property
+    def annotations(self) -> set[str]:
+        return self._annotations
+
+    @annotations.setter
+    def annotations(self, value: set[str]) -> None:
+        self._annotations = value
 
     @property
     def values(self) -> dict[Stop, str]:
@@ -28,9 +36,6 @@ class TimeTableEntry:
 
     def get_value(self, stop: Stop) -> str | None:
         return self._values.get(stop)
-
-    def add_annotation(self, annotation: str) -> None:
-        self._annotations.append(annotation)
 
 
 class TimeTableRepeatEntry(TimeTableEntry):

@@ -76,6 +76,15 @@ class TimeTable:
 
     @staticmethod
     def from_raw_table(raw_table: raw.Table) -> TimeTable:
+        def get_annotations(column: raw.Column):
+            _annots = set()
+            for field in column.fields:
+                if field.row.type != raw.RowType.ANNOTATION:
+                    continue
+                # Splitting in case field has multiple annotations
+                _annots.union(set(field.text.strip().split(" ")))
+            return _annots
+
         table = TimeTable()
 
         for raw_column in list(raw_table.columns):
@@ -84,6 +93,7 @@ class TimeTable:
                 entry = TimeTableRepeatEntry(raw_header_text)
             else:
                 entry = TimeTableEntry(raw_header_text)
+            entry.annotations = get_annotations(raw_column)
             table.entries.append(entry)
 
             for raw_field in raw_column:
@@ -93,12 +103,13 @@ class TimeTable:
                         stop = Stop(raw_field.text, row_id)
                         table.stops.add_stop(stop)
                     continue
+                if raw_field.row.type == raw.RowType.ANNOTATION:
+                    # TODO: Implement this. Could be done in a similar way as
+                    #  holidays. This would allow the user to add/append their
+                    #  own calendar_dates.txt to enable/disable entries.
+                    continue
                 if raw_field.column.type == ColumnType.STOP_ANNOTATION:
                     table.stops.add_annotation(raw_field.text, stop_id=row_id)
-                elif raw_field.row.type == raw.RowType.ANNOTATION:
-                    # Ignore row annotations for now.
-                    # TODO: Implement this.
-                    pass
                 elif raw_field.row.type == raw.RowType.DATA:
                     stop = table.stops.get_from_id(row_id)
                     table.entries[-1].set_value(stop, raw_field.text)

@@ -88,10 +88,11 @@ class CalendarEntry(BaseDataClass):
     start_date: ServiceDay = DefaultStartDate
     end_date: ServiceDay = DefaultEndDate
 
-    def __init__(self):
+    def __init__(self, annots: set[str] | None = None):
         super().__init__()
         self.service_id = self.id
         self.on_holidays = False
+        self.annotations = annots or set()
         self._set_dates()
 
     def _set_dates(self):
@@ -99,8 +100,11 @@ class CalendarEntry(BaseDataClass):
         self.start_date = StartDate()
         self.end_date = EndDate()
 
+    def is_similar_to(self, other: CalendarEntry) -> bool:
+        return self.same_dates(other) and self.annotations == other.annotations
+
     def same_dates(self, other: CalendarEntry) -> bool:
-        """ Return if all self and other are active on the same dates. """
+        """ Return if self and other are active on the same dates. """
         if (self.start_date != other.start_date or
                 self.end_date != other.end_date):
             return False
@@ -116,8 +120,8 @@ class Calendar(BaseContainer):
     def __init__(self):
         super().__init__("calendar.txt", CalendarEntry)
 
-    def add(self, days: list[str]) -> CalendarEntry:
-        entry = CalendarEntry()
+    def add(self, days: list[str], annots: set[str]) -> CalendarEntry:
+        entry = CalendarEntry(annots)
         for day in days:
             # Holidays will be in the calendar_dates.
             if day == "h":
@@ -139,7 +143,7 @@ class Calendar(BaseContainer):
         Otherwise, return the existing entry. """
 
         for entry in self.entries.values():
-            if entry.same_dates(new_entry):
+            if entry.is_similar_to(new_entry):
                 return entry
         return new_entry
 

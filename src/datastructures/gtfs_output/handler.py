@@ -14,7 +14,7 @@ from datastructures.gtfs_output.gtfsstop import GTFSStops
 from datastructures.gtfs_output.stop_times import StopTimes
 from datastructures.gtfs_output.trips import Trips
 from datastructures.gtfs_output.agency import Agency
-from datastructures.timetable.entries import TimeTableRepeatEntry
+from datastructures.timetable.entries import TimeTableRepeatEntry, TimeTableEntry
 
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ class GTFSHandler:
 
         self.generate_calendar_dates()
 
-    def generate_stop_times(self, route_id, entries) -> list[StopTimes]:
+    def generate_stop_times(self, route_id, entries: list[TimeTableEntry]) -> list[StopTimes]:
         """ Generate the full stop_times of the given entries.
 
         Will remember the previous stop_times created and use the previous and
@@ -72,7 +72,8 @@ class GTFSHandler:
                 continue
 
             # Create new stop_times for current entry.
-            service_id = self.calendar.add(entry.days.days).service_id
+            service_id = self.calendar.add(
+                entry.days.days, entry.annotations).service_id
             trip = self.trips.add(route_id, service_id)
             times = StopTimes()
             times.add_multiple(trip.trip_id, self.stops, entry.values)
