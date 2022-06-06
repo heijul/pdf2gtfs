@@ -82,7 +82,7 @@ class TimeTable:
                 if field.row.type != raw.RowType.ANNOTATION:
                     continue
                 # Splitting in case field has multiple annotations
-                _annots.union(set(field.text.strip().split(" ")))
+                _annots = _annots.union(set(field.text.strip().split(" ")))
             return _annots
 
         table = TimeTable()

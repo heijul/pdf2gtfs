@@ -89,20 +89,11 @@ class Table:
             last = column
         last.bbox.set("x1", round(last.bbox.x1 + dist / 2, 2))
 
-        self.columns = columns
+        # Apply the annotation fields to the columns.
+        for row in self.rows.of_type(RowType.ANNOTATION):
+            row.apply_column_scheme(columns)
 
-        """
-        # Try to fit the 'RowTypes.OTHER'-rows into the established data rows
-        #  and update their type accordingly.
-        # TODO: Maybe use Config.annotation_identifier instead of this!?
-        # TODO: This still somewhat needs to be done...
-        #  columns will have to be updated...
-        for row in self.rows:
-            if row.type != RowType.OTHER:
-                continue
-            if row.fits_column_scheme(columns):
-                row.type = RowType.ANNOTATION
-        """
+        self.columns = columns
 
     @staticmethod
     def split_rows_into_tables(rows: list[Row]) -> list[Table]:
