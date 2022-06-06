@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import datetime as dt
 from dataclasses import fields, dataclass
+from typing import TypeAlias, Callable
 
 from datastructures.gtfs_output.base import BaseContainer, BaseDataClass
 
@@ -115,7 +116,7 @@ class CalendarEntry(BaseDataClass):
 
 
 class Calendar(BaseContainer):
-    entries: dict[str, CalendarEntry]
+    entries: list[CalendarEntry]
 
     def __init__(self):
         super().__init__("calendar.txt", CalendarEntry)
@@ -133,20 +134,39 @@ class Calendar(BaseContainer):
         self._add(entry)
         return entry
 
-    def _add(self, entry: CalendarEntry) -> None:
-        if entry.id in self.entries:
+    def _add(self, new_entry: CalendarEntry) -> None:
+        if any(new_entry.id == entry.id for entry in self.entries):
             return
-        super()._add(entry)
+        super()._add(new_entry)
 
     def get_existing(self, new_entry: CalendarEntry) -> CalendarEntry | None:
         """ Return new_entry if no other entry exists with the same dates.
         Otherwise, return the existing entry. """
 
-        for entry in self.entries.values():
+        for entry in self.entries:
             if entry.is_similar_to(new_entry):
                 return entry
         return new_entry
 
+    def group_by_holiday(self) -> GroupedEntryTuple:
+        """ Return tuple of lists, where the first list only contains entries
+        which are holidays and the second one only contains non_holidays. """
+        return self._group_by(lambda e: e.on_holidays)
+
+    def _group_by(self, filter_func: FilterFunction) -> GroupedEntryTuple:
+        """ Returns two lists, where the first one only contains entries that
+        make filter_func True and the second one contains all other entries.
+        """
+        def non_filter_func(entry: CalendarEntry):
+            """ Negates the filter_func. """
+            return not filter_func(entry)
+
+        return (list(filter(filter_func, self.entries)),
+                list(filter(non_filter_func, self.entries)))
+
 
 _WEEKDAY_NAMES = [field.name for field in fields(CalendarEntry)
                   if field.type == "DayIsActive"]
+
+GroupedEntryTuple: TypeAlias = tuple[list[CalendarEntry], list[CalendarEntry]]
+FilterFunction: TypeAlias = Callable[[CalendarEntry], bool]

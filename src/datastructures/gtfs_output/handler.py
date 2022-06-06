@@ -43,7 +43,7 @@ class GTFSHandler:
         timetable.clean_values()
         for stop in timetable.stops.stops:
             self.stops.add(stop.name)
-        stop_entries = list(self.stops.entries.values())
+        stop_entries = list(self.stops.entries)
         route_name = (f"{stop_entries[0].stop_name}"
                       f"-{stop_entries[-1].stop_name}")
         route_id = self.routes.add(route_name).route_id
@@ -55,7 +55,8 @@ class GTFSHandler:
 
         self.generate_calendar_dates()
 
-    def generate_stop_times(self, route_id, entries: list[TimeTableEntry]) -> list[StopTimes]:
+    def generate_stop_times(self, route_id, entries: list[TimeTableEntry]
+                            ) -> list[StopTimes]:
         """ Generate the full stop_times of the given entries.
 
         Will remember the previous stop_times created and use the previous and
@@ -100,24 +101,18 @@ class GTFSHandler:
         # TODO: Should not disable service for sundays on holidays which
         #  fall on sundays... However this should also not make a difference
 
-        holiday_service_ids = []
-        normal_service_ids = []
-        for entry in self.calendar.entries.values():
-            if entry.on_holidays:
-                holiday_service_ids.append(entry.service_id)
-            else:
-                normal_service_ids.append(entry.service_id)
+        holiday_dates, non_holiday_dates = self.calendar.group_by_holiday()
 
-        # TODO: Set years to Config.years, once set
-        holidays = country_holidays(
-            Config.holiday_code[0], Config.holiday_code[1],
-            years=dt.now().year)
+        # TODO: Set years to Config.years, once it exists
+        holidays = country_holidays(Config.holiday_code[0],
+                                    Config.holiday_code[1],
+                                    years=dt.now().year)
 
         for holiday in holidays:
-            for service_id in holiday_service_ids:
-                self.calendar_dates.add(service_id, holiday, True)
-            for service_id in normal_service_ids:
-                self.calendar_dates.add(service_id, holiday, False)
+            for date in holiday_dates:
+                self.calendar_dates.add(date.service_id, holiday, True)
+            for date in non_holiday_dates:
+                self.calendar_dates.add(date.service_id, holiday, False)
 
     def write_files(self):
         path = Path("../out/").resolve()

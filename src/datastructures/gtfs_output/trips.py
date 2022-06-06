@@ -19,7 +19,7 @@ class TripEntry(BaseDataClass):
 
 
 class Trips(BaseContainer):
-    entries: dict[int, TripEntry]
+    entries: list[TripEntry]
 
     def __init__(self):
         super().__init__("trips.txt", TripEntry)

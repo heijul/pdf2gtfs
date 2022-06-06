@@ -20,7 +20,7 @@ class GTFSStop(BaseDataClass):
 
 
 class GTFSStops(BaseContainer):
-    entries: dict[int, GTFSStop] = {}
+    entries: list[GTFSStop]
 
     def __init__(self):
         super().__init__("stops.txt", GTFSStop)
@@ -31,7 +31,7 @@ class GTFSStops(BaseContainer):
         super()._add(GTFSStop(stop_name))
 
     def get(self, name):
-        for entry in self.entries.values():
+        for entry in self.entries:
             if entry.stop_name != name:
                 continue
             return entry

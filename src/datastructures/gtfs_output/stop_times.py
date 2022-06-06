@@ -79,7 +79,7 @@ class StopTimesEntry(BaseDataClass):
 
 
 class StopTimes(BaseContainer):
-    entries: dict[int, StopTimesEntry]
+    entries: list[StopTimesEntry]
 
     def __init__(self):
         super().__init__("stop_times.txt", StopTimesEntry)
@@ -115,19 +115,21 @@ class StopTimes(BaseContainer):
         return entries
 
     def merge(self, other: StopTimes):
-        self.entries.update(other.entries)
+        # TODO: Should properly merge, instead of assuming self is earlier
+        #  than other
+        self.entries += other.entries
 
     def duplicate(self, trip_id) -> StopTimes:
         """ Creates a new instance with updated copies of the entries. """
         new = StopTimes()
 
-        for entry in self.entries.values():
+        for entry in self.entries:
             new._add(entry.duplicate(trip_id))
         return new
 
     def shift(self, amount: Time):
         """ Shift all entries by the given amount. """
-        for entry in self.entries.values():
+        for entry in self.entries:
             entry.arrival_time += amount
             entry.departure_time += amount
 
@@ -149,10 +151,8 @@ class StopTimes(BaseContainer):
 
         return new_stop_times
 
-    def __lt__(self, other):
-        a = list(self.entries.values())[0].arrival_time
-        b = list(other.entries.values())[0].arrival_time
-        return a < b
+    def __lt__(self, other: StopTimes):
+        return self.entries[0].arrival_time < other.entries[0].arrival_time
 
-    def __gt__(self, other):
+    def __gt__(self, other: StopTimes):
         return not self.__lt__(other)

@@ -34,21 +34,20 @@ ContainerObjectType = TypeVar("ContainerObjectType", bound=BaseDataClass)
 
 
 class BaseContainer:
-    entries: dict[int, ContainerObjectType]
+    entries: list[ContainerObjectType]
 
     def __init__(self, filename: str, entry_type: Type[ContainerObjectType]):
         self.filename = filename
         self.entry_type = entry_type
-        self.entries: dict[int, ContainerObjectType] = {}
+        self.entries: list[ContainerObjectType] = []
 
     def _add(self, entry: ContainerObjectType) -> None:
-        # TODO: Needs to check if entry exists already
-        self.entries[entry.id] = entry
+        self.entries.append(entry)
 
     def to_output(self):
         field_names = self.entry_type.get_field_names()
         entry_output = "\n".join(
-            map(lambda entry: entry.to_output(), self.entries.values()))
+            map(lambda entry: entry.to_output(), self.entries))
         return f"{field_names}\n{entry_output}\n"
 
     def write(self, path: Path):

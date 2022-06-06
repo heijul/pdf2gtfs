@@ -20,6 +20,8 @@ class AgencyEntry(BaseDataClass):
 
 
 class DummyAgencyEntry(AgencyEntry):
+    entries: list[AgencyEntry]
+
     def __init__(self):
         super().__init__("pdf2gtfs", "", "Europe/Berlin")
         self.name = "pdf2gtfs"
@@ -28,7 +30,6 @@ class DummyAgencyEntry(AgencyEntry):
 class Agency(BaseContainer):
     def __init__(self):
         super().__init__("agency.txt", AgencyEntry)
-        self.entries: dict[str: AgencyEntry] = {}
 
     def add(self):
         # TODO: Get data from config.

@@ -18,7 +18,7 @@ class CalendarDateEntry(BaseDataClass):
 
 
 class CalendarDates(BaseContainer):
-    entries: dict[str, CalendarDateEntry]
+    entries: list[CalendarDateEntry]
 
     def __init__(self):
         super().__init__("calendar_dates.txt", CalendarDateEntry)
