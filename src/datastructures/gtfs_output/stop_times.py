@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Time:
-    hours: int = None
-    minutes: int = None
+    hours: int = 0
+    minutes: int = 0
 
     @staticmethod
     def from_string(time_string: str) -> Time:
@@ -99,9 +99,15 @@ class StopTimes(BaseContainer):
         entries = []
         last_stop_name = ""
         last_entry = None
+        service_day_delta = Time(0)
+        prev_time = Time()
 
         for seq, (stop, time_string) in enumerate(time_strings.items()):
             time = Time.from_string(time_string)
+            if time < prev_time:
+                service_day_delta = Time(24)
+            prev_time = time.copy()
+            time += service_day_delta
 
             # Consecutive stops with the same name indicate arrival/departure
             if stop.name == last_stop_name:
