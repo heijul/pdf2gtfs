@@ -123,6 +123,8 @@ class GTFSHandler:
         raw_annots = [e.annotations for e in self.calendar.entries]
         for annot in raw_annots:
             annots = set.union(annots, annot)
+        if not annots:
+            return
         current = annots.pop()
         annot_values: dict[str, list[tuple[dt.date, bool]]] = {}
 
