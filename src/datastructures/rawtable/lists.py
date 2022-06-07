@@ -80,3 +80,7 @@ class RowList(FieldContainerList[TableT, tbl.Row]):
         if not self._objects:
             return 0
         return mean([len(row.fields) for row in self._objects])
+
+    def merge(self, other: RowList):
+        # TODO: Merge properly
+        self._objects += other.get_objects()

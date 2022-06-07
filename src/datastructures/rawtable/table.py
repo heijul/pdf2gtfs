@@ -120,7 +120,19 @@ class Table:
         else:
             if current_rows:
                 tables.append(Table(current_rows))
-        return tables
+
+        return Table.remerge_tables(tables)
+
+    @staticmethod
+    def remerge_tables(tables: list[Table]) -> list[Table]:
+        merged_tables = []
+        for table in tables:
+            if table.header_rows or not merged_tables:
+                merged_tables.append(table)
+                continue
+            merged_tables[-1].rows.merge(table.rows)
+
+        return merged_tables
 
     def to_timetable(self) -> TimeTable:
         return TimeTable.from_raw_table(self)
