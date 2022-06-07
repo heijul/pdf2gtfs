@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from holidays.utils import country_holidays
 from datetime import datetime as dt
 
+from cli.cli import AnnotationInputHandler
 from config import Config
 from datastructures.gtfs_output.calendar import Calendar
 from datastructures.gtfs_output.calendar_dates import CalendarDates
@@ -115,15 +116,21 @@ class GTFSHandler:
                 self.calendar_dates.add(date.service_id, holiday, False)
 
     def add_annotation_dates(self):
-        msg = ""
-        state = "start"
-        # Get annotations.
         annots = set()
         raw_annots = [e.annotations for e in self.calendar.entries]
         for annot in raw_annots:
             annots |= annot
         if not annots:
             return
+        input_handler = AnnotationInputHandler(self, annots)
+        input_handler.run()
+        return
+
+
+
+        msg = ""
+        state = "start"
+        # Get annotations.
         current = annots.pop()
         annot_values: dict[str, list[tuple[dt.date, bool]]] = {}
 
