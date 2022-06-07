@@ -153,6 +153,12 @@ class GTFSHandler:
                 if inp == "q":
                     break
             elif state == "apply":
+                if inp == "d":
+                    if not annots:
+                        break
+                    state = "start"
+                    current = annots.pop()
+                    continue
                 try:
                     date = dt.strptime(inp, "%Y%m%d")
                 except ValueError:
