@@ -47,9 +47,9 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
     def unpack_char(element: LTChar):
         return {"x0": element.x0,
                 "x1": element.x1,
-                "y0": page.y0 - element.y0,
-                "y1": page.y0 - element.y0 + element.height,
-                "top": page.y0 - element.y0,
+                "y0": page.y1 - element.y1,
+                "y1": page.y1 - element.y1 + element.height,
+                "top": page.y1 - element.y1,
                 "text": element.get_text(),
                 "upright": element.upright,
                 }
@@ -132,9 +132,18 @@ class Reader(BaseReader, ABC):
         def normalize(char):
             char["top"] = (round(char["top"] / mean_char_height)
                            * mean_char_height)
+            char["x0"] = (round(char["x0"] / mean_char_width, 2)
+                          * mean_char_width)
+            char["x1"] = (round(char["x1"] / mean_char_width, 2)
+                          * mean_char_width)
+            char["y0"] = (round(char["y0"] / mean_char_height, 2)
+                          * mean_char_height)
+            char["y1"] = (round(char["y1"] / mean_char_height, 2)
+                          * mean_char_height)
             return char
 
         mean_char_height = round((df["y1"] - df["y0"]).mean())
+        mean_char_width = round((df["x1"] - df["x0"]).mean())
 
         # Round to combat tolerances.
         df = df.round({"top": 0, "x0": 2, "x1": 2, "y0": 2, "y1": 2})
@@ -145,7 +154,7 @@ class Reader(BaseReader, ABC):
         for group_id in lines.groups:
             try:
                 line = lines.get_group(group_id)
-            except KeyError:
+            except KeyError:  # TODO: Check how this can happen
                 continue
             row = Row.from_fields(self.split_line_into_fields(line))
             rows.append(row)
@@ -156,12 +165,12 @@ class Reader(BaseReader, ABC):
         if len(line) == 0:
             return fields
 
-        sorted_line = sorted([f[1] for f in list(line.iterrows())],
-                             key=attrgetter("x0"))
-        for char in sorted_line:
+        for _, char in line.sort_values("x0", ignore_index=True).iterrows():
             # Ignore vertical text
             if not char.upright:
-                logger.debug(f"Skipping vertical char '{char}'...")
+                char_str = (f"Char(text='{char.text}', x0={char.x0}, "
+                            f"y0={char.y0}, x1={char.x1}, y1{char.y1})")
+                logger.debug(f"Skipping vertical char:\n\t{char_str}")
                 continue
             # Fields are continuous streams of chars.
             if not fields or char.x0 != fields[-1].bbox.x1:
