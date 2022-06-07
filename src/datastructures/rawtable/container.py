@@ -230,7 +230,7 @@ class Row(FieldContainer):
     def apply_column_scheme(self, columns: list[Column]):
         unmatched_fields = sorted(self.fields, key=attrgetter("bbox.x0"))
         for column in columns:
-            for field in unmatched_fields:
+            for field in list(unmatched_fields):
                 if not column.bbox.contains_vertical(field.bbox):
                     continue
                 column.add_field(field)

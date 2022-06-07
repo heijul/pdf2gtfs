@@ -113,7 +113,6 @@ class GTFSHandler:
                 self.calendar_dates.add(date.service_id, holiday, True)
             for date in non_holiday_dates:
                 self.calendar_dates.add(date.service_id, holiday, False)
-        self.add_annotation_dates()
 
     def add_annotation_dates(self):
         msg = ""
@@ -122,7 +121,7 @@ class GTFSHandler:
         annots = set()
         raw_annots = [e.annotations for e in self.calendar.entries]
         for annot in raw_annots:
-            annots = set.union(annots, annot)
+            annots |= annot
         if not annots:
             return
         current = annots.pop()
@@ -186,6 +185,7 @@ class GTFSHandler:
                         service.service_id, value, active)
 
     def write_files(self):
+        self.add_annotation_dates()
         path = Path("../out/").resolve()
         path.mkdir(exist_ok=True)
         self.agency.write(path)
