@@ -24,6 +24,7 @@ class Time:
 
     @staticmethod
     def from_string(time_string: str) -> Time:
+        time_string = time_string.strip()
         try:
             time = dt.strptime(time_string, Config.time_format)
         except ValueError:
