@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime as dt
-from typing import Callable
+from typing import TYPE_CHECKING, TypeVar
+
+
+if TYPE_CHECKING:
+    from cli.cli import AnnotationInputHandler
 
 
 logger = logging.getLogger(__name__)
+SM_Type = TypeVar("SM_Type", bound="InputHandler")
 
 
 class State:
-    def __init__(self, state_machine, name: str, next_name: str = ""):
+    def __init__(self, state_machine: SM_Type,
+                 name: str, next_name: str = ""):
         self.sm = state_machine
         self.name = name
-        self.done = False
         self._next = None
         self.next_name = next_name
 
@@ -25,7 +30,7 @@ class State:
     @next.setter
     def next(self, next_state: str | State) -> None:
         if isinstance(next_state, str):
-            self._next = self.sm.get_state(next_state)
+            next_state = self.sm.get_state(next_state)
         self._next = next_state
 
     def enter(self, last_state: State):
@@ -34,8 +39,8 @@ class State:
     def exit(self):
         pass
 
-    def run(self):
-        pass
+    def run(self) -> bool:
+        return True
 
 
 class StartState(State):
@@ -48,59 +53,90 @@ class EndState(State):
         super().__init__(state_machine, "end")
 
 
-class ConditionState:
-    next_states: tuple[State, State]
-    condition_func: Callable[[], bool] = bool
-
-    def __init__(self, good_state: State, bad_state: State):
-        self.next_states = (good_state, bad_state)
-        self.condition_func = bool
-
-    @property
-    def next(self):
-        return self.next_states[int(self.check_condition())]
-
-    def check_condition(self) -> bool:
-        return self.condition_func()
-
-
 class InputState(State):
-    def __init__(self, state_machine, name: str, message: str):
+    def __init__(self, state_machine, name: str, message: str,
+                 next_name: str = ""):
         self.message = message
-        super().__init__(state_machine, name)
+        super().__init__(state_machine, name, next_name)
 
-    def get_input(self) -> str:
-        return input(self.message).strip().lower()
+    @staticmethod
+    def get_input(message) -> str:
+        return input(message + "\n> ").strip().lower()
 
 
 class AnnotBaseState(InputState):
-    def __init__(self, state_machine):
+    def __init__(self, state_machine: AnnotationInputHandler):
         msg = ("Found this annotation '{}'. What do you want to do?\n"
                "(S)kip annotation, Add (E)xception for this annotation, "
-               "Skip (A)ll remaining annotations: [s/e/a]\n>")
-        super().__init__(state_machine, "base", msg)
+               "Skip (A)ll remaining annotations: [s/e/a]")
+        self.values: dict[str, list[tuple[dt.date, bool]]] = {}
+        super().__init__(state_machine, "base", msg, "add_date")
+        self.sm: AnnotationInputHandler
+        self._update_annot()
+
+    def enter(self, last_state: State):
+        if isinstance(last_state, AnnotAddDateState):
+            self._update_annot()
+
+    def _update_annot(self):
+        self.annot: str = self.sm.get_next_annotation()
+
+    def run(self) -> bool:
+        if not self.annot:
+            self.next = "end"
+            return True
+
+        response = self.get_input(self.message.format(self.annot))
+
+        if response == "s":
+            self._update_annot()
+            if self.annot:
+                return False
+            self.next = "end"
+            return True
+        if response == "e":
+            self.next = "add_date"
+            return True
+        if response == "a":
+            self.next = "end"
+            return True
+        return False
+
+    def get_value(self):
+        return self.values
+
+    def add_value(self, value: tuple[dt.date, bool]):
+        self.values[self.annot] = (
+            self.values.setdefault(self.annot, []) + [value])
 
 
 class AnnotAddDateState(InputState):
     def __init__(self, state_machine):
-        self.dates: dt.date = []
         msg = ("Enter a date (YYYYMMDD) where service is different than usual"
                ", or an empty string if there are no more exceptions"
-               "for this annotation:\n>")
-        super().__init__(state_machine, "add_date", msg)
+               "for this annotation:")
+        self.date = None
+        self.base: AnnotBaseState | None = None
+        super().__init__(state_machine, "add_date", msg, "set_active")
+
+    def enter(self, last_state: State):
+        if isinstance(last_state, AnnotBaseState):
+            self.base = last_state
+        if isinstance(last_state, AnnotSetActiveState):
+            self.base.add_value((self.date, last_state.get_value()))
 
     def run(self) -> bool:
-        response = self.get_input()
+        response = self.get_input(self.message)
         if response == "":
+            self.next = "base"
             return True
         try:
-            date = dt.strptime(response, "%Y%m%d")
+            self.date = dt.strptime(response, "%Y%m%d")
         except ValueError:
-            logger.warning("Invalid date. Make sure you use the "
-                           "right format (e.g. 20220420).")
+            logger.error("Invalid date. Make sure you use the "
+                         "right format (i.e. YYYYMMDD, e.g. 20220420).")
+            self.date = None
             return False
-
-        self.dates.append(date)
         return True
 
 
@@ -108,18 +144,18 @@ class AnnotSetActiveState(InputState):
     def __init__(self, state_machine):
         msg = ("Do you want service to be (a)ctive or (d)isabled for the "
                "current annotation on the given date? [a,d]")
-        self.values: list[bool] = []
-        super().__init__(state_machine, "set_active", msg)
+        self.value: bool = False
+        super().__init__(state_machine, "set_active", msg, "add_date")
+
+    def get_value(self) -> bool:
+        return self.value
 
     def run(self):
-        def response_to_int(_response):
-            return int(_response == "d") + 1
-
-        response = self.get_input()
+        response = self.get_input(self.message)
 
         if response not in ["a", "d"]:
-            logger.warning("Invalid response.")
+            logger.error("Invalid response.")
             return False
-        self.values.append(response_to_int(response))
-        return True
 
+        self.value = response == "a"
+        return True

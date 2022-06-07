@@ -5,7 +5,7 @@ from p2g_logging import initialize_logging
 
 from reader import Reader
 from config import Config
-from cli.cli import parse_args
+from cli.arg_parser import parse_args
 from sys import argv
 
 
@@ -21,15 +21,15 @@ def try_reader():
 def try_gtfs_output(timetables):
     assert len(timetables) > 0
     gtfs_handler = GTFSHandler()
-    gtfs_handler.timetable_to_gtfs(timetables[0])
+    for table in timetables:
+        gtfs_handler.timetable_to_gtfs(table)
     gtfs_handler.write_files()
-
 
 
 if __name__ == "__main__":
     fnames = ["./data/vag_linie_eins.pdf", "./data/rmv_u1.pdf",
               "./data/rmv_g10.pdf", "./data/vag_linie_eins_new.pdf", "./data/test.pdf"]
-    argv.append("--pages=1")
+    argv.append("--pages=2")
     argv.append(fnames[3])
     parse_args()
     initialize_logging(logging.DEBUG)
