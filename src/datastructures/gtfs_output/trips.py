@@ -1,8 +1,11 @@
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, TypeAlias, Optional
 
 from datastructures.gtfs_output.base import (BaseContainer,
                                              BaseDataClass)
+
+
+Trip_Factory: TypeAlias = Callable[[Optional["TripEntry"]], "TripEntry"]
 
 
 @dataclass(init=False)
@@ -29,7 +32,17 @@ class Trips(BaseContainer):
         self._add(entry)
         return entry
 
-    def get_factory(self, service_id, route_id) -> Callable[[], TripEntry]:
-        """ Returns a function which creates a new TripEntry for the
-        given service and route. """
-        return lambda: self.add(route_id, service_id)
+    def remove(self, entry: TripEntry) -> None:
+        if entry in self.entries:
+            self.entries.remove(entry)
+
+    def get_factory(self, service_id, route_id) -> Trip_Factory:
+        """ Returns a function which creates a new TripEntry for the given
+        service and route. If entry is given instead removes said entry. """
+
+        def factory(entry: TripEntry | None = None):
+            if entry is None:
+                return self.add(route_id, service_id)
+            self.remove(entry)
+
+        return factory

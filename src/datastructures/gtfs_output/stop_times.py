@@ -5,13 +5,12 @@ from dataclasses import dataclass
 
 from datetime import datetime as dt
 from itertools import cycle
-from typing import Callable
 
 from config import Config
 from datastructures.gtfs_output.base import BaseDataClass, BaseContainer
 from datastructures.gtfs_output.gtfsstop import GTFSStops
 from datastructures.timetable.stops import Stop
-from datastructures.gtfs_output.trips import TripEntry
+from datastructures.gtfs_output.trips import Trip_Factory
 
 
 logger = logging.getLogger(__name__)
@@ -143,16 +142,18 @@ class StopTimes(BaseContainer):
 
     @staticmethod
     def add_repeat(previous: StopTimes, next_: StopTimes,
-                   deltas: list[int], trip_factory: Callable[[], TripEntry]):
+                   deltas: list[int], trip_factory: Trip_Factory):
         """ Create new stop_times for all times between previous and next. """
         assert previous < next_
         delta_cycle = cycle([Time(0, delta) for delta in deltas])
         new_stop_times = []
 
         while True:
-            new = previous.duplicate(trip_factory().trip_id)
+            trip = trip_factory(None)
+            new = previous.duplicate(trip.trip_id)
             new.shift(next(delta_cycle))
             if new > next_:
+                trip_factory(trip)
                 break
             new_stop_times.append(new)
             previous = new
