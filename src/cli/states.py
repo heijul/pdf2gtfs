@@ -113,7 +113,7 @@ class AnnotBaseState(InputState):
 class AnnotAddDateState(InputState):
     def __init__(self, state_machine):
         msg = ("Enter a date (YYYYMMDD) where service is different than usual"
-               ", or an empty string if there are no more exceptions"
+               ", or an empty string if there are no more exceptions "
                "for this annotation:")
         self.date = None
         self.base: AnnotBaseState | None = None
