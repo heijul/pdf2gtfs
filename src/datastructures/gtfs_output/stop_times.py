@@ -34,7 +34,8 @@ class Time:
         return Time(time.hour, time.minute)
 
     def to_output(self):
-        return f"{self.hours:02}:{self.minutes:02}"
+        # TODO: If config.repeat_strategy=mean, seconds are needed
+        return f"{self.hours:02}:{self.minutes:02}:00"
 
     def copy(self):
         return Time(self.hours, self.minutes)
