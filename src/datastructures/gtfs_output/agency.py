@@ -23,7 +23,9 @@ class DummyAgencyEntry(AgencyEntry):
     entries: list[AgencyEntry]
 
     def __init__(self):
-        super().__init__("pdf2gtfs", "", "Europe/Berlin")
+        super().__init__("pdf2gtfs",
+                         "https://www.pdf2gtfs.com",
+                         "Europe/Berlin")
         self.name = "pdf2gtfs"
 
 
