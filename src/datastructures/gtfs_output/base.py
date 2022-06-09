@@ -51,7 +51,7 @@ class BaseContainer:
         return f"{field_names}\n{entry_output}\n"
 
     def write(self, path: Path):
-        self._write(path, self.to_output())
+        self._write(path, self.to_output() + "\n")
 
     def _write(self, path: Path, content: str) -> None:
         # TODO: Probably need to ensure path ends with a seperator.
