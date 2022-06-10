@@ -38,6 +38,3 @@ if __name__ == "__main__":
 
     tables = try_reader()
     try_gtfs_output(tables)
-
-
-# TODO: Anschlüsse über an/ab rausfinden + evtl. Schwellenwert

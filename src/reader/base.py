@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from operator import attrgetter
 from pathlib import Path
 from time import time
 
@@ -54,6 +53,9 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
                 "upright": element.upright,
                 }
 
+    # Can't use LTTextLine because it depends on pdfminers layout algorithm,
+    #  which merges fields of different columns, making it impossible at times
+    #  to properly detect column annotations.
     char_list = []
     for page_element in page:
         if not isinstance(page_element, LTTextBox):
@@ -61,7 +63,6 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
         for textbox_element in page_element:
             if not isinstance(textbox_element, LTTextLine):
                 continue
-            # TODO: Using LTTextLine instead of chars probably makes more sense
             for textline_element in textbox_element:
                 if not isinstance(textline_element, LTChar):
                     continue
@@ -72,6 +73,8 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
                 # TODO: Find a way to skip invisible text.
                 #  Note: Does not seem to be possible as it appears to have
                 #  the same color as the visible text?!
+                # TODO: Preprocessing with 'gs -dFastWebView=True ...'
+                #  seems to have promising results.
 
                 char_list.append(unpack_char(textline_element))
 

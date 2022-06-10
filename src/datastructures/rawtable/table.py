@@ -107,7 +107,6 @@ class Table:
                 if len(current_rows) < Config.min_row_count:
                     # TODO: Should not drop the table,
                     #  but use it to enhance the others
-                    # TODO: Change row_str to be " ".join([str(fields)]
                     row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
                     logger.debug("Dropped rows:\n\tDistance: {y_distance}\n\t"
                                  f"Rows: [{row_str}]")
@@ -138,7 +137,7 @@ class Table:
         return TimeTable.from_raw_table(self)
 
     def get_header_from_column(self, column: Column) -> str:
-        # TODO: There should be only a single header row.
+        # TODO: What if there is more than one header row?
         for row in self.rows.of_type(RowType.HEADER):
             for i, field in enumerate(row, 1):
                 next_field = row.fields[i] if i < len(row.fields) else None

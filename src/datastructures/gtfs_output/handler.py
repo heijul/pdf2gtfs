@@ -100,7 +100,8 @@ class GTFSHandler:
 
     def generate_calendar_dates(self):
         # TODO: Should not disable service for sundays on holidays which
-        #  fall on sundays... However this should also not make a difference
+        #  fall on sundays... Will only make a difference if there are
+        #  different timetables for sundays/holidays...
 
         holiday_dates, non_holiday_dates = self.calendar.group_by_holiday()
 
