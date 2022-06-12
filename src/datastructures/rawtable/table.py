@@ -4,8 +4,9 @@ import logging
 from operator import attrgetter
 
 from config import Config
-from datastructures.rawtable import (
-    Row, Column, HeaderRow, DataRow, AnnotationRow, RowList, ColumnList)
+from datastructures.rawtable.enums import RowType
+from datastructures.rawtable.container import Row, Column
+from datastructures.rawtable.lists import RowList, ColumnList
 from datastructures.timetable.table import TimeTable
 
 
@@ -41,7 +42,7 @@ class Table:
 
     @property
     def header_rows(self):
-        return self.rows.of_type(HeaderRow)
+        return self.rows.of_type(RowType.HEADER)
 
     def generate_data_columns_from_rows(self):
         def _get_bounds(_column: Column):
@@ -54,7 +55,7 @@ class Table:
             #  for columns that are only touching.
             return b1[0] <= b2[0] <= b1[1] or b1[0] <= b2[1] <= b1[1]
 
-        data_rows = self.rows.of_type(DataRow)
+        data_rows = self.rows.of_type(RowType.DATA)
         if not data_rows:
             return
 
@@ -89,7 +90,7 @@ class Table:
         last.bbox.set("x1", round(last.bbox.x1 + dist / 2, 2))
 
         # Apply the annotation fields to the columns.
-        for row in self.rows.of_type(AnnotationRow):
+        for row in self.rows.of_type(RowType.ANNOTATION):
             row.apply_column_scheme(columns)
 
         self.columns = columns
@@ -137,7 +138,7 @@ class Table:
 
     def get_header_from_column(self, column: Column) -> str:
         # TODO: What if there is more than one header row?
-        for row in self.rows.of_type(HeaderRow):
+        for row in self.rows.of_type(RowType.HEADER):
             for i, field in enumerate(row, 1):
                 next_field = row.fields[i] if i < len(row.fields) else None
                 if not next_field or next_field.bbox.x0 >= column.bbox.x1:
