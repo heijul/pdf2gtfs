@@ -108,8 +108,8 @@ class Table:
                     # TODO: Should not drop the table,
                     #  but use it to enhance the others
                     row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
-                    logger.debug("Dropped rows:\n\tDistance: {y_distance}\n\t"
-                                 f"Rows: [{row_str}]")
+                    logger.debug(f"Dropped rows:\n\tDistance: {y_distance}"
+                                 f"\n\tRows: {row_str}")
                     current_rows = [row]
                     continue
                 logger.info(f"Distance between rows: {y_distance}")

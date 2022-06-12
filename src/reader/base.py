@@ -171,8 +171,11 @@ class Reader(BaseReader, ABC):
         for _, char in line.sort_values("x0", ignore_index=True).iterrows():
             # Ignore vertical text
             if not char.upright:
-                char_str = (f"Char(text='{char.text}', x0={char.x0}, "
-                            f"y0={char.y0}, x1={char.x1}, y1{char.y1})")
+                char_str = (f"Char(text='{char.text}', "
+                            f"x0={char.x0:.2f}, "
+                            f"y0={char.y0:.2f}, "
+                            f"x1={char.x1:.2f}, "
+                            f"y1={char.y1:.2f})")
                 logger.debug(f"Skipping vertical char:\n\t{char_str}")
                 continue
             # Fields are continuous streams of chars.
