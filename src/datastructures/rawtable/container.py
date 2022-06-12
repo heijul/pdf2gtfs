@@ -6,7 +6,6 @@ from typing import TypeVar, Generic, TYPE_CHECKING, Type
 
 from config import Config
 from datastructures.rawtable.bbox import BBoxObject, BBox
-from datastructures.rawtable.enums import RowType, ColumnType
 
 
 if TYPE_CHECKING:
@@ -140,8 +139,38 @@ class Row(FieldContainer):
         self._type = None
 
     @staticmethod
-    def from_fields(fields: list[Field]) -> Row:
-        row = Row()
+    def from_fields(fields: list[Field]) -> RowT:
+        def _contains(idents: list[str]):
+            """ Check if any of the fields contain any of the identifier. """
+            return any([ident.strip().lower() in field_texts
+                        for ident in idents])
+
+        def _contains_time_data():
+            """ Check if any field contains time data. """
+            # TODO: Maybe add threshold as with sparsity?
+            # TODO: Big problem when encountering dates ("nicht am 05.06")
+            # TODO: Maybe add (bbox.x0 - table.bbox.x0) < X as a requirement?
+            for field_text in field_texts:
+                try:
+                    datetime.strptime(field_text, Config.time_format)
+                    return True
+                except ValueError:
+                    pass
+            return False
+
+        def get_row_class():
+            if _contains(Config.header_values):
+                return HeaderRow
+            if _contains(Config.annot_identifier):
+                return AnnotationRow
+            if _contains(Config.route_identifier):
+                return RouteRow
+            if _contains_time_data():
+                return DataRow
+            return Row
+
+        field_texts = [str(field.text).strip().lower() for field in fields]
+        row = get_row_class()()
         row.fields = fields
         row.set_bbox_from_fields()
         return row
@@ -154,54 +183,12 @@ class Row(FieldContainer):
 
     def set_table(self, table: Table):
         self.table = table
-        self.detect_type()
-
-    @property
-    def type(self):
-        if not self._type:
-            self.detect_type()
-        return self._type
-
-    def detect_type(self):
-        # TODO: REDO.
-        def _contains(idents: list[str]):
-            """ Check if any of the fields contain any of the identifier. """
-            field_texts = [str(field.text).lower() for field in self.fields]
-            return any([ident.strip().lower() in field_texts
-                        for ident in idents])
-
-        def previous_row_is(_type: RowType):
-            try:
-                previous = self.table.rows.prev(self)
-            except AttributeError:
-                # No table set yet
-                return False
-            if not previous:
-                return True
-            return previous.type == _type
-
-        # Once a row was recognized as annotation it stays an annotation.
-        if self._type and self._type == RowType.ANNOTATION:
-            return
-        if self._contains_time_data():
-            self._type = RowType.DATA
-            return
-        previous_row_is_header = previous_row_is(RowType.HEADER)
-        if previous_row_is_header and _contains(Config.header_values):
-            self._type = RowType.HEADER
-            return
-        previous_row_is_annot = previous_row_is(RowType.ANNOTATION)
-        if ((previous_row_is_header or previous_row_is_annot)
-                and _contains(Config.annot_identifier)):
-            self._type = RowType.ANNOTATION
-            return
-        self._type = RowType.OTHER
 
     def fits_column_scheme(self, columns: list[Column]):
         # Generate bbox for the stops, where we want to ignore the scheme.
         stop_bbox = None
         for column in columns:
-            if column.type == ColumnType.DATA:
+            if isinstance(column, DataColumn):
                 break
             if stop_bbox is None:
                 stop_bbox = column.bbox.copy()
@@ -215,7 +202,7 @@ class Row(FieldContainer):
             # TODO: Instead of checking if column.bbox.contains, create
             #  new bbox with x0 = column[i].bbox.x0, x1 = column[i+1].bbox.x1
             for column in columns:
-                if column.type not in (ColumnType.DATA, ColumnType.REPEAT):
+                if isinstance(column, (DataColumn, RepeatColumn)):
                     continue
                 if column.bbox.contains_vertical(field.bbox):
                     field_fits = True
@@ -238,8 +225,28 @@ class Row(FieldContainer):
 
     def __repr__(self):
         fields_repr = ", ".join(repr(f) for f in self.fields)
-        return (f"Row(type={self.type},\n\tbbox={self.bbox},\n\t"
+        return (f"Row(type={self.__class__},\n\tbbox={self.bbox},\n\t"
                 f"fields=[{fields_repr}])")
+
+
+class HeaderRow(Row):
+    pass
+
+
+class DataRow(Row):
+    pass
+
+
+class AnnotationRow(Row):
+    pass
+
+
+class RouteRow(Row):
+    def routes(self):
+        """ Return set of all routes. """
+        routes = [field.text.strip() for field in self.fields
+                  if field not in Config.route_identifier]
+        return set(routes)
 
 
 class Column(FieldContainer):
@@ -248,29 +255,6 @@ class Column(FieldContainer):
                  bbox: BBox = None):
         super().__init__(table, bbox)
         self.fields: list[Field] = fields or []
-
-    @property
-    def type(self) -> ColumnType:
-        if not hasattr(self, "_type"):
-            self._detect_type()
-        return self._type
-
-    def _detect_type(self):
-        previous = self.table.columns.prev(self)
-
-        if not previous:
-            self._type = ColumnType.STOP
-            return
-
-        has_time_data = self._contains_time_data()
-        has_repeat_identifier = self._contains_repeat_identifier()
-
-        if has_repeat_identifier:
-            self._type = ColumnType.REPEAT
-        elif previous.type == ColumnType.STOP and not has_time_data:
-            self._type = ColumnType.STOP_ANNOTATION
-        else:
-            self._type = ColumnType.DATA
 
     def _contains_repeat_identifier(self):
         # TODO: iterate through fields -> check for identifier
@@ -301,3 +285,19 @@ class Column(FieldContainer):
     @staticmethod
     def from_field(table, field):
         return Column(table, [field], field.bbox)
+
+
+class StopColumn(Column):
+    pass
+
+
+class AnnotationColumn(Column):
+    pass
+
+
+class DataColumn(Column):
+    pass
+
+
+class RepeatColumn(Column):
+    pass

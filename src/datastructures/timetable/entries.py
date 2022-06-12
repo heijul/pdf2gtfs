@@ -14,9 +14,10 @@ class Weekdays:
 
 
 class TimeTableEntry:
-    def __init__(self, raw_header_text: str = "") -> None:
+    def __init__(self, raw_header_text: str = "",
+                 annotations_: set[str] = None) -> None:
         self._values: dict[Stop, str] = {}
-        self._annotations: set[str] = set()
+        self._annotations: set[str] = annotations_ if annotations_ else set()
         self.days: Weekdays = Weekdays(raw_header_text)
 
     @property
@@ -39,8 +40,9 @@ class TimeTableEntry:
 
 
 class TimeTableRepeatEntry(TimeTableEntry):
-    def __init__(self, raw_header_text: str = "") -> None:
-        super().__init__(raw_header_text)
+    def __init__(self, raw_header_text: str = "",
+                 annotations_: set[str] = None) -> None:
+        super().__init__(raw_header_text, annotations_)
 
     @property
     def deltas(self):
@@ -68,3 +70,23 @@ class TimeTableRepeatEntry(TimeTableEntry):
                 continue
             return value
         return []
+
+
+def get_entry(raw_table, raw_column):
+    import datastructures.rawtable as raw
+
+    def get_annotations(column: raw.Column):
+        _annots = set()
+        for field in column.fields:
+            if not isinstance(field.row, raw.AnnotationRow):
+                continue
+            # Splitting in case field has multiple annotations
+            _annots |= set(field.text.strip().split(" "))
+        return _annots
+
+    raw_header_text = raw_table.get_header_from_column(raw_column)
+    annotations = get_annotations(raw_column)
+    if isinstance(raw_column, raw.RepeatColumn):
+        return TimeTableRepeatEntry(raw_header_text, annotations)
+    else:
+        return TimeTableEntry(raw_header_text, annotations)

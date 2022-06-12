@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Type
 
-from datastructures.rawtable.container import Row
-from datastructures.rawtable.enums import FieldContainerType
-import datastructures.rawtable.table as tbl
+from datastructures.rawtable import FieldContainer, Table, Row, Column
 
 
 FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")
@@ -44,8 +42,8 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
             instance.add(obj)
         return instance
 
-    def of_type(self, typ: FieldContainerType) -> list[FieldContainerT]:
-        return [obj for obj in self._objects if obj.type == typ]
+    def of_type(self, typ: Type[FieldContainer]) -> list[FieldContainerT]:
+        return [obj for obj in self._objects if isinstance(obj, typ)]
 
     def _get_neighbour(self, current: FieldContainerT, delta: int
                        ) -> FieldContainerT | None:
@@ -66,12 +64,12 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
         return self._objects.__len__()
 
 
-class ColumnList(FieldContainerList[TableT, tbl.Column]):
+class ColumnList(FieldContainerList[TableT, Column]):
     pass
 
 
-class RowList(FieldContainerList[TableT, tbl.Row]):
-    def __init__(self, table: tbl.Table):
+class RowList(FieldContainerList[TableT, Row]):
+    def __init__(self, table: Table):
         super().__init__(table)
         self._objects: list[Row] = []
 

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 
-import datastructures.rawtable.table as raw
-from datastructures.rawtable.enums import ColumnType
-from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
+import datastructures.rawtable as raw
+from datastructures.timetable.entries import TimeTableEntry, get_entry
 from datastructures.timetable.stops import Stop
 
 
@@ -45,9 +44,9 @@ class StopList:
 class TimeTable:
     def __init__(self):
         self.stops = StopList()
-        self.entries: list[TimeTableEntry()] = []
+        self.entries: list[TimeTableEntry] = []
 
-    def detect_connection(self):
+    def detect_connections(self):
         """ Detect stops which are actually connections.
 
         Will search for reoccurring stops and mark every stop within the
@@ -76,48 +75,32 @@ class TimeTable:
 
     @staticmethod
     def from_raw_table(raw_table: raw.Table) -> TimeTable:
-        def get_annotations(column: raw.Column):
-            _annots = set()
-            for field in column.fields:
-                if field.row.type != raw.RowType.ANNOTATION:
-                    continue
-                # Splitting in case field has multiple annotations
-                _annots |= set(field.text.strip().split(" "))
-            return _annots
-
         table = TimeTable()
 
         for raw_column in list(raw_table.columns):
-            raw_header_text = raw_table.get_header_from_column(raw_column)
-            if raw_column.type == ColumnType.REPEAT:
-                entry = TimeTableRepeatEntry(raw_header_text)
-            else:
-                entry = TimeTableEntry(raw_header_text)
-            entry.annotations = get_annotations(raw_column)
-            table.entries.append(entry)
+            table.entries.append(get_entry(raw_table, raw_column))
 
             for raw_field in raw_column:
                 row_id = raw_table.rows.index(raw_field.row)
-                if raw_field.column.type == ColumnType.STOP:
-                    if raw_field.row.type == raw.RowType.DATA:
+                raw_row = raw_field.row
+                if isinstance(raw_row, raw.AnnotationRow):
+                    continue
+                if isinstance(raw_column, raw.StopColumn):
+                    if isinstance(raw_row, raw.DataRow):
                         stop = Stop(raw_field.text, row_id)
                         table.stops.add_stop(stop)
                     continue
-                if raw_field.row.type == raw.RowType.ANNOTATION:
-                    # TODO: Implement this. Could be done in a similar way as
-                    #  holidays. This would allow the user to add/append their
-                    #  own calendar_dates.txt to enable/disable entries.
-                    continue
-                if raw_field.column.type == ColumnType.STOP_ANNOTATION:
+                if isinstance(raw_column, raw.AnnotationColumn):
                     table.stops.add_annotation(raw_field.text, stop_id=row_id)
-                elif raw_field.row.type == raw.RowType.DATA:
+                elif isinstance(raw_row, raw.DataRow):
                     stop = table.stops.get_from_id(row_id)
                     table.entries[-1].set_value(stop, raw_field.text)
-            # TODO: Check why this happens and fix it.
+            # Remove added entry in case it has no values.
             if not table.entries[-1].values:
                 del table.entries[-1]
 
-        table.detect_connection()
+        table.detect_connections()
+
         if table.stops.stops:
             logger.info(table)
         return table
