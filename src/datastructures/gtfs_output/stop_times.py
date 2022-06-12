@@ -144,7 +144,9 @@ class StopTimes(BaseContainer):
     def add_repeat(previous: StopTimes, next_: StopTimes,
                    deltas: list[int], trip_factory: Trip_Factory):
         """ Create new stop_times for all times between previous and next. """
-        assert previous < next_
+        # TODO: Fix this properly
+        if previous > next_:
+            next_.shift(Time(24))
         delta_cycle = cycle([Time(0, delta) for delta in deltas])
         new_stop_times = []
 
