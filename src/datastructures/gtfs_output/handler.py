@@ -42,6 +42,8 @@ class GTFSHandler:
     def timetable_to_gtfs(self, timetable: TimeTable):
         print(timetable)
         timetable.clean_values()
+        if not timetable.stops.stops:
+            return
         for stop in timetable.stops.stops:
             self.stops.add(stop.name)
         stop_entries = list(self.stops.entries)
