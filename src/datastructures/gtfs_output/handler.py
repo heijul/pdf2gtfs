@@ -76,9 +76,11 @@ class GTFSHandler:
                 repeat = entry
                 continue
 
-            # Create new stop_times for current entry.
-            service_id = self.calendar.add(
-                entry.days.days, entry.annotations).service_id
+            calendar_entry, newly_created = self.calendar.add(
+                entry.days.days, entry.annotations)
+            service_id = calendar_entry.service_id
+            if newly_created:
+                service_day_offset = 0
             trip = self.trips.add(route_id, service_id)
             times = StopTimes()
             times.add_multiple(trip.trip_id, self.stops,

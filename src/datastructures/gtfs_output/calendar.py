@@ -121,18 +121,18 @@ class Calendar(BaseContainer):
     def __init__(self):
         super().__init__("calendar.txt", CalendarEntry)
 
-    def add(self, days: list[str], annots: set[str]) -> CalendarEntry:
-        entry = CalendarEntry(annots)
+    def add(self, days: list[str], annots: set[str]) -> (CalendarEntry, bool):
+        new_entry = CalendarEntry(annots)
         for day in days:
             # Holidays will be in the calendar_dates.
             if day == "h":
-                entry.on_holidays = True
+                new_entry.on_holidays = True
                 continue
-            setattr(entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
+            setattr(new_entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
 
-        entry = self.get_existing(entry)
+        entry = self.get_existing(new_entry)
         self._add(entry)
-        return entry
+        return entry, entry != new_entry
 
     def _add(self, new_entry: CalendarEntry) -> None:
         if any(new_entry.id == entry.id for entry in self.entries):
