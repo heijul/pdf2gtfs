@@ -35,7 +35,7 @@ holiday_code:
 # Identifies rows, which add special meaning to some columns.
 #
 # Type: List of strings
-annot_identifier: ["Verkehrshinweis"]
+annot_identifier: ["Verkehrshinweis", "Verkehrsbeschränkungen"]
 
 # Identifies rows, which hold information about the specific route the
 #   column is part of.
