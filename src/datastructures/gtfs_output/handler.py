@@ -12,7 +12,7 @@ from datastructures.gtfs_output.calendar import Calendar
 from datastructures.gtfs_output.calendar_dates import CalendarDates
 from datastructures.gtfs_output.route import Routes
 from datastructures.gtfs_output.gtfsstop import GTFSStops
-from datastructures.gtfs_output.stop_times import StopTimes
+from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.gtfs_output.agency import Agency
 from datastructures.timetable.entries import TimeTableRepeatEntry, TimeTableEntry
@@ -70,6 +70,7 @@ class GTFSHandler:
         stop_times = []
         prev = None
         repeat = None
+        service_day_offset = 0
         for entry in entries:
             if isinstance(entry, TimeTableRepeatEntry):
                 repeat = entry
@@ -80,8 +81,13 @@ class GTFSHandler:
                 entry.days.days, entry.annotations).service_id
             trip = self.trips.add(route_id, service_id)
             times = StopTimes()
-            times.add_multiple(trip.trip_id, self.stops, entry.values)
+            times.add_multiple(trip.trip_id, self.stops,
+                               service_day_offset, entry.values)
             stop_times.append(times)
+
+            if prev and prev > times:
+                times.shift(Time(24))
+                service_day_offset += 1
 
             if not repeat:
                 prev = times

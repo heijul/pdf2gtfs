@@ -91,21 +91,21 @@ class StopTimes(BaseContainer):
         self._add(entry)
         return entry
 
-    def add_multiple(
-            self, trip_id: int, stops: GTFSStops, time_strings: dict[Stop: str]
-            ) -> list[StopTimesEntry]:
+    def add_multiple(self, trip_id: int, stops: GTFSStops,
+                     offset: int, time_strings: dict[Stop: str]
+                     ) -> list[StopTimesEntry]:
         """ Creates a new entry for each time_string. """
 
         entries = []
         last_stop_name = ""
         last_entry = None
-        service_day_delta = Time(0)
+        service_day_delta = Time(offset)
         prev_time = Time()
 
         for seq, (stop, time_string) in enumerate(time_strings.items()):
             time = Time.from_string(time_string)
             if time < prev_time:
-                service_day_delta = Time(24)
+                service_day_delta += Time(24)
             prev_time = time.copy()
             time += service_day_delta
 
@@ -144,9 +144,7 @@ class StopTimes(BaseContainer):
     def add_repeat(previous: StopTimes, next_: StopTimes,
                    deltas: list[int], trip_factory: Trip_Factory):
         """ Create new stop_times for all times between previous and next. """
-        # TODO: Fix this properly
-        if previous > next_:
-            next_.shift(Time(24))
+        assert previous < next_
         delta_cycle = cycle([Time(0, delta) for delta in deltas])
         new_stop_times = []
 
