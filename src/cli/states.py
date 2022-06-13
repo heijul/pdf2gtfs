@@ -110,6 +110,10 @@ class AnnotBaseState(InputState):
             self.values.setdefault(self.annot, []) + [value])
 
 
+# TODO: Add AnnotSetDefaultState() where user can set whether this service
+#  should be usually active or not.
+
+
 class AnnotAddDateState(InputState):
     def __init__(self, state_machine):
         msg = ("Enter a date (YYYYMMDD) where service is different than usual"
