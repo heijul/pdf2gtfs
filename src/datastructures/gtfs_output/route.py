@@ -1,6 +1,7 @@
 from dataclasses import dataclass, Field
 from enum import Enum
 
+import config
 from datastructures.gtfs_output.base import (
     BaseDataClass, BaseContainer)
 
@@ -35,7 +36,7 @@ class Route(BaseDataClass):
 
         # TODO: Make configurable
         self.route_short_name = ""
-        self.route_type: RouteType = RouteType.Bus
+        self.route_type: RouteType = RouteType[config.Config.gtfs_routetype]
 
     def get_field_value(self, field: Field):
         value = super().get_field_value(field)

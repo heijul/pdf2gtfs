@@ -174,3 +174,13 @@ class FilenameProperty(Property):
             return getattr(obj, self.attr)
         except AttributeError:
             return ""
+
+
+class RouteTypeProperty(Property):
+    def validate(self, value: str):
+        from datastructures.gtfs_output.route import RouteType
+
+        super().validate(value)
+        if value in [typ.name for typ in RouteType]:
+            return
+        raise err.InvalidRouteTypeValue
