@@ -77,7 +77,7 @@ pages: "all"
 
 # Maximum vertical distance in pixel between two rows, to be considered on
 #   the same table. Basically checks if:
-#     ((y_max of first row) - (y_min of second row)) <= max_row_distance
+#     ((y_max of current row) - (y_min of next row)) <= max_row_distance
 #
 # Type: int
 max_row_distance: 3
