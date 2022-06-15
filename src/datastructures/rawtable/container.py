@@ -227,11 +227,25 @@ class Row(FieldContainer):
                 return False
         return True
 
-    def apply_column_scheme(self, columns: list[Column]):
+    def apply_column_scheme(self, columns: list[Column | None]):
+        def get_x_center(left: BBox, right: BBox) -> float:
+            return round(right.x0 - left.x1 / 2, 2)
+
         unmatched_fields = sorted(self.fields, key=attrgetter("bbox.x0"))
-        for column in columns:
+        zipped_columns = zip([None] + columns, columns, columns[1:] + [None])
+
+        for prev_column, column, next_column in zipped_columns:
+            prev_column: None | Column
+            # Get bbox where x-bounds are in the center between columns.
+            bbox = column.bbox.copy()
+            if prev_column is not None:
+                bbox.x0 = bbox.x0 - get_x_center(prev_column.bbox, bbox)
+            if next_column is not None:
+                bbox.x1 = bbox.x1 + get_x_center(bbox, next_column.bbox)
+
+            # Check if field fits stretched column bbox.
             for field in list(unmatched_fields):
-                if not column.bbox.contains_vertical(field.bbox):
+                if not bbox.contains_vertical(field.bbox):
                     continue
                 column.add_field(field)
                 del unmatched_fields[unmatched_fields.index(field)]

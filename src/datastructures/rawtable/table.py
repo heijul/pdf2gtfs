@@ -73,18 +73,6 @@ class Table:
             if _column_x_is_overlapping(last, column):
                 last.add_field(column.fields[0])
 
-        # Expand columns so their x-bounds are in the center between columns.
-        last = columns[0] if len(columns) else None
-        dist = 0
-        for column in columns[1:]:
-            dist = column.bbox.x0 - last.bbox.x1
-            new_bound = round(last.bbox.x1 + dist / 2, 2)
-
-            last.bbox.set("x1", new_bound)
-            column.bbox.set("x0", new_bound)
-            last = column
-        last.bbox.set("x1", round(last.bbox.x1 + dist / 2, 2))
-
         # Add the annotation fields to the columns.
         for row in self.rows.of_type(RowType.ANNOTATION):
             row.apply_column_scheme(columns)
