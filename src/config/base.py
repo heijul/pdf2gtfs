@@ -75,6 +75,7 @@ class _Config(InstanceDescriptorMixin):
 
         data, valid = _read_yaml(path)
 
+        # TODO: Catch other PropertyExceptions as well.
         for key, value in data.items():
             # Even if an item is invalid, continue reading to find all errors.
             try:
