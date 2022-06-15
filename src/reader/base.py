@@ -13,7 +13,7 @@ from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
 
 from config import Config
 from datastructures.rawtable.fields import Field
-from datastructures.rawtable.table import Table, Row
+from datastructures.rawtable.table import Row, split_rows_into_tables
 from utils import contains_bbox
 
 
@@ -124,7 +124,7 @@ class Reader(BaseReader, ABC):
 
     def get_tables_from_chars(self, chars: pd.DataFrame):
         rows = self.get_lines(chars)
-        tables = Table.split_rows_into_tables(rows)
+        tables = split_rows_into_tables(rows)
         timetables = []
         for table in tables:
             table.generate_data_columns_from_rows()
