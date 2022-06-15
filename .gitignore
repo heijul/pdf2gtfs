@@ -5,6 +5,7 @@ pdfact/
 xpdf-tools-linux-4.03/
 data/
 out/
+gtfs-validator/
 
 old/
 .ipynb_checkpoints/
