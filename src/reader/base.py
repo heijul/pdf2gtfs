@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from operator import attrgetter
 from pathlib import Path
 from time import time
 
@@ -132,43 +133,36 @@ class Reader(BaseReader, ABC):
         return timetables
 
     def get_lines(self, df: pd.DataFrame) -> list[Row]:
-        def normalize(char):
-            char["top"] = (round(char["top"] / mean_char_height)
-                           * mean_char_height)
-            char["x0"] = (round(char["x0"] / mean_char_width, 2)
-                          * mean_char_width)
-            char["x1"] = (round(char["x1"] / mean_char_width, 2)
-                          * mean_char_width)
-            char["y0"] = (round(char["y0"] / mean_char_height, 2)
-                          * mean_char_height)
-            char["y1"] = (round(char["y1"] / mean_char_height, 2)
-                          * mean_char_height)
-            return char
+        def group_lines():
+            _lines: list[tuple[float, list[pd.Series]]] = []
+            for idx, value in df.sort_values("top").iterrows():
+                value: pd.Series
+                key: float = value["top"]
+                if (not _lines or
+                        abs(_lines[-1][0] - key) > mean_char_height / 2):
+                    _lines.append((key, []))
+                _lines[-1][1].append(value)
+            return _lines
 
+        time_start = time()
         mean_char_height = round((df["y1"] - df["y0"]).mean())
-        mean_char_width = round((df["x1"] - df["x0"]).mean())
 
         # Round to combat tolerances.
-        df = df.round({"top": 0, "x0": 2, "x1": 2, "y0": 2, "y1": 2})
-        # Chars are in the same row if they have the same distance to top.
-        lines = df.apply(normalize, axis=1).groupby("top")
+        df = df.round({"top": 2, "x0": 2, "x1": 2, "y0": 2, "y1": 2})
 
         rows = []
-        for group_id in lines.groups:
-            try:
-                line = lines.get_group(group_id)
-            except KeyError:  # TODO: Check how this can happen
-                continue
-            row = Row.from_fields(self.split_line_into_fields(line))
-            rows.append(row)
+        for _, line in group_lines():
+            rows.append(Row.from_fields(self.split_line_into_fields(line)))
+        logger.info(f"Processing of lines took: "
+                    f"{time() - time_start:.3f} seconds.")
         return rows
 
-    def split_line_into_fields(self, line: pd.DataFrame) -> list[Field]:
+    def split_line_into_fields(self, line: list[pd.Series]) -> list[Field]:
         fields = []
         if len(line) == 0:
             return fields
 
-        for _, char in line.sort_values("x0", ignore_index=True).iterrows():
+        for char in sorted(line, key=attrgetter("x0")):
             # Ignore vertical text
             if not char.upright:
                 char_str = (f"Char(text='{char.text}', "
