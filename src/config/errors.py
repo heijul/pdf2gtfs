@@ -19,3 +19,7 @@ class InvalidHolidayCode(PropertyException):
 
 class InvalidHeaderDays(PropertyException):
     pass
+
+
+class InvalidRouteTypeValue(PropertyException):
+    pass

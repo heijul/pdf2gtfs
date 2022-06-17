@@ -7,7 +7,7 @@ from yaml.scanner import ScannerError
 
 import config.errors as err
 from config.properties import (Property, PagesProperty, FilenameProperty,
-                               HolidayCodeProperty, HeaderValuesProperty)
+                               HolidayCodeProperty, HeaderValuesProperty, RouteTypeProperty)
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ class _Config(InstanceDescriptorMixin):
         self.filename = FilenameProperty(self, "filename", str)
         self.annot_identifier = Property(self, "annot_identifier", list)
         self.route_identifier = Property(self, "route_identifier", list)
+        self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype", str)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.
@@ -74,6 +75,7 @@ class _Config(InstanceDescriptorMixin):
 
         data, valid = _read_yaml(path)
 
+        # TODO: Catch other PropertyExceptions as well.
         for key, value in data.items():
             # Even if an item is invalid, continue reading to find all errors.
             try:

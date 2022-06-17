@@ -12,7 +12,7 @@ time_format: "%H.%M"
 #   Keys will be turned to all lowercase internally.
 #   Weekday index between "0" and "6", where "0" stands for monday.
 #   "h" is used for holidays. If "h" is given as an index,
-#   holiday_location has to be set as well.
+#   holiday_code has to be set as well.
 #
 # Type: Mapping of string to list of char
 header_values: {
@@ -77,7 +77,7 @@ pages: "all"
 
 # Maximum vertical distance in pixel between two rows, to be considered on
 #   the same table. Basically checks if:
-#     ((y_max of first row) - (y_min of second row)) <= max_row_distance
+#     ((y_max of current row) - (y_min of next row)) <= max_row_distance
 #
 # Type: int
 max_row_distance: 3
@@ -86,3 +86,8 @@ max_row_distance: 3
 #
 # Type: int
 min_row_count: 5
+
+# Routetype.
+#   See https://developers.google.com/transit/gtfs/reference#routestxt
+# Type: str  # TODO: Maybe allow int as well.
+gtfs_routetype: "Bus"

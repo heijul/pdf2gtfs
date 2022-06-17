@@ -40,10 +40,6 @@ class Table:
         else:
             self._columns = ColumnList.from_list(self, columns)
 
-    @property
-    def header_rows(self):
-        return self.rows.of_type(RowType.HEADER)
-
     def generate_data_columns_from_rows(self):
         def _get_bounds(_column: Column):
             return _column.bbox.x0, _column.bbox.x1
@@ -77,61 +73,11 @@ class Table:
             if _column_x_is_overlapping(last, column):
                 last.add_field(column.fields[0])
 
-        # Expand columns so their x-bounds are in the center between columns.
-        last = columns[0] if len(columns) else None
-        dist = 0
-        for column in columns[1:]:
-            dist = column.bbox.x0 - last.bbox.x1
-            new_bound = round(last.bbox.x1 + dist / 2, 2)
-
-            last.bbox.set("x1", new_bound)
-            column.bbox.set("x0", new_bound)
-            last = column
-        last.bbox.set("x1", round(last.bbox.x1 + dist / 2, 2))
-
-        # Apply the annotation fields to the columns.
+        # Add the annotation fields to the columns.
         for row in self.rows.of_type(RowType.ANNOTATION):
             row.apply_column_scheme(columns)
 
         self.columns = columns
-
-    @staticmethod
-    def split_rows_into_tables(rows: list[Row]) -> list[Table]:
-        tables = []
-        current_rows = [rows[0]]
-        for row in rows[1:]:
-            if not row.fields:
-                continue
-            y_distance = row.distance(current_rows[-1], "y")
-            if y_distance > Config.max_row_distance:
-                if len(current_rows) < Config.min_row_count:
-                    # TODO: Should not drop the table,
-                    #  but use it to enhance the others
-                    row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
-                    logger.debug(f"Dropped rows:\n\tDistance: {y_distance}"
-                                 f"\n\tRows: {row_str}")
-                    current_rows = [row]
-                    continue
-                logger.info(f"Distance between rows: {y_distance}")
-                tables.append(Table(current_rows))
-                current_rows = []
-            current_rows.append(row)
-        else:
-            if current_rows:
-                tables.append(Table(current_rows))
-
-        return Table.remerge_tables(tables)
-
-    @staticmethod
-    def remerge_tables(tables: list[Table]) -> list[Table]:
-        merged_tables = []
-        for table in tables:
-            if table.header_rows or not merged_tables:
-                merged_tables.append(table)
-                continue
-            merged_tables[-1].rows.merge(table.rows)
-
-        return merged_tables
 
     def to_timetable(self) -> TimeTable:
         return TimeTable.from_raw_table(self)
@@ -145,3 +91,41 @@ class Table:
                     return field.text
 
         return ""
+
+
+def split_rows_into_tables(rows: list[Row]) -> list[Table]:
+    tables = []
+    current_rows = [rows[0]]
+    for row in rows[1:]:
+        if not row.fields:
+            continue
+        y_distance = row.distance(current_rows[-1], "y")
+        if y_distance > Config.max_row_distance:
+            if len(current_rows) < Config.min_row_count:
+                # TODO: Should not drop the table,
+                #  but use it to enhance the others
+                row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
+                logger.debug(f"Dropped rows:\n\tDistance: {y_distance}"
+                         f"\n\tRows: {row_str}")
+                current_rows = [row]
+                continue
+            logger.info(f"Distance between rows: {y_distance}")
+            tables.append(Table(current_rows))
+            current_rows = []
+        current_rows.append(row)
+    else:
+        if current_rows:
+            tables.append(Table(current_rows))
+
+    return remerge_tables(tables)
+
+
+def remerge_tables(tables: list[Table]) -> list[Table]:
+    merged_tables = []
+    for table in tables:
+        if table.rows.of_type(RowType.HEADER) or not merged_tables:
+            merged_tables.append(table)
+            continue
+        merged_tables[-1].rows.merge(table.rows)
+
+    return merged_tables
