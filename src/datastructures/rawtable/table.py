@@ -116,6 +116,10 @@ def split_rows_into_tables(rows: list[Row]) -> list[Table]:
     else:
         if current_rows:
             tables.append(Table(current_rows))
+    # TODO: Fix properly
+    for table in tables:
+        for row in table.rows.get_objects():
+            row.detect_type()
 
     return remerge_tables(tables)
 
