@@ -152,7 +152,8 @@ class Reader(BaseReader, ABC):
 
         rows = []
         for _, line in group_lines():
-            rows.append(Row.from_fields(self.split_line_into_fields(line)))
+            row = Row.from_fields(self.split_line_into_fields(line))
+            rows.append(row)
         logger.info(f"Processing of lines took: "
                     f"{time() - time_start:.3f} seconds.")
         return rows
