@@ -38,3 +38,7 @@ if __name__ == "__main__":
 
     tables = try_reader()
     try_gtfs_output(tables)
+
+# TODO: Rendermode in pdfminer
+# TODO: Ghostscript preprocessing
+# TODO: Tests + testdaten in svn

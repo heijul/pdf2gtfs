@@ -9,6 +9,7 @@ def disable_pdfminer_logger():
         return 0 if record.levelno < logging.WARNING else 1
 
     for name in logging.root.manager.loggerDict:
+        # TODO: Check for level.
         if not name.startswith("pdfminer"):
             continue
         logging.getLogger(name).addFilter(pdfminer_filter)
