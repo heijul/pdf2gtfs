@@ -2,3 +2,4 @@ pandas==1.4.2
 pdfminer.six==20220319
 pyyaml==6.0
 holidays==0.13
+ghostscript==0.7

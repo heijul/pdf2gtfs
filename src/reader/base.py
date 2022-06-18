@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from time import time
 
 import pandas as pd
@@ -85,11 +86,34 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
 # TODO: No need for a class here I guess. Just use toplevel functions with
 #  the proper access level, or not, in order to make it replaceable.
 class Reader(BaseReader, ABC):
+    def __init__(self, filename: str = None):
+        super().__init__(filename)
+        self.tempfile = None
+
+    def preprocess(self):
+        try:
+            from ghostscript import Ghostscript
+        except RuntimeError:
+            logger.warning("Ghostscript library does not seem to be "
+                           "installed. Skipping preprocessing...")
+            return
+        self.tempfile = NamedTemporaryFile()
+
+        # TODO: Allow custom args
+        gs_args = ["gs", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dFILTERIMAGE",
+                   "-dFILTERVECTOR", "-dPRINTED=true", "-dFitPage",
+                   "-dBlackText", "-q", "-dBATCH ",
+                   f"-sOutputFile={self.tempfile.name}", str(self.filepath)]
+        # TODO: Test on windows if encoding is neccessary
+        Ghostscript(*gs_args)
+
     def read(self):
+        self.preprocess()
         # Disable advanced layout analysis.
         laparams = LAParams(boxes_flow=None)
         t = time()
-        pages = extract_pages(self.filepath,
+        file = self.tempfile.name if self.tempfile else self.filepath
+        pages = extract_pages(file,
                               laparams=laparams,
                               page_numbers=Config.pages.page_numbers)
 
