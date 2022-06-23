@@ -1,6 +1,7 @@
 import logging
 
 from datastructures.gtfs_output.handler import GTFSHandler
+from finder import Finder
 from p2g_logging import initialize_logging
 
 from reader import Reader
@@ -23,12 +24,19 @@ def try_gtfs_output(timetables):
     gtfs_handler = GTFSHandler()
     for table in timetables:
         gtfs_handler.timetable_to_gtfs(table)
-    gtfs_handler.write_files()
+    return gtfs_handler
+
+
+def try_matching_coordinates(gtfs_handler: GTFSHandler):
+    finder = Finder(gtfs_handler)
+    finder.detect_coordinates()
+    print(finder)
 
 
 if __name__ == "__main__":
     fnames = ["./data/vag_linie_eins.pdf", "./data/rmv_u1.pdf",
-              "./data/rmv_g10.pdf", "./data/vag_linie_eins_new.pdf", "./data/test.pdf"]
+              "./data/rmv_g10.pdf", "./data/vag_linie_eins_new.pdf",
+              "./data/vag_linie_eins_new_a.pdf"]
     argv.append("--pages=2")
     argv.append(fnames[3])
     parse_args()
@@ -37,7 +45,9 @@ if __name__ == "__main__":
     logger.info(f"Reading the following pages: {Config.pages.pages}.")
 
     tables = try_reader()
-    try_gtfs_output(tables)
+    handler = try_gtfs_output(tables)
+    try_matching_coordinates(handler)
+    handler.write_files()
 
 # TODO: Rendermode in pdfminer
 # TODO: Ghostscript preprocessing

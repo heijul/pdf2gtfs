@@ -3,3 +3,5 @@ pdfminer.six==20220319
 pyyaml==6.0
 holidays==0.13
 ghostscript==0.7
+geopy==2.2.0
+requests==2.27.1
