@@ -45,6 +45,12 @@ def _add_optional_arguments(parser: ArgumentParser):
     parser.add_argument("--pages", type=str, help=text)
     text = ("Path to a configuration file. If given multiple times, all "
             "files will be read in the order given.")
-    parser.add_argument("--config", action="append", type=str, help=text, default=[])
-
-
+    parser.add_argument("--config", action="append", type=str,
+                        help=text, default=[])
+    text = ("Path to output directory. Will default to './out'. "
+            "If the directory is not empty, files may be overwritten.")
+    parser.add_argument("--out", type=str, help=text, default="./out")
+    text = ("Whether the preprocessed pdf should be saved. Will be saved to "
+            "the output directory.")
+    parser.add_argument("--output_pp", const=True, default=False,
+                        action="store_const", help=text)
