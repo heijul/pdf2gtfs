@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import heapq
+import logging
 from urllib import parse
 from operator import itemgetter
 from typing import TYPE_CHECKING, TypeAlias, Optional
@@ -14,8 +15,7 @@ if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
 
 
-Lat: TypeAlias = float
-Lon: TypeAlias = float
+logger = logging.getLogger(__name__)
 
 
 def get_osm_data_from_qlever():
@@ -33,34 +33,35 @@ def get_osm_data_from_qlever():
             "?stop rdf:type osm:node . ?stop geo:hasGeometry ?stop_loc . "
             "?stop osmkey:name ?name "
             "} ORDER BY ?name")}
+
     url = base_url + parse.urlencode(data)
     r = requests.get(url)
+
     if r.status_code != 200:
-        print(f"{r}\n{r.content}")
+        logger.error(f"Response != 200: {r}\n{r.content}")
         return
-    with open("../data/osm_germany_stops.csv", "bw") as fil:
+
+    with open("../data/osm_germany_stops.csv", "wb") as fil:
         fil.write(r.content)
-
-
-def clean_point(entry: pd.Series) -> pd.Series:
-    point = entry["stop_loc"]
-    if not point.startswith("POINT("):
-        print("AAA", point)
-
-    entry["stop_loc"] = point[6:].split(")")[0]
-    return entry
 
 
 def stop_loc_converter(value: str) -> str:
     if not value.startswith("POINT("):
-        print("AAA", value)
+        logger.warning(f"Stop location could not be converted: '{value}'")
         return ""
 
     return value[6:].split(")", 1)[0]
 
 
-def name_converter(name: str) -> str:
-    return name
+def name_converter(raw_name: str) -> str:
+    name = ""
+    # TODO: Config + regex?!/whitelist
+    skip_chars = "#()"
+    for char in raw_name:
+        if char in skip_chars:
+            continue
+        name += char
+    return raw_name
 
 
 class Finder:
@@ -102,6 +103,7 @@ def distance(lat1, lon1, lat2, lon2) -> float:
 
 def distances(df1: pd.DataFrame, df2: pd.DataFrame
               ) -> list[tuple[int, int, float]]:
+    """ Return distances between each entry of one df to each of the other. """
     dists: list[tuple[int, int, float]] = []
     for id1, value1 in df1.iterrows():
         id1: int
@@ -110,52 +112,3 @@ def distances(df1: pd.DataFrame, df2: pd.DataFrame
             dist = distance(value1.lat, value1.lon, value2.lat, value2.lon)
             dists.append((id1, id2, dist))
     return dists
-
-
-NodeList: TypeAlias = list[("Node", float)]
-
-
-class Node:
-    def __init__(self, node_id: int):
-        self.id = node_id
-        self._neighbors: NodeList = []
-
-    @property
-    def neighbors(self) -> NodeList:
-        return self._neighbors
-
-    @property
-    def closest(self) -> tuple[Optional[Node], float]:
-        if not self.neighbors:
-            return None, 0
-        return sorted(self.neighbors, key=itemgetter(1))[0]
-
-    def add_neighbor(self, neighbor: Node, dist: float):
-        self.neighbors.append((neighbor, dist))
-
-
-def get_min_node(nodes: list[Node]):
-    min_node = None
-    min_dist = -1
-    for node in nodes:
-        _, dist = node.closest
-        if min_dist < 0 or dist < min_dist:
-            min_node = node
-    return min_node
-
-
-class ClusterDijkstra:
-    def __init__(self, nodes: list[Node]):
-        self.unvisited = set(nodes)
-        self.first = get_min_node(nodes)
-
-    def solve(self):
-        for node in self.unvisited:
-            pass
-
-
-def search(nodes: list[Node]):
-    heap = list(nodes)
-    heapq.heapify(heap)
-
-
