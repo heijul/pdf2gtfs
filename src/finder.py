@@ -54,6 +54,7 @@ def get_osm_data_from_qlever():
 
 
 def stop_loc_converter(value: str) -> str:
+    value = value.replace('"', "")
     if not value.startswith("POINT("):
         logger.warning(f"Stop location could not be converted: '{value}'")
         return ""
