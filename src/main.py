@@ -29,8 +29,9 @@ def try_gtfs_output(timetables):
 
 def try_matching_coordinates(gtfs_handler: GTFSHandler):
     finder = Finder(gtfs_handler)
-    finder.detect_coordinates()
-    print(finder)
+    finder.generate_routes()
+    for route in finder.get_routes():
+        print(route)
 
 
 if __name__ == "__main__":
