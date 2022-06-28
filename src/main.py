@@ -1,7 +1,7 @@
 import logging
 
 from datastructures.gtfs_output.handler import GTFSHandler
-from finder import Finder
+from finder import Finder, display
 from p2g_logging import initialize_logging
 
 from reader import Reader
@@ -30,6 +30,8 @@ def try_gtfs_output(timetables):
 def try_matching_coordinates(gtfs_handler: GTFSHandler):
     finder = Finder(gtfs_handler)
     finder.generate_routes()
+    r = finder.routes.clusters[0].get_route()
+    display(r)
     for route in finder.get_routes():
         print(route)
 

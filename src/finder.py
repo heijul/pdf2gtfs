@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import webbrowser
 from dataclasses import dataclass
 from heapq import heappush
 from operator import itemgetter
@@ -10,6 +11,7 @@ from typing import TYPE_CHECKING, TypeAlias
 import pandas as pd
 import requests
 from geopy import distance as _distance
+import folium
 
 
 if TYPE_CHECKING:
@@ -79,7 +81,7 @@ class Finder:
     def __init__(self, gtfs_handler: GTFSHandler):
         self.handler = gtfs_handler
         self._get_stop_data()
-        self.routes = None
+        self.routes: Routes | None = None
 
     def _get_stop_data(self):
         converters = {"stop_loc": stop_loc_converter,
@@ -293,3 +295,14 @@ class Routes:
             for cluster in clusters:
                 cluster.add(self.cluster_nodes[stop_node])
         self.clusters = clusters
+
+
+def display(route: pd.Series):  # list[tuple[str, float, float]]):
+    m = folium.Map(location=[47.9872899, 7.7263808])
+    for entry in route:
+        stop = entry["name"]
+        lat = entry["lat"]
+        lon = entry["lon"]
+        folium.Marker([lat, lon], popup=stop).add_to(m)
+    m.save("test.html")
+    webbrowser.open_new_tab("test.html")
