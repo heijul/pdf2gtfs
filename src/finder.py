@@ -176,7 +176,7 @@ class Cluster:
     def __repr__(self) -> str:
         return f"CNode({self.stop!r}, lat={self.lat}, lon={self.lon})"
 
-    def get_closest(self, other: Cluster) -> Node:
+    def get_closest(self, other: Cluster | Node) -> Node:
         dists = [(distance(other.lat, other.lon, node.lat, node.lon), node)
                  for node in self.nodes]
         return min(dists, key=itemgetter(0))[1]
@@ -227,21 +227,20 @@ class Route:
         return True
 
     def get_route(self) -> list[Node]:
-        last_nodes = self.nodes[self.stops[-1]]
+        cluster: Cluster = self.start
+        cluster_route: list[Cluster] = [cluster]
+        while cluster.next:
+            cluster = min(
+                [(distance(cluster.lat, cluster.lon, c[1].lat, c[1].lon), c[1])
+                 for c in cluster.next], key=itemgetter(0))[1]
+            cluster_route.append(cluster)
 
-        node: Cluster = last_nodes[0]
-        closest = node.get_closest(self.nodes[self.stops[0]][0])
-        previous_node = node
-        node = node.prev[0][1]
+        closest = cluster_route[-1].get_closest(cluster_route[-2])
+        node_route: list[Node] = [closest]
+        for node in reversed(cluster_route[:-1]):
+            node_route.insert(0, node.get_closest(node_route[0]))
 
-        route: list[Node] = [closest]
-        while node.prev:
-            route.insert(0, node.get_closest(previous_node))
-            previous_node = node
-            node = node.prev[0][1]
-        route.insert(0, self.start.get_closest(previous_node))
-
-        return route
+        return node_route
 
 
 class Routes:
