@@ -297,12 +297,13 @@ class Routes:
         self.clusters = clusters
 
 
-def display(route: pd.Series):  # list[tuple[str, float, float]]):
+def display_route(route: pd.Series):  # list[tuple[str, float, float]]):
     m = folium.Map(location=[47.9872899, 7.7263808])
     for entry in route:
         stop = entry["name"]
         lat = entry["lat"]
         lon = entry["lon"]
         folium.Marker([lat, lon], popup=stop).add_to(m)
+    # TODO: Maybe use tempfile
     m.save("test.html")
     webbrowser.open_new_tab("test.html")
