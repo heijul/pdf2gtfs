@@ -69,7 +69,7 @@ def name_converter(raw_name: str) -> str:
     """ Remove chars which are not allowed. """
     name = ""
     # TODO: Config
-    allowed_chars = " .-"
+    allowed_chars = " .-/"
     for char in raw_name:
         if char not in allowed_chars and not char.isalpha():
             continue
@@ -107,11 +107,11 @@ class Finder:
         return routes_to_csv([c.get_route() for c in self.routes.clusters])
 
 
-def routes_to_csv(routes: list[list[pd.Series]]):
+def routes_to_csv(routes: list[list[Node]]):
     # Turn into csv, usable by www.gpsvisualizer.com
     csv = []
     for i, route in enumerate(routes):
-        lines = [f"{entry['name']},{entry['lat']},{entry['lon']}"
+        lines = [f"{entry.stop},{entry.lat},{entry.lon}"
                  for entry in route]
         csv.append("\n".join(lines))
     return csv
@@ -128,13 +128,24 @@ class StopNode:
     name: str
 
 
-class ClusterNode:
+@dataclass
+class Node:
+    stop: str
+    lat: float
+    lon: float
+
+    @staticmethod
+    def from_series(series: pd.Series) -> Node:
+        return Node(series["name"], series["lat"], series["lon"])
+
+
+class Cluster:
     stop: StopNode
     lat: float
     lon: float
-    nodes: list[pd.Series]
-    prev: list[tuple[float, ClusterNode]]
-    next: list[tuple[float, ClusterNode]]
+    nodes: list[Node]
+    prev: list[tuple[float, Cluster]]
+    next: list[tuple[float, Cluster]]
 
     def __init__(self, stop: StopNode, lat: float, lon: float,
                  nodes: list[pd.Series]):
@@ -143,7 +154,10 @@ class ClusterNode:
         self.lon = lon
         self._prev = []
         self._next = []
-        self.nodes = nodes
+        self._set_nodes(nodes)
+
+    def _set_nodes(self, nodes: list[pd.Series]):
+        self.nodes = [Node.from_series(node) for node in nodes]
 
     @property
     def prev(self):
@@ -153,44 +167,44 @@ class ClusterNode:
     def next(self):
         return self._next
 
-    def add_prev(self, node: ClusterNode, dist: float):
+    def add_prev(self, node: Cluster, dist: float):
         heappush(self._prev, (dist, node))
 
-    def add_next(self, node: ClusterNode, dist: float):
+    def add_next(self, node: Cluster, dist: float):
         heappush(self._next, (dist, node))
 
     def __repr__(self) -> str:
         return f"CNode({self.stop!r}, lat={self.lat}, lon={self.lon})"
 
-    def get_closest(self, other: ClusterNode) -> pd.Series:
-        dists = [(distance(other.lat, other.lon, node["lat"], node["lon"]), node)
+    def get_closest(self, other: Cluster) -> Node:
+        dists = [(distance(other.lat, other.lon, node.lat, node.lon), node)
                  for node in self.nodes]
         return min(dists, key=itemgetter(0))[1]
 
 
-ClusterDict: TypeAlias = dict[StopNode: list[ClusterNode]]
 GroupID: TypeAlias = tuple[str, float, float]
 
 
-class Cluster:
-    def __init__(self, start: ClusterNode, stops: list[StopNode]):
+class Route:
+    def __init__(self, start: Cluster, stops: list[StopNode]):
         self.stops: list[StopNode] = stops
-        self.start: ClusterNode = start
-        self._nodes: ClusterDict = {stop: [] for stop in self.stops}
+        self.start: Cluster = start
+        self._nodes: dict[StopNode: list[Cluster]]
+        self._nodes = {stop: [] for stop in self.stops}
         self.nodes[self.start.stop].append(self.start)
         self.stop_nodes = None
         self.groups = None
         self.cluster_nodes = None
 
     @property
-    def nodes(self):
+    def nodes(self) -> dict[StopNode: list[Cluster]]:
         return self._nodes
 
-    def get_previous(self, stop: StopNode) -> list[ClusterNode]:
+    def get_previous(self, stop: StopNode) -> list[Cluster]:
         stop_index = self.stops.index(stop)
         return self.nodes[self.stops[stop_index - 1]]
 
-    def add(self, nodes: list[ClusterNode]) -> None:
+    def add_nodes(self, nodes: list[Cluster]) -> None:
         if not nodes:
             return
 
@@ -199,15 +213,12 @@ class Cluster:
         previous_nodes = self.get_previous(nodes[0].stop)
         for previous_node in previous_nodes:
             for node in nodes:
-                added = self.update_neighbor(previous_node, node)
-                if added:
-                    self.append(node)
-
-    def append(self, node: ClusterNode) -> None:
-        self.nodes[node.stop].append(node)
+                if not self.update_neighbor(previous_node, node):
+                    continue
+                self.nodes[node.stop].append(node)
 
     @staticmethod
-    def update_neighbor(prev: ClusterNode, node: ClusterNode) -> bool:
+    def update_neighbor(prev: Cluster, node: Cluster) -> bool:
         dist = distance(prev.lat, prev.lon, node.lat, node.lon)
         if dist > MAX_DIST_IN_KM:
             return False
@@ -215,19 +226,20 @@ class Cluster:
         node.add_prev(prev, dist)
         return True
 
-    def get_route(self) -> list[pd.Series]:
+    def get_route(self) -> list[Node]:
         last_nodes = self.nodes[self.stops[-1]]
 
-        node: ClusterNode = last_nodes[0]
+        node: Cluster = last_nodes[0]
         closest = node.get_closest(self.nodes[self.stops[0]][0])
         previous_node = node
         node = node.prev[0][1]
 
-        route: list[pd.Series] = [closest]
+        route: list[Node] = [closest]
         while node.prev:
             route.insert(0, node.get_closest(previous_node))
             previous_node = node
             node = node.prev[0][1]
+        route.insert(0, self.start.get_closest(previous_node))
 
         return route
 
@@ -274,12 +286,12 @@ class Routes:
                     continue
                 return _node
 
-        nodes: ClusterDict = {}
+        nodes: dict[StopNode: list[Cluster]] = {}
         for (name, lat, lon), group in self.groups.items():
             stop_node = get_stop_node(name)
             if stop_node is None:
                 continue
-            node = ClusterNode(stop_node, lat, lon, group)
+            node = Cluster(stop_node, lat, lon, group)
             if stop_node not in nodes:
                 nodes[stop_node] = []
             nodes[stop_node].append(node)
@@ -289,21 +301,18 @@ class Routes:
         clusters = []
         # Create a cluster for each start node.
         for start in self.cluster_nodes[self.stop_nodes[0]]:
-            clusters.append(Cluster(start, self.stop_nodes))
+            clusters.append(Route(start, self.stop_nodes))
         # Populate clusters.
         for stop_node in self.stop_nodes[1:]:
             for cluster in clusters:
-                cluster.add(self.cluster_nodes[stop_node])
+                cluster.add_nodes(self.cluster_nodes[stop_node])
         self.clusters = clusters
 
 
-def display_route(route: pd.Series):  # list[tuple[str, float, float]]):
+def display_route(route: list[Node]):
     m = folium.Map(location=[47.9872899, 7.7263808])
     for entry in route:
-        stop = entry["name"]
-        lat = entry["lat"]
-        lon = entry["lon"]
-        folium.Marker([lat, lon], popup=stop).add_to(m)
+        folium.Marker([entry.lat, entry.lon], popup=entry.stop).add_to(m)
     # TODO: Maybe use tempfile
     m.save("test.html")
     webbrowser.open_new_tab("test.html")
