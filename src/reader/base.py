@@ -197,6 +197,10 @@ class Reader(BaseReader, ABC):
                             f"y1={char.y1:.2f})")
                 logger.debug(f"Skipping vertical char:\n\t{char_str}")
                 continue
+            if len(char.text) != 1:
+                # TODO: Problem lies with ghostscript/pdfminer;
+                #  Should be fixed there and properly
+                char.text = chr(int(char.text[5:-1]))
             # Fields are continuous streams of chars.
             if not fields or char.x0 != fields[-1].bbox.x1:
                 fields.append(Field.from_char(char))
