@@ -103,6 +103,8 @@ class StopTimes(BaseContainer):
         prev_time = Time()
 
         for seq, (stop, time_string) in enumerate(time_strings.items()):
+            if stop.is_connection:
+                continue
             time = Time.from_string(time_string)
             if time < prev_time:
                 service_day_delta += Time(24)
