@@ -28,30 +28,28 @@ def _add_required_arguments(parser: ArgumentParser):
         help="The pdf file you want to extract the tables from")
 
 
-# TODO: Remove unneccessary arguments (header/repeat/etc.).
 def _add_optional_arguments(parser: ArgumentParser):
     # TODO: Use the _Config.properties to get the name, type and help
     #  + add help to _Config.properties
     text = ("A strftime format string describing the format of the "
             "timestrings of the pdf table. ")
     parser.add_argument("--time_format", type=str, help=text)
-    text = ("Which identifiers are used for the headers. Check the default "
-            "config for more information.")
-    parser.add_argument("--header_identifier", type=list, help=text)
-    text = ("How repeating times are identified. Check the default "
-            "config for more information.")
-    parser.add_argument("--repeat_identifier", type=list, help=text)
-    text = ("Only extract the tables of these pages. "
-            "Either 'all', or a list of ints separated by commas.")
+
+    text = ("Only extract the tables of these pages. Either 'all' "
+            "(default), or a list of ints separated by commas.")
     parser.add_argument("--pages", type=str, help=text)
+
     text = ("Path to a configuration file. If given multiple times, all "
-            "files will be read in the order given.")
+            "files will be read in the order given. Config files read later "
+            "may override the settings of previous config files.")
     parser.add_argument("--config", action="append", type=str,
                         help=text, default=[])
+
     text = ("Path to output directory. Will default to './out'. "
             "If the directory is not empty, files may be overwritten.")
     parser.add_argument("--out", type=str, help=text, default="./out")
+
     text = ("Whether the preprocessed pdf should be saved. Will be saved to "
-            "the output directory.")
+            "the output directory. This may be helpful for debugging.")
     parser.add_argument("--output_pp", const=True, default=False,
                         action="store_const", help=text)
