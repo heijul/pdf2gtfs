@@ -68,16 +68,9 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
             for textline_element in textbox_element:
                 if not isinstance(textline_element, LTChar):
                     continue
-                # TODO: Check why this can even happen.
                 # Skip objects which are not on the page.
                 if not contains_bbox(page.bbox, textline_element.bbox):
                     continue
-                # TODO: Find a way to skip invisible text.
-                #  Note: Does not seem to be possible as it appears to have
-                #  the same color as the visible text?!
-                # TODO: Preprocessing with 'gs -dFastWebView=True ...'
-                #  seems to have promising results.
-
                 char_list.append(unpack_char(textline_element))
 
     return pd.DataFrame(char_list)
@@ -91,6 +84,8 @@ class Reader(BaseReader, ABC):
         self.tempfile = None
 
     def preprocess(self):
+        # Preprocessing seems to take care of invisible text, while also
+        # improving performance by a lot, because only text is preserved.
         try:
             from ghostscript import Ghostscript
         except RuntimeError:
@@ -198,6 +193,7 @@ class Reader(BaseReader, ABC):
                 logger.debug(f"Skipping vertical char:\n\t{char_str}")
                 continue
             if len(char.text) != 1:
+                # Sometimes chars are wrongly detected by pdfminer as codes...
                 # TODO: Problem lies with ghostscript/pdfminer;
                 #  Should be fixed there and properly
                 char.text = chr(int(char.text[5:-1]))
