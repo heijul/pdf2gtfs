@@ -52,7 +52,7 @@ def get_osm_data_from_qlever():
         return
 
     # TODO: Add comment in first line about time/date of request
-    with open("../data/osm_germany_stops.csv", "wb") as fil:
+    with open("../../data/osm_germany_stops.csv", "wb") as fil:
         fil.write(r.content)
 
 
