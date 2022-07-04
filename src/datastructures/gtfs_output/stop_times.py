@@ -48,11 +48,16 @@ class Time:
         hours = self.hours + other.hours + hour_delta
         return Time(hours, minutes - hour_delta * 60)
 
-    def __lt__(self, other):
+    def __le__(self, other: Time):
+        if self < other:
+            return True
+        return self.hours == other.hours and self.minutes == other.minutes
+
+    def __lt__(self, other: Time):
         return (self.hours < other.hours or
                 self.hours == other.hours and self.minutes < other.minutes)
 
-    def __gt__(self, other):
+    def __gt__(self, other: Time):
         return not self.__lt__(other)
 
 
@@ -124,9 +129,23 @@ class StopTimes(BaseContainer):
         return entries
 
     def merge(self, other: StopTimes):
-        # TODO: Should properly merge, instead of assuming self is earlier
-        #  than other
-        self.entries += other.entries
+        entries = []
+        i, j = 0, 0
+        while True:
+            if i >= len(self.entries):
+                entries += other.entries[j:]
+                break
+            if j >= len(other.entries):
+                entries += other.entries[j:]
+                break
+            if self.entries[i].arrival_time <= other.entries[j].arrival_time:
+                entries.append(self.entries[i])
+                i += 1
+            else:
+                entries.append(other.entries[j])
+                j += 1
+
+        self.entries = entries
 
     def duplicate(self, trip_id) -> StopTimes:
         """ Creates a new instance with updated copies of the entries. """
