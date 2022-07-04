@@ -28,6 +28,7 @@ def _add_required_arguments(parser: ArgumentParser):
         help="The pdf file you want to extract the tables from")
 
 
+# TODO: Remove unneccessary arguments (header/repeat/etc.).
 def _add_optional_arguments(parser: ArgumentParser):
     # TODO: Use the _Config.properties to get the name, type and help
     #  + add help to _Config.properties

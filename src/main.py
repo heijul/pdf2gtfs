@@ -41,7 +41,7 @@ if __name__ == "__main__":
               "./data/rmv_g10.pdf", "./data/vag_linie_eins_new.pdf",
               "./data/vag_linie_eins_new_a.pdf"]
     argv.append("--pages=2")
-    argv.append(fnames[3])
+    argv.append(fnames[2])
     parse_args()
     initialize_logging(logging.DEBUG)
 
@@ -52,6 +52,5 @@ if __name__ == "__main__":
     try_matching_coordinates(handler)
     handler.write_files()
 
-# TODO: Rendermode in pdfminer
-# TODO: Ghostscript preprocessing
 # TODO: Tests + testdaten in svn
+# TODO: Remove symbols from stop names except "./-" + Config.allowed_chars
