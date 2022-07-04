@@ -13,6 +13,8 @@ import requests
 from geopy import distance as _distance
 import folium
 
+from config import Config
+
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
@@ -338,5 +340,6 @@ def display_route(route: list[Node]):
     for entry in route:
         folium.Marker([entry.lat, entry.lon], popup=entry.stop).add_to(m)
     # TODO: Maybe use tempfile
-    m.save("test.html")
-    webbrowser.open_new_tab("test.html")
+    outfile = Config.base_path.joinpath("./out/routedisplay.html")
+    m.save(str(outfile))
+    webbrowser.open_new_tab(str(outfile))
