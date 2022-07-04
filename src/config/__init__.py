@@ -124,6 +124,7 @@ class _Config(InstanceDescriptorMixin):
 
     @property
     def base_path(self) -> Path:
+        """ Returns the path, where the src directory is located. """
         return Path(__file__).parents[2]
 
     @property
