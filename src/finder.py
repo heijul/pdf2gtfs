@@ -87,13 +87,15 @@ class Finder:
         converters = {"stop_loc": stop_loc_converter,
                       "name": name_converter}
         # TODO: Set sep properly
-        df = pd.read_csv("../data/osm_germany_stops.csv",
+        files = ["../data/osm_germany_stops.csv",
+                 "../data/osm_germany_stops_platforms_stations.tsv"]
+        df = pd.read_csv(files[1],
                          sep="\t",
-                         names=["stop", "name", "stop_loc"],
+                         names=["stop", "name", "lat", "lon", "stop_loc"],
                          header=0,
                          converters=converters)
-        df[["lon", "lat"]] = df.stop_loc.str.split(
-            " ", expand=True).astype(float)
+        #        df[["lon", "lat"]] = df.stop_loc.str.split(
+        #           " ", expand=True).astype(float)
         del df["stop_loc"]
         self.df: pd.DataFrame = df
 
@@ -167,6 +169,10 @@ class Cluster:
     def next(self):
         return self._next
 
+    @property
+    def is_dummy(self):
+        return self.nodes == []
+
     def add_prev(self, node: Cluster, dist: float):
         heappush(self._prev, (dist, node))
 
@@ -177,9 +183,15 @@ class Cluster:
         return f"CNode({self.stop!r}, lat={self.lat}, lon={self.lon})"
 
     def get_closest(self, other: Cluster | Node) -> Node:
+        if self.is_dummy:
+            return Node(self.stop.name, self.lat, self.lon)
+
         dists = [(distance(other.lat, other.lon, node.lat, node.lon), node)
                  for node in self.nodes]
         return min(dists, key=itemgetter(0))[1]
+
+    def __lt__(self, _):
+        return False if self.is_dummy else True
 
 
 GroupID: TypeAlias = tuple[str, float, float]
@@ -219,6 +231,11 @@ class Route:
 
     @staticmethod
     def update_neighbor(prev: Cluster, node: Cluster) -> bool:
+        if node.is_dummy or prev.is_dummy:
+            prev.add_next(node, 0.1)
+            node.add_prev(prev, 0.1)
+            return True
+
         dist = distance(prev.lat, prev.lon, node.lat, node.lon)
         if dist > MAX_DIST_IN_KM:
             return False
@@ -245,20 +262,25 @@ class Route:
 
 class Routes:
     def __init__(self, raw_df: pd.Dataframe, stop_names: list[str]) -> None:
-        self._set_df(raw_df, stop_names)
-        self._create_stop_nodes(stop_names)
+        cf_names = [name_converter(name).casefold() for name in stop_names]
+        for c in list(cf_names):
+            if " " not in c:
+                continue
+            cf_names += c.split(" ")
+
+        self._set_df(raw_df, cf_names)
+        self._create_stop_nodes(cf_names)
         self._group_df_with_tolerance()
         self._create_cluster_nodes()
         self._create_clusters()
 
-    def _set_df(self, df: pd.DataFrame, stop_names: list[str]) -> None:
-        casefolded = [name.casefold() for name in stop_names]
+    def _set_df(self, df: pd.DataFrame, casefolded: list[str]) -> None:
         self.df = df.where(df["name"].str.casefold().isin(casefolded)).dropna()
         self.df["lat2"] = self.df["lat"].round(2)
         self.df["lon2"] = self.df["lon"].round(2)
 
-    def _create_stop_nodes(self, stop_names) -> None:
-        self.stop_nodes = [StopNode(name) for name in stop_names]
+    def _create_stop_nodes(self, casefolded) -> None:
+        self.stop_nodes = [StopNode(name) for name in casefolded]
 
     def _group_df_with_tolerance(self) -> dict[GroupID: list[pd.Series]]:
         """ Group the dataframe by (name, lat2, lon2), allowing tolerances. """
@@ -281,7 +303,7 @@ class Routes:
     def _create_cluster_nodes(self):
         def get_stop_node(_name):
             for _node in self.stop_nodes:
-                if _name != _node.name:
+                if _name.casefold() != _node.name:
                     continue
                 return _node
 
@@ -304,7 +326,10 @@ class Routes:
         # Populate clusters.
         for stop_node in self.stop_nodes[1:]:
             for cluster in clusters:
-                cluster.add_nodes(self.cluster_nodes[stop_node])
+                nodes = self.cluster_nodes.get(stop_node, [])
+                if not nodes:
+                    nodes = [Cluster(stop_node, 0, 0, [])]
+                cluster.add_nodes(nodes)
         self.clusters = clusters
 
 
