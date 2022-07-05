@@ -60,6 +60,7 @@ class _Config(InstanceDescriptorMixin):
         self.annot_identifier = Property(self, "annot_identifier", list)
         self.route_identifier = Property(self, "route_identifier", list)
         self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype", str)
+        self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

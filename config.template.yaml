@@ -91,3 +91,9 @@ min_row_count: 5
 #   See https://developers.google.com/transit/gtfs/reference#routestxt
 # Type: str  # TODO: Maybe allow int as well.
 gtfs_routetype: "Bus"
+
+
+# Stop names are stripped of all characters which are not letters or whitelisted.
+#
+# Type: list of str
+allowed_stop_chars: ["-", "/", ".", " "]
