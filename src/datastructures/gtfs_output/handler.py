@@ -131,6 +131,9 @@ class GTFSHandler:
             return [e for e in self.calendar.entries
                     if _annot in e.annotations]
 
+        if Config.non_interactive:
+            return
+
         annots = set()
         raw_annots = [e.annotations for e in self.calendar.entries]
         for annot in raw_annots:

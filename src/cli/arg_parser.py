@@ -62,7 +62,7 @@ def _add_optional_arguments(parser: ArgumentParser):
     parser.add_argument("--non_interactive", const=True,
                         action="store_const", help=text)
 
-    text = ("Files which already exist in the output directory will be "
+    text = ("GTFS files which already exist in the output directory will be "
             "overwritten without asking for user input. This setting will "
             "take precedence over --non_interactive, in regards to "
             "overwriting existing files, if both are set.")
