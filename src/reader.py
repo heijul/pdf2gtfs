@@ -93,6 +93,8 @@ class Reader(BaseReader, ABC):
     def preprocess(self):
         # Preprocessing seems to take care of invisible text, while also
         # improving performance by a lot, because only text is preserved.
+        logger.info("Beginning preprocessing...")
+        start_time = time()
         try:
             from ghostscript import Ghostscript
         except RuntimeError:
@@ -112,6 +114,7 @@ class Reader(BaseReader, ABC):
         if Config.output_pp:
             copyfile(self.tempfile.name,
                      Config.output_dir.joinpath("preprocessed.pdf"))
+        logger.info(f"Preprocessing done. Took {time() - start_time:.2f}s")
 
     def read(self):
         if Config.preprocess:
