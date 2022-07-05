@@ -177,7 +177,8 @@ class Reader(BaseReader, ABC):
                     f"{time() - time_start:.3f} seconds.")
         return rows
 
-    def split_line_into_fields(self, line: list[pd.Series]) -> list[Field]:
+    @staticmethod
+    def split_line_into_fields(line: list[pd.Series]) -> list[Field]:
         fields = []
         if len(line) == 0:
             return fields

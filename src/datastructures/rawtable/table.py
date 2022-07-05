@@ -106,7 +106,7 @@ def split_rows_into_tables(rows: list[Row]) -> list[Table]:
                 #  but use it to enhance the others
                 row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
                 logger.debug(f"Dropped rows:\n\tDistance: {y_distance}"
-                         f"\n\tRows: {row_str}")
+                             f"\n\tRows: {row_str}")
                 current_rows = [row]
                 continue
             logger.info(f"Distance between rows: {y_distance}")

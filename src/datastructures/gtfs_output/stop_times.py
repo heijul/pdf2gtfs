@@ -48,14 +48,15 @@ class Time:
         hours = self.hours + other.hours + hour_delta
         return Time(hours, minutes - hour_delta * 60)
 
-    def __le__(self, other: Time):
-        if self < other:
-            return True
+    def __eq__(self, other):
         return self.hours == other.hours and self.minutes == other.minutes
 
     def __lt__(self, other: Time):
         return (self.hours < other.hours or
                 self.hours == other.hours and self.minutes < other.minutes)
+
+    def __le__(self, other: Time):
+        return self == other or self < other
 
     def __gt__(self, other: Time):
         return not self.__lt__(other)
