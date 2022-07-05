@@ -4,6 +4,8 @@ This is to enable a 'Config.some_property'-lookup, without the
 need to hard-code each property.
 """
 import logging
+from os import makedirs
+from pathlib import Path
 from typing import Any
 
 from holidays.utils import list_supported_countries
@@ -184,3 +186,20 @@ class RouteTypeProperty(Property):
         if value in [typ.name for typ in RouteType]:
             return
         raise err.InvalidRouteTypeValue
+
+
+class PathProperty(Property):
+    def __init__(self, cls, attr):
+        super().__init__(cls, attr, Path)
+
+    def __set__(self, obj, value):
+        if isinstance(value, str):
+            value = Path(value).resolve()
+            try:
+                makedirs(value, exist_ok=True)
+            except OSError:
+                # TODO: Add filename to error + which error (perm/fileexists/)
+                raise err.InvalidPathError
+            if not value.is_dir():
+                raise err.InvalidPathError
+        super().__set__(obj, value)

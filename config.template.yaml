@@ -103,3 +103,15 @@ allowed_stop_chars: ["-", "/", ".", " "]
 #
 # Type: int
 max_stop_distance: 100
+
+# The path to the output directory for the gtfs files.
+#   Default is "/path/to/pdf2gtfs/out".
+#
+# Type: str
+output_dir: "../out"
+
+# Whether the preprocessed pdf should be saved. If true, the pdf will be saved
+#   to the output_dir.
+#
+# Type: bool
+output_pp: true

@@ -23,3 +23,7 @@ class InvalidHeaderDays(PropertyException):
 
 class InvalidRouteTypeValue(PropertyException):
     pass
+
+
+class InvalidPathError(PropertyException):
+    pass

@@ -7,7 +7,8 @@ from yaml.scanner import ScannerError
 
 import config.errors as err
 from config.properties import (Property, PagesProperty, FilenameProperty,
-                               HolidayCodeProperty, HeaderValuesProperty, RouteTypeProperty)
+                               HolidayCodeProperty, HeaderValuesProperty,
+                               RouteTypeProperty, PathProperty)
 
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,8 @@ class _Config(InstanceDescriptorMixin):
         self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype", str)
         self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
         self.max_stop_distance = Property(self, "max_stop_distance", int)
+        self.output_dir = PathProperty(self, "output_dir")
+        self.output_pp = Property(self, "output_pp", bool)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.
