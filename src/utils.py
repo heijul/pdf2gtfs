@@ -15,8 +15,13 @@ def next_uid():
     return next(__uid_generator)
 
 
-def contains_bbox(container_bbox, bbox):
-    return (container_bbox[0] <= bbox[0] <= container_bbox[2] and
-            container_bbox[1] <= bbox[1] <= container_bbox[3] and
-            container_bbox[0] <= bbox[2] <= container_bbox[2] and
-            container_bbox[1] <= bbox[3] <= container_bbox[3])
+def strip_forbidden_symbols(raw_name: str) -> str:
+    """ Return a str which only consists of letters and allowed chars. """
+    from config import Config
+
+    name = ""
+    for char in raw_name:
+        if char not in Config.allowed_stop_chars and not char.isalpha():
+            continue
+        name += char
+    return name.strip()

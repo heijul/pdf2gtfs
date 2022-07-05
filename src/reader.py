@@ -16,7 +16,6 @@ from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
 from config import Config
 from datastructures.rawtable.fields import Field
 from datastructures.rawtable.table import Row, split_rows_into_tables
-from utils import contains_bbox
 
 
 pd.set_option('display.max_colwidth', None)
@@ -42,6 +41,13 @@ class BaseReader:
     @abstractmethod
     def transform(self):
         pass
+
+
+def contains_bbox(container_bbox, bbox):
+    return (container_bbox[0] <= bbox[0] <= container_bbox[2] and
+            container_bbox[1] <= bbox[1] <= container_bbox[3] and
+            container_bbox[0] <= bbox[2] <= container_bbox[2] and
+            container_bbox[1] <= bbox[3] <= container_bbox[3])
 
 
 def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:

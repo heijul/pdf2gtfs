@@ -14,6 +14,7 @@ from geopy import distance as _distance
 import folium
 
 from config import Config
+from utils import strip_forbidden_symbols
 
 
 if TYPE_CHECKING:
@@ -67,18 +68,6 @@ def stop_loc_converter(value: str) -> str:
     return value[6:].split(")", 1)[0]
 
 
-def name_converter(raw_name: str) -> str:
-    """ Remove chars which are not allowed. """
-    name = ""
-    # TODO: Config
-    allowed_chars = " .-/"
-    for char in raw_name:
-        if char not in allowed_chars and not char.isalpha():
-            continue
-        name += char
-    return name.strip()
-
-
 class Finder:
     def __init__(self, gtfs_handler: GTFSHandler):
         self.handler = gtfs_handler
@@ -87,7 +76,7 @@ class Finder:
 
     def _get_stop_data(self):
         converters = {"stop_loc": stop_loc_converter,
-                      "name": name_converter}
+                      "name": strip_forbidden_symbols}
         # TODO: Set sep properly
         files = ["../data/osm_germany_stops.csv",
                  "../data/osm_germany_stops_platforms_stations.tsv"]
@@ -264,7 +253,8 @@ class Route:
 
 class Routes:
     def __init__(self, raw_df: pd.Dataframe, stop_names: list[str]) -> None:
-        cf_names = [name_converter(name).casefold() for name in stop_names]
+        cf_names = [strip_forbidden_symbols(name).casefold()
+                    for name in stop_names]
         for c in list(cf_names):
             if " " not in c:
                 continue
