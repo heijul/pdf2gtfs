@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from pathlib import Path
+from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import time
 
@@ -107,6 +108,9 @@ class Reader(BaseReader, ABC):
                    f"-sOutputFile={self.tempfile.name}", str(self.filepath)]
         # TODO: Test on windows if encoding is neccessary
         Ghostscript(*gs_args)
+        if Config.output_pp:
+            copyfile(self.tempfile.name,
+                     Config.output_dir.joinpath("preprocessed.pdf"))
 
     def read(self):
         self.preprocess()
