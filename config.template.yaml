@@ -122,3 +122,14 @@ preprocess: True
 #
 # Type: bool
 output_pp: True
+
+# TODO: Clarify
+# Always overwrite
+#
+# Type: bool
+always_overwrite: False
+
+# Disable interactive mode (default).
+#
+# Type: bool
+non_interactive: False

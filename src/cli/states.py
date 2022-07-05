@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 
 if TYPE_CHECKING:
-    from cli.cli import AnnotationInputHandler
+    from cli.cli import AnnotationInputHandler, OverwriteInputHandler
 
 
 logger = logging.getLogger(__name__)
@@ -162,4 +162,24 @@ class AnnotSetActiveState(InputState):
             return False
 
         self.value = response == "a"
+        return True
+
+
+class OverwriteBaseState(InputState):
+    def __init__(self, state_machine: OverwriteInputHandler):
+        msg = ("The file {} already exists.\nDo you want to overwrite it? "
+               "[y]es [n]o")
+        # TODO: Extend to overwrite all/none/overwrite/skip
+        self.overwrite = False
+        super().__init__(state_machine, "base", msg, "end")
+        self.sm: OverwriteInputHandler
+
+    def run(self):
+        response = self.get_input(self.message.format(self.sm.filename))
+
+        if response not in ["y", "n"]:
+            logger.error("Invalid response.")
+            return False
+
+        self.overwrite = response == "y"
         return True

@@ -66,6 +66,8 @@ class _Config(InstanceDescriptorMixin):
         self.output_dir = PathProperty(self, "output_dir")
         self.preprocess = Property(self, "preprocess", bool)
         self.output_pp = Property(self, "output_pp", bool)
+        self.always_overwrite = Property(self, "always_overwrite", bool)
+        self.non_interactive = Property(self, "non_interactive", bool)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

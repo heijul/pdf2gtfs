@@ -1,9 +1,11 @@
 from __future__ import annotations
+
+from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 from datetime import datetime as dt
 
 from cli.states import (State, StartState, EndState, AnnotBaseState,
-                        AnnotAddDateState, AnnotSetActiveState)
+                        AnnotAddDateState, AnnotSetActiveState, OverwriteBaseState)
 
 
 if TYPE_CHECKING:
@@ -63,3 +65,16 @@ class AnnotationInputHandler(InputHandler):
     def get_values(self) -> dict[str, dict[dt.date, bool]]:
         base_state: AnnotBaseState = self.states["base"]
         return base_state.get_value()
+
+
+class OverwriteInputHandler(InputHandler):
+    def __init__(self, filename: Path) -> None:
+        # TODO: Could be expanded to allow user t
+        self.filename = filename
+        super().__init__()
+        self.states["base"] = OverwriteBaseState(self)
+        self.current.next = "base"
+
+    @property
+    def overwrite(self):
+        return self.states["base"].overwrite

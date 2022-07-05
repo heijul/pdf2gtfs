@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, fields, Field
 from pathlib import Path
 from typing import TypeVar, Type
 
+from cli.cli import OverwriteInputHandler
 from utils import next_uid
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -54,8 +59,21 @@ class BaseContainer:
         self._write(path, self.to_output() + "\n")
 
     def _write(self, path: Path, content: str) -> None:
+        from config import Config
+
         # TODO: Probably need to ensure path ends with a seperator.
-        # TODO: @cli also needs to ask if files should be overridden.
+        fp = path.joinpath(self.filename)
+        if fp.exists():
+            if not Config.always_overwrite and Config.non_interactive:
+                logger.warning(
+                    f"File {fp} already exists and overwriting is disabled.")
+                return
+            if not Config.always_overwrite and not Config.non_interactive:
+                handler = OverwriteInputHandler(fp)
+                handler.run()
+                if not handler.overwrite:
+                    return
+
         with open(path.joinpath(self.filename), "w") as fil:
             fil.write(content)
 

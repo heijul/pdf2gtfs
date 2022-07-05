@@ -55,3 +55,16 @@ def _add_optional_arguments(parser: ArgumentParser):
             "the output directory. This may be helpful for debugging.")
     parser.add_argument("--output_pp", const=True,
                         action="store_const", help=text)
+
+    text = ("Disables any actions which require user input (e.g. the mapping "
+            "of annotations to dates. Files that already exist will not be "
+            "overwritten when this is set.")
+    parser.add_argument("--non_interactive", const=True,
+                        action="store_const", help=text)
+
+    text = ("Files which already exist in the output directory will be "
+            "overwritten without asking for user input. This setting will "
+            "take precedence over --non_interactive, in regards to "
+            "overwriting existing files, if both are set.")
+    parser.add_argument("--always_overwrite", const=True,
+                        action="store_const", help=text)
