@@ -113,7 +113,8 @@ class Reader(BaseReader, ABC):
                      Config.output_dir.joinpath("preprocessed.pdf"))
 
     def read(self):
-        self.preprocess()
+        if Config.preprocess:
+            self.preprocess()
         # Disable advanced layout analysis.
         laparams = LAParams(boxes_flow=None)
         t = time()
