@@ -61,6 +61,7 @@ class _Config(InstanceDescriptorMixin):
         self.route_identifier = Property(self, "route_identifier", list)
         self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype", str)
         self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
+        self.max_stop_distance = Property(self, "max_stop_distance", int)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

@@ -165,6 +165,7 @@ class Cluster:
         return self.nodes == []
 
     def add_prev(self, node: Cluster, dist: float):
+        # TODO: Add priority to dist
         heappush(self._prev, (dist, node))
 
     def add_next(self, node: Cluster, dist: float):
@@ -228,7 +229,7 @@ class Route:
             return True
 
         dist = distance(prev.lat, prev.lon, node.lat, node.lon)
-        if dist > MAX_DIST_IN_KM:
+        if dist > Config.max_stop_distance:
             return False
         prev.add_next(node, dist)
         node.add_prev(prev, dist)
@@ -326,6 +327,7 @@ class Routes:
 
 
 def display_route(route: list[Node]):
+    # TODO: Focus center of route
     m = folium.Map(location=[47.9872899, 7.7263808])
     for entry in route:
         folium.Marker([entry.lat, entry.lon], popup=entry.stop).add_to(m)
