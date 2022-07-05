@@ -7,7 +7,7 @@ from datetime import datetime as dt
 from itertools import cycle
 
 from config import Config
-from datastructures.gtfs_output.base import BaseDataClass, BaseContainer
+from datastructures.gtfs_output.__init__ import BaseDataClass, BaseContainer
 from datastructures.gtfs_output.gtfsstop import GTFSStops
 from datastructures.timetable.stops import Stop
 from datastructures.gtfs_output.trips import Trip_Factory

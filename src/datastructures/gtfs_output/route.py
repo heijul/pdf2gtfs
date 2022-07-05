@@ -2,7 +2,7 @@ from dataclasses import dataclass, Field
 from enum import Enum
 
 import config
-from datastructures.gtfs_output.base import (
+from datastructures.gtfs_output.__init__ import (
     BaseDataClass, BaseContainer)
 
 

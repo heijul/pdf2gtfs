@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime as dt
 
-from datastructures.gtfs_output.base import BaseContainer, BaseDataClass
+from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
 
 
 @dataclass

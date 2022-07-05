@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable, TypeAlias, Optional
 
-from datastructures.gtfs_output.base import (BaseContainer,
-                                             BaseDataClass)
+from datastructures.gtfs_output.__init__ import (BaseContainer,
+                                                 BaseDataClass)
 
 
 Trip_Factory: TypeAlias = Callable[[Optional["TripEntry"]], "TripEntry"]

@@ -5,7 +5,7 @@ import datetime as dt
 from dataclasses import fields, dataclass
 from typing import TypeAlias, Callable
 
-from datastructures.gtfs_output.base import BaseContainer, BaseDataClass
+from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
 
 
 @dataclass
