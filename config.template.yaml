@@ -112,7 +112,7 @@ output_dir: "../out"
 
 # Whether or not the pdf should be preprocessed. This will, among other things,
 #   remove all objects from the pdf which are not text.
-#   Greatly reduces processing time.
+#   Greatly reduces processing time, but may alter the pdf in some other ways.
 #
 # Type: bool
 preprocess: True
