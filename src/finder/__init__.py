@@ -26,10 +26,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# TODO: Config
-MAX_DIST_IN_KM = 50
-
-
 def get_osm_data_from_qlever():
     base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
     # TODO: Rename columns
