@@ -102,6 +102,7 @@ class Reader(BaseReader, ABC):
         self.tempfile = NamedTemporaryFile()
 
         # TODO: Allow custom args
+        # TODO: Currently runs on all pages instead of Config.pages
         gs_args = ["gs", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dFILTERIMAGE",
                    "-dFILTERVECTOR", "-dPRINTED=true", "-dFitPage",
                    "-dBlackText", "-q", "-dBATCH ",
