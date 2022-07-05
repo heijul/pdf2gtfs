@@ -110,8 +110,15 @@ max_stop_distance: 100
 # Type: str
 output_dir: "../out"
 
-# Whether the preprocessed pdf should be saved. If true, the pdf will be saved
-#   to the output_dir.
+# Whether or not the pdf should be preprocessed. This will, among other things,
+#   remove all objects from the pdf which are not text.
+#   Greatly reduces processing time.
 #
 # Type: bool
-output_pp: true
+preprocess: True
+
+# Whether the preprocessed pdf should be saved. If true, the pdf will be saved
+#   to the output_dir. Setting this when 'preprocess' is false has no effect.
+#
+# Type: bool
+output_pp: True

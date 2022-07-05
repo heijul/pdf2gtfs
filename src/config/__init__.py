@@ -64,6 +64,7 @@ class _Config(InstanceDescriptorMixin):
         self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
         self.max_stop_distance = Property(self, "max_stop_distance", int)
         self.output_dir = PathProperty(self, "output_dir")
+        self.preprocess = Property(self, "preprocess", bool)
         self.output_pp = Property(self, "output_pp", bool)
 
     def load_config(self, path: Path | None = None) -> bool:
