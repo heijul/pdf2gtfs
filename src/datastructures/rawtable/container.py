@@ -206,15 +206,15 @@ class Row(FieldContainer):
     def fits_column_scheme(self, columns: list[Column]):
         def get_stop_box():
             # Generate bbox for the stops, where we want to ignore the scheme.
-            _stop_bbox = None
+            _bbox = None
             for _column in columns:
                 if _column.type == ColumnType.DATA:
                     break
-                if _stop_bbox is None:
-                    _stop_bbox = _column.bbox.copy()
+                if _bbox is None:
+                    _bbox = _column.bbox.copy()
                     continue
-                _stop_bbox.merge(_column.bbox.copy())
-            return _stop_bbox
+                _bbox.merge(_column.bbox.copy())
+            return _bbox
 
         def get_column_bbox() -> BBox:
             # Create new bbox, that spans between previous columns' end
