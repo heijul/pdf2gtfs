@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from operator import attrgetter
 from statistics import mean
 from typing import Generic, TypeVar
 
@@ -82,5 +83,5 @@ class RowList(FieldContainerList[TableT, tbl.Row]):
         return mean([len(row.fields) for row in self._objects])
 
     def merge(self, other: RowList):
-        # TODO: Merge properly
         self._objects += other.get_objects()
+        self._objects.sort(key=attrgetter("bbox.x0"))
