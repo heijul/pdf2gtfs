@@ -40,7 +40,6 @@ class GTFSHandler:
         self.agency.add()
 
     def timetable_to_gtfs(self, timetable: TimeTable):
-        print(timetable)
         timetable.clean_values()
         if not timetable.stops.stops:
             return
@@ -165,11 +164,21 @@ class GTFSHandler:
         self.calendar_dates.write(path)
 
     def add_coordinates(self, route):
+        logger.info("Adding coordinates to stops.")
         for node in route:
             stop = self.stops.get(node.stop)
             if stop is None:
-                continue
+                dist, stop = self.stops.get_closest(node.stop)
+                msg = f"No precise match for '{node.stop}'."
+                if stop is None:
+                    logger.info(msg)
+                    continue
+                logger.info(f"{msg} Found match with distance: "
+                            f"({dist}, '{stop.stop_name}').")
+                if stop.stop_lat > 0:
+                    continue
             stop.set_location(node.lat, node.lon)
+        logger.info("Done.")
 
     @property
     def agency(self) -> Agency:

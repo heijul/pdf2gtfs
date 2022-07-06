@@ -88,3 +88,12 @@ class TestStopTimes(TestCase):
                         self.stop_times.entries[1].arrival_time)
         self.assertTrue(self.stop_times.entries[1].arrival_time <
                         self.stop_times.entries[2].arrival_time)
+
+
+class TestGTFSStop(TestCase):
+    def testtest(self):
+        stops = GTFSStops
+        self.assertEqual(3, stops._get_edit_distance("sitting", "kitten"))
+        self.assertEqual(3, stops._get_edit_distance("kitten", "sitting"))
+        self.assertEqual(3, stops._get_edit_distance("sunday", "saturday"))
+        self.assertEqual(3, stops._get_edit_distance("saturday", "sunday"))
