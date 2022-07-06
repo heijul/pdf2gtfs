@@ -60,7 +60,7 @@ class _Config(InstanceDescriptorMixin):
         self.filename = FilenameProperty(self, "filename", str)
         self.annot_identifier = Property(self, "annot_identifier", list)
         self.route_identifier = Property(self, "route_identifier", list)
-        self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype", str)
+        self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype")
         self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
         self.max_stop_distance = Property(self, "max_stop_distance", int)
         self.output_dir = PathProperty(self, "output_dir")

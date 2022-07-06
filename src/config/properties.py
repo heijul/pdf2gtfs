@@ -180,6 +180,9 @@ class FilenameProperty(Property):
 
 
 class RouteTypeProperty(Property):
+    def __init__(self, cls, attr):
+        super().__init__(cls, attr, str)
+
     def validate(self, value: str):
         from datastructures.gtfs_output.route import RouteType
 

@@ -89,7 +89,8 @@ min_row_count: 5
 
 # Routetype.
 #   See https://developers.google.com/transit/gtfs/reference#routestxt
-# Type: str  # TODO: Maybe allow int as well.
+#
+# Type: str
 gtfs_routetype: "Bus"
 
 
