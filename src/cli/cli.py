@@ -69,7 +69,6 @@ class AnnotationInputHandler(InputHandler):
 
 class OverwriteInputHandler(InputHandler):
     def __init__(self, filename: Path) -> None:
-        # TODO: Could be expanded to allow user t
         self.filename = filename
         super().__init__()
         self.states["base"] = OverwriteBaseState(self)

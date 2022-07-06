@@ -31,7 +31,6 @@ class BaseDataClass:
         return str(value)
 
     def to_output(self) -> str:
-        # TODO: Add escape for strings
         return ",".join(map(self._to_output, fields(self)))
 
 
@@ -61,7 +60,6 @@ class BaseContainer:
     def _write(self, path: Path, content: str) -> None:
         from config import Config
 
-        # TODO: Probably need to ensure path ends with a seperator.
         fp = path.joinpath(self.filename)
         if fp.exists():
             if not Config.always_overwrite and Config.non_interactive:
