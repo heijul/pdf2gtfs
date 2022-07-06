@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import logging
+import os.path
+import platform
 import webbrowser
 from dataclasses import dataclass
 from heapq import heappush
 from operator import itemgetter
+from os import makedirs
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from urllib import parse
 from typing import TYPE_CHECKING, TypeAlias
 
@@ -27,7 +32,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_osm_data_from_qlever():
+def get_osm_data_from_qlever(path: Path) -> None:
     base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
     # TODO: Rename columns
     data = {
@@ -48,11 +53,11 @@ def get_osm_data_from_qlever():
     r = requests.get(url)
 
     if r.status_code != 200:
-        logger.error(f"Response != 200: {r}\n{r.content}")
+        logger.error(f"Could not get osm data: {r}\n{r.content}")
         return
 
     # TODO: Add comment in first line about time/date of request
-    with open("../../data/osm_germany_stops.csv", "wb") as fil:
+    with open(path, "wb") as fil:
         fil.write(r.content)
 
 
@@ -65,25 +70,79 @@ def stop_loc_converter(value: str) -> str:
     return value[6:].split(")", 1)[0]
 
 
+def get_cache_dir_path() -> Path | None:
+    system = platform.system().lower()
+    if system == "windows":
+        # TODO: Test on windows
+        return Path(os.path.expandvars("%LOCALAPPDATA%/pdf2gtfs/")).resolve()
+    if system == "linux":
+        return Path(os.path.expanduser("~/.cache/pdf2gtfs/")).resolve()
+
+    logger.warning("Cache is only supported on linux and windows "
+                   "platforms.")
+
+
+def create_cache_dir() -> tuple[bool, Path | None]:
+    """ Creates the platform-specific cache directory if it does not exist.
+
+    :returns: Whether the cache directory is valid and the path to directory
+    """
+    path = get_cache_dir_path()
+    if not path:
+        return False, None
+    if not path.exists():
+        try:
+            makedirs(path, exist_ok=True)
+        except OSError as e:
+            logging.warning(f"Cache directory could not be created. "
+                            f"Caching has been disabled. Reason: {e}")
+            return False, None
+    if not path.is_dir():
+        logger.warning(f"Cache directory '{path}' appears to be a file. "
+                       f"You need to rename/remove that file to use caching. "
+                       f"Caching has been disabled.")
+        return False, None
+    return True, path
+
+
 class Finder:
     def __init__(self, gtfs_handler: GTFSHandler):
         self.handler = gtfs_handler
+        self.temp = None
+        self.use_cache, cache_dir = create_cache_dir()
+        self._set_fp(cache_dir)
         self._get_stop_data()
         self.routes: Routes | None = None
 
+    def _set_fp(self, cache_dir: Path):
+        self.fp: Path = cache_dir.joinpath("osm_cache.tsv").resolve()
+        self.temp = NamedTemporaryFile()
+        if self.use_cache:
+            return
+        self.fp = Path(self.temp.name).resolve()
+
+    def _cache_is_stale(self) -> bool:
+        """
+        :return: Whether the cache either does not exist or is too old.
+        """
+        # TODO: Add the 'too old' bit
+        return (Path(self.temp.name).resolve() == self.fp or
+                not self.fp.exists())
+
     def _get_stop_data(self):
         def _cleanup_name():
-            # Remove any chars which are not letters or allowed chars
+            # Remove any chars which are not letters or allowed chars.
+            # Doing it this way is a lot faster than using a converter.
             chars = Config.allowed_stop_chars
             re = "[^a-zA-Z|{}]".format(
                 "|".join(["^{}".format(c) for c in chars]))
             df["name"] = df["name"].str.replace(re, "", regex=True)
 
+        if not self.use_cache or self._cache_is_stale():
+            get_osm_data_from_qlever(self.fp)
+
         converters = {"stop_loc": stop_loc_converter}
-        # TODO: Set sep properly
-        files = ["../data/osm_germany_stops.csv",
-                 "../data/osm_germany_stops_platforms_stations.tsv"]
-        df = pd.read_csv(files[1],
+        df = pd.read_csv(self.fp,
                          sep="\t",
                          names=["stop", "name", "lat", "lon", "stop_loc"],
                          header=0,
