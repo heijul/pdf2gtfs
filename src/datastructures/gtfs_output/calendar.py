@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import datetime as dt
 from dataclasses import fields, dataclass
 from typing import TypeAlias, Callable
 
+from config import Config
 from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
 
 
@@ -22,25 +22,9 @@ class DayIsActive:
         return self.to_output()
 
 
-class ServiceDay(ABC):
-    def __init__(self,
-                 date: dt.date | None = None, time: dt.date | None = None):
-        self.date = date if date else self.default_date
-        self.time = time if time else self.default_time
-
-    @property
-    @abstractmethod
-    def default_date(self):
-        pass
-
-    @property
-    @abstractmethod
-    def default_time(self):
-        pass
-
-    @property
-    def default_year(self):
-        return dt.date.today().year
+class ServiceDay:
+    def __init__(self, date: dt.date):
+        self.date = date
 
     def to_output(self) -> str:
         return self.date.strftime("%Y%m%d")
@@ -49,27 +33,17 @@ class ServiceDay(ABC):
         return self.date == other.date
 
     def __repr__(self):
-        return self.default_date.strftime("%Y%m%d")
+        return self.to_output()
 
 
 class StartDate(ServiceDay):
-    @property
-    def default_date(self):
-        return dt.date(year=self.default_year, month=1, day=1)
-
-    @property
-    def default_time(self):
-        return dt.time()
+    def __init__(self):
+        super().__init__(Config.gtfs_date_bounds[0])
 
 
 class EndDate(ServiceDay):
-    @property
-    def default_date(self):
-        return dt.date(year=self.default_year, month=12, day=31)
-
-    @property
-    def default_time(self):
-        return None
+    def __init__(self):
+        super().__init__(Config.gtfs_date_bounds[1])
 
 
 @dataclass(init=False)
@@ -93,7 +67,6 @@ class CalendarEntry(BaseDataClass):
         self._set_dates()
 
     def _set_dates(self):
-        # TODO: Make configurable
         self.start_date = StartDate()
         self.end_date = EndDate()
 

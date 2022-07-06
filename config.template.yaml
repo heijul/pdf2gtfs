@@ -133,3 +133,9 @@ always_overwrite: False
 #
 # Type: bool
 non_interactive: False
+
+# Start-/Enddate used for services in calendar.txt. Defaults to ["", ""],
+#   which will use (YYYY0101, YYYY1231), where YYYY is the current year.
+#
+# Type: list of dates in YYYYMMDD format or empty string
+gtfs_date_bounds: ["", ""]

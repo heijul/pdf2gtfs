@@ -8,7 +8,7 @@ from yaml.scanner import ScannerError
 import config.errors as err
 from config.properties import (Property, PagesProperty, FilenameProperty,
                                HolidayCodeProperty, HeaderValuesProperty,
-                               RouteTypeProperty, PathProperty)
+                               RouteTypeProperty, PathProperty, DatesProperty)
 
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ class _Config(InstanceDescriptorMixin):
         self.output_pp = Property(self, "output_pp", bool)
         self.always_overwrite = Property(self, "always_overwrite", bool)
         self.non_interactive = Property(self, "non_interactive", bool)
+        self.gtfs_date_bounds = DatesProperty(self, "gtfs_date_bounds")
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

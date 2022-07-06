@@ -27,3 +27,7 @@ class InvalidRouteTypeValue(PropertyException):
 
 class InvalidPathError(PropertyException):
     pass
+
+
+class InvalidDateBoundsError(PropertyException):
+    pass

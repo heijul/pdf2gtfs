@@ -4,6 +4,7 @@ This is to enable a 'Config.some_property'-lookup, without the
 need to hard-code each property.
 """
 import logging
+import datetime as dt
 from os import makedirs
 from pathlib import Path
 from typing import Any
@@ -33,10 +34,10 @@ class Property:
         except AttributeError:
             raise err.MissingRequiredPropertyError
 
-    def validate(self, value: Any):
+    def validate(self, value: Any) -> None:
         self._validate_type(value)
 
-    def _validate_type(self, value: Any):
+    def _validate_type(self, value: Any) -> None:
         if isinstance(value, self.type):
             return
         logger.error(
@@ -202,4 +203,23 @@ class PathProperty(Property):
                 raise err.InvalidPathError
             if not value.is_dir():
                 raise err.InvalidPathError
+        super().__set__(obj, value)
+
+
+class DatesProperty(Property):
+    def __init__(self, cls, attr):
+        super().__init__(cls, attr, list)
+
+    def __set__(self, obj, value: list[str | dt.date]):
+        year = dt.date.today().year
+        try:
+            if value[0] == "":
+                value[0] = f"{year}0101"
+            if value[1] == "":
+                value[1] = f"{year}1231"
+            value[0] = dt.datetime.strptime(value[0], "%Y%m%d")
+            value[1] = dt.datetime.strptime(value[1], "%Y%m%d")
+        except (TypeError, KeyError, IndexError, ValueError):
+            raise err.InvalidDateBoundsError
+
         super().__set__(obj, value)
