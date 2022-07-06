@@ -32,21 +32,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_osm_data_from_qlever(path: Path) -> None:
+def get_osm_data_from_qlever(path: Path) -> bool:
     base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
-    # TODO: Rename columns
     data = {
         "action": "tsv_export",
         "query": (
             "PREFIX osmrel: <https://www.openstreetmap.org/relation/> "
             "PREFIX geo: <http://www.opengis.net/ont/geosparql#> "
+            "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> "
             "PREFIX osm: <https://www.openstreetmap.org/> "
             "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> "
             "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:> "
-            "SELECT ?stop ?name ?stop_loc WHERE { "
+            "SELECT ?stop ?name ?lat ?lon ?location WHERE { "
             '?stop osmkey:public_transport "stop_position" . '
-            "?stop rdf:type osm:node . ?stop geo:hasGeometry ?stop_loc . "
-            "?stop osmkey:name ?name "
+            "?stop rdf:type osm:node . "
+            "?stop geo:hasGeometry ?location . "
+            "?stop osmkey:name ?name . "
+            "BIND (geof:latitude(?location) AS ?lat) "
+            "BIND (geof:longitude(?location) AS ?lon) "
             "} ORDER BY ?name")}
 
     url = base_url + parse.urlencode(data)
@@ -54,11 +57,13 @@ def get_osm_data_from_qlever(path: Path) -> None:
 
     if r.status_code != 200:
         logger.error(f"Could not get osm data: {r}\n{r.content}")
-        return
+        return False
 
     # TODO: Add comment in first line about time/date of request
     with open(path, "wb") as fil:
         fil.write(r.content)
+
+    return True
 
 
 def stop_loc_converter(value: str) -> str:
@@ -139,7 +144,8 @@ class Finder:
             df["name"] = df["name"].str.replace(re, "", regex=True)
 
         if not self.use_cache or self._cache_is_stale():
-            get_osm_data_from_qlever(self.fp)
+            if not get_osm_data_from_qlever(self.fp):
+                return
 
         converters = {"stop_loc": stop_loc_converter}
         df = pd.read_csv(self.fp,
