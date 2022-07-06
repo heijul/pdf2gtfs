@@ -116,10 +116,11 @@ class GTFSHandler:
 
         holiday_dates, non_holiday_dates = self.calendar.group_by_holiday()
 
-        # TODO: Set years to Config.years, once it exists
+        years = [date.year for date in Config.gtfs_date_bounds]
+        years = list(range(years[0], years[1] + 1))
         holidays = country_holidays(Config.holiday_code[0],
                                     Config.holiday_code[1],
-                                    years=dt.now().year)
+                                    years=years)
 
         for holiday in holidays:
             for date in holiday_dates:

@@ -213,6 +213,8 @@ class DatesProperty(Property):
     def __set__(self, obj, value: list[str | dt.date]):
         year = dt.date.today().year
         try:
+            if len(value) != 2:
+                raise err.InvalidDateBoundsError
             if value[0] == "":
                 value[0] = f"{year}0101"
             if value[1] == "":
