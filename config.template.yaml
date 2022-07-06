@@ -145,3 +145,8 @@ non_interactive: False
 #
 # Type: list of dates in YYYYMMDD format or empty string
 gtfs_date_bounds: ["", ""]
+
+# If this is set to True, the route will be displayed in the browser.
+#
+# Type: bool
+display_route: True

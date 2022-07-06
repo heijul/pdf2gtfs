@@ -29,11 +29,10 @@ def generate_gtfs(timetables):
 def match_coordinates(gtfs_handler: GTFSHandler):
     finder = Finder(gtfs_handler)
     finder.generate_routes()
-    r = finder.routes.clusters[0].get_route()
-    display_route(r)
-    for route in finder.get_routes():
-        print(route)
-    return r
+    route = finder.routes.clusters[0].get_route()
+    if Config.display_route:
+        display_route(route)
+    return route
 
 
 def main():

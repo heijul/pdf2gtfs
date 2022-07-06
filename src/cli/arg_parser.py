@@ -66,3 +66,7 @@ def _add_optional_arguments(parser: ArgumentParser):
             "overwriting existing files, if both are set.")
     parser.add_argument("--always_overwrite", const=True,
                         action="store_const", help=text)
+
+    text = "Display the route in your webbrowser."
+    parser.add_argument("--display_route", const=True,
+                        action="store_const", help=text)
