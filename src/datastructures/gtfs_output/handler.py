@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 from holidays.utils import country_holidays
-from datetime import datetime as dt
 
 from cli.cli import AnnotationInputHandler
 from config import Config
