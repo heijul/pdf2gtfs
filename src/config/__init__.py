@@ -82,18 +82,7 @@ class _Config(InstanceDescriptorMixin):
             return False
 
         data, valid = _read_yaml(path)
-
-        # TODO: Catch other PropertyExceptions as well.
-        for key, value in data.items():
-            # Even if an item is invalid, continue reading to find all errors.
-            try:
-                if key not in self.properties:
-                    logger.error(f"Invalid config key: {key}")
-                    raise err.InvalidPropertyTypeError
-                setattr(self, key, value)
-            except err.InvalidPropertyTypeError:
-                valid = False
-
+        valid &= self._validate_no_invalid_properties(data)
         valid &= self._validate_no_missing_properties()
 
         if not valid:
@@ -113,7 +102,19 @@ class _Config(InstanceDescriptorMixin):
             if name in self.properties:
                 setattr(self, name, value)
 
-    def _validate_no_missing_properties(self):
+    def _validate_no_invalid_properties(self, data: dict[str: Any]) -> bool:
+        for key, value in data.items():
+            # Even if an item is invalid, continue reading to find all errors.
+            try:
+                if key not in self.properties:
+                    logger.error(f"Invalid config key: {key}")
+                    raise err.InvalidPropertyTypeError
+                setattr(self, key, value)
+            except err.InvalidPropertyTypeError:
+                return False
+        return True
+
+    def _validate_no_missing_properties(self) -> bool:
         missing_keys = []
         for key in self.properties:
             try:
