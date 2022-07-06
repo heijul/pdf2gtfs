@@ -20,8 +20,9 @@ def strip_forbidden_symbols(raw_name: str) -> str:
     from config import Config
 
     name = ""
+    allowed_chars = Config.allowed_stop_chars
     for char in raw_name:
-        if char not in Config.allowed_stop_chars and not char.isalpha():
+        if char not in allowed_chars and not char.isalpha():
             continue
         name += char
     return name.strip()
