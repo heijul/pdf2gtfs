@@ -1,3 +1,6 @@
+from typing import TypeVar, TypeAlias
+
+
 def __uid_generator():
     """ Infinite sequence of ids. """
     next_id = 0
@@ -26,3 +29,13 @@ def strip_forbidden_symbols(raw_name: str) -> str:
             continue
         name += char
     return name.strip()
+
+
+T_ = TypeVar("T_")
+PaddedList: TypeAlias = list[T_ | None]
+
+
+def padded_list(objects: list[T_]) -> tuple[PaddedList, list[T_], PaddedList]:
+    left_pad = [None] + objects
+    right_pad = objects + [None]
+    return left_pad, objects, right_pad
