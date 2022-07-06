@@ -8,6 +8,7 @@ from typing import TypeVar, Generic, TYPE_CHECKING, Type
 from config import Config
 from datastructures.rawtable.bbox import BBoxObject, BBox
 from datastructures.rawtable.enums import RowType, ColumnType
+from utils import padded_list
 
 
 if TYPE_CHECKING:
@@ -203,33 +204,51 @@ class Row(FieldContainer):
         self._type = RowType.OTHER
 
     def fits_column_scheme(self, columns: list[Column]):
-        # Generate bbox for the stops, where we want to ignore the scheme.
-        stop_bbox = None
-        for column in columns:
-            if column.type == ColumnType.DATA:
-                break
-            if stop_bbox is None:
-                stop_bbox = column.bbox.copy()
-                continue
-            stop_bbox.merge(column.bbox.copy())
+        def get_stop_box():
+            # Generate bbox for the stops, where we want to ignore the scheme.
+            _stop_bbox = None
+            for _column in columns:
+                if _column.type == ColumnType.DATA:
+                    break
+                if _stop_bbox is None:
+                    _stop_bbox = _column.bbox.copy()
+                    continue
+                _stop_bbox.merge(_column.bbox.copy())
+            return _stop_bbox
+
+        def get_column_bbox() -> BBox:
+            # Create new bbox, that spans between previous columns' end
+            #  and next columns' start.
+            _bbox = column.bbox.copy()
+            if prev is not None:
+                _bbox.x0 = min(_bbox.x0, prev.bbox.x1)
+            if nxt is not None:
+                _bbox.x0 = max(_bbox.x1, nxt.bbox.x0)
+            return _bbox
+
+        stop_bbox = get_stop_box()
 
         for field in self.fields:
             field_fits = False
             if stop_bbox and stop_bbox.contains_vertical(field.bbox):
                 continue
-            # TODO: Instead of checking if column.bbox.contains, create
-            #  new bbox with x0 = column[i].bbox.x0, x1 = column[i+1].bbox.x1
-            for column in columns:
+            for prev, column, nxt in padded_list(columns):
                 if column.type not in (ColumnType.DATA, ColumnType.REPEAT):
                     continue
-                if column.bbox.contains_vertical(field.bbox):
+                bbox = get_column_bbox()
+                if bbox.contains_vertical(field.bbox):
                     field_fits = True
                     field.column = column
                     break
+            # If a field does not fit, reset the column of the others as well.
             if not field_fits:
                 for _field in self.fields:
                     _field.column = None
                 return False
+
+        # TODO: Check if message needs to be adjusted.
+        logger.debug(f"Fields '{self.fields}' fit into column "
+                     f"'{self.fields[0].column}'.")
         return True
 
     def apply_column_scheme(self, columns: list[Column | None]):
