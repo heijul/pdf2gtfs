@@ -81,15 +81,17 @@ class GTFSHandler:
             service_id = calendar_entry.service_id
             if newly_created:
                 service_day_offset = 0
+                prev = None
             trip = self.trips.add(route_id, service_id)
             times = StopTimes()
             times.add_multiple(trip.trip_id, self.stops,
                                service_day_offset, entry.values)
-            stop_times.append(times)
 
             if prev and prev > times:
                 times.shift(Time(24))
                 service_day_offset += 1
+
+            stop_times.append(times)
 
             if not repeat:
                 prev = times
