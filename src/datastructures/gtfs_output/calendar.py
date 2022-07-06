@@ -18,6 +18,9 @@ class DayIsActive:
     def to_output(self) -> str:
         return str(int(self.active))
 
+    def __repr__(self):
+        return self.to_output()
+
 
 class ServiceDay(ABC):
     def __init__(self,
@@ -44,6 +47,9 @@ class ServiceDay(ABC):
 
     def __eq__(self, other: ServiceDay):
         return self.date == other.date
+
+    def __repr__(self):
+        return self.default_date.strftime("%Y%m%d")
 
 
 class StartDate(ServiceDay):

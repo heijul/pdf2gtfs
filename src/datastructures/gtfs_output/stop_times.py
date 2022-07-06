@@ -39,6 +39,9 @@ class Time:
     def copy(self):
         return Time(self.hours, self.minutes)
 
+    def __repr__(self):
+        return f"'{self.to_output()}'"
+
     def __radd__(self, other):
         return self.__add__(other)
 

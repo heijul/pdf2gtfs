@@ -22,3 +22,6 @@ class Stop:
         # Add a/d for arrival/departure, depending on annotation.
         annots = {"an": " [a]", "ab": " [d]"}
         return self.name.strip() + annots.get(self.annotation.strip(), "")
+
+    def __repr__(self):
+        return f"'{str(self)}'"
