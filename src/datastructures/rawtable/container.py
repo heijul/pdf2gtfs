@@ -324,13 +324,20 @@ class Column(FieldContainer):
             self.add_field(field)
 
     def add_field(self, new_field: Field):
-        # TODO: Maybe do in one loop in _add_field instead of two.
+        if self.merge_into_fields(new_field):
+            return
+        self._add_field(new_field, "y")
+
+    def merge_into_fields(self, new_field: Field) -> bool:
+        """ If the field has the same row as an existing one merge them.
+        :returns: True if the field was merged, False otherwise.
+        """
         for field in self.fields:
             if field.row == new_field.row:
                 new_field.text = " " + new_field.text
                 field.merge(new_field)
-                return
-        self._add_field(new_field, "y")
+                return True
+        return False
 
     def __repr__(self):
         fields_repr = ", ".join(repr(f) for f in self.fields)
