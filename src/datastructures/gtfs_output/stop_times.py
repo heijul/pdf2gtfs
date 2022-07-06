@@ -185,8 +185,20 @@ class StopTimes(BaseContainer):
 
         return new_stop_times
 
+    def __get_entry_from_stop_id(self, stop_id: int) -> StopTimesEntry | None:
+        for i, entry in enumerate(self.entries):
+            if entry.stop_id == stop_id:
+                return entry
+        return None
+
     def __lt__(self, other: StopTimes):
-        return self.entries[0].arrival_time < other.entries[0].arrival_time
+        for entry in self.entries:
+            other_entry = other.__get_entry_from_stop_id(entry.stop_id)
+            if not other_entry:
+                continue
+            return entry.arrival_time < other_entry.arrival_time
+
+        return False
 
     def __gt__(self, other: StopTimes):
         return not self.__lt__(other)
