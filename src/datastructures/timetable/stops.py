@@ -15,7 +15,6 @@ class Stop:
         return self.name == other.name and self.annotation == other.annotation
 
     def __hash__(self):
-        # TODO: This may fail if it's a roundtrip.
         return hash(self.name + " " + self.annotation)
 
     def __str__(self):

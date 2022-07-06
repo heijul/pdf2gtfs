@@ -104,16 +104,13 @@ class TimeTable:
                         table.stops.add_stop(stop)
                     continue
                 if raw_field.row.type == raw.RowType.ANNOTATION:
-                    # TODO: Implement this. Could be done in a similar way as
-                    #  holidays. This would allow the user to add/append their
-                    #  own calendar_dates.txt to enable/disable entries.
                     continue
                 if raw_field.column.type == ColumnType.STOP_ANNOTATION:
                     table.stops.add_annotation(raw_field.text, stop_id=row_id)
                 elif raw_field.row.type == raw.RowType.DATA:
                     stop = table.stops.get_from_id(row_id)
                     table.entries[-1].set_value(stop, raw_field.text)
-            # TODO: Check why this happens and fix it.
+            # Remove entries, in case raw_column is empty.
             if not table.entries[-1].values:
                 del table.entries[-1]
 
