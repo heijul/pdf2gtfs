@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 # TODO: Create cache dir in $SYSTEMCACHEDIR
 #  e.g. os.path.expanduser("~/.cache/pdf2gtfs")????
+# TODO: Add timestamp to csv + max_timestamp to Config
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +72,14 @@ class Finder:
         self.routes: Routes | None = None
 
     def _get_stop_data(self):
-        converters = {"stop_loc": stop_loc_converter,
-                      "name": strip_forbidden_symbols}
+        def _cleanup_name():
+            # Remove any chars which are not letters or allowed chars
+            chars = Config.allowed_stop_chars
+            re = "[^a-zA-Z|{}]".format(
+                "|".join(["^{}".format(c) for c in chars]))
+            df["name"] = df["name"].str.replace(re, "", regex=True)
+
+        converters = {"stop_loc": stop_loc_converter}
         # TODO: Set sep properly
         files = ["../data/osm_germany_stops.csv",
                  "../data/osm_germany_stops_platforms_stations.tsv"]
@@ -81,8 +88,7 @@ class Finder:
                          names=["stop", "name", "lat", "lon", "stop_loc"],
                          header=0,
                          converters=converters)
-        #        df[["lon", "lat"]] = df.stop_loc.str.split(
-        #           " ", expand=True).astype(float)
+        _cleanup_name()
         del df["stop_loc"]
         self.df: pd.DataFrame = df
 
