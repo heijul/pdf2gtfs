@@ -162,30 +162,37 @@ class GTFSHandler:
         self.stop_times.write(path)
         self.calendar_dates.write(path)
 
+    def add_coordinates(self, route):
+        for node in route:
+            stop = self.stops.get(node.stop)
+            if stop is None:
+                continue
+            stop.set_location(node.lat, node.lon)
+
     @property
-    def agency(self):
+    def agency(self) -> Agency:
         return self._agency
 
     @property
-    def routes(self):
+    def routes(self) -> Routes:
         return self._routes
 
     @property
-    def stops(self):
+    def stops(self) -> GTFSStops:
         return self._stops
 
     @property
-    def calendar(self):
+    def calendar(self) -> Calendar:
         return self._calendar
 
     @property
-    def trips(self):
+    def trips(self) -> Trips:
         return self._trips
 
     @property
-    def stop_times(self):
+    def stop_times(self) -> StopTimes:
         return self._stop_times
 
     @property
-    def calendar_dates(self):
+    def calendar_dates(self) -> CalendarDates:
         return self._calendar_dates

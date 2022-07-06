@@ -18,6 +18,10 @@ class GTFSStop(BaseDataClass):
         self.stop_lat = lat
         self.stop_lon = lon
 
+    def set_location(self, lat: float, lon: float) -> None:
+        self.stop_lat = lat
+        self.stop_lon = lon
+
 
 class GTFSStops(BaseContainer):
     entries: list[GTFSStop]
@@ -30,7 +34,8 @@ class GTFSStops(BaseContainer):
             return
         super()._add(GTFSStop(stop_name))
 
-    def get(self, name):
+    # TODO: Implement get_closest(names: list[str])
+    def get(self, name) -> GTFSStop:
         for entry in self.entries:
             if entry.stop_name != name:
                 continue
