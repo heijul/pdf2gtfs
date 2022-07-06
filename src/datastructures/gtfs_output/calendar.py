@@ -72,16 +72,6 @@ class EndDate(ServiceDay):
         return None
 
 
-class DefaultStartDate(StartDate):
-    def __init__(self):
-        super().__init__()
-
-
-class DefaultEndDate(EndDate):
-    def __init__(self):
-        super().__init__()
-
-
 @dataclass(init=False)
 class CalendarEntry(BaseDataClass):
     service_id: int
@@ -92,8 +82,8 @@ class CalendarEntry(BaseDataClass):
     friday: DayIsActive = DayIsActive(False)
     saturday: DayIsActive = DayIsActive(False)
     sunday: DayIsActive = DayIsActive(False)
-    start_date: ServiceDay = DefaultStartDate
-    end_date: ServiceDay = DefaultEndDate
+    start_date: ServiceDay = StartDate()
+    end_date: ServiceDay = EndDate()
 
     def __init__(self, annots: set[str] | None = None):
         super().__init__()
@@ -107,18 +97,13 @@ class CalendarEntry(BaseDataClass):
         self.start_date = StartDate()
         self.end_date = EndDate()
 
-    def is_similar_to(self, other: CalendarEntry) -> bool:
-        return self.same_dates(other) and self.annotations == other.annotations
-
-    def same_dates(self, other: CalendarEntry) -> bool:
-        """ Return if self and other are active on the same dates. """
-        if (self.start_date != other.start_date or
-                self.end_date != other.end_date):
+    def __eq__(self, other: CalendarEntry):
+        names = ["start_date", "end_date", "annotations", "on_holidays"]
+        for name in names + _WEEKDAY_NAMES:
+            if getattr(self, name) == getattr(other, name):
+                continue
             return False
-        for name in _WEEKDAY_NAMES:
-            if getattr(self, name) != getattr(other, name):
-                return False
-        return self.on_holidays == other.on_holidays
+        return True
 
 
 class Calendar(BaseContainer):
@@ -128,31 +113,21 @@ class Calendar(BaseContainer):
         super().__init__("calendar.txt", CalendarEntry)
 
     def add(self, days: list[str], annots: set[str]) -> (CalendarEntry, bool):
-        new_entry = CalendarEntry(annots)
+        entry = CalendarEntry(annots)
         for day in days:
             # Holidays will be in the calendar_dates.
             if day == "h":
-                new_entry.on_holidays = True
+                entry.on_holidays = True
                 continue
-            setattr(new_entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
+            setattr(entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
 
-        entry = self.get_existing(new_entry)
-        self._add(entry)
-        return entry, entry != new_entry
+        return entry, self._add(entry)
 
-    def _add(self, new_entry: CalendarEntry) -> None:
-        if any(new_entry.id == entry.id for entry in self.entries):
-            return
+    def _add(self, new_entry: CalendarEntry) -> bool:
+        if any(new_entry == entry for entry in self.entries):
+            return False
         super()._add(new_entry)
-
-    def get_existing(self, new_entry: CalendarEntry) -> CalendarEntry | None:
-        """ Return new_entry if no other entry exists with the same dates.
-        Otherwise, return the existing entry. """
-
-        for entry in self.entries:
-            if entry.is_similar_to(new_entry):
-                return entry
-        return new_entry
+        return True
 
     def group_by_holiday(self) -> GroupedEntryTuple:
         """ Return tuple of lists, where the first list only contains entries
