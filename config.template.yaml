@@ -123,13 +123,18 @@ preprocess: True
 # Type: bool
 output_pp: True
 
-# TODO: Clarify
-# Always overwrite
+# Always overwrite. If the output directory contains files with the same names
+#   as the ones being created, setting this to True will overwrite them
+#   without asking first.
 #
 # Type: bool
 always_overwrite: False
 
-# Disable interactive mode (default).
+# Disable interactive mode (default is on). This will result in no user
+#   interaction necessary and may useful, when run in a script.
+# Specifically, you will not be asked whether existing files should be
+#   overwritten (always_overwrite takes precedence). You will also not be
+#   able to change at which dates column annotations are active/inactive.
 #
 # Type: bool
 non_interactive: False
