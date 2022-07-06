@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from operator import attrgetter
 from typing import TypeVar, Generic, TYPE_CHECKING, Type
@@ -12,6 +13,9 @@ from datastructures.rawtable.enums import RowType, ColumnType
 if TYPE_CHECKING:
     from datastructures.rawtable.table import Table
     from datastructures.rawtable.fields import Field
+
+
+logger = logging.getLogger(__name__)
 
 RowT = TypeVar("RowT", bound="Row")
 ColumnT = TypeVar("ColumnT", bound="Column")
@@ -91,7 +95,8 @@ class FieldContainer(BBoxObject):
         try:
             self.fields.remove(field)
         except ValueError:
-            print("WARNING: Tried to deregister field which is not in fields.")
+            logger.debug(
+                "Tried to deregister a field, which is not in fields.")
 
     def set_bbox_from_fields(self) -> None:
         self._set_bbox_from_list(self.fields)
