@@ -133,23 +133,7 @@ class StopTimes(BaseContainer):
         return entries
 
     def merge(self, other: StopTimes):
-        entries = []
-        i, j = 0, 0
-        while True:
-            if i >= len(self.entries):
-                entries += other.entries[j:]
-                break
-            if j >= len(other.entries):
-                entries += self.entries[j:]
-                break
-            if self.entries[i].arrival_time <= other.entries[j].arrival_time:
-                entries.append(self.entries[i])
-                i += 1
-            else:
-                entries.append(other.entries[j])
-                j += 1
-
-        self.entries = entries
+        self.entries += other.entries
 
     def duplicate(self, trip_id) -> StopTimes:
         """ Creates a new instance with updated copies of the entries. """
