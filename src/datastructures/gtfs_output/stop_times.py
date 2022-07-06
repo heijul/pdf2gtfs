@@ -140,7 +140,7 @@ class StopTimes(BaseContainer):
                 entries += other.entries[j:]
                 break
             if j >= len(other.entries):
-                entries += other.entries[j:]
+                entries += self.entries[j:]
                 break
             if self.entries[i].arrival_time <= other.entries[j].arrival_time:
                 entries.append(self.entries[i])
