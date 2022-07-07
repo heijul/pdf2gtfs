@@ -1,7 +1,8 @@
 import logging
 
 from datastructures.gtfs_output.handler import GTFSHandler
-from finder import Finder, display_route
+from finder import Finder
+from finder.route import display_route
 from p2g_logging import initialize_logging
 
 from reader import Reader
