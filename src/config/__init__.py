@@ -70,6 +70,7 @@ class _Config(InstanceDescriptorMixin):
         self.non_interactive = Property(self, "non_interactive", bool)
         self.gtfs_date_bounds = DatesProperty(self, "gtfs_date_bounds")
         self.display_route = Property(self, "display_route", bool)
+        self.stale_cache_days = Property(self, "stale_cache_days", int)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

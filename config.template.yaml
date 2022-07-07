@@ -150,3 +150,8 @@ gtfs_date_bounds: ["", ""]
 #
 # Type: bool
 display_route: True
+
+# Days after which the cache should be marked as stale, forcing its rebuild.
+#
+# Type: int
+stale_cache_days: 7
