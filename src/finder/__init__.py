@@ -4,6 +4,7 @@ import logging
 import os.path
 import platform
 import webbrowser
+import datetime as dt
 from dataclasses import dataclass
 from heapq import heappush
 from operator import itemgetter
@@ -37,19 +38,19 @@ def get_osm_data_from_qlever(path: Path) -> bool:
     data = {
         "action": "tsv_export",
         "query": (
-            "PREFIX osmrel: <https://www.openstreetmap.org/relation/> "
-            "PREFIX geo: <http://www.opengis.net/ont/geosparql#> "
-            "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> "
-            "PREFIX osm: <https://www.openstreetmap.org/> "
-            "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> "
-            "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:> "
-            "SELECT ?stop ?name ?lat ?lon ?location WHERE { "
-            '?stop osmkey:public_transport "stop_position" . '
-            "?stop rdf:type osm:node . "
-            "?stop geo:hasGeometry ?location . "
-            "?stop osmkey:name ?name . "
-            "BIND (geof:latitude(?location) AS ?lat) "
-            "BIND (geof:longitude(?location) AS ?lon) "
+            "PREFIX osmrel: <https://www.openstreetmap.org/relation/> \n"
+            "PREFIX geo: <http://www.opengis.net/ont/geosparql#> \n"
+            "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> \n"
+            "PREFIX osm: <https://www.openstreetmap.org/> \n"
+            "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n"
+            "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:> \n"
+            "SELECT ?stop ?name ?lat ?lon ?location WHERE { \n"
+            '?stop osmkey:public_transport "stop_position" . \n'
+            "?stop rdf:type osm:node . \n"
+            "?stop geo:hasGeometry ?location . \n"
+            "?stop osmkey:name ?name . \n"
+            "BIND (geof:latitude(?location) AS ?lat) \n"
+            "BIND (geof:longitude(?location) AS ?lon) \n"
             "} ORDER BY ?name")}
 
     url = base_url + parse.urlencode(data)
@@ -59,8 +60,11 @@ def get_osm_data_from_qlever(path: Path) -> bool:
         logger.error(f"Could not get osm data: {r}\n{r.content}")
         return False
 
-    # TODO: Add comment in first line about time/date of request
     with open(path, "wb") as fil:
+        date = dt.date.today().strftime("%Y%m%d")
+        fil.write(bytes(f"# Queried: {date}\n", "utf-8"))
+        query = "\n#   ".join(data["query"].split("\n"))
+        fil.write(bytes(f"# Query: \n#   {query}\n", "utf-8"))
         fil.write(r.content)
 
     return True
@@ -126,13 +130,31 @@ class Finder:
             return
         self.fp = Path(self.temp.name).resolve()
 
+    def rebuild_cache(self) -> bool:
+        """ Cache needs to be rebuild, if it does not exist or is too old. """
+        if not self.fp.exists() or Path(self.temp.name).resolve() == self.fp:
+            return True
+        return self._cache_is_stale()
+
     def _cache_is_stale(self) -> bool:
-        """
-        :return: Whether the cache either does not exist or is too old.
-        """
-        # TODO: Add the 'too old' bit
-        return (Path(self.temp.name).resolve() == self.fp or
-                not self.fp.exists())
+        with open(self.fp, "rb") as fil:
+            line = fil.readline().decode("utf-8").strip()
+
+        msg = ("Cache was found, but does not seem valid. First line must "
+               "be a comment '# Queried: .YYYYMMDD.', containing the date "
+               "when the cache was created.")
+        if not line.startswith("# Queried: "):
+            logger.warning(msg)
+            return True
+
+        try:
+            date = dt.datetime.now()
+            query_date = dt.datetime.strptime(line.split(".")[1], "%Y%m%d")
+        except ValueError:
+            logger.warning(msg)
+            return True
+
+        return (date - query_date).days > Config.stale_cache_days
 
     def _get_stop_data(self):
         def _cleanup_name():
@@ -143,7 +165,7 @@ class Finder:
                 "|".join(["^{}".format(c) for c in chars]))
             df["name"] = df["name"].str.replace(re, "", regex=True)
 
-        if not self.use_cache or self._cache_is_stale():
+        if not self.use_cache or self.rebuild_cache():
             if not get_osm_data_from_qlever(self.fp):
                 return
 
@@ -152,6 +174,7 @@ class Finder:
                          sep="\t",
                          names=["stop", "name", "lat", "lon", "stop_loc"],
                          header=0,
+                         comment="#",
                          converters=converters)
         _cleanup_name()
         del df["stop_loc"]
