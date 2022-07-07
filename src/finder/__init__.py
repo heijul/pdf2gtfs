@@ -10,6 +10,7 @@ from heapq import heappush
 from operator import itemgetter
 from os import makedirs
 from pathlib import Path
+from statistics import mean
 from tempfile import NamedTemporaryFile
 from urllib import parse
 from typing import TYPE_CHECKING, TypeAlias
@@ -417,11 +418,11 @@ class Routes:
 
 
 def display_route(route: list[Node]):
-    # TODO: Focus center of route
-    m = folium.Map(location=[47.9872899, 7.7263808])
+    location = mean([e.lat for e in route]), mean([e.lon for e in route])
+    m = folium.Map(location=location)
     for entry in route:
         folium.Marker([entry.lat, entry.lon], popup=entry.stop).add_to(m)
-    # TODO: Maybe use tempfile
-    outfile = Config.base_path.joinpath("./out/routedisplay.html")
+
+    outfile = Config.output_dir.joinpath("routedisplay.html")
     m.save(str(outfile))
     webbrowser.open_new_tab(str(outfile))
