@@ -266,11 +266,18 @@ class Cluster2:
         for node in self.nodes:
             cost_next = node.distance(self.next) if self.next else 0
             cost_prev = node.distance(self.prev) if self.prev else 0
+            cost_self = node.distance(self)
             # Prefer nodes closer to next node, because vehicles
             #  typically stop at the furthest stop position first.
-            cost = cost_next + 1.2 * cost_prev
+            # Preferring nodes closer to the cluster location seems to lead
+            #  to better results as well. TODO: Needs more testing
+            cost = 1.05 * cost_next + cost_prev + 0.5 * cost_self
             costs.append((cost, node))
         return min(costs, key=itemgetter(0))[1]
+
+    def adjust_location(self):
+        self.lat = mean([node.lat for node in self.nodes])
+        self.lon = mean([node.lon for node in self.nodes])
 
 
 class Route2:
@@ -285,7 +292,7 @@ class Route2:
                ) -> None:
         self.start = start
         current = self.start
-        for stop in self.stops:
+        for stop in self.stops[1:]:
             current.next = clusters[stop]
             current = current.next
 
@@ -317,6 +324,7 @@ def create_clusters2(stops: list[StopName], df: pd.DataFrame) -> Clusters:
             cluster = Cluster2(*loc)
             for value in values:
                 Node2(cluster, value["name"], value["lat"], value["lon"])
+            cluster.adjust_location()
             clusters[stop].append(cluster)
     return clusters
 
@@ -328,8 +336,34 @@ def create_routes(stops: list[StopName], clusters: Clusters) -> list[Route2]:
         route = Route2(stops)
         route.create(start, clusters)
         routes.append(route)
-    q = routes[0].find_shortest_path()
+    route = routes[0].find_shortest_path()
+    display_route2(route, True, True)
     return routes
+
+
+def display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
+    location = mean([e.lat for e in route]), mean([e.lon for e in route])
+    m = folium.Map(location=location)
+    for entry in route:
+        loc = [entry.lat, entry.lon]
+        folium.Marker(loc, popup=f"{entry.name}\n{loc}").add_to(m)
+        if cluster:
+            loc = [entry.cluster.lat, entry.cluster.lon]
+            folium.Marker([entry.cluster.lat, entry.cluster.lon],
+                          popup=f"{entry.name}\n{loc}",
+                          icon=folium.Icon(icon="cloud")).add_to(m)
+        if not nodes:
+            continue
+        for node in entry.cluster.nodes:
+            if node == entry:
+                continue
+            loc = [node.lat, node.lon]
+            folium.Marker(loc, popup=f"{node.name}\n{loc}",
+                          icon=folium.Icon(color="green")).add_to(m)
+
+    outfile = Config.output_dir.joinpath("routedisplay.html")
+    m.save(str(outfile))
+    webbrowser.open_new_tab(str(outfile))
 
 
 Location: TypeAlias = tuple[float, float]
@@ -345,7 +379,7 @@ def _group_df_with_tolerance(df: pd.DataFrame
         groups[(lat2, lon2)] = []
         return groups[(lat2, lon2)]
 
-    tolerance = 0.01
+    tolerance = 0.008
     groups: dict[GroupID: list[pd.Series]] = {}
     for row_id, row in df.iterrows():
         loc = (row["lat2"], row["lon2"])
