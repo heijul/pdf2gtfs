@@ -153,12 +153,15 @@ class Finder:
 
     def _get_stop_data(self):
         def _cleanup_name():
-            # Remove any chars which are not letters or allowed chars.
-            # Doing it this way is a lot faster than using a converter.
-            chars = Config.allowed_stop_chars
-            re = "[^a-zA-Z|{}]".format(
-                "|".join(["^{}".format(c) for c in chars]))
-            df["name"] = df["name"].str.replace(re, "", regex=True)
+            """ Remove any chars which are not letters or allowed chars.
+            Doing it this way is a lot faster than using a converter. """
+            # Special chars include for example umlaute
+            # See https://en.wikipedia.org/wiki/List_of_Unicode_characters
+            special_char_ranges = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
+            allowed_chars = "".join(Config.allowed_stop_chars)
+            re = "[^a-zA-Z{}{}]".format(special_char_ranges, allowed_chars)
+            df["name"] = df["name"].str.casefold().str.lower().str.replace(
+                re, "", regex=True)
 
         if not self.use_cache or self.rebuild_cache():
             if not get_osm_data_from_qlever(self.fp):
@@ -183,4 +186,3 @@ class Finder:
         if self.routes is None:
             self.generate_routes()
         return routes_to_csv([c.get_route() for c in self.routes.clusters])
-
