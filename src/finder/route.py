@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import webbrowser
 from operator import itemgetter
 from statistics import mean
-from typing import TypeAlias
+from typing import TypeAlias, Optional
 
 import pandas as pd
 import folium
@@ -79,21 +81,24 @@ class Route:
 
 class Routes:
     def __init__(self, raw_df: pd.DataFrame, stop_names: list[str]) -> None:
-        cf_names = [strip_forbidden_symbols(name).casefold()
-                    for name in stop_names]
+        # TODO: Turn cf_names into dict with name -> [split names]
+        cf_names = [name.casefold().lower() for name in stop_names]
         for c in list(cf_names):
             if " " not in c:
                 continue
             cf_names += c.split(" ")
 
         self._set_df(raw_df, cf_names)
+        clusters = create_clusters2(stop_names, self.df)
+        routes = create_routes(stop_names, clusters)
+
         self._create_stop_nodes(cf_names)
         self._group_df_with_tolerance()
         self._create_cluster_nodes()
         self._create_clusters()
 
     def _set_df(self, df: pd.DataFrame, casefolded: list[str]) -> None:
-        self.df = df.where(df["name"].str.casefold().isin(casefolded)).dropna()
+        self.df = df.where(df["name"].isin(casefolded)).dropna()
         self.df["lat2"] = self.df["lat"].round(2)
         self.df["lon2"] = self.df["lon"].round(2)
 
@@ -170,3 +175,179 @@ def display_route(route: list[Node]):
     outfile = Config.output_dir.joinpath("routedisplay.html")
     m.save(str(outfile))
     webbrowser.open_new_tab(str(outfile))
+
+
+class Node2:
+    cluster: Cluster2
+    lat: float
+    lon: float
+    name: str
+
+    def __init__(self, cluster, name, lat, lon) -> None:
+        # Remove cluster and add it via add_node
+        self.cluster = cluster
+        self.name = name
+        self.lat = lat
+        self.lon = lon
+
+    @property
+    def cluster(self) -> Cluster2:
+        return self._cluster
+
+    @cluster.setter
+    def cluster(self, cluster: Cluster2) -> None:
+        self._cluster = cluster
+        cluster.add_node(self)
+
+    def distance(self, other: Node2 | Cluster2) -> float:
+        return distance(self.lat, self.lon, other.lat, other.lon)
+
+
+StopName: TypeAlias = str
+CStopName: TypeAlias = str
+
+
+class Cluster2:
+    nodes: list[Node2]
+    lat: float
+    lon: float
+
+    def __init__(self, lat: float, lon: float) -> None:
+        self.nodes = []
+        self.lat = lat
+        self.lon = lon
+        self._next = None
+        self._prev = None
+
+    @property
+    def next(self) -> Cluster2:
+        return self._next
+
+    @next.setter
+    def next(self, other: Cluster2 | list[Cluster2]) -> None:
+        if isinstance(other, list) and other:
+            other = self.get_closest_cluster(other)
+        self._next = other
+        if not other.prev == self:
+            other.prev = self
+
+    @property
+    def prev(self) -> Cluster2:
+        return self._prev
+
+    @prev.setter
+    def prev(self, other: Cluster2):
+        self._prev = other
+        if not other.next == self:
+            other.next = self
+
+    def get_closest_cluster(self, clusters: list[Cluster2]) -> Cluster2:
+        closest = clusters[0]
+        min_dist = distance(self.lat, self.lon, closest.lat, closest.lon)
+        for cluster in clusters[1:]:
+            dist = distance(self.lat, self.lon, cluster.lat, cluster.lon)
+            if dist > min_dist:
+                continue
+            closest = cluster
+            min_dist = dist
+        return closest
+
+    def add_node(self, node: Node2) -> None:
+        # TODO: Might be added twice -> need to use set or check if exists
+        self.nodes.append(node)
+
+    def add_nodes(self, nodes: list[Node2]):
+        ...
+
+    def get_closest(self) -> Optional[Node2]:
+        if not self.nodes:
+            return None
+        costs: list[tuple[float, Node2]] = []
+        for node in self.nodes:
+            cost_next = node.distance(self.next) if self.next else 0
+            cost_prev = node.distance(self.prev) if self.prev else 0
+            # Prefer nodes closer to next node, because vehicles
+            #  typically stop at the furthest stop position first.
+            cost = cost_next + 1.2 * cost_prev
+            costs.append((cost, node))
+        return min(costs, key=itemgetter(0))[1]
+
+
+class Route2:
+    stops: list[StopName]
+    start: Cluster2
+
+    def __init__(self, stops: list[StopName]) -> None:
+        self.stops = stops
+
+    def create(self, start: Cluster2,
+               clusters: dict[StopName: list[Cluster2]]
+               ) -> None:
+        self.start = start
+        current = self.start
+        for stop in self.stops:
+            current.next = clusters[stop]
+            current = current.next
+
+    def find_shortest_path(self):
+        path: list[Node2] = []
+        current = self.start
+        while current is not None:
+            path.append(current.get_closest())
+            current = current.next
+        return path
+
+
+Clusters: TypeAlias = dict[StopName: list[Cluster2]]
+
+
+def create_clusters2(stops: list[StopName], df: pd.DataFrame) -> Clusters:
+    def by_name(entry_id):
+        _entry = df.loc[entry_id]
+        return strip_forbidden_symbols(_entry["name"]).casefold().lower()
+
+    grouped = df.groupby(by_name, axis=0)
+    clusters = {}
+    for stop in stops:
+        clusters[stop] = []
+        group = grouped.get_group(stop.casefold().lower())
+
+        clustered_groups = _group_df_with_tolerance(group)
+        for loc, values in clustered_groups.items():
+            cluster = Cluster2(*loc)
+            for value in values:
+                Node2(cluster, value["name"], value["lat"], value["lon"])
+            clusters[stop].append(cluster)
+    return clusters
+
+
+def create_routes(stops: list[StopName], clusters: Clusters) -> list[Route2]:
+    starts: list[Cluster2] = clusters[stops[0]]
+    routes: list[Route2] = []
+    for start in starts:
+        route = Route2(stops)
+        route.create(start, clusters)
+        routes.append(route)
+    q = routes[0].find_shortest_path()
+    return routes
+
+
+Location: TypeAlias = tuple[float, float]
+
+
+def _group_df_with_tolerance(df: pd.DataFrame
+                             ) -> dict[Location: list[pd.Series]]:
+    """ Group the dataframe by (name, lat2, lon2), allowing tolerances. """
+    def _try_create_group(lat2: float, lon2: float):
+        for (lat1, lon1), _group in groups.items():
+            if abs(lat1 - lat2) <= tolerance and abs(lon1 - lon2) <= tolerance:
+                return _group
+        groups[(lat2, lon2)] = []
+        return groups[(lat2, lon2)]
+
+    tolerance = 0.01
+    groups: dict[GroupID: list[pd.Series]] = {}
+    for row_id, row in df.iterrows():
+        loc = (row["lat2"], row["lon2"])
+        _try_create_group(*loc).append(row)
+    return groups
