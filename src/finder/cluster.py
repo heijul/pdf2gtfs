@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from heapq import heappush
 from operator import itemgetter
+from statistics import mean
+from typing import Optional
 
 from geopy import distance as _distance
-
-import pandas as pd
 
 
 def distance(lat1, lon1, lat2, lon2) -> float:
@@ -15,71 +13,99 @@ def distance(lat1, lon1, lat2, lon2) -> float:
     return dist
 
 
-@dataclass(eq=True, frozen=True)
-class StopNode:
+class Node2:
+    cluster: Cluster2
+    lat: float
+    lon: float
     name: str
 
-
-@dataclass
-class Node:
-    stop: str
-    lat: float
-    lon: float
-
-    @staticmethod
-    def from_series(series: pd.Series) -> Node:
-        return Node(series["name"], series["lat"], series["lon"])
-
-
-class Cluster:
-    stop: StopNode
-    lat: float
-    lon: float
-    nodes: list[Node]
-    prev: list[tuple[float, Cluster]]
-    next: list[tuple[float, Cluster]]
-
-    def __init__(self, stop: StopNode, lat: float, lon: float,
-                 nodes: list[pd.Series]):
-        self.stop = stop
+    def __init__(self, cluster, name, lat, lon) -> None:
+        # Remove cluster and add it via add_node
+        self.cluster = cluster
+        self.name = name
         self.lat = lat
         self.lon = lon
-        self._prev = []
-        self._next = []
-        self._set_nodes(nodes)
-
-    def _set_nodes(self, nodes: list[pd.Series]):
-        self.nodes = [Node.from_series(node) for node in nodes]
 
     @property
-    def prev(self):
-        return self._prev
+    def cluster(self) -> Cluster2:
+        return self._cluster
+
+    @cluster.setter
+    def cluster(self, cluster: Cluster2) -> None:
+        self._cluster = cluster
+        cluster.add_node(self)
+
+    def distance(self, other: Node2 | Cluster2) -> float:
+        return distance(self.lat, self.lon, other.lat, other.lon)
+
+
+class Cluster2:
+    nodes: list[Node2]
+    lat: float
+    lon: float
+
+    def __init__(self, lat: float, lon: float) -> None:
+        self.nodes = []
+        self.lat = lat
+        self.lon = lon
+        self._next = None
+        self._prev = None
 
     @property
-    def next(self):
+    def next(self) -> Cluster2:
         return self._next
 
+    @next.setter
+    def next(self, other: Cluster2 | list[Cluster2]) -> None:
+        if isinstance(other, list) and other:
+            other = self.get_closest_cluster(other)
+        self._next = other
+        if not other.prev == self:
+            other.prev = self
+
     @property
-    def is_dummy(self):
-        return self.nodes == []
+    def prev(self) -> Cluster2:
+        return self._prev
 
-    def add_prev(self, node: Cluster, dist: float):
-        # TODO: Add priority to dist
-        heappush(self._prev, (dist, node))
+    @prev.setter
+    def prev(self, other: Cluster2):
+        self._prev = other
+        if not other.next == self:
+            other.next = self
 
-    def add_next(self, node: Cluster, dist: float):
-        heappush(self._next, (dist, node))
+    def get_closest_cluster(self, clusters: list[Cluster2]) -> Cluster2:
+        closest = clusters[0]
+        min_dist = distance(self.lat, self.lon, closest.lat, closest.lon)
+        for cluster in clusters[1:]:
+            dist = distance(self.lat, self.lon, cluster.lat, cluster.lon)
+            if dist > min_dist:
+                continue
+            closest = cluster
+            min_dist = dist
+        return closest
 
-    def __repr__(self) -> str:
-        return f"CNode({self.stop!r}, lat={self.lat}, lon={self.lon})"
+    def add_node(self, node: Node2) -> None:
+        if node in self.nodes:
+            return
+        self.nodes.append(node)
 
-    def get_closest(self, other: Cluster | Node) -> Node:
-        if self.is_dummy:
-            return Node(self.stop.name, self.lat, self.lon)
+    def get_closest(self) -> Optional[Node2]:
+        if not self.nodes:
+            return None
+        costs: list[tuple[float, Node2]] = []
+        for node in self.nodes:
+            cost_next = node.distance(self.next) if self.next else 0
+            cost_prev = node.distance(self.prev) if self.prev else 0
+            cost_self = node.distance(self)
+            # Prefer nodes closer to next node, because vehicles
+            #  typically stop at the furthest stop position first.
+            # Preferring nodes closer to the cluster location seems to lead
+            #  to better results as well. TODO: Needs more testing
+            cost = 1.05 * cost_next + cost_prev + 0.5 * cost_self
+            costs.append((cost, node))
+        return min(costs, key=itemgetter(0))[1]
 
-        dists = [(distance(other.lat, other.lon, node.lat, node.lon), node)
-                 for node in self.nodes]
-        return min(dists, key=itemgetter(0))[1]
-
-    def __lt__(self, _):
-        return False if self.is_dummy else True
+    def adjust_location(self):
+        """ Set the location to the mean of the location of the nodes. """
+        self.lat = mean([node.lat for node in self.nodes])
+        self.lon = mean([node.lon for node in self.nodes])

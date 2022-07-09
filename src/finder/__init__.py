@@ -14,8 +14,8 @@ import pandas as pd
 import requests
 
 from config import Config
-from finder.cluster import Node
-from finder.route import Routes, routes_to_csv
+from finder.cluster import Node2
+from finder.route import generate_routes
 
 
 if TYPE_CHECKING:
@@ -118,7 +118,7 @@ class Finder:
         self.use_cache, cache_dir = create_cache_dir()
         self._set_fp(cache_dir)
         self._get_stop_data()
-        self.routes: Routes | None = None
+        self.routes: list[list[Node2]] | None = None
 
     def _set_fp(self, cache_dir: Path):
         self.fp: Path = cache_dir.joinpath("osm_cache.tsv").resolve()
@@ -182,9 +182,4 @@ class Finder:
 
     def generate_routes(self):
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = Routes(self.df, names)
-
-    def get_routes(self) -> list[str]:
-        if self.routes is None:
-            self.generate_routes()
-        return routes_to_csv([c.get_route() for c in self.routes.clusters])
+        self.routes = generate_routes(self.df, names)
