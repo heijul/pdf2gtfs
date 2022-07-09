@@ -47,6 +47,8 @@ def get_osm_data_from_qlever(path: Path) -> bool:
             "BIND (geof:latitude(?location) AS ?lat) \n"
             "BIND (geof:longitude(?location) AS ?lon) \n"
             "} ORDER BY ?name")}
+    # TODO: Add "OPTIONAL {?stop osmkey:XX Config.osm_XX}"
+    #  e.g. railway: "tram_stop"
 
     url = base_url + parse.urlencode(data)
     r = requests.get(url)
