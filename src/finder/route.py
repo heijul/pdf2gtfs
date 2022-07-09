@@ -43,6 +43,20 @@ Location: TypeAlias = tuple[float, float]
 Clusters: TypeAlias = dict[StopName: list[Cluster2]]
 
 
+def _create_name_filter(names: list[StopName]):
+    # TODO: Turn cf_names into dict with name -> [split names]
+    name_filter = [name.casefold().lower() for name in names]
+    for char in list(name_filter):
+        if " " not in char:
+            continue
+        name_filter += char.split(" ")
+    return name_filter
+
+
+def _filter_df(df: pd.DataFrame, name_filter: list[StopName]):
+    return df.where(df["name"].isin(name_filter)).dropna()
+
+
 def _create_clusters2(stops: list[StopName], df: pd.DataFrame) -> Clusters:
     def by_name(entry_id):
         _entry = df.loc[entry_id]
@@ -62,6 +76,24 @@ def _create_clusters2(stops: list[StopName], df: pd.DataFrame) -> Clusters:
             cluster.adjust_location()
             clusters[stop].append(cluster)
     return clusters
+
+
+def _group_df_with_tolerance(df: pd.DataFrame
+                             ) -> dict[Location: list[pd.Series]]:
+    """ Group the dataframe by (name, lat2, lon2), allowing tolerances. """
+    def _try_create_group(lat2: float, lon2: float):
+        for (lat1, lon1), _group in groups.items():
+            if abs(lat1 - lat2) <= tolerance and abs(lon1 - lon2) <= tolerance:
+                return _group
+        groups[(lat2, lon2)] = []
+        return groups[(lat2, lon2)]
+
+    tolerance = 0.008
+    groups: dict[Location: list[pd.Series]] = {}
+    for row_id, row in df.iterrows():
+        loc = (row["lat"], row["lon"])
+        _try_create_group(*loc).append(row)
+    return groups
 
 
 def _create_routes(stops: list[StopName], clusters: Clusters
@@ -101,38 +133,6 @@ def _display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
     outfile = Config.output_dir.joinpath("routedisplay.html")
     m.save(str(outfile))
     webbrowser.open_new_tab(str(outfile))
-
-
-def _group_df_with_tolerance(df: pd.DataFrame
-                             ) -> dict[Location: list[pd.Series]]:
-    """ Group the dataframe by (name, lat2, lon2), allowing tolerances. """
-    def _try_create_group(lat2: float, lon2: float):
-        for (lat1, lon1), _group in groups.items():
-            if abs(lat1 - lat2) <= tolerance and abs(lon1 - lon2) <= tolerance:
-                return _group
-        groups[(lat2, lon2)] = []
-        return groups[(lat2, lon2)]
-
-    tolerance = 0.008
-    groups: dict[Location: list[pd.Series]] = {}
-    for row_id, row in df.iterrows():
-        loc = (row["lat"], row["lon"])
-        _try_create_group(*loc).append(row)
-    return groups
-
-
-def _create_name_filter(names: list[StopName]):
-    # TODO: Turn cf_names into dict with name -> [split names]
-    name_filter = [name.casefold().lower() for name in names]
-    for char in list(name_filter):
-        if " " not in char:
-            continue
-        name_filter += char.split(" ")
-    return name_filter
-
-
-def _filter_df(df: pd.DataFrame, name_filter: list[StopName]):
-    return df.where(df["name"].isin(name_filter)).dropna()
 
 
 def generate_routes(raw_df: pd.DataFrame, stops: list[StopName]):
