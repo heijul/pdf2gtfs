@@ -110,7 +110,12 @@ class Reader(BaseReader, ABC):
                    "-dBlackText", "-q", "-dBATCH ",
                    f"-sOutputFile={self.tempfile.name}", str(self.filepath)]
         # TODO: Test on windows if encoding is neccessary
-        Ghostscript(*gs_args)
+        try:
+            Ghostscript(*gs_args)
+        except Exception as e:
+            logger.error("Ghostscript encountered an error trying to convert "
+                         f"{self.filepath} into {self.tempfile.name}.")
+            raise e
         if Config.output_pp:
             copyfile(self.tempfile.name,
                      Config.output_dir.joinpath("preprocessed.pdf"))
