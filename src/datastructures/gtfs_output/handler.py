@@ -174,8 +174,9 @@ class GTFSHandler:
                 if stop is None:
                     logger.info(msg)
                     continue
-                logger.info(f"{msg} Found match with distance: "
-                            f"({dist}, '{stop.stop_name}').")
+                if dist != 0:
+                    logger.info(f"{msg} Found match with edit distance: "
+                                f"({dist}, '{stop.stop_name}').")
                 if stop.stop_lat > 0:
                     continue
             stop.set_location(node.lat, node.lon)
