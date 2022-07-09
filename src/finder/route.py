@@ -274,6 +274,7 @@ class Cluster2:
         return min(costs, key=itemgetter(0))[1]
 
     def adjust_location(self):
+        """ Set the location to the mean of the location of the nodes. """
         self.lat = mean([node.lat for node in self.nodes])
         self.lon = mean([node.lon for node in self.nodes])
 
