@@ -17,6 +17,7 @@ class Node2:
     cluster: Cluster2
     lat: float
     lon: float
+    # TODO: Maybe add stop.
     name: str
 
     def __init__(self, cluster, name, lat, lon) -> None:
