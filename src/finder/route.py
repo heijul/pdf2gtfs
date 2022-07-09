@@ -253,11 +253,9 @@ class Cluster2:
         return closest
 
     def add_node(self, node: Node2) -> None:
-        # TODO: Might be added twice -> need to use set or check if exists
+        if node in self.nodes:
+            return
         self.nodes.append(node)
-
-    def add_nodes(self, nodes: list[Node2]):
-        ...
 
     def get_closest(self) -> Optional[Node2]:
         if not self.nodes:
