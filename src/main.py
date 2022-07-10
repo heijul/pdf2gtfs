@@ -29,9 +29,7 @@ def generate_gtfs(timetables):
 def match_coordinates(gtfs_handler: GTFSHandler):
     finder = Finder(gtfs_handler)
     finder.generate_routes()
-    # TODO: Choose what to do when multiple routes were found.
-    route = finder.routes[0]
-    return route
+    return finder.get_shortest_route()
 
 
 def main():

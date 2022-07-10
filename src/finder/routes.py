@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import webbrowser
+from operator import itemgetter
 from statistics import mean
 from typing import TypeAlias
 
@@ -104,13 +105,10 @@ def _create_routes(stops: list[StopName], clusters: Clusters
         route = Route2(stops)
         route.create(start, clusters)
         routes.append(route.find_shortest_path())
-    # TODO: Needs check if routes is empty.
-    if Config.display_route:
-        _display_route2(routes[0], True, True)
     return routes
 
 
-def _display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
+def display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
     # TODO: Add cluster/nodes to Config.
     location = mean([e.lat for e in route]), mean([e.lon for e in route])
     m = folium.Map(location=location)
@@ -135,8 +133,22 @@ def _display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
     webbrowser.open_new_tab(str(outfile))
 
 
-def generate_routes(raw_df: pd.DataFrame, stops: list[StopName]):
+def select_shortest_route(stops: list[StopName], routes: list[list[Node2]]
+                          ) -> list[Node2]:
+    dists: list[tuple[float, list[Node2]]] = []
+    for route in routes:
+        if len(route) < len(stops):
+            continue
+        dist: float = sum([route[i].distance(route[i + 1])
+                           for i in range(len(route)) if i < len(route) - 1])
+        dists.append((dist, route))
+    # TODO: Probably fails if dists[a][0] == dists[b][0]
+    return min(dists, key=itemgetter(0))[1]
+
+
+def generate_routes(raw_df: pd.DataFrame, stops: list[StopName]
+                    ) -> list[list[Node2]]:
     df = _filter_df(raw_df, _create_name_filter(stops))
     clusters = _create_clusters2(stops, df)
-    routes = _create_routes(stops, clusters)
+    routes: list[list[Node2]] = _create_routes(stops, clusters)
     return routes
