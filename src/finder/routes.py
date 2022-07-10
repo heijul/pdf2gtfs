@@ -109,23 +109,28 @@ def _create_routes(stops: list[StopName], clusters: Clusters
 
 
 def display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
+    def add_nodes():
+        for node in entry.cluster.nodes:
+            if node == entry:
+                continue
+            _loc = [node.lat, node.lon]
+            folium.Marker(_loc, popup=f"{node.name}\n{_loc}",
+                          icon=folium.Icon(color="green")).add_to(m)
+
+    def add_cluster():
+        _loc = [entry.cluster.lat, entry.cluster.lon]
+        folium.Marker(_loc, popup=f"{entry.name}\n{_loc}",
+                      icon=folium.Icon(icon="cloud")).add_to(m)
+
     # TODO: Add cluster/nodes to Config.
     location = mean([e.lat for e in route]), mean([e.lon for e in route])
     m = folium.Map(location=location)
     for entry in route:
-        loc = [entry.lat, entry.lon]
         if nodes:
-            for node in entry.cluster.nodes:
-                if node == entry:
-                    continue
-                loc = [node.lat, node.lon]
-                folium.Marker(loc, popup=f"{node.name}\n{loc}",
-                              icon=folium.Icon(color="green")).add_to(m)
+            add_nodes()
         if cluster:
-            loc = [entry.cluster.lat, entry.cluster.lon]
-            folium.Marker([entry.cluster.lat, entry.cluster.lon],
-                          popup=f"{entry.name}\n{loc}",
-                          icon=folium.Icon(icon="cloud")).add_to(m)
+            add_cluster()
+        loc = [entry.lat, entry.lon]
         folium.Marker(loc, popup=f"{entry.name}\n{loc}").add_to(m)
 
     outfile = Config.output_dir.joinpath("routedisplay.html")
