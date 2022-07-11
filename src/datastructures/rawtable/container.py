@@ -252,25 +252,68 @@ class Row(FieldContainer):
         return True
 
     def apply_column_scheme(self, columns: list[Column | None]):
-        def get_x_center(left: BBox, right: BBox) -> float:
+        from datastructures.rawtable.fields import Field
+
+        def get_stop_bbox():
+            # Generate bbox for the stops, where we want to ignore the scheme.
+            _bbox = None
+            for _column in columns:
+                if _column.type == ColumnType.DATA:
+                    _bbox.x1 += get_x_center(_bbox, _column.bbox)
+                    break
+                if _bbox is None:
+                    _bbox = _column.bbox.copy()
+                    continue
+                _bbox.merge(_column.bbox.copy())
+            return _bbox
+
+        def get_x_center(b1: BBox, b2: BBox) -> float:
+            left, right = sorted([b1, b2], key=attrgetter("x0"))
             return round((right.x0 - left.x1) / 2, 2)
 
-        unmatched_fields = sorted(self.fields, key=attrgetter("bbox.x0"))
+        def get_delta(_bbox: BBox, other_column: Column | None) -> float:
+            if other_column is None:
+                return 2
+            return get_x_center(_bbox, other_column.bbox)
+
+        stop_bbox = get_stop_bbox()
+        fields = [field for field in self.fields
+                  if not stop_bbox.contains_vertical(field.bbox)]
+        unmatched_fields = sorted(fields, key=attrgetter("bbox.x0"))
+        column_matches: dict[Column: list[Field]] = {}
 
         for prev_column, column, next_column in zip(*padded_list(columns)):
+            if stop_bbox.contains_vertical(column.bbox):
+                continue
             # Get bbox where x-bounds are in the center between columns.
             bbox = column.bbox.copy()
-            if prev_column is not None:
-                bbox.x0 = bbox.x0 - get_x_center(prev_column.bbox, bbox)
-            if next_column is not None:
-                bbox.x1 = bbox.x1 + get_x_center(bbox, next_column.bbox)
+            bbox.x0 -= get_delta(bbox, prev_column)
+            bbox.x1 += get_delta(bbox, next_column)
 
+            column_matches[column] = []
             # Check if field fits stretched column bbox.
             for field in list(unmatched_fields):
                 if not bbox.contains_vertical(field.bbox):
                     continue
-                column.add_field(field)
+                column_matches[column].append(field)
                 del unmatched_fields[unmatched_fields.index(field)]
+
+        if unmatched_fields:
+            fields = "\n\t".join(map(str, unmatched_fields))
+            logger.debug("Tried to apply column scheme, but could not match "
+                         f"the following fields:\n\t{fields}")
+            return
+
+        for column, fields in column_matches.items():
+            # Add empty field, to ensure all columns have the same height.
+            if not fields:
+                bbox = BBox(column.bbox.x0, self.bbox.y0,
+                            column.bbox.x1, self.bbox.y1)
+                field = Field(bbox, "")
+                self.add_field(field)
+                fields = [field]
+            for field in fields:
+                column.add_field(field)
 
     def __repr__(self):
         fields_repr = ", ".join(repr(f) for f in self.fields)

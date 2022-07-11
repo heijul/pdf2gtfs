@@ -73,12 +73,11 @@ class Table:
             if _column_x_is_overlapping(last, column):
                 last.add_field(column.fields[0])
 
+        self.columns = columns
         # Add the annotation fields to the columns.
         for row in self.rows.of_types([RowType.ANNOTATION,
                                        RowType.ROUTE_INFO]):
             row.apply_column_scheme(columns)
-
-        self.columns = columns
 
     def to_timetable(self) -> TimeTable:
         return TimeTable.from_raw_table(self)
