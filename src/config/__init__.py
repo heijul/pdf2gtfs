@@ -104,6 +104,8 @@ class _Config(InstanceDescriptorMixin):
                 continue
             if name in self.properties:
                 setattr(self, name, value)
+                continue
+            logger.warning(f"Tried to set unknown property '{name}'.")
 
     def _validate_no_invalid_properties(self, data: dict[str: Any]) -> bool:
         for key, value in data.items():
