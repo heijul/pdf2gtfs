@@ -104,12 +104,13 @@ class Reader(BaseReader, ABC):
         self.tempfile = NamedTemporaryFile()
 
         # TODO: Allow custom args
-        # TODO: Currently runs on all pages instead of Config.pages
+        # TODO: Currently runs on all pages instead of Config.pages,
+        #  however should not make a difference, because of how fast gs is
         gs_args = ["gs", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dFILTERIMAGE",
                    "-dFILTERVECTOR", "-dPRINTED=true", "-dFitPage",
                    "-dBlackText", "-q", "-dBATCH ",
                    f"-sOutputFile={self.tempfile.name}", str(self.filepath)]
-        # TODO: Test on windows if encoding is neccessary
+        # TODO: Test on windows
         try:
             Ghostscript(*gs_args)
         except Exception as e:

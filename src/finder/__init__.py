@@ -22,9 +22,6 @@ from finder.routes import (generate_routes,
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
 
-# TODO: Create cache dir in $SYSTEMCACHEDIR
-#  e.g. os.path.expanduser("~/.cache/pdf2gtfs")????
-# TODO: Add timestamp to csv + max_timestamp to Config
 
 logger = logging.getLogger(__name__)
 

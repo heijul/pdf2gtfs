@@ -45,7 +45,8 @@ Clusters: TypeAlias = dict[StopName: list[Cluster2]]
 
 
 def _create_name_filter(names: list[StopName]):
-    # TODO: Turn cf_names into dict with name -> [split names]
+    # TODO: Turn cf_names into dict with name -> [split names], sorted by
+    #  edit distance to name
     name_filter = [name.casefold().lower() for name in names]
     for char in list(name_filter):
         if " " not in char:
