@@ -139,7 +139,6 @@ class FieldContainer(BBoxObject):
 
 
 class Row(FieldContainer):
-    # TODO: Instead of using enum for types use subclasses.
     def __init__(self, table: Table = None, bbox: BBox = None):
         super().__init__(table, bbox)
 
@@ -203,55 +202,8 @@ class Row(FieldContainer):
         else:
             self._type = RowType.OTHER
 
-    def fits_column_scheme(self, columns: list[Column]):
-        def get_stop_box():
-            # Generate bbox for the stops, where we want to ignore the scheme.
-            _bbox = None
-            for _column in columns:
-                if _column.type == ColumnType.DATA:
-                    break
-                if _bbox is None:
-                    _bbox = _column.bbox.copy()
-                    continue
-                _bbox.merge(_column.bbox.copy())
-            return _bbox
-
-        def get_column_bbox() -> BBox:
-            # Create new bbox, that spans between previous columns' end
-            #  and next columns' start.
-            _bbox = column.bbox.copy()
-            if prev is not None:
-                _bbox.x0 = min(_bbox.x0, prev.bbox.x1)
-            if nxt is not None:
-                _bbox.x0 = max(_bbox.x1, nxt.bbox.x0)
-            return _bbox
-
-        stop_bbox = get_stop_box()
-
-        for field in self.fields:
-            field_fits = False
-            if stop_bbox and stop_bbox.contains_vertical(field.bbox):
-                continue
-            for prev, column, nxt in padded_list(columns):
-                if column.type not in (ColumnType.DATA, ColumnType.REPEAT):
-                    continue
-                bbox = get_column_bbox()
-                if bbox.contains_vertical(field.bbox):
-                    field_fits = True
-                    field.column = column
-                    break
-            # If a field does not fit, reset the column of the others as well.
-            if not field_fits:
-                for _field in self.fields:
-                    _field.column = None
-                return False
-
-        # TODO: Check if message needs to be adjusted.
-        logger.debug(f"Fields '{self.fields}' fit into column "
-                     f"'{self.fields[0].column}'.")
-        return True
-
     def apply_column_scheme(self, columns: list[Column | None]):
+        # TODO: This is actually three functions in a trenchcoat.
         from datastructures.rawtable.fields import Field
 
         def get_stop_bbox():
@@ -298,6 +250,7 @@ class Row(FieldContainer):
                 column_matches[column].append(field)
                 del unmatched_fields[unmatched_fields.index(field)]
 
+        # Only apply the column scheme, if all fields fit (except stopcolumn).
         if unmatched_fields:
             fields = "\n\t".join(map(str, unmatched_fields))
             logger.debug("Tried to apply column scheme, but could not match "
