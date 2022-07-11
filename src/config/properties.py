@@ -201,8 +201,17 @@ class PathProperty(Property):
             value = Path(value).resolve()
             try:
                 makedirs(value, exist_ok=True)
-            except OSError:
-                # TODO: Add filename to error + which error (perm/fileexists/)
+            except (PermissionError, NotADirectoryError, OSError) as e:
+                msg = "Could not create output directory, because "
+                if isinstance(e, PermissionError):
+                    msg += ("you do not have the required permissions to "
+                            "create the directory: '{value}'.")
+                elif isinstance(e, NotADirectoryError):
+                    msg += (f"a file with this name "
+                            f"already exists: '{value}'.")
+                else:
+                    msg += f"the following error occurred: \n\t{str(e)}"
+                logger.error(msg)
                 raise err.InvalidPathError
             if not value.is_dir():
                 raise err.InvalidPathError
