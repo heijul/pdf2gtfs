@@ -36,8 +36,8 @@ PaddedList: TypeAlias = list[T_ | None]
 
 
 def padded_list(objects: list[T_]) -> tuple[PaddedList, list[T_], PaddedList]:
-    left_pad = [None] + objects
-    right_pad = objects + [None]
+    left_pad = [None] + objects[:-1]
+    right_pad = objects[1:] + [None]
     return left_pad, objects, right_pad
 
 
