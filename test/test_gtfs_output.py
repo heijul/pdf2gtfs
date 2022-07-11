@@ -7,12 +7,14 @@ from src.datastructures.gtfs_output.stop_times import Time, StopTimes
 
 class TestTime(TestCase):
     def setUp(self) -> None:
-        self.t1 = Time(4, 20)
-        self.t2 = Time(4, 40)
-        self.t3 = Time(5, 55)
+        self.t1 = Time(4, 20, 40)
+        self.t2 = Time(4, 40, 20)
+        self.t3 = Time(5, 55, 1)
 
     def test_from_string(self):
         Config.time_format = "%H.%M"
+        # Seconds can't be set via from_string.
+        self.t1.seconds = 0
         self.assertEqual(self.t1, Time.from_string("04.20"))
         self.assertEqual(self.t1, Time.from_string("4.20"))
 
@@ -24,6 +26,11 @@ class TestTime(TestCase):
         self.assertTrue(self.t1 < self.t2)
         self.assertFalse(self.t2 < self.t1)
         self.assertFalse(self.t1 < self.t1)
+
+    def test_gt(self):
+        self.assertTrue(self.t2 > self.t1)
+        self.assertFalse(self.t1 > self.t2)
+        self.assertFalse(self.t1 > self.t1)
 
     def test_le(self):
         self.assertTrue(self.t1 <= self.t1)
@@ -43,21 +50,26 @@ class TestTime(TestCase):
     def test_add(self):
         t = self.t1 + self.t2
         self.assertEqual(t.hours, 9)
-        self.assertEqual(t.minutes, 0)
+        self.assertEqual(t.minutes, 1)
+        self.assertEqual(t.seconds, 0)
         t = self.t1 + self.t3
         self.assertEqual(t.hours, 10)
         self.assertEqual(t.minutes, 15)
+        self.assertEqual(t.seconds, 41)
 
     def test_radd(self):
         self.t1 += self.t2
         self.assertEqual(self.t1.hours, 9)
-        self.assertEqual(self.t1.minutes, 0)
+        self.assertEqual(self.t1.minutes, 1)
+        self.assertEqual(self.t1.seconds, 0)
         self.t1 += self.t3
         self.assertEqual(self.t1.hours, 14)
-        self.assertEqual(self.t1.minutes, 55)
+        self.assertEqual(self.t1.minutes, 56)
+        self.assertEqual(self.t1.seconds, 1)
         self.t1 += self.t1
         self.assertEqual(self.t1.hours, 29)
-        self.assertEqual(self.t1.minutes, 50)
+        self.assertEqual(self.t1.minutes, 52)
+        self.assertEqual(self.t1.seconds, 2)
 
 
 class TestStopTimes(TestCase):
@@ -88,12 +100,3 @@ class TestStopTimes(TestCase):
                         self.stop_times.entries[1].arrival_time)
         self.assertTrue(self.stop_times.entries[1].arrival_time <
                         self.stop_times.entries[2].arrival_time)
-
-
-class TestGTFSStop(TestCase):
-    def testtest(self):
-        stops = GTFSStops
-        self.assertEqual(3, stops._get_edit_distance("sitting", "kitten"))
-        self.assertEqual(3, stops._get_edit_distance("kitten", "sitting"))
-        self.assertEqual(3, stops._get_edit_distance("sunday", "saturday"))
-        self.assertEqual(3, stops._get_edit_distance("saturday", "sunday"))
