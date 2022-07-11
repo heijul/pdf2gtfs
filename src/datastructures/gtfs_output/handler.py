@@ -172,7 +172,7 @@ class GTFSHandler:
     def write_files(self):
         self._remove_unused_routes()
         self.add_annotation_dates()
-        path = Path("../out/").resolve()
+        path = Path(Config.output_dir).resolve()
         path.mkdir(exist_ok=True)
         self.agency.write(path)
         self.stops.write(path)
