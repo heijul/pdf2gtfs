@@ -84,7 +84,8 @@ class Calendar(BaseContainer):
     def __init__(self):
         super().__init__("calendar.txt", CalendarEntry)
 
-    def add(self, days: list[str], annots: set[str]) -> (CalendarEntry, bool):
+    def try_add(self, days: list[str], annots: set[str]
+                ) -> (CalendarEntry, bool):
         entry = CalendarEntry(annots)
         for day in days:
             # Holidays will be in the calendar_dates.

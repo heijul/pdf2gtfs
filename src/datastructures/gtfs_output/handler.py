@@ -68,6 +68,7 @@ class GTFSHandler:
 
         stop_times = []
         prev = None
+        prev_calendar_entry = None
         repeat = None
         service_day_offset = 0
         for entry in entries:
@@ -75,12 +76,14 @@ class GTFSHandler:
                 repeat = entry
                 continue
 
-            calendar_entry, newly_created = self.calendar.add(
+            calendar_entry, _ = self.calendar.try_add(
                 entry.days.days, entry.annotations)
             service_id = calendar_entry.service_id
-            if newly_created:
+            if (prev_calendar_entry and
+                    not calendar_entry.same_days(prev_calendar_entry)):
                 service_day_offset = 0
                 prev = None
+            prev_calendar_entry = calendar_entry
             trip = self.trips.add(route_id, service_id)
             times = StopTimes()
             times.add_multiple(trip.trip_id, self.stops,
@@ -97,8 +100,8 @@ class GTFSHandler:
                 continue
 
             if not prev:
-                # TODO: Not very informative.
-                logger.error("No previous column to repeat")
+                logger.error("Encountered a repeat column, before a normal "
+                             "column was added. Skipping repeat column...")
                 repeat = None
                 continue
             # Create stop_times between prev and times.
