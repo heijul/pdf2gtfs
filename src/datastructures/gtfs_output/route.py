@@ -23,6 +23,9 @@ class RouteType(Enum):
     Trolleybus = 11
     Monorail = 12
 
+    def to_output(self):
+        return str(self.value)
+
 
 @dataclass
 class Route(BaseDataClass):
