@@ -64,19 +64,18 @@ class CalendarEntry(BaseDataClass):
         self.service_id = self.id
         self.on_holidays = False
         self.annotations = annots or set()
-        self._set_dates()
-
-    def _set_dates(self):
         self.start_date = StartDate()
         self.end_date = EndDate()
 
-    def __eq__(self, other: CalendarEntry):
-        names = ["start_date", "end_date", "annotations", "on_holidays"]
-        for name in names + _WEEKDAY_NAMES:
+    def same_days(self, other: CalendarEntry) -> bool:
+        for name in _WEEKDAY_NAMES + ["on_holidays"]:
             if getattr(self, name) == getattr(other, name):
                 continue
             return False
         return True
+
+    def __eq__(self, other: CalendarEntry):
+        return self.same_days(other) and self.annotations == other.annotations
 
 
 class Calendar(BaseContainer):
