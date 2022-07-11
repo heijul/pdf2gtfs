@@ -162,7 +162,15 @@ class GTFSHandler:
                     self.calendar_dates.add(
                         service.service_id, value, active)
 
+    def _remove_unused_routes(self):
+        used_route_ids = set([trip.route_id for trip in self.trips.entries])
+        for route in list(self.routes.entries):
+            if route.route_id in used_route_ids:
+                continue
+            self.routes.entries.remove(route)
+
     def write_files(self):
+        self._remove_unused_routes()
         self.add_annotation_dates()
         path = Path("../out/").resolve()
         path.mkdir(exist_ok=True)
