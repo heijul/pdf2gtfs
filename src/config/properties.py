@@ -110,15 +110,14 @@ class Pages:
     def _set_value(self, pages_string):
         pages_string = pages_string.replace(" ", "")
 
-        # TODO: Redo.
-        if pages_string != "all":
-            self._set_pages(pages_string)
-            # pdfminer uses 0-indexed pages or None for all pages.
-            self.page_numbers = [page - 1 for page in self.pages]
+        # pdfminer uses 0-indexed pages or None for all pages.
+        if pages_string == "all":
+            self.all = True
+            self.page_numbers = None
             return
 
-        self.all = True
-        self.page_numbers = None
+        self._set_pages(pages_string)
+        self.page_numbers = [page - 1 for page in self.pages]
 
     def _set_pages(self, pages_string):
         def _handle_non_numeric_pages(non_num_string):
