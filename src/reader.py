@@ -207,15 +207,12 @@ class Reader(BaseReader, ABC):
         for char in sorted(line, key=attrgetter("x0")):
             # Ignore vertical text
             if not char.upright:
-                char_str = (f"Char(text='{char.text}', "
-                            f"x0={char.x0:.2f}, "
-                            f"y0={char.y0:.2f}, "
-                            f"x1={char.x1:.2f}, "
-                            f"y1={char.y1:.2f})")
-                logger.debug(f"Skipping vertical char:\n\t{char_str}")
+                msg = (f"Char(text='{char.text}', x0={char.x0:.2f}, y0="
+                       f"{char.y0:.2f}, x1={char.x1:.2f}, y1={char.y1:.2f})")
+                logger.debug(f"Skipping vertical char:\n\t{msg}")
                 continue
             if len(char.text) != 1:
-                # Sometimes chars are wrongly detected by pdfminer as codes...
+                # Sometimes chars are wrongly detected as cid(x) codes...
                 # TODO: Problem lies with ghostscript/pdfminer;
                 #  Should be fixed there and properly
                 char.text = chr(int(char.text[5:-1]))
