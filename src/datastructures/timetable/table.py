@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import datastructures.rawtable.table as raw
 from datastructures.rawtable.enums import ColumnType
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
-from datastructures.timetable.stops import Stop
+from datastructures.timetable.stops import Stop, DummyAnnotationStop
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class StopList:
         return self._stops
 
     @property
-    def stops(self):
+    def stops(self) -> list[Stop]:
         return [stop for stop in self._stops if not stop.is_connection]
 
     def add_stop(self, stop: Stop) -> None:
@@ -126,10 +127,13 @@ class TimeTable:
         # Entry columns + stop column
         base_text = "{:30}" + "{:>6}" * len(self.entries)
         texts = []
-        for stop in self.stops.stops:
+        for stop in [cast(Stop, DummyAnnotationStop())] + self.stops.stops:
             text = [str(stop)]
             for entry in self.entries:
-                value = entry.get_value(stop)
+                if isinstance(stop, DummyAnnotationStop):
+                    value = "".join(sorted(entry.annotations))
+                else:
+                    value = entry.get_value(stop)
                 text.append(value if value else "-")
             texts.append(base_text.format(*text).strip())
         return "TimeTable:\n\t" + "\n\t".join(texts)

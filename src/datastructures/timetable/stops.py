@@ -24,3 +24,12 @@ class Stop:
 
     def __repr__(self):
         return f"'{str(self)}'"
+
+
+class DummyAnnotationStop(Stop):
+    # Used only in the timetable.table.Table.__str__ method
+    def __init__(self):
+        super(DummyAnnotationStop, self).__init__("", 0)
+
+    def __str__(self) -> str:
+        return "ANNOTATIONS"
