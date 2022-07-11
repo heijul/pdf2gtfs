@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class Time:
     hours: int = 0
     minutes: int = 0
+    seconds: int = 0
 
     @staticmethod
     def from_string(time_string: str) -> Time:
@@ -30,39 +31,47 @@ class Time:
             logger.warning(f"Value '{time_string}' does not seem to have the "
                            f"necessary format '{Config.time_format}'.")
             return Time()
-        return Time(time.hour, time.minute)
+        return Time(time.hour, time.minute, 0)
 
     def to_output(self):
-        # TODO: If config.repeat_strategy=mean, seconds are needed
-        return f"{self.hours:02}:{self.minutes:02}:00"
+        return f"{self.hours:02}:{self.minutes:02}:{self.seconds:02}"
 
     def copy(self):
-        return Time(self.hours, self.minutes)
+        return Time(self.hours, self.minutes, self.seconds)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"'{self.to_output()}'"
 
-    def __radd__(self, other):
+    def __radd__(self, other) -> Time:
         return self.__add__(other)
 
-    def __add__(self, other):
-        minutes = self.minutes + other.minutes
+    def __add__(self, other: Time) -> Time:
+        seconds = self.seconds + other.seconds
+        minute_delta = seconds // 60
+        minutes = self.minutes + other.minutes + minute_delta
         hour_delta = minutes // 60
         hours = self.hours + other.hours + hour_delta
-        return Time(hours, minutes - hour_delta * 60)
+        return Time(hours,
+                    minutes - hour_delta * 60,
+                    seconds - minute_delta * 60)
 
-    def __eq__(self, other):
-        return self.hours == other.hours and self.minutes == other.minutes
+    def __eq__(self, other: Time) -> bool:
+        return (self.hours == other.hours and
+                self.minutes == other.minutes and
+                self.seconds == other.seconds)
 
-    def __lt__(self, other: Time):
-        return (self.hours < other.hours or
-                self.hours == other.hours and self.minutes < other.minutes)
+    def __lt__(self, other: Time) -> bool:
+        if self.hours != other.hours:
+            return self.hours < other.hours
+        if self.minutes != other.minutes:
+            return self.minutes < other.minutes
+        return self.seconds < other.seconds
 
-    def __le__(self, other: Time):
+    def __le__(self, other: Time) -> bool:
         return self == other or self < other
 
-    def __gt__(self, other: Time):
-        return not self.__lt__(other)
+    def __gt__(self, other: Time) -> bool:
+        return not self <= other
 
 
 @dataclass(init=False)
