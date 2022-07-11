@@ -47,7 +47,7 @@ def _add_optional_arguments(parser: ArgumentParser):
 
     text = ("Path to output directory. Will default to './out'. "
             "If the directory is not empty, files may be overwritten.")
-    parser.add_argument("--out", type=str, help=text)
+    parser.add_argument("--output_dir", type=str, help=text)
 
     text = ("Whether the preprocessed pdf should be saved. Will be saved to "
             "the output directory. This may be helpful for debugging.")
