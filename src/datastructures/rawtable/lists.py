@@ -46,7 +46,11 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
         return instance
 
     def of_type(self, typ: FieldContainerType) -> list[FieldContainerT]:
-        return [obj for obj in self._objects if obj.type == typ]
+        return self.of_types([typ])
+
+    def of_types(self, types: list[FieldContainerType]
+                 ) -> list[FieldContainerT]:
+        return [obj for obj in self._objects if obj.type in types]
 
     def _get_neighbour(self, current: FieldContainerT, delta: int
                        ) -> FieldContainerT | None:

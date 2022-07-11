@@ -196,12 +196,12 @@ class Row(FieldContainer):
         if previous_row_is_header and _contains(Config.header_values):
             self._type = RowType.HEADER
             return
-        previous_row_is_annot = previous_row_is(RowType.ANNOTATION)
-        if ((previous_row_is_header or previous_row_is_annot)
-                and _contains(Config.annot_identifier)):
+        elif _contains(Config.annot_identifier):
             self._type = RowType.ANNOTATION
-            return
-        self._type = RowType.OTHER
+        elif _contains(Config.route_identifier):
+            self._type = RowType.ROUTE_INFO
+        else:
+            self._type = RowType.OTHER
 
     def fits_column_scheme(self, columns: list[Column]):
         def get_stop_box():

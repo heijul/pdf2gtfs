@@ -74,7 +74,8 @@ class Table:
                 last.add_field(column.fields[0])
 
         # Add the annotation fields to the columns.
-        for row in self.rows.of_type(RowType.ANNOTATION):
+        for row in self.rows.of_types([RowType.ANNOTATION,
+                                       RowType.ROUTE_INFO]):
             row.apply_column_scheme(columns)
 
         self.columns = columns

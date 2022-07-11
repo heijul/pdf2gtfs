@@ -10,6 +10,7 @@ class RowType(FieldContainerType):
     DATA = 2
     OTHER = 3
     ANNOTATION = 4
+    ROUTE_INFO = 5
 
 
 class ColumnType(FieldContainerType):
