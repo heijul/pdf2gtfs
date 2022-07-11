@@ -253,13 +253,11 @@ class Row(FieldContainer):
 
     def apply_column_scheme(self, columns: list[Column | None]):
         def get_x_center(left: BBox, right: BBox) -> float:
-            return round(right.x0 - left.x1 / 2, 2)
+            return round((right.x0 - left.x1) / 2, 2)
 
         unmatched_fields = sorted(self.fields, key=attrgetter("bbox.x0"))
-        zipped_columns = zip([None] + columns, columns, columns[1:] + [None])
 
-        for prev_column, column, next_column in zipped_columns:
-            prev_column: None | Column
+        for prev_column, column, next_column in zip(*padded_list(columns)):
             # Get bbox where x-bounds are in the center between columns.
             bbox = column.bbox.copy()
             if prev_column is not None:
