@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, Field
 from enum import Enum
 
@@ -29,13 +31,11 @@ class Route(BaseDataClass):
     route_long_name: str
     route_type: RouteType
 
-    def __init__(self, route_long_name: str) -> None:
+    def __init__(self, route_short_name: str, route_long_name: str) -> None:
         super().__init__()
         self.route_id = self.id
         self.route_long_name = route_long_name
-
-        # TODO: Make configurable
-        self.route_short_name = ""
+        self.route_short_name = route_short_name
         self.route_type: RouteType = RouteType[config.Config.gtfs_routetype]
 
     def get_field_value(self, field: Field):
@@ -44,12 +44,18 @@ class Route(BaseDataClass):
             return value
         return value.value
 
+    def __eq__(self, other: Route):
+        return (self.route_short_name == other.route_short_name and
+                self.route_long_name == other.route_long_name)
+
 
 class Routes(BaseContainer):
     def __init__(self):
         super().__init__("routes.txt", Route)
 
-    def add(self, name: str) -> Route:
-        route = Route(name)
+    def add(self, *, short_name: str = "", long_name: str = "") -> Route:
+        route = Route(short_name, long_name)
+        if route in self.entries:
+            return self.entries[self.entries.index(route)]
         super()._add(route)
         return route
