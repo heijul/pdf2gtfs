@@ -17,6 +17,7 @@ class TimeTableEntry:
     def __init__(self, raw_header_text: str = "") -> None:
         self._values: dict[Stop, str] = {}
         self._annotations: set[str] = set()
+        self.route_name: str = ""
         self.days: Weekdays = Weekdays(raw_header_text)
 
     @property

@@ -86,6 +86,13 @@ class TimeTable:
                 _annots |= set(field.text.strip().split(" "))
             return _annots
 
+        def get_route_name(column: raw.Column):
+            for field in column.fields:
+                if field.row.type != raw.RowType.ROUTE_INFO:
+                    continue
+                return field.text
+            return ""
+
         table = TimeTable()
 
         for raw_column in list(raw_table.columns):
@@ -95,6 +102,7 @@ class TimeTable:
             else:
                 entry = TimeTableEntry(raw_header_text)
             entry.annotations = get_annotations(raw_column)
+            entry.route_name = get_route_name(raw_column)
             table.entries.append(entry)
 
             for raw_field in raw_column:
@@ -103,6 +111,8 @@ class TimeTable:
                     if raw_field.row.type == raw.RowType.DATA:
                         stop = Stop(raw_field.text, row_id)
                         table.stops.add_stop(stop)
+                    continue
+                if raw_field.row.type == raw.RowType.ROUTE_INFO:
                     continue
                 if raw_field.row.type == raw.RowType.ANNOTATION:
                     continue
