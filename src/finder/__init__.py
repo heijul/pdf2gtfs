@@ -26,26 +26,42 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_osm_data_from_qlever(path: Path) -> bool:
-    base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
-    data = {
-        "action": "tsv_export",
-        "query": (
-            "PREFIX osmrel: <https://www.openstreetmap.org/relation/> \n"
-            "PREFIX geo: <http://www.opengis.net/ont/geosparql#> \n"
-            "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> \n"
-            "PREFIX osm: <https://www.openstreetmap.org/> \n"
-            "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n"
-            "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:> \n"
-            "SELECT ?stop ?name ?lat ?lon ?location WHERE { \n"
-            '?stop osmkey:public_transport "stop_position" . \n'
-            "?stop rdf:type osm:node . \n"
+def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
+    def union(a: str, b: str) -> str:
+        if not a:
+            return b
+        return f"{{\n{a}}} UNION {{\n{b}}}"
+
+    pre = ("PREFIX osmrel: <https://www.openstreetmap.org/relation/> \n"
+           "PREFIX geo: <http://www.opengis.net/ont/geosparql#> \n"
+           "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> \n"
+           "PREFIX osm: <https://www.openstreetmap.org/> \n"
+           "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n"
+           "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:> \n")
+    sel = "SELECT ?stop ?name ?lat ?lon ?location WHERE { \n"
+    base = ("?stop rdf:type osm:node . \n"
             "?stop geo:hasGeometry ?location . \n"
             "?stop osmkey:name ?name . \n"
             "BIND (geof:latitude(?location) AS ?lat) \n"
             "BIND (geof:longitude(?location) AS ?lon) \n"
-            "} ORDER BY ?name")}
-    # TODO: Add "OPTIONAL {?stop osmkey:XX Config.osm_XX}"
+            "} ORDER BY ?name")
+    transport_format = '?stop osmkey:public_transport "{}" . \n'
+    transport = ""
+    if stations:
+        transport = union(transport, transport_format.format("station"))
+    if stop_positions:
+        transport = union(transport, transport_format.format("stop_position"))
+    if platforms:
+        transport = union(transport, transport_format.format("platform"))
+
+    query = pre + sel + transport + base
+    return query
+
+
+def get_osm_data_from_qlever(path: Path) -> bool:
+    base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
+    data = {"action": "tsv_export", "query": get_osm_query()}
+    # TODO: Add "OPTIONAL {?stop osmkey:XX Config.osmkey_XX}"
     #  e.g. railway: "tram_stop"
 
     url = base_url + parse.urlencode(data)
@@ -57,7 +73,7 @@ def get_osm_data_from_qlever(path: Path) -> bool:
 
     with open(path, "wb") as fil:
         date = dt.date.today().strftime("%Y%m%d")
-        fil.write(bytes(f"# Queried: {date}\n", "utf-8"))
+        fil.write(bytes(f"# Queried: .{date}.\n", "utf-8"))
         query = "\n#   ".join(data["query"].split("\n"))
         fil.write(bytes(f"# Query: \n#   {query}\n", "utf-8"))
         fil.write(r.content)
@@ -129,7 +145,7 @@ class Finder:
         """ Cache needs to be rebuild, if it does not exist or is too old. """
         if not self.fp.exists() or Path(self.temp.name).resolve() == self.fp:
             return True
-        return self._cache_is_stale()
+        return self._cache_is_stale() or self._query_different_from_cache()
 
     def _cache_is_stale(self) -> bool:
         with open(self.fp, "rb") as fil:
@@ -145,11 +161,25 @@ class Finder:
         try:
             date = dt.datetime.now()
             query_date = dt.datetime.strptime(line.split(".")[1], "%Y%m%d")
-        except ValueError:
+        except (ValueError, IndexError):
             logger.warning(msg)
             return True
 
         return (date - query_date).days > Config.stale_cache_days
+
+    def _query_different_from_cache(self):
+        def clean_line(_line):
+            return _line[1:].strip() + " "
+
+        lines = []
+        with open(self.fp, "rb") as fil:
+            line = fil.readline().decode("utf-8").strip()
+            while line.startswith("#"):
+                if clean_line(line):
+                    lines.append(clean_line(line))
+                line = fil.readline().decode("utf-8")
+        query = "\n".join(lines[2:])
+        return query != get_osm_query()
 
     def _get_stop_data(self):
         def _cleanup_name():
