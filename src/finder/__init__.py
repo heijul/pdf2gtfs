@@ -30,7 +30,7 @@ def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
     def union(a: str, b: str) -> str:
         if not a:
             return b
-        return f"{{\n{a}}} UNION {{\n{b}}}"
+        return f"{{ \n{a}}} UNION {{ \n{b}}} \n"
 
     pre = ("PREFIX osmrel: <https://www.openstreetmap.org/relation/> \n"
            "PREFIX geo: <http://www.opengis.net/ont/geosparql#> \n"
@@ -169,7 +169,7 @@ class Finder:
 
     def _query_different_from_cache(self):
         def clean_line(_line):
-            return _line[1:].strip() + " "
+            return _line[1:].strip()
 
         lines = []
         with open(self.fp, "rb") as fil:
@@ -178,7 +178,7 @@ class Finder:
                 if clean_line(line):
                     lines.append(clean_line(line))
                 line = fil.readline().decode("utf-8")
-        query = "\n".join(lines[2:])
+        query = " \n".join(lines[2:])
         return query != get_osm_query()
 
     def _get_stop_data(self):
