@@ -4,6 +4,7 @@ import logging
 import os.path
 import platform
 import datetime as dt
+from requests.exceptions import ConnectionError
 from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -66,7 +67,11 @@ def get_osm_data_from_qlever(path: Path) -> bool:
     #  e.g. railway: "tram_stop"
 
     url = base_url + parse.urlencode(data)
-    r = requests.get(url)
+    try:
+        r = requests.get(url)
+    except ConnectionError as e:
+        logger.error(f"Could not get osm data: {e}")
+        return False
 
     if r.status_code != 200:
         logger.error(f"Could not get osm data: {r}\n{r.content}")
