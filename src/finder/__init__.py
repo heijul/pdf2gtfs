@@ -197,7 +197,7 @@ class Finder:
             allowed_chars = "".join(Config.allowed_stop_chars)
             re = "[^a-zA-Z{}{}]".format(special_char_ranges, allowed_chars)
             df["name"] = df["name"].str.casefold().str.lower().str.replace(
-                re, "", regex=True)
+                re, "", regex=True).str.strip()
 
         if not self.use_cache or self.rebuild_cache():
             if not get_osm_data_from_qlever(self.fp):
