@@ -39,6 +39,9 @@ class Node2:
     def distance(self, other: Node2 | Cluster2) -> float:
         return distance(self.lat, self.lon, other.lat, other.lon)
 
+    def __repr__(self):
+        return f"Node2('{self.name}', {self.lat}, {self.lon})"
+
 
 class Cluster2:
     nodes: list[Node2]
@@ -58,6 +61,7 @@ class Cluster2:
 
     @next.setter
     def next(self, other: Cluster2 | list[Cluster2]) -> None:
+        # TODO: Raise error if other is list and empty
         if isinstance(other, list) and other:
             other = self.get_closest_cluster(other)
         self._next = other
@@ -110,3 +114,6 @@ class Cluster2:
         """ Set the location to the mean of the location of the nodes. """
         self.lat = mean([node.lat for node in self.nodes])
         self.lon = mean([node.lon for node in self.nodes])
+
+    def __repr__(self):
+        return f"Cluster({self.lat:.4f}, {self.lon:.4f})"
