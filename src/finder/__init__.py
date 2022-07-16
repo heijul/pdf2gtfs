@@ -30,22 +30,22 @@ def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
     def union(a: str, b: str) -> str:
         if not a:
             return b
-        return f"{{ \n{a}}} UNION {{ \n{b}}} \n"
+        return f"{{\t{a}}} UNION {{\t{b}}}\t"
 
-    pre = ("PREFIX osmrel: <https://www.openstreetmap.org/relation/> \n"
-           "PREFIX geo: <http://www.opengis.net/ont/geosparql#> \n"
-           "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> \n"
-           "PREFIX osm: <https://www.openstreetmap.org/> \n"
-           "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> \n"
-           "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:> \n")
-    sel = "SELECT ?stop ?name ?lat ?lon ?location WHERE { \n"
-    base = ("?stop rdf:type osm:node . \n"
-            "?stop geo:hasGeometry ?location . \n"
-            "?stop osmkey:name ?name . \n"
-            "BIND (geof:latitude(?location) AS ?lat) \n"
-            "BIND (geof:longitude(?location) AS ?lon) \n"
-            "} ORDER BY ?name")
-    transport_format = '?stop osmkey:public_transport "{}" . \n'
+    pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
+           "PREFIX geo: <http://www.opengis.net/ont/geosparql#>",
+           "PREFIX geof: <http://www.opengis.net/def/function/geosparql/>",
+           "PREFIX osm: <https://www.openstreetmap.org/>",
+           "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>",
+           "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:>"]
+    sel = ["SELECT ?stop ?name ?lat ?lon ?location WHERE {"]
+    base = ["?stop rdf:type osm:node .",
+            "?stop geo:hasGeometry ?location .",
+            "?stop osmkey:name ?name .",
+            "BIND (geof:latitude(?location) AS ?lat)",
+            "BIND (geof:longitude(?location) AS ?lon)",
+            "} ORDER BY ?name"]
+    transport_format = '?stop osmkey:public_transport "{}" .\t'
     transport = ""
     if stations:
         transport = union(transport, transport_format.format("station"))
@@ -53,9 +53,10 @@ def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
         transport = union(transport, transport_format.format("stop_position"))
     if platforms:
         transport = union(transport, transport_format.format("platform"))
+    transport_list = transport.strip().split("\t")
 
-    query = pre + sel + transport + base
-    return query
+    query_list = pre + sel + transport_list + base
+    return " \n".join(query_list)
 
 
 def get_osm_data_from_qlever(path: Path) -> bool:
