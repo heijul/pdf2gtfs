@@ -129,17 +129,25 @@ class Reader(BaseReader, ABC):
         laparams = LAParams(boxes_flow=None)
         t = time()
         file = self.tempfile.name if self.tempfile else self.filepath
-        pages = extract_pages(file,
-                              laparams=laparams,
-                              page_numbers=Config.pages.page_numbers)
-
         timetables = []
-        for page in pages:
-            page_num = Config.pages.pages[page.pageid - 1]
-            logger.info(f"Basic reading of page {page_num} took: "
-                        f"{time() - t:.4} seconds.")
-            timetables += self.read_page(page)
-            t = time()
+        try:
+            pages = extract_pages(file,
+                                  laparams=laparams,
+                                  page_numbers=Config.pages.page_numbers)
+            for page in pages:
+                page_num = Config.pages.pages[page.pageid - 1]
+                logger.info(f"Basic reading of page {page_num} took: "
+                            f"{time() - t:.4} seconds.")
+                timetables += self.read_page(page)
+                t = time()
+        except Exception as e:
+            # TODO: Use PDFException/etc.
+            logger.error(f"PDFFile '{file}' could not be read. Are you sure "
+                         "it's a valid pdf file? This may also sometimes "
+                         "happen for no valid reason. Try again.")
+            logger.error(e)
+            return
+
         return timetables
 
     def save_pages_to_csv(self, page_num):
