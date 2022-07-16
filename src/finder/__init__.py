@@ -31,7 +31,7 @@ def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
     def union(a: str, b: str) -> str:
         if not a:
             return b
-        return f"{{\t{a}}} UNION {{\t{b}}}\t"
+        return f"{{\t{a}\t}} UNION {{\t{b}\t}}\t"
 
     pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
            "PREFIX geo: <http://www.opengis.net/ont/geosparql#>",
@@ -46,7 +46,7 @@ def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
             "BIND (geof:latitude(?location) AS ?lat)",
             "BIND (geof:longitude(?location) AS ?lon)",
             "} ORDER BY ?name"]
-    transport_format = '?stop osmkey:public_transport "{}" .\t'
+    transport_format = '?stop osmkey:public_transport "{}" .'
     transport = ""
     if stations:
         transport = union(transport, transport_format.format("station"))
