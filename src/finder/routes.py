@@ -45,7 +45,7 @@ class Route2:
         path: list[Node2] = []
         current = self.start
         while current is not None:
-            path.append(current.get_closest2())
+            path.append(current.get_closest())
             current = current.next
         return path
 
@@ -155,7 +155,7 @@ def _create_clusters(stops: list[StopName], df: pd.DataFrame) -> Clusters:
             cluster = Cluster2(*loc)
             for transport in grouped_transport:
                 loc = transport.location.lat, transport.location.lon
-                cluster.add_node(Node2(cluster, transport.name, *loc))
+                cluster.add_node(Node2(cluster, transport, *loc))
             clusters[stop].append(cluster)
         if not clusters[stop]:
             print("a")

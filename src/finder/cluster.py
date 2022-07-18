@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from operator import itemgetter
 from statistics import mean
 from typing import Optional
 
 from geopy import distance as _distance
+
+from finder.public_transport import PublicTransport
 
 
 def distance(lat1, lon1, lat2, lon2) -> float:
@@ -13,17 +14,25 @@ def distance(lat1, lon1, lat2, lon2) -> float:
     return dist
 
 
+def closer_node(node1: Node2, node2: Node2, cluster: Cluster2) -> Node2:
+    if node1.distance(cluster) <= node2.distance(cluster):
+        return node1
+    return node2
+
+
 class Node2:
     cluster: Cluster2
+    transport: PublicTransport
     lat: float
     lon: float
     # TODO: Maybe add stop.
     name: str
 
-    def __init__(self, cluster, name, lat, lon) -> None:
+    def __init__(self, cluster, transport, lat, lon) -> None:
         # Remove cluster and add it via add_node
         self.cluster = cluster
-        self.name = name
+        self.transport = transport
+        self.name = transport.name
         self.lat = lat
         self.lon = lon
 
@@ -38,6 +47,12 @@ class Node2:
 
     def distance(self, other: Node2 | Cluster2) -> float:
         return distance(self.lat, self.lon, other.lat, other.lon)
+
+    def __lt__(self, other: Node2) -> bool:
+        if (self.transport.location.close(other.transport.location) and
+                self.transport != other.transport):
+            return self.transport <= other.transport
+        return self == closer_node(self, other, self.cluster)
 
     def __repr__(self):
         return f"Node2('{self.name}', {self.lat}, {self.lon})"
@@ -97,43 +112,11 @@ class Cluster2:
     def get_closest(self) -> Optional[Node2]:
         if not self.nodes:
             return None
-        costs: list[tuple[float, Node2]] = []
-        for node in self.nodes:
-            cost_next = node.distance(self.next) if self.next else 0
-            cost_prev = node.distance(self.prev) if self.prev else 0
-            cost_self = node.distance(self)
-            # Prefer nodes closer to next node, because vehicles
-            #  typically stop at the furthest stop position first.
-            # Preferring nodes closer to the cluster location seems to lead
-            #  to better results as well. TODO: Needs more testing
-            cost = 1.05 * cost_next + cost_prev + 0.5 * cost_self
-            costs.append((cost, node))
-        return min(costs, key=itemgetter(0))[1]
-
-    def get_closest2(self) -> Optional[Node2]:
-        def get_cost_lat_lon2() -> float:
-            if not self.prev or not self.next:
-                return 0
-            lat_center = mean((self.prev.lat, self.next.lat))
-            lon_center = mean((self.prev.lon, self.next.lon))
-            return ((1 - dist_factor) *
-                    min((distance(node.lat, node.lon, lat_center, node.lon),
-                         distance(node.lat, node.lon, node.lat, lon_center))))
-
-        def get_cost_dist(other: Node2 | Cluster2) -> float:
-            return dist_factor * node.distance(other) if other else 0
-
-        if not self.nodes:
-            return None
-        dist_factor = 0.2
-        costs: list[tuple[float, Node2]] = []
-        for node in self.nodes:
-            cost_next = get_cost_lat_lon2() + get_cost_dist(self.next)
-            cost_prev = get_cost_lat_lon2() + get_cost_dist(self.prev)
-            cost_self = get_cost_dist(self)
-            cost = 1.05 * cost_next + cost_prev + 0.5 * cost_self
-            costs.append((cost, node))
-        return min(costs, key=itemgetter(0))[1]
+        min_node = self.nodes[0]
+        for node in self.nodes[1:]:
+            if node < min_node:
+                min_node = node
+        return min_node
 
     def adjust_location(self):
         """ Set the location to the mean of the location of the nodes. """

@@ -20,6 +20,10 @@ class TransportType(Enum):
     Platform = 2
     StopPosition = 3
 
+    def compare(self, other: TransportType) -> int:
+        """ -1 if self < other, 0 if self == other, 1 if self > other. """
+        return int(self.value > other.value) - int(self.value < other.value)
+
 
 @dataclass
 class Location:
@@ -60,14 +64,6 @@ class PublicTransport:
             return 0
         return get_edit_distance(self.name, self.stop)
 
-    def __gt__(self, other: PublicTransport):
-        # Prefer stations for nodes which are close to each other
-        if self.location.close(other.location):
-            if self.type.value < other.type.value:
-                return self
-            return (other if self.type > other.type else
-                    self if self.name_dist() <= other.name_dist() else other)
-
     @classmethod
     def from_series(cls: Type[PublicTransport], series: pd.Series):
         obj: cls = cls(series["name"], lat=series["lat"], lon=series["lon"])
@@ -75,6 +71,24 @@ class PublicTransport:
 
     def __repr__(self):
         return f"{self.type.name}('{self.stop}', {self.location})"
+
+    def __lt__(self, other: PublicTransport) -> bool:
+        # Prefer stations for nodes which are close to each other
+        comp = self.type.compare(other.type)
+        if self.location.close(other.location):
+            if comp == 0:
+                return self.name_dist() <= other.name_dist()
+            return comp == -1
+        # Don't compare name_distance if locations are not close.
+        return comp <= 0
+
+    def __le__(self, other: PublicTransport) -> bool:
+        return self == other or self < other
+
+    def __eq__(self, other: PublicTransport) -> bool:
+        return all((self.type == other.type,
+                    self.name == other.name,
+                    self.stop == other.stop))
 
 
 class Station(PublicTransport):
