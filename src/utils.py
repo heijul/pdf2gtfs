@@ -1,3 +1,4 @@
+import re
 from typing import TypeVar, TypeAlias
 
 
@@ -23,6 +24,8 @@ def strip_forbidden_symbols(raw_name: str) -> str:
     from config import Config
 
     name = ""
+    p_re = r"(\(.*\))"
+    raw_name = re.sub(p_re, "", raw_name)
     allowed_chars = Config.allowed_stop_chars
     for char in raw_name:
         if char not in allowed_chars and not char.isalpha():

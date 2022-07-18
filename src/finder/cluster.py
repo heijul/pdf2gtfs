@@ -110,6 +110,31 @@ class Cluster2:
             costs.append((cost, node))
         return min(costs, key=itemgetter(0))[1]
 
+    def get_closest2(self) -> Optional[Node2]:
+        def get_cost_lat_lon2() -> float:
+            if not self.prev or not self.next:
+                return 0
+            lat_center = mean((self.prev.lat, self.next.lat))
+            lon_center = mean((self.prev.lon, self.next.lon))
+            return ((1 - dist_factor) *
+                    min((distance(node.lat, node.lon, lat_center, node.lon),
+                         distance(node.lat, node.lon, node.lat, lon_center))))
+
+        def get_cost_dist(other: Node2 | Cluster2) -> float:
+            return dist_factor * node.distance(other) if other else 0
+
+        if not self.nodes:
+            return None
+        dist_factor = 0.2
+        costs: list[tuple[float, Node2]] = []
+        for node in self.nodes:
+            cost_next = get_cost_lat_lon2() + get_cost_dist(self.next)
+            cost_prev = get_cost_lat_lon2() + get_cost_dist(self.prev)
+            cost_self = get_cost_dist(self)
+            cost = 1.05 * cost_next + cost_prev + 0.5 * cost_self
+            costs.append((cost, node))
+        return min(costs, key=itemgetter(0))[1]
+
     def adjust_location(self):
         """ Set the location to the mean of the location of the nodes. """
         self.lat = mean([node.lat for node in self.nodes])

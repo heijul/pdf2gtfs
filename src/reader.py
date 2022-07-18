@@ -13,6 +13,8 @@ from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams
 # noinspection PyPackageRequirements
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
+# noinspection PyPackageRequirements
+from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
 from datastructures.rawtable.fields import Field
@@ -113,6 +115,7 @@ class Reader(BaseReader, ABC):
         # TODO: Test on windows
         try:
             Ghostscript(*gs_args)
+            self.tempfile.flush()
         except Exception as e:
             logger.error("Ghostscript encountered an error trying to convert "
                          f"{self.filepath} into {self.tempfile.name}.")
@@ -140,7 +143,7 @@ class Reader(BaseReader, ABC):
                             f"{time() - t:.4} seconds.")
                 timetables += self.read_page(page)
                 t = time()
-        except Exception as e:
+        except PDFSyntaxError as e:
             # TODO: Use PDFException/etc.
             logger.error(f"PDFFile '{file}' could not be read. Are you sure "
                          "it's a valid pdf file? This may also sometimes "

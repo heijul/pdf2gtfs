@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import logging
 import os.path
 import platform
@@ -16,8 +17,8 @@ import requests
 
 from config import Config
 from finder.cluster import Node2
-from finder.routes import (generate_routes,
-                           select_shortest_route, display_route2)
+from finder.routes import (select_shortest_route, display_route2,
+                           generate_routes2)
 
 
 if TYPE_CHECKING:
@@ -27,11 +28,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
+def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
     def union(a: str, b: str) -> str:
         if not a:
             return b
-        return f"{{\t{a}\t}} UNION {{\t{b}\t}}\t"
+        return f"{{\t{a}\t}} UNION {{\t{b}\t}}"
 
     pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
            "PREFIX geo: <http://www.opengis.net/ont/geosparql#>",
@@ -39,8 +40,9 @@ def get_osm_query(stop_positions=True, stations=True, platforms=False) -> str:
            "PREFIX osm: <https://www.openstreetmap.org/>",
            "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>",
            "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:>"]
-    sel = ["SELECT ?stop ?name ?lat ?lon ?location WHERE {"]
-    base = ["?stop rdf:type osm:node .",
+    sel = ["SELECT ?stop ?name ?lat ?lon ?public_transport WHERE {"]
+    base = ["?stop osmkey:public_transport ?public_transport .",
+            "?stop rdf:type osm:node .",
             "?stop geo:hasGeometry ?location .",
             "?stop osmkey:name ?name .",
             "BIND (geof:latitude(?location) AS ?lat)",
@@ -193,30 +195,44 @@ class Finder:
             Doing it this way is a lot faster than using a converter. """
             # Special chars include for example umlaute
             # See https://en.wikipedia.org/wiki/List_of_Unicode_characters
-            special_char_ranges = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
+            special_chars = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
             allowed_chars = "".join(Config.allowed_stop_chars)
-            re = "[^a-zA-Z{}{}]".format(special_char_ranges, allowed_chars)
+            # Remove all text enclosed by parentheses.
+            p_re = r"(\(.*\))"
+            df["name"] = df["name"].str.replace(p_re, "", regex=True
+                                                ).str.strip()
+            # Replace all abbrevieations with their full version.
+            abbreviations = {"a.": "am",
+                             "rh.": "Rhein",
+                             "ffm": "Frankfurt"}
+            for abbrev, full in abbreviations.items():
+                abbrev = r"\b" + re.escape(abbrev) + r"\b"
+                df["name"] = df["name"].str.lower().str.replace(abbrev, full, regex=True)
+            # Remove all chars other than the allowed ones.
+            char_re = "[^a-zA-Z{}{}]".format(special_chars, allowed_chars)
             df["name"] = df["name"].str.casefold().str.lower().str.replace(
-                re, "", regex=True).str.strip()
+                char_re, "", regex=True).str.strip()
+            # Remove multiple spaces resulting from previous removal.
+            df["name"] = df["name"].str.replace(" +", " ", regex=True)
 
         if not self.use_cache or self.rebuild_cache():
             if not get_osm_data_from_qlever(self.fp):
                 return
 
         converters = {"stop_loc": stop_loc_converter}
-        df = pd.read_csv(self.fp,
-                         sep="\t",
-                         names=["stop", "name", "lat", "lon", "stop_loc"],
-                         header=0,
-                         comment="#",
-                         converters=converters)
+        df = pd.read_csv(
+            self.fp,
+            sep="\t",
+            names=["stop", "name", "lat", "lon", "transport"],
+            header=0,
+            comment="#",
+            converters=converters)
         _cleanup_name()
-        del df["stop_loc"]
         self.df: pd.DataFrame = df
 
     def generate_routes(self):
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes(self.df, names)
+        self.routes = generate_routes2(self.df, names)
 
     def get_shortest_route(self) -> list[Node2]:
         # TODO: Weird roundabout way to do all this.
