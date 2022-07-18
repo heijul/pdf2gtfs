@@ -240,5 +240,5 @@ class Finder:
         # TODO: Needs check if route exists.
         route = select_shortest_route(names, self.routes)
         if Config.display_route:
-            display_route2(route, True, True)
+            display_route2(names, route, True, True)
         return route

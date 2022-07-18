@@ -220,8 +220,9 @@ def _create_routes2(stops: list[StopName], clusters: Clusters
     return routes
 
 
-def display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
-    def add_nodes():
+def display_route2(names: list[StopName],
+                   route: list[Node2], cluster=False, nodes=False) -> None:
+    def add_other_node_markers():
         for node in entry.cluster.nodes:
             if node == entry:
                 continue
@@ -229,19 +230,19 @@ def display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
             folium.Marker(_loc, popup=f"{node.name}\n{_loc}",
                           icon=folium.Icon(color="green")).add_to(m)
 
-    def add_cluster():
+    def add_cluster_marker():
         _loc = [entry.cluster.lat, entry.cluster.lon]
-        folium.Marker(_loc, popup=f"{entry.name}\n{_loc}",
+        folium.Marker(_loc, popup=f"{names[i]}\n{_loc}",
                       icon=folium.Icon(icon="cloud")).add_to(m)
 
     # TODO: Add cluster/nodes to Config.
     location = mean([e.lat for e in route]), mean([e.lon for e in route])
     m = folium.Map(location=location)
-    for entry in route:
+    for i, entry in enumerate(route):
         if nodes:
-            add_nodes()
+            add_other_node_markers()
         if cluster:
-            add_cluster()
+            add_cluster_marker()
         loc = [entry.lat, entry.lon]
         folium.Marker(loc, popup=f"{entry.name}\n{loc}").add_to(m)
 
