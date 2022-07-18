@@ -202,12 +202,10 @@ class Finder:
             df["name"] = df["name"].str.replace(p_re, "", regex=True
                                                 ).str.strip()
             # Replace all abbrevieations with their full version.
-            abbreviations = {"a.": "am",
-                             "rh.": "Rhein",
-                             "ffm": "Frankfurt"}
-            for abbrev, full in abbreviations.items():
-                abbrev = r"\b" + re.escape(abbrev) + r"\b"
-                df["name"] = df["name"].str.lower().str.replace(abbrev, full, regex=True)
+            for abbrev, full in Config.name_abbreviations.items():
+                abbrev_pattern = r"\b" + re.escape(abbrev)
+                df["name"] = df["name"].str.lower().str.replace(
+                    abbrev_pattern, full, regex=True)
             # Remove all chars other than the allowed ones.
             char_re = "[^a-zA-Z{}{}]".format(special_chars, allowed_chars)
             df["name"] = df["name"].str.casefold().str.lower().str.replace(

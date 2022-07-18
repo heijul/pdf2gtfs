@@ -62,16 +62,9 @@ def _get_permutations(name) -> list[StopName]:
 
 
 def _get_extended_abbreviations(name: StopName) -> StopName:
-    def create_word_pattern(pattern):
-        return r"\b" + re.escape(pattern)
-
-    abbreviations = {"a.": "am",
-                     "rh.": "rhein",
-                     "ffm": "frankfurt",
-                     "st.": "sankt"}
     full_name = name
-    for abbrev, full in abbreviations.items():
-        full_name = re.sub(create_word_pattern(abbrev), full, full_name)
+    for abbrev, full in Config.name_abbreviations.items():
+        full_name = re.sub(r"\b" + re.escape(abbrev), full, full_name)
     return full_name
 
 
