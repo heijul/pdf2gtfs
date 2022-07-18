@@ -236,3 +236,13 @@ class DatesProperty(Property):
             raise err.InvalidDateBoundsError
 
         super().__set__(obj, value)
+
+
+class AbbrevProperty(Property):
+    def __init__(self, cls, attr):
+        super().__init__(cls, attr, dict)
+
+    def __set__(self, obj, value: Any):
+        if isinstance(value, dict):
+            value = {key.lower(): val.lower() for key, val in value.items()}
+        super().__set__(obj, value)

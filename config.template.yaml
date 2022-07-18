@@ -155,3 +155,15 @@ display_route: True
 #
 # Type: int
 stale_cache_days: 7
+
+# If a name contains an abbreviation listed here, search for its location
+#   using the respective full form as well. This may help with matching the
+#   proper station for each stop, in case the transit agency uses internal
+#   names using abbreviations.
+#
+# Type: dict of string to string
+name_abbreviations:
+  "a.": "am"
+  "rh.": "rhein"
+  "ffm": "frankfurt"
+  "st.": "sankt"
