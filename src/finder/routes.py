@@ -14,7 +14,7 @@ from config import Config
 from finder import public_transport
 from finder.cluster import Cluster2, Node2
 from finder.public_transport import PublicTransport
-from utils import strip_forbidden_symbols
+from utils import strip_forbidden_symbols, replace_abbreviations
 
 
 class Route2:
@@ -61,17 +61,10 @@ def _get_permutations(name) -> list[StopName]:
     return [" ".join(perm) for perm in itertools.permutations(splits)]
 
 
-def _get_extended_abbreviations(name: StopName) -> StopName:
-    full_name = name
-    for abbrev, full in Config.name_abbreviations.items():
-        full_name = re.sub(r"\b" + re.escape(abbrev), full, full_name)
-    return full_name
-
-
 def _create_single_name_filter(name: StopName) -> list[StopName]:
     name = name.casefold().lower()
     name_filter = _get_permutations(name.casefold().lower())
-    full_name = _get_extended_abbreviations(name)
+    full_name = replace_abbreviations(name)
     if name != full_name:
         name_filter += _get_permutations(full_name)
     return name_filter

@@ -94,10 +94,16 @@ class Cluster2:
             other.next = self
 
     def get_closest_cluster(self, clusters: list[Cluster2]) -> Cluster2:
+        def get_dist_modifier(_cluster) -> float:
+            return (1 + 0.2 * min([node.transport.name_dist()
+                                   for node in _cluster.nodes]))
+
         closest = clusters[0]
         min_dist = distance(self.lat, self.lon, closest.lat, closest.lon)
+        min_dist *= get_dist_modifier(closest)
         for cluster in clusters[1:]:
             dist = distance(self.lat, self.lon, cluster.lat, cluster.lon)
+            dist *= get_dist_modifier(cluster)
             if dist > min_dist:
                 continue
             closest = cluster

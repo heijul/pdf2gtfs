@@ -1,6 +1,10 @@
-import re
-from typing import TypeVar, TypeAlias
+from __future__ import annotations
 
+import re
+from typing import TypeVar, TypeAlias, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from finder.routes import StopName
 
 def __uid_generator():
     """ Infinite sequence of ids. """
@@ -65,3 +69,12 @@ def get_edit_distance(s1, s2):
                           d[i - 1][j - 1] + cost)
 
     return d[m - 1][n - 1]
+
+
+def replace_abbreviations(name: StopName) -> StopName:
+    from config import Config
+
+    full_name = name
+    for abbrev, full in Config.name_abbreviations.items():
+        full_name = re.sub(r"\b" + re.escape(abbrev), full, full_name)
+    return full_name

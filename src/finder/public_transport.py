@@ -6,7 +6,7 @@ from typing import Optional, Type, TYPE_CHECKING
 
 import pandas as pd
 
-from utils import get_edit_distance
+from utils import get_edit_distance, replace_abbreviations
 
 if TYPE_CHECKING:
     from finder.routes import StopName
@@ -60,9 +60,11 @@ class PublicTransport:
     def name_dist(self) -> int:
         if self.stop is None:
             return -1
-        if self.is_permutation or self.name.lower() == self.stop.lower():
+        name = replace_abbreviations(self.name).casefold().lower()
+        stop = replace_abbreviations(self.stop).casefold().lower()
+        if self.is_permutation or name == stop:
             return 0
-        return get_edit_distance(self.name, self.stop)
+        return get_edit_distance(name, stop)
 
     @classmethod
     def from_series(cls: Type[PublicTransport], series: pd.Series):
