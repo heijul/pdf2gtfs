@@ -1,9 +1,9 @@
-from utils import strip_forbidden_symbols
+from utils import normalize_name
 
 
 class Stop:
     def __init__(self, name: str, raw_row_id: int):
-        self.name = strip_forbidden_symbols(name)
+        self.name = normalize_name(name)
         self.raw_row_id = raw_row_id
         self.annotation = ""
         self.is_connection = False

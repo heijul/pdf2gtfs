@@ -14,7 +14,7 @@ from config import Config
 from finder import public_transport
 from finder.cluster import Cluster2, Node2
 from finder.public_transport import PublicTransport
-from utils import strip_forbidden_symbols, replace_abbreviations
+from utils import normalize_name, replace_abbreviations
 
 
 class Route2:
@@ -100,7 +100,7 @@ def _filter_df(df: pd.DataFrame, name_filter: list[StopName]):
 def _create_clusters2(stops: list[StopName], df: pd.DataFrame) -> Clusters:
     def by_name(entry_id):
         _entry = df.loc[entry_id]
-        return strip_forbidden_symbols(_entry["name"]).casefold().lower()
+        return normalize_name(_entry["name"]).casefold().lower()
 
     grouped = df.groupby(by_name, axis=0)
     clusters = {}

@@ -6,6 +6,7 @@ from typing import TypeVar, TypeAlias, TYPE_CHECKING
 if TYPE_CHECKING:
     from finder.routes import StopName
 
+
 def __uid_generator():
     """ Infinite sequence of ids. """
     next_id = 0
@@ -23,19 +24,34 @@ def next_uid():
     return next(__uid_generator)
 
 
-def strip_forbidden_symbols(raw_name: str) -> str:
+def normalize_name(name: str) -> str:
     """ Return a str which only consists of letters and allowed chars. """
     from config import Config
 
-    name = ""
-    p_re = r"(\(.*\))"
-    raw_name = re.sub(p_re, "", raw_name)
-    allowed_chars = Config.allowed_stop_chars
-    for char in raw_name:
-        if char not in allowed_chars and not char.isalpha():
-            continue
-        name += char
-    return name.strip()
+    def _remove_parentheses(string: str) -> str:
+        # Replace with space if there are spaces on either side.
+        string = re.sub(r"( *\(.*\) *?\b)", " ", string)
+        # Replace with nothing if its is followed by another symbol (like ',')
+        return re.sub(r"( *\(.*\).*?\B)", "", string)
+
+    def _remove_forbidden_symbols(string: str) -> str:
+        special_chars = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
+        re_allowed_symbols = r"[^a-zA-Z\d{}{}]".format(
+            special_chars, Config.allowed_stop_chars)
+        return re.sub(re_allowed_symbols, "", string)
+
+    def _remove_non_letter_starts(string: str) -> str:
+        # Names should start with a letter. TODO: may need some work
+        while any([string.startswith(char)
+                   for char in Config.allowed_stop_chars]):
+            string = string[1:]
+        return string
+
+    name = _remove_parentheses(name)
+    name = _remove_forbidden_symbols(name)
+    name = _remove_non_letter_starts(name)
+    # Remove multiple continuous spaces
+    return re.sub("( +)", " ", name)
 
 
 T_ = TypeVar("T_")
@@ -72,9 +88,12 @@ def get_edit_distance(s1, s2):
 
 
 def replace_abbreviations(name: StopName) -> StopName:
+    """ Returns a string where all abbreviations in name are replaced by
+    their respective full form. """
     from config import Config
 
     full_name = name
     for abbrev, full in Config.name_abbreviations.items():
         full_name = re.sub(r"\b" + re.escape(abbrev), full, full_name)
+        full_name = re.sub(re.escape(abbrev) + r"\B", full, full_name)
     return full_name
