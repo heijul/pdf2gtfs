@@ -18,7 +18,7 @@ import requests
 from config import Config
 from finder.cluster import Node2
 from finder.routes import (select_shortest_route, display_route2,
-                           generate_routes2)
+                           generate_routes2, display_route3)
 
 
 if TYPE_CHECKING:
@@ -230,7 +230,7 @@ class Finder:
 
     def generate_routes(self):
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes2(self.df, names)
+        self.routes, self.clusters = generate_routes2(self.df, names)
 
     def get_shortest_route(self) -> list[Node2]:
         # TODO: Weird roundabout way to do all this.
@@ -240,5 +240,6 @@ class Finder:
         # TODO: Needs check if route exists.
         route = select_shortest_route(names, self.routes)
         if Config.display_route:
-            display_route2(names, route, True, True)
+            display_route2(names, route, True, False)
+            display_route3(names, route, self.clusters, True)
         return route
