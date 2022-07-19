@@ -5,6 +5,7 @@ from typing import Optional
 
 from geopy import distance as _distance
 
+from config import Config
 from finder.public_transport import PublicTransport
 
 
@@ -103,6 +104,9 @@ class Cluster2:
         min_dist *= get_dist_modifier(closest)
         for cluster in clusters[1:]:
             dist = distance(self.lat, self.lon, cluster.lat, cluster.lon)
+            # TODO: Need to check this for min_dist as well
+            if dist > Config.max_stop_distance:
+                continue
             dist *= get_dist_modifier(cluster)
             if dist > min_dist:
                 continue
