@@ -51,6 +51,11 @@ class Route(BaseDataClass):
         return (self.route_short_name == other.route_short_name and
                 self.route_long_name == other.route_long_name)
 
+    def to_output(self) -> str:
+        short = f'"{self.route_short_name}"' if self.route_short_name else ""
+        long = f'"{self.route_long_name}"' if self.route_long_name else ""
+        return f"{self.route_id},{short},{long},{self.route_type.to_output()}"
+
 
 class Routes(BaseContainer):
     def __init__(self):

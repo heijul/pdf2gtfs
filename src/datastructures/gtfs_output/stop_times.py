@@ -26,6 +26,7 @@ class Time:
     def from_string(time_string: str) -> Time:
         time_string = time_string.strip()
         try:
+            time_string = time_string.replace(" ", "")
             time = dt.strptime(time_string, Config.time_format)
         except ValueError:
             logger.warning(f"Value '{time_string}' does not seem to have the "

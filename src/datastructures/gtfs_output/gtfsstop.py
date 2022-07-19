@@ -27,6 +27,10 @@ class GTFSStop(BaseDataClass):
         self.stop_lat = lat
         self.stop_lon = lon
 
+    def to_output(self) -> str:
+        return (f'{self.stop_id},"{self.stop_name}",'
+                f'{self.stop_lat},{self.stop_lon}')
+
 
 class GTFSStops(BaseContainer):
     entries: list[GTFSStop]
