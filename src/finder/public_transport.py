@@ -72,7 +72,10 @@ class PublicTransport:
         return obj
 
     def __repr__(self):
-        return f"{self.type.name}('{self.stop}', {self.location})"
+        if not self.stop:
+            return f"{self.type.name}('{self.name}', {self.location})"
+        return (f"{self.type.name}('{self.stop}', "
+                f"'{self.name}', {self.location})")
 
     def __lt__(self, other: PublicTransport) -> bool:
         # Prefer stations for nodes which are close to each other
