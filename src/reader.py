@@ -1,4 +1,5 @@
 import logging
+import os
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from pathlib import Path
@@ -7,6 +8,7 @@ from tempfile import NamedTemporaryFile
 from time import time
 
 import pandas as pd
+from ghostscript import GhostscriptError
 # noinspection PyPackageRequirements
 from pdfminer.high_level import extract_pages
 # noinspection PyPackageRequirements
@@ -92,6 +94,14 @@ class Reader(BaseReader, ABC):
         super().__init__(filename)
         self.tempfile = None
 
+    def _preprocess_cleanup(self):
+        if not self.tempfile:
+            return
+        try:
+            os.unlink(self.tempfile.name)
+        except OSError:
+            pass
+
     def preprocess(self):
         # Preprocessing seems to take care of invisible text, while also
         # improving performance by a lot, because only text is preserved.
@@ -103,7 +113,8 @@ class Reader(BaseReader, ABC):
             logger.warning("Ghostscript library does not seem to be "
                            "installed. Skipping preprocessing...")
             return
-        self.tempfile = NamedTemporaryFile()
+        self.tempfile = NamedTemporaryFile(delete=False)
+        self.tempfile.close()
 
         # TODO: Allow custom args
         # TODO: Currently runs on all pages instead of Config.pages,
@@ -115,14 +126,14 @@ class Reader(BaseReader, ABC):
         # TODO: Test on windows
         try:
             Ghostscript(*gs_args)
-            self.tempfile.flush()
-        except Exception as e:
+            if Config.output_pp:
+                copyfile(self.tempfile.name,
+                         Config.output_dir.joinpath("preprocessed.pdf"))
+        except GhostscriptError as e:
             logger.error("Ghostscript encountered an error trying to convert "
                          f"{self.filepath} into {self.tempfile.name}.")
+            self._preprocess_cleanup()
             raise e
-        if Config.output_pp:
-            copyfile(self.tempfile.name,
-                     Config.output_dir.joinpath("preprocessed.pdf"))
         logger.info(f"Preprocessing done. Took {time() - start_time:.2f}s")
 
     def read(self):
@@ -150,6 +161,8 @@ class Reader(BaseReader, ABC):
                          "happen for no valid reason. Try again.")
             logger.error(e)
             return
+        finally:
+            self._preprocess_cleanup()
 
         return timetables
 
