@@ -30,6 +30,7 @@ class Route2:
         self.start = start
         current = self.start
         for stop in self.stops[1:]:
+            # TODO: Need to check if clusters[stop] is empty
             current.next = clusters[stop]
             current = current.next
 
@@ -71,8 +72,8 @@ def _create_single_name_filter(name: StopName) -> list[StopName]:
 
 
 def _create_name_filter(names: list[StopName]):
-    # TODO: Turn cf_names into dict with name -> [split names], sorted by
-    #  edit distance to name
+    # FEATURE: Turn cf_names into dict with name -> [split names],
+    #  sorted by edit distance to name
     name_filter = []
     for name in list(names):
         name_filter += _create_single_name_filter(name)
@@ -228,7 +229,7 @@ def display_route2(names: list[StopName],
         folium.Marker(_loc, popup=f"{names[i]}\n{_loc}",
                       icon=folium.Icon(icon="cloud")).add_to(m)
 
-    # TODO: Add cluster/nodes to Config.
+    # FEATURE: Add cluster/nodes to Config.
     location = mean([e.lat for e in route]), mean([e.lon for e in route])
     m = folium.Map(location=location)
     for i, entry in enumerate(route):
@@ -253,7 +254,7 @@ def select_shortest_route(stops: list[StopName], routes: list[list[Node2]]
         dist: float = sum([route[i].distance(route[i + 1])
                            for i in range(len(route)) if i < len(route) - 1])
         dists.append((dist, route))
-    # TODO: Probably fails if dists[a][0] == dists[b][0]
+    # CHECK: Probably fails if dists[a][0] == dists[b][0]
     return min(dists, key=itemgetter(0))[1]
 
 

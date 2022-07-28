@@ -169,7 +169,7 @@ class OverwriteBaseState(InputState):
     def __init__(self, state_machine: OverwriteInputHandler):
         msg = ("The file {} already exists.\nDo you want to overwrite it? "
                "[y]es [n]o")
-        # TODO: Extend to overwrite all/none/overwrite/skip
+        # FEATURE: Extend to overwrite all/none/overwrite/skip
         self.overwrite = False
         super().__init__(state_machine, "base", msg, "end")
         self.sm: OverwriteInputHandler

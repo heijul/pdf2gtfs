@@ -83,7 +83,7 @@ class Table:
         return TimeTable.from_raw_table(self)
 
     def get_header_from_column(self, column: Column) -> str:
-        # TODO: What if there is more than one header row?
+        # CHECK: What if there is more than one header row?
         for row in self.rows.of_type(RowType.HEADER):
             for i, field in enumerate(row, 1):
                 next_field = row.fields[i] if i < len(row.fields) else None
@@ -102,7 +102,7 @@ def split_rows_into_tables(rows: list[Row]) -> list[Table]:
         y_distance = row.distance(current_rows[-1], "y")
         if y_distance > Config.max_row_distance:
             if len(current_rows) < Config.min_row_count:
-                # TODO: Should not drop the table,
+                # FEATURE: Should not drop the table,
                 #  but use it to enhance the others
                 row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
                 logger.debug(f"Dropped rows:\n\tDistance: {y_distance}"

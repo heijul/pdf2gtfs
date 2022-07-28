@@ -87,7 +87,7 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
     return pd.DataFrame(char_list)
 
 
-# TODO: No need for a class here I guess. Just use toplevel functions with
+# STYLE: No need for a class here I guess. Just use toplevel functions with
 #  the proper access level, or not, in order to make it replaceable.
 class Reader(BaseReader, ABC):
     def __init__(self, filename: str = None):
@@ -116,14 +116,14 @@ class Reader(BaseReader, ABC):
         self.tempfile = NamedTemporaryFile(delete=False)
         self.tempfile.close()
 
-        # TODO: Allow custom args
-        # TODO: Currently runs on all pages instead of Config.pages,
+        # FEATURE: Allow custom args
+        # CHECK: Currently runs on all pages instead of Config.pages,
         #  however should not make a difference, because of how fast gs is
         gs_args = ["gs", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dFILTERIMAGE",
                    "-dFILTERVECTOR", "-dPRINTED=true", "-dFitPage",
                    "-dBlackText", "-q", "-dBATCH ",
                    f"-sOutputFile={self.tempfile.name}", str(self.filepath)]
-        # TODO: Test on windows
+
         try:
             Ghostscript(*gs_args)
             if Config.output_pp:
@@ -155,7 +155,6 @@ class Reader(BaseReader, ABC):
                 timetables += self.read_page(page)
                 t = time()
         except PDFSyntaxError as e:
-            # TODO: Use PDFException/etc.
             logger.error(f"PDFFile '{file}' could not be read. Are you sure "
                          "it's a valid pdf file? This may also sometimes "
                          "happen for no valid reason. Try again.")
@@ -237,7 +236,7 @@ class Reader(BaseReader, ABC):
                 continue
             if len(char.text) != 1:
                 # Sometimes chars are wrongly detected as cid(x) codes...
-                # TODO: Problem lies with ghostscript/pdfminer;
+                # ASK: Problem lies with ghostscript/pdfminer;
                 #  Should be fixed there and properly
                 char.text = chr(int(char.text[5:-1]))
             # Fields are continuous streams of chars.

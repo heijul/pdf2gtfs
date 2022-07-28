@@ -26,7 +26,7 @@ class Node2:
     transport: PublicTransport
     lat: float
     lon: float
-    # TODO: Maybe add stop.
+    # FEATURE: Maybe add stop, could possibly make some things easier.
     name: str
 
     def __init__(self, cluster, transport, lat, lon) -> None:

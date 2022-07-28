@@ -41,7 +41,9 @@ def normalize_name(name: str) -> str:
         return re.sub(re_allowed_symbols, "", string)
 
     def _remove_non_letter_starts(string: str) -> str:
-        # Names should start with a letter. TODO: may need some work
+        # FEATURE: Instead of doing this, create function to add city name in
+        #  case name starts with a '-'. See kvv example.
+        # Names should start with a letter.
         while any([string.startswith(char)
                    for char in Config.allowed_stop_chars]):
             string = string[1:]

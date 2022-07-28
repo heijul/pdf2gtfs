@@ -115,9 +115,8 @@ class FieldContainer(BBoxObject):
 
     def _contains_time_data(self):
         """ Check if any field contains time data. """
-        # TODO: Maybe add threshold as with sparsity?
-        # TODO: Big problem when encountering dates ("nicht am 05.06")
-        # TODO: Maybe add (bbox.x0 - table.bbox.x0) < X as a requirement?
+        # This may rarely return True, if field text contains the text "05.06"
+        # of the annotation "nicht am 05.06.".
         field_texts = [str(field.text).strip() for field in self.fields]
         for field_text in field_texts:
             try:
@@ -168,7 +167,7 @@ class Row(FieldContainer):
         return self._type
 
     def detect_type(self):
-        # TODO: REDO.
+        # IMPROVE: REDO.
         def _contains(idents: list[str]):
             """ Check if any of the fields contain any of the identifier. """
             field_texts = [str(field.text).lower() for field in self.fields]
@@ -203,7 +202,7 @@ class Row(FieldContainer):
             self._type = RowType.OTHER
 
     def apply_column_scheme(self, columns: list[Column | None]):
-        # TODO: This is actually three functions in a trenchcoat.
+        # STYLE: This is actually three functions in a trenchcoat.
         from datastructures.rawtable.fields import Field
 
         def get_stop_bbox():
@@ -305,7 +304,7 @@ class Column(FieldContainer):
             self._type = ColumnType.DATA
 
     def _contains_repeat_identifier(self):
-        # TODO: iterate through fields -> check for identifier
+        # IMPROVE: iterate through fields -> check for identifier
         #  -> check for num -> (maybe check for min/min.)
         return any([f.text.lower() in Config.repeat_identifier
                     for f in self.fields])

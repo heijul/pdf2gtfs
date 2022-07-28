@@ -65,8 +65,8 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
 def get_osm_data_from_qlever(path: Path) -> bool:
     base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
     data = {"action": "tsv_export", "query": get_osm_query()}
-    # TODO: Add "OPTIONAL {?stop osmkey:XX Config.osmkey_XX}"
-    #  e.g. railway: "tram_stop"
+    # FEATURE: Add "OPTIONAL {?stop osmkey:XX Config.osmkey_XX}"
+    #  e.g. railway: "tram_stop". Check branch 'add_railway_key'.
 
     url = base_url + parse.urlencode(data)
     try:
@@ -101,7 +101,6 @@ def stop_loc_converter(value: str) -> str:
 def get_cache_dir_path() -> Path | None:
     system = platform.system().lower()
     if system == "windows":
-        # TODO: Test on windows
         return Path(os.path.expandvars("%LOCALAPPDATA%/pdf2gtfs/")).resolve()
     if system == "linux":
         return Path(os.path.expanduser("~/.cache/pdf2gtfs/")).resolve()
@@ -195,6 +194,7 @@ class Finder:
             Doing it this way is a lot faster than using a converter. """
             # Special chars include for example umlaute
             # See https://en.wikipedia.org/wiki/List_of_Unicode_characters
+            # TODO: Refactor, so df["name"] is not updated as often.
             special_chars = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
             allowed_chars = "".join(Config.allowed_stop_chars)
             # Remove all text enclosed by parentheses.
@@ -233,12 +233,12 @@ class Finder:
         self.routes = generate_routes2(self.df, names)
 
     def get_shortest_route(self) -> list[Node2]:
-        # TODO: Weird roundabout way to do all this.
+        # STYLE: Weird roundabout way to do all this.
         if not self.routes:
             self.generate_routes()
         names = [stop.stop_name for stop in self.handler.stops.entries]
         # TODO: Needs check if route exists.
         route = select_shortest_route(names, self.routes)
         if Config.display_route:
-            display_route2(names, route, True, True)
+            display_route2(names, route, False, False)
         return route

@@ -32,6 +32,6 @@ class Agency(BaseContainer):
         super().__init__("agency.txt", AgencyEntry)
 
     def add(self):
-        # TODO: Get data from config.
+        # FEATURE: Get data from config/Never overwrite existing agency/etc...
         entry = DummyAgencyEntry()
         self._add(entry)
