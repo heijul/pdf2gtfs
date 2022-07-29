@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 import webbrowser
 from operator import itemgetter
 from statistics import mean
@@ -15,6 +16,9 @@ from finder import public_transport
 from finder.cluster import Cluster2, Node2, distance
 from finder.public_transport import PublicTransport
 from utils import normalize_name, replace_abbreviations
+
+
+logger = logging.getLogger(__name__)
 
 
 class Route2:
@@ -158,7 +162,6 @@ def _create_transports(df: pd.DataFrame, stops: list[StopName]
     for stop in stops:
         name_filter = _create_single_name_filter(stop)
         name_filter_regex = name_filter_to_regex(name_filter)
-        stop_regex = __create_regex(name_filter)
         stop_transports = __create_transports(df, name_filter_regex)
         for transport in stop_transports:
             transport.set_stop(stop, False)
@@ -212,7 +215,6 @@ def _create_transports_extended(df: pd.DataFrame, stops: list[StopName]
             old_regex = create_regex(old_stop)
             if better_match(stop_regex, old_regex, transport.name):
                 transport.set_stop(stop, False)
-            print("aaa")
 
         transports += stop_transports
 
@@ -238,7 +240,7 @@ def _create_clusters(
                 cluster.add_node(Node2(cluster, transport, *loc))
             clusters[stop].append(cluster)
         if not clusters[stop]:
-            print("a")
+            logger.warning(f"No cluster found {stop}.")
     return clusters
 
 
@@ -392,7 +394,6 @@ def generate_routes(raw_df: pd.DataFrame, stops: list[StopName]
 
 def generate_routes2(raw_df: pd.DataFrame, stops: list[StopName]
                      ) -> list[list[Node2]]:
-    name_filter = _create_name_filter(stops)
     df = _filter_df(raw_df, _create_name_filter(stops))
     clusters = _create_clusters(stops, df, False)
     empty_clusters = {key: cluster for key, cluster in clusters.items()
@@ -405,4 +406,4 @@ def generate_routes2(raw_df: pd.DataFrame, stops: list[StopName]
         clusters.update(_create_clusters(missing_stops, df, True))
 
     routes: list[list[Node2]] = _create_routes2(stops, clusters)
-    return routes, clusters
+    return routes
