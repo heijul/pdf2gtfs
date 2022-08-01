@@ -24,6 +24,9 @@ def next_uid():
     return next(__uid_generator)
 
 
+SPECIAL_CHARS = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
+
+
 def normalize_name(name: str) -> str:
     """ Return a str which only consists of letters and allowed chars. """
     from config import Config
@@ -37,10 +40,9 @@ def normalize_name(name: str) -> str:
     def _remove_forbidden_symbols(string: str) -> str:
         # Special chars include for example umlaute
         # See https://en.wikipedia.org/wiki/List_of_Unicode_characters
-        special_chars = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
         allowed_chars = "".join([re.escape(char)
                                  for char in Config.allowed_stop_chars])
-        re_allowed_symbols = rf"[^a-zA-Z\d{special_chars}{allowed_chars}]"
+        re_allowed_symbols = rf"[^a-zA-Z\d{SPECIAL_CHARS}{allowed_chars}]"
         return re.sub(re_allowed_symbols, "", string)
 
     def _remove_non_letter_starts(string: str) -> str:
