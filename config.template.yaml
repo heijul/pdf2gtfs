@@ -164,7 +164,7 @@ stale_cache_days: 7
 #   be replaced with "Frankfurt" if it is set to {"ffm": "Frankfurt"}.
 #
 # Type: dict of string to string
-# TODO: Remove all dots and add optional dot at the end.
+# TODO: Add optional dot in code if key does not end in dot.
 name_abbreviations:
   "a.": "am"
   "rh.": "rhein"
@@ -173,6 +173,7 @@ name_abbreviations:
   "hbf": "hauptbahnhof"
   "bf": "bahnhof"
   "str.": "straße"
+  "ka": "karlsruhe"
 
 # TODO: Add route_display_options = [show_clusters, show_all_cluster_nodes]
 #  (bool, bool) maybe merge with display_route
