@@ -35,6 +35,8 @@ def normalize_name(name: str) -> str:
         return re.sub(r"( *\(.*\).*?\B)", "", string)
 
     def _remove_forbidden_symbols(string: str) -> str:
+        # Special chars include for example umlaute
+        # See https://en.wikipedia.org/wiki/List_of_Unicode_characters
         special_chars = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
         allowed_chars = "".join([re.escape(char)
                                  for char in Config.allowed_stop_chars])
