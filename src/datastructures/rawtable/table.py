@@ -4,7 +4,7 @@ import logging
 from operator import attrgetter
 
 from config import Config
-from datastructures.rawtable.enums import RowType
+from datastructures.rawtable.enums import RowType, ColumnType
 from datastructures.rawtable.container import Row, Column
 from datastructures.rawtable.lists import RowList, ColumnList
 from datastructures.timetable.table import TimeTable
@@ -78,6 +78,52 @@ class Table:
         for row in self.rows.of_types([RowType.ANNOTATION,
                                        RowType.ROUTE_INFO]):
             row.apply_column_scheme(columns)
+
+    def fix_split_stopnames(self):
+        """ Finds and tries to repair stop names, which start with a "-",
+         indicating that they use the same city/poi as the previous.
+
+        e.g. given a row with stop A with text "Frankfurt - Hauptbahnhof",
+         followed by a stop B with text "- Friedhof", then the text of B
+         will be changed to "Frankfurt - Friedhof".
+        """
+
+        def get_base_text(_last_stop: str, _stop: str) -> str:
+            """ Returns the base name for the split stops. """
+            if _stop in _last_stop:
+                return _last_stop.replace(_stop, "")
+            clean_stop = _stop[1:].strip()
+            if clean_stop in _last_stop:
+                return _last_stop.replace(clean_stop, "")
+            return _get_base_from_last_stop_text(_last_stop)
+
+        def _get_base_from_last_stop_text(_last_stop_text: str) -> str:
+            """ Return the base text given only the _last_stop_text. """
+            merge_chars = {",": ", "}
+            split_chars = [", ", ",", " "]
+            for split_char in split_chars:
+                split_text = _last_stop_text.split(split_char, 1)
+                if len(split_text) <= 1:
+                    continue
+                merge_char = merge_chars.get(split_char, split_char)
+                return split_text[0] + merge_char
+            # TODO: Maybe return "" ?!
+            return _last_stop_text + " "
+
+        stops = self.columns.of_type(ColumnType.STOP)[0].fields
+        last_stop_text = stops[0].text
+        base = ""
+        for stop in stops[1:]:
+            if not stop:  # TODO: stop.row.type != rowtype.data
+                continue
+            stop_text = stop.text.strip()
+            if not stop_text.startswith("-"):
+                last_stop_text = stop_text
+                base = ""
+                continue
+            if not base:
+                base = get_base_text(last_stop_text, stop_text)
+            stop.text = base + stop_text[1:].strip()
 
     def to_timetable(self) -> TimeTable:
         return TimeTable.from_raw_table(self)
