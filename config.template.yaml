@@ -175,5 +175,5 @@ name_abbreviations:
   "str.": "straße"
 
 # TODO: Add route_display_options = [show_clusters, show_all_cluster_nodes]
-#  _ : (bool, bool) maybe merge with display_route
+#  (bool, bool) maybe merge with display_route
 # TODO: Add disable_connection_detection: bool = False
