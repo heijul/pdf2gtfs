@@ -5,6 +5,8 @@ import logging
 import os.path
 import platform
 import datetime as dt
+from io import BytesIO
+
 from requests.exceptions import ConnectionError
 from os import makedirs
 from pathlib import Path
@@ -19,6 +21,7 @@ from config import Config
 from finder.cluster import Node2
 from finder.routes import (select_shortest_route, display_route2,
                            generate_routes2)
+from utils import SPECIAL_CHARS
 
 
 if TYPE_CHECKING:
@@ -79,14 +82,66 @@ def get_osm_data_from_qlever(path: Path) -> bool:
         logger.error(f"Could not get osm data: {r}\n{r.content}")
         return False
 
-    with open(path, "wb") as fil:
-        date = dt.date.today().strftime("%Y%m%d")
-        fil.write(bytes(f"# Queried: .{date}.\n", "utf-8"))
-        query = "\n#   ".join(data["query"].split("\n"))
-        fil.write(bytes(f"# Query: \n#   {query}\n", "utf-8"))
-        fil.write(r.content)
-
+    osm_data_to_file(r.content, data["query"], path)
     return True
+
+
+def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
+    def _normalize(series: pd.Series) -> pd.Series:
+        return series.str.lower().str.casefold()
+
+    def _remove_parentheses(series: pd.Series) -> pd.Series:
+        # Remove parentheses and all text enclosed by them.
+        regex = r"(\(.*\))"
+        return series.str.replace(regex, "", regex=True)
+
+    def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
+        # Remove all chars other than the allowed ones.
+        allowed_chars = "".join(Config.allowed_stop_chars)
+        char_re = fr"[^a-zA-Z\d{SPECIAL_CHARS}{allowed_chars}]"
+        return series.str.replace(char_re, "", regex=True)
+
+    def _cleanup_spaces(series: pd.Series) -> pd.Series:
+        # Remove consecutive, as well as leading/trailing spaces.
+        return series.str.replace(" +", " ", regex=True).str.strip()
+
+    def _replace_abbreviations(series: pd.Series) -> pd.Series:
+        def replace_abbrev(value):
+            start, end = value.span()
+            return abbrevs[value.string[start:end]]
+
+        # TODO: Try to match the whole abbrev, but allow missing dots as well
+        abbrevs = Config.name_abbreviations
+        regex = "|".join([rf"\b{re.escape(abbrev)}" for abbrev in abbrevs])
+        return series.str.replace(regex, replace_abbrev, regex=True)
+
+    def _cleanup_name(series: pd.Series):
+        """ Remove any chars which are not letters or allowed chars.
+        Doing it this way is a lot faster than using a converter. """
+        return _cleanup_spaces(
+            _remove_forbidden_chars(
+                _remove_parentheses(
+                    _replace_abbreviations(
+                        _normalize(series)))))
+
+    df = read_csv(BytesIO(raw_data))
+    df["name"] = _cleanup_name(df["name"])
+    # Remove entries with empty name.
+    return df.where(df["name"] != "").dropna()
+
+
+def osm_data_to_file(raw_data: bytes, query: str, path: Path):
+    # TODO: Now requires --clear_cache, if allowed_chars/abbrevs are changed.
+    #  Alternative: Save the allowed_chars + abbrevs in the cache as well.
+    df = _clean_osm_data(raw_data)
+
+    with open(path, "w") as fil:
+        date = dt.date.today().strftime("%Y%m%d")
+        fil.write(f"# Queried: .{date}.\n")
+        query = "\n#   ".join(query.split("\n"))
+        fil.write(f"# Query: \n#   {query}\n")
+
+    df.to_csv(path, sep="\t", header=False, index=False, mode="a")
 
 
 def stop_loc_converter(value: str) -> str:
@@ -130,6 +185,15 @@ def create_cache_dir() -> tuple[bool, Path | None]:
                        f"Caching has been disabled.")
         return False, None
     return True, path
+
+
+def read_csv(file: Path | BytesIO) -> pd.DataFrame:
+    return pd.read_csv(
+        file,
+        sep="\t",
+        names=["stop", "name", "lat", "lon", "transport", "clean_name"],
+        header=0,
+        comment="#")
 
 
 class Finder:
@@ -189,43 +253,11 @@ class Finder:
         return query != get_osm_query()
 
     def _get_stop_data(self):
-        def _cleanup_name():
-            """ Remove any chars which are not letters or allowed chars.
-            Doing it this way is a lot faster than using a converter. """
-            # Special chars include for example umlaute
-            # See https://en.wikipedia.org/wiki/List_of_Unicode_characters
-            # TODO: Refactor, so df["name"] is not updated as often.
-            special_chars = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
-            allowed_chars = "".join(Config.allowed_stop_chars)
-            # Remove all text enclosed by parentheses.
-            p_re = r"(\(.*\))"
-            df["name"] = df["name"].str.replace(p_re, "", regex=True
-                                                ).str.strip()
-            # Replace all abbrevieations with their full version.
-            for abbrev, full in Config.name_abbreviations.items():
-                abbrev_pattern = r"\b" + re.escape(abbrev)
-                df["name"] = df["name"].str.lower().str.replace(
-                    abbrev_pattern, full, regex=True)
-            # Remove all chars other than the allowed ones.
-            char_re = "[^a-zA-Z{}{}]".format(special_chars, allowed_chars)
-            df["name"] = df["name"].str.casefold().str.lower().str.replace(
-                char_re, "", regex=True).str.strip()
-            # Remove multiple spaces resulting from previous removal.
-            df["name"] = df["name"].str.replace(" +", " ", regex=True)
-
         if not self.use_cache or self.rebuild_cache():
             if not get_osm_data_from_qlever(self.fp):
                 return
 
-        converters = {"stop_loc": stop_loc_converter}
-        df = pd.read_csv(
-            self.fp,
-            sep="\t",
-            names=["stop", "name", "lat", "lon", "transport"],
-            header=0,
-            comment="#",
-            converters=converters)
-        _cleanup_name()
+        df = read_csv(self.fp)
         self.df: pd.DataFrame = df
 
     def generate_routes(self):
