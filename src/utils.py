@@ -35,9 +35,10 @@ def normalize_name(name: str) -> str:
         return re.sub(r"( *\(.*\).*?\B)", "", string)
 
     def _remove_forbidden_symbols(string: str) -> str:
-        special_chars = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
-        re_allowed_symbols = r"[^a-zA-Z\d{}{}]".format(
-            special_chars, Config.allowed_stop_chars)
+        special_chars = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
+        allowed_chars = "".join([re.escape(char)
+                                 for char in Config.allowed_stop_chars])
+        re_allowed_symbols = rf"[^a-zA-Z\d{special_chars}{allowed_chars}]"
         return re.sub(re_allowed_symbols, "", string)
 
     def _remove_non_letter_starts(string: str) -> str:
