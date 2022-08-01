@@ -110,14 +110,19 @@ class Table:
             # TODO: Maybe return "" ?!
             return _last_stop_text + " "
 
-        stops = self.columns.of_type(ColumnType.STOP)[0].fields
+        def is_indented() -> bool:
+            max_indention_in_px = 3
+            return abs(column.bbox.x0 - stop.bbox.x0) >= max_indention_in_px
+
+        column = self.columns.of_type(ColumnType.STOP)[0]
+        stops = column.fields
         last_stop_text = stops[0].text
         base = ""
         for stop in stops[1:]:
-            if not stop:  # TODO: stop.row.type != rowtype.data
+            if not stop or stop.row.type != RowType.DATA:
                 continue
             stop_text = stop.text.strip()
-            if not stop_text.startswith("-"):
+            if not stop_text.startswith("-") or is_indented():
                 last_stop_text = stop_text
                 base = ""
                 continue
