@@ -5,7 +5,7 @@ import logging
 import webbrowser
 from operator import itemgetter
 from statistics import mean
-from typing import TypeAlias
+from typing import TypeAlias, TypeVar
 import re
 
 import pandas as pd
@@ -247,40 +247,49 @@ def _create_clusters(
     return clusters
 
 
+_T = TypeVar("_T")
+
+
+def __group_with_tolerance(objs: list[_T], getter) -> dict[Location: list[_T]]:
+    def _get_group_key(keys: list[Location], lat2: float, lon2: float
+                       ) -> Location:
+        """ Tries to find a key in keys, which is close to the given lat/lon.
+        If no such key exists, return the given lat and lon. """
+
+        # 0.008 degree ~= 1km TODO: add cosine for lat/lon.
+        tolerance = 0.008
+        for lat1, lon1 in keys:
+            lat_is_close = abs(lat1 - lat2) <= tolerance
+            lon_is_close = abs(lon1 - lon2) <= tolerance
+            if lat_is_close and lon_is_close:
+                return lat1, lon1
+        return lat2, lon2
+
+    groups: dict[Location: list[_T]] = {}
+    for obj in objs:
+        key = _get_group_key(list(groups.keys()), *getter(obj))
+        groups.setdefault(key, []).append(obj)
+
+    return groups
+
+
 def _group_transports_with_tolerance(transports: list[PublicTransport]
                                      ) -> dict[Location: list[pd.Series]]:
     """ Group the list by (lat2, lon2), allowing for some tolerances. """
-    def _try_create_group(lat2: float, lon2: float):
-        for (lat1, lon1), _group in groups.items():
-            if abs(lat1 - lat2) <= tolerance and abs(lon1 - lon2) <= tolerance:
-                return _group
-        groups[(lat2, lon2)] = []
-        return groups[(lat2, lon2)]
+    def _location_getter(transport: PublicTransport):
+        return transport.location.lat, transport.location.lon
 
-    tolerance = 0.008
-    groups: dict[Location: list[pd.Series]] = {}
-    for transport in transports:
-        loc = (transport.location.lat, transport.location.lon)
-        _try_create_group(*loc).append(transport)
-    return groups
+    return __group_with_tolerance(transports, _location_getter)
 
 
 def _group_df_with_tolerance(df: pd.DataFrame
                              ) -> dict[Location: list[pd.Series]]:
-    """ Group the dataframe by (name, lat2, lon2), allowing tolerances. """
-    def _try_create_group(lat2: float, lon2: float):
-        for (lat1, lon1), _group in groups.items():
-            if abs(lat1 - lat2) <= tolerance and abs(lon1 - lon2) <= tolerance:
-                return _group
-        groups[(lat2, lon2)] = []
-        return groups[(lat2, lon2)]
+    """ Group the dataframe by (lat2, lon2), allowing tolerances. """
+    def _location_getter(series: pd.Series) -> Location:
+        return series["lat"], series["lon"]
 
-    tolerance = 0.008
-    groups: dict[Location: list[pd.Series]] = {}
-    for row_id, row in df.iterrows():
-        loc = (row["lat"], row["lon"])
-        _try_create_group(*loc).append(row)
-    return groups
+    objs = [obj for _, obj in df.iterrows()]
+    return __group_with_tolerance(objs, _location_getter)
 
 
 def _create_routes(stops: list[StopName], clusters: Clusters
