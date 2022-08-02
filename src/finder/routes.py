@@ -64,11 +64,8 @@ def _get_permutations(name) -> list[StopName]:
 
 def _create_single_name_filter(name: StopName) -> list[StopName]:
     name = name.casefold().lower()
-    name_filter = _get_permutations(name.casefold().lower())
     full_name = replace_abbreviations(name)
-    if name != full_name:
-        name_filter += _get_permutations(full_name)
-    return name_filter
+    return _get_permutations(full_name)
 
 
 def _create_single_name_filter_extended(name: StopName) -> list[StopName]:
@@ -97,9 +94,7 @@ def _create_extended_name_filter(names: list[StopName]):
 
 def name_filter_to_regex(name_filter: list[StopName]):
     re_names = []
-    # TODO: Config
-    special_char_ranges = "\u00C0-\u00D6\u00D9-\u00F6\u00F8-\u00FF"
-    char_range = fr"[^a-zA-Z{special_char_ranges}]"
+    char_range = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
     # Only match a single word splitting char. (A-/Bstraße) will not be split.
     pattern = rf"\b{char_range}(?!{char_range})"
     for name in name_filter:
@@ -109,8 +104,29 @@ def name_filter_to_regex(name_filter: list[StopName]):
     return "|".join(re_names)
 
 
+def name_filter_to_regex2(names: list[StopName]):
+    def name_to_regex(_name: str) -> str:
+        regex = ""
+        for char in _name:
+            if re.search(char_range, char, re.IGNORECASE):
+                regex += re.escape(char) + "?"
+                continue
+            regex += re.escape(char)
+        return fr"\b{regex}"
+
+    char_range = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
+    re_names = []
+    for name in names:
+        splits = re.split(fr"\b| |{char_range}", name)
+        splits = [split.strip() for split in splits if split.strip()]
+        perms = _get_permutations(" ".join(splits))
+        re_names += list(map(name_to_regex, perms))
+
+    return "|".join(set(re_names))
+
+
 def _filter_df(df: pd.DataFrame, name_filter: list[StopName]):
-    nf_regex = name_filter_to_regex(name_filter)
+    nf_regex = name_filter_to_regex2(name_filter)
     return df.where(df["name"].str.contains(
         nf_regex, flags=re.IGNORECASE, regex=True)).dropna()
 
@@ -134,10 +150,18 @@ def __create_transports(df, regex):
 def _create_transports(df: pd.DataFrame, stops: list[StopName]
                        ) -> list[PublicTransport]:
     transports = []
+    char_range_regex = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
+    df2 = df.copy()
+    df2["name"] = df["name"].str.replace(
+        char_range_regex, "", regex=True)
     for stop in stops:
         name_filter = _create_single_name_filter(stop)
         name_filter_regex = name_filter_to_regex(name_filter)
-        stop_transports = __create_transports(df, name_filter_regex)
+
+        char_range_regex = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
+        name_filter2 = [re.sub(char_range_regex, "", f) for f in name_filter]
+        name_filter_regex2 = "|".join(name_filter2)
+        stop_transports = __create_transports(df2, name_filter_regex2)
         for transport in stop_transports:
             transport.set_stop(stop, False)
         transports += stop_transports
@@ -198,12 +222,35 @@ def _create_transports_extended(df: pd.DataFrame, stops: list[StopName]
     return transports
 
 
+def _create_stop_transports_from_df(stop: StopName, df: pd.DataFrame
+                                    ) -> list[PublicTransport]:
+    return [public_transport.from_series(series, stop)
+            for _, series in df.iterrows()]
+
+
+def _create_cluster(stop: StopName, df: pd.DataFrame) -> list[Cluster2]:
+    clusters: list[Cluster2] = []
+    transports = _create_stop_transports_from_df(stop, df)
+    grouped_transports = _group_transports_with_tolerance(transports)
+
+    for loc, grouped_transport in grouped_transports.items():
+        cluster = Cluster2(stop, loc)
+        for transport in grouped_transport:
+            cluster.add_node(Node2(cluster, transport))
+        clusters.append(cluster)
+
+    return clusters
+
 def _create_clusters(
         stops: list[StopName], df: pd.DataFrame, extended: bool) -> Clusters:
     if extended:
         transports = _create_transports_extended(df, stops)
     else:
-        transports = _create_transports(df, stops)
+        char_range_regex = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
+        df2 = df.copy()
+        df2["name"] = df["name"].str.replace(
+            char_range_regex, "", regex=True)
+        transports = _create_transports(df2, stops)
 
     clusters = {}
     for stop in stops:
@@ -335,6 +382,37 @@ def generate_routes2(raw_df: pd.DataFrame, stops: list[StopName]
                         ).drop(df.index, errors="ignore")
         clusters.update(_create_clusters(missing_stops, df, True))
     # TODO: Use extended name matching after finding incomplete route as well
+
+    routes: list[list[Node2]] = _create_routes2(stops, clusters)
+    return routes
+
+
+def _create_stop_clusters(stop: StopName, df:pd.DataFrame) -> list[Cluster2]:
+    name_filter = _create_single_name_filter(stop)
+    nf_regex = name_filter_to_regex2(name_filter)
+    df = df.where(df["name"].str.contains(nf_regex, regex=True)).dropna()
+
+    return _create_cluster(stop, df)
+
+
+def generate_routes3(raw_df: pd.DataFrame, stops: list[StopName]
+                     ) -> list[list[Node2]]:
+    def filter_df_with_stops():
+        def _create_regex():
+            regex = []
+            for s in stops:
+                nf = _create_single_name_filter(s)
+                regex.append(name_filter_to_regex2(nf))
+            return "|".join(regex)
+
+        chars = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
+        raw_df["name"] = raw_df["name"].str.replace(chars, "", regex=True)
+        return raw_df.where(raw_df["name"].str.contains(
+            _create_regex(), regex=True)).dropna()
+
+    df = filter_df_with_stops()
+
+    clusters = {stop: _create_stop_clusters(stop, df) for stop in stops}
 
     routes: list[list[Node2]] = _create_routes2(stops, clusters)
     return routes

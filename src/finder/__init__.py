@@ -19,7 +19,7 @@ import requests
 
 from config import Config
 from finder.routes import (select_shortest_route, display_route2,
-                           generate_routes2)
+                           generate_routes3)
 from utils import SPECIAL_CHARS
 
 
@@ -106,13 +106,17 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
         return series.str.replace(" +", " ", regex=True).str.strip()
 
     def _replace_abbreviations(series: pd.Series) -> pd.Series:
+        def _create_regex(abbrev: str) -> str:
+            return rf"(?:\b{re.escape(abbrev)}(?:\.\B|\b))"
+
         def replace_abbrev(value):
             start, end = value.span()
-            return abbrevs[value.string[start:end]]
+            key = value.string[start:end].replace(".", "")
+            return abbrevs[key]
 
         # TODO: Try to match the whole abbrev, but allow missing dots as well
         abbrevs = Config.name_abbreviations
-        regex = "|".join([rf"\b{re.escape(abbrev)}" for abbrev in abbrevs])
+        regex = "|".join([_create_regex(abbrev) for abbrev in abbrevs])
         return series.str.replace(regex, replace_abbrev, regex=True)
 
     def _cleanup_name(series: pd.Series):
@@ -191,7 +195,7 @@ def read_csv(file: Path | BytesIO) -> pd.DataFrame:
     return pd.read_csv(
         file,
         sep="\t",
-        names=["stop", "name", "lat", "lon", "transport", "clean_name"],
+        names=["stop", "name", "lat", "lon", "transport"],
         header=0,
         comment="#")
 
@@ -262,7 +266,7 @@ class Finder:
 
     def generate_routes(self):
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes2(self.df, names)
+        self.routes = generate_routes3(self.df, names)
 
     def get_shortest_route(self) -> list[Node2]:
         # STYLE: Weird roundabout way to do all this.
