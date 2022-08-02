@@ -149,6 +149,7 @@ class Reader(BaseReader, ABC):
                                   laparams=laparams,
                                   page_numbers=Config.pages.page_numbers)
             for page in pages:
+                # TODO: kvv-s1 is broken for pages 10,23
                 if Config.pages.all:
                     page_num = page.pageid
                 else:
