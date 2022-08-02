@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from finder.routes import StopName
 
 # Tolerance in degree. 0.009 ~= 1km
+# TODO: Add tolerance(*, lat=None, lon=None, km=1) to utils
 CLOSE_TOLERANCE = 0.009
 
 
@@ -31,6 +32,7 @@ class Location:
     lon: float
 
     def close(self, other: Location) -> bool:
+        # TODO: Add close_tolerance_lat/close_tolerance_lon
         return (abs(self.lat - other.lat) <= CLOSE_TOLERANCE and
                 abs(self.lon - other.lon) <= CLOSE_TOLERANCE)
 
