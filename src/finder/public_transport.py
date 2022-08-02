@@ -116,10 +116,13 @@ class StopPosition(PublicTransport):
         super().__init__(name, typ=TransportType(3), lat=lat, lon=lon)
 
 
-def from_series(series: pd.Series) -> PublicTransport:
+def from_series(series: pd.Series, stop: StopName = "") -> PublicTransport:
     if series["transport"] == "station":
-        return Station.from_series(series)
-    if series["transport"] == "platform":
-        return Platform.from_series(series)
-    if series["transport"] == "stop_position":
-        return StopPosition.from_series(series)
+        transport = Station.from_series(series)
+    elif series["transport"] == "platform":
+        transport = Platform.from_series(series)
+    else:
+        transport = StopPosition.from_series(series)
+    if stop:
+        transport.set_stop(stop)
+    return transport
