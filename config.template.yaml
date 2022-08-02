@@ -156,15 +156,19 @@ display_route: True
 # Type: int
 stale_cache_days: 7
 
-# If a name contains an abbreviation listed here, search for its location
-#   using the respective full form as well. This may help with finding the
-#   proper location for a stop, in case the transit agency uses unofficial
-#   names with abbreviations.
-# Will respect word boundaries, i.e. the "ffm" in "hoffmannplatz" would not
-#   be replaced with "Frankfurt" if it is set to {"ffm": "Frankfurt"}.
+# When searching for the stop locations, the abbreviations listed here will be
+#   replaced by their respective full form. This will not affect the stop_name
+#   in the 'stops.txt'.This may help with finding the proper location for a
+#   stop, in case the transit agency uses unofficial names with abbreviations.
+# Notes:
+# - Word boundaries will be respected, i.e. the "ffm" in "hoffmannplatz" would
+#   not be replaced with "Frankfurt" if it is set to {"ffm": "Frankfurt"}.
+# - However, if the dictionary is set to {"str": "strasse"}, then "Hauptstr."
+#   will be replaced by "Hauptstrasse".
 #
 # Type: dict of string to string
-# TODO: Add optional dot in code if key does not end in dot.
+# TODO: lower().casefold() on value
+# TODO: Clarify that "str" has the same effect as "str."
 name_abbreviations:
   "a.": "am"
   "rh.": "rhein"
@@ -172,7 +176,7 @@ name_abbreviations:
   "st.": "sankt"
   "hbf": "hauptbahnhof"
   "bf": "bahnhof"
-  "str.": "straße"
+  "str.": "strasse"
   "ka": "karlsruhe"
 
 # TODO: Add route_display_options = [show_clusters, show_all_cluster_nodes]
