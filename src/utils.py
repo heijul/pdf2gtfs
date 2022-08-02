@@ -99,7 +99,7 @@ def get_abbreviations_regex() -> str:
     from config import Config
 
     abbrevs = Config.name_abbreviations
-    base_regex = r"(\b{0}\b)|({0}\.)"
+    base_regex = r"({0}\.)|(\b{0}\b)"
     return "|".join(
         [base_regex.format(re.escape(abbrev)) for abbrev in abbrevs])
 
