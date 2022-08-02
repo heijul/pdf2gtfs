@@ -252,4 +252,10 @@ class AbbrevProperty(Property):
         if isinstance(value, dict):
             value = {_clean_key(key): val.lower()
                      for key, val in value.items()}
+            # Longer keys should come first, to prevent "hbf." to be changed
+            #  to "hbahnhof", if both "hbf" and "bf" are given.
+            value = dict(sorted(value.items(),
+                                key=lambda item: len(item[0]),
+                                reverse=True))
+
         super().__set__(obj, value)
