@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import TypeVar, TypeAlias, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from finder.routes import StopName
+from typing import TypeVar, TypeAlias
 
 
 def __uid_generator():
@@ -94,30 +91,22 @@ def get_edit_distance(s1, s2):
     return d[m - 1][n - 1]
 
 
-def replace_abbreviations_old(name: StopName) -> StopName:
-    """ Returns a string where all abbreviations in name are replaced by
-    their respective full form. """
-    from config import Config
-
-    full_name = name
-    for abbrev, full in Config.name_abbreviations.items():
-        full_name = re.sub(r"\b" + re.escape(abbrev), full, full_name)
-        full_name = re.sub(re.escape(abbrev) + r"\B", full, full_name)
-    return full_name
-
-
 def replace_abbreviations(name: str) -> str:
+    return re.sub(get_abbreviations_regex(), replace_abbreviation, name)
+
+
+def get_abbreviations_regex() -> str:
     from config import Config
-
-    def _create_regex(abbrev: str) -> str:
-        if not abbrev.endswith("."):
-            return fr"\b{re.escape(abbrev)}\b"
-        return rf"(?:\b{re.escape(abbrev[:-1])}(?:\.\B|\b))"
-
-    def replace_abbrev(value):
-        start, end = value.span()
-        return abbrevs[value.string[start:end]]
 
     abbrevs = Config.name_abbreviations
-    regex = "|".join([_create_regex(abbrev) for abbrev in abbrevs])
-    return re.sub(regex, replace_abbrev, name)
+    base_regex = r"({0}\.)|(\b{0}\b)"
+    return "|".join(
+        [base_regex.format(re.escape(abbrev)) for abbrev in abbrevs])
+
+
+def replace_abbreviation(value: re.Match) -> str:
+    from config import Config
+
+    start, end = value.span()
+    key = value.string[start:end].replace(".", "")
+    return Config.name_abbreviations[key]

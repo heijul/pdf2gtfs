@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import logging
 import os.path
 import platform
@@ -18,14 +17,14 @@ import pandas as pd
 import requests
 
 from config import Config
-from finder.routes import (select_shortest_route, display_route2,
-                           generate_routes3)
-from utils import SPECIAL_CHARS
+from finder.routes import (
+    select_shortest_route, display_route, generate_routes)
+from utils import SPECIAL_CHARS, replace_abbreviation, get_abbreviations_regex
 
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
-    from finder.cluster import Node2, Cluster2
+    from finder.cluster import Node, Cluster
 
 
 logger = logging.getLogger(__name__)
@@ -106,18 +105,8 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
         return series.str.replace(" +", " ", regex=True).str.strip()
 
     def _replace_abbreviations(series: pd.Series) -> pd.Series:
-        def _create_regex(abbrev: str) -> str:
-            return rf"(?:\b{re.escape(abbrev)}(?:\.\B|\b))"
-
-        def replace_abbrev(value):
-            start, end = value.span()
-            key = value.string[start:end].replace(".", "")
-            return abbrevs[key]
-
-        # TODO: Try to match the whole abbrev, but allow missing dots as well
-        abbrevs = Config.name_abbreviations
-        regex = "|".join([_create_regex(abbrev) for abbrev in abbrevs])
-        return series.str.replace(regex, replace_abbrev, regex=True)
+        return series.str.replace(
+            get_abbreviations_regex(), replace_abbreviation, regex=True)
 
     def _cleanup_name(series: pd.Series):
         """ Remove any chars which are not letters or allowed chars.
@@ -207,7 +196,7 @@ class Finder:
         self.use_cache, cache_dir = create_cache_dir()
         self._set_fp(cache_dir)
         self._get_stop_data()
-        self.routes: list[list[Node2]] | None = None
+        self.routes: list[list[Node]] | None = None
 
     def _set_fp(self, cache_dir: Path):
         self.fp: Path = cache_dir.joinpath("osm_cache.tsv").resolve()
@@ -266,9 +255,9 @@ class Finder:
 
     def generate_routes(self):
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes3(self.df, names)
+        self.routes = generate_routes(names, self.df)
 
-    def get_shortest_route(self) -> list[Node2]:
+    def get_shortest_route(self) -> list[Node]:
         # STYLE: Weird roundabout way to do all this.
         if not self.routes:
             self.generate_routes()
@@ -276,5 +265,5 @@ class Finder:
         # TODO: Needs check if route exists.
         route = select_shortest_route(names, self.routes)
         if Config.display_route:
-            display_route2(route, False, False)
+            display_route(route, False, False)
         return route

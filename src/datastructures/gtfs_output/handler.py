@@ -15,11 +15,12 @@ from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.gtfs_output.agency import Agency
 from datastructures.timetable.entries import TimeTableRepeatEntry, TimeTableEntry
+from finder.cluster import DummyNode
+from finder.types import Route
 
 
 if TYPE_CHECKING:
     from datastructures.timetable.table import TimeTable
-    from finder import Node2
 
 
 logger = logging.getLogger(__name__)
@@ -182,10 +183,15 @@ class GTFSHandler:
         self.stop_times.write(path)
         self.calendar_dates.write(path)
 
-    def add_coordinates(self, route: list[Node2]):
+    def add_coordinates(self, route: Route):
         logger.info("Adding coordinates to stops.")
         for node in route:
-            stop = self.stops.get(node.name)
+            stop = self.stops.get(node.cluster.stop)
+            if isinstance(node, DummyNode):
+                name = node.cluster.stop
+                logger.warning(f"Could not find location for '{name}'. You "
+                               f"will need to manually add the coordinates.")
+            # TODO: Rethink this. As it is now, this will never be called.
             if stop is None:
                 dist, stop = self.stops.get_closest(node.name)
                 msg = f"No precise match for '{node.name}'."

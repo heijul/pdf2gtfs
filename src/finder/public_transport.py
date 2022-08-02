@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Type
 
 import pandas as pd
-from geopy.distance import distance
 
+from finder.location import Location
 from utils import get_edit_distance, replace_abbreviations
 from finder.types import StopName
 
@@ -15,29 +14,11 @@ class TransportType(Enum):
     Station = 1
     Platform = 2
     StopPosition = 3
+    Dummy = 4
 
     def compare(self, other: TransportType) -> int:
         """ -1 if self < other, 0 if self == other, 1 if self > other. """
         return int(self.value > other.value) - int(self.value < other.value)
-
-
-@dataclass(frozen=True)
-class Location:
-    lat: float
-    lon: float
-
-    def distance(self, other: Location) -> float:
-        """ Return distance between two locations in km. """
-        return distance(tuple(self), tuple(other)).km
-
-    def close(self, other: Location) -> bool:
-        return self.distance(other) <= 1
-
-    def __str__(self):
-        return f"({self.lat:.4f}, {self.lon:.4f})"
-
-    def __iter__(self):
-        return iter((self.lat, self.lon))
 
 
 class PublicTransport:
@@ -83,7 +64,7 @@ class PublicTransport:
                 f"'{self.name}', {self.location})")
 
     def __lt__(self, other: PublicTransport) -> bool:
-        # Prefer stations for nodes which are close to each other
+        # Prefer lower TransportType for nodes which are close to each other
         comp = self.type.compare(other.type)
         if self.location.close(other.location):
             if comp == 0:
@@ -114,6 +95,11 @@ class Platform(PublicTransport):
 class StopPosition(PublicTransport):
     def __init__(self, name: StopName, lat: float, lon: float):
         super().__init__(name, typ=TransportType(3), lat=lat, lon=lon)
+
+
+class DummyTransport(PublicTransport):
+    def __init__(self, name: StopName):
+        super().__init__(name, typ=TransportType(4), lat=-1, lon=-1)
 
 
 def from_series(series: pd.Series, stop: StopName = "") -> PublicTransport:
