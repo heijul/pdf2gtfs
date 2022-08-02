@@ -109,15 +109,14 @@ def replace_abbreviations_old(name: StopName) -> StopName:
 def replace_abbreviations(name: str) -> str:
     from config import Config
 
-    def _create_regex(abbrev: str) -> str:
-        if not abbrev.endswith("."):
-            return fr"\b{re.escape(abbrev)}\b"
-        return rf"(?:\b{re.escape(abbrev[:-1])}(?:\.\B|\b))"
+    def _get_abbreviation_regex(abbrev: str) -> str:
+        return fr"(\b{re.escape(abbrev)}\b)|({re.escape(abbrev)}\.)"
 
     def replace_abbrev(value):
         start, end = value.span()
-        return abbrevs[value.string[start:end]]
+        key = value.string[start:end].replace(".", "")
+        return abbrevs[key]
 
     abbrevs = Config.name_abbreviations
-    regex = "|".join([_create_regex(abbrev) for abbrev in abbrevs])
+    regex = "|".join([_get_abbreviation_regex(abbrev) for abbrev in abbrevs])
     return re.sub(regex, replace_abbrev, name)
