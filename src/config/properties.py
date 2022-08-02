@@ -243,6 +243,13 @@ class AbbrevProperty(Property):
         super().__init__(cls, attr, dict)
 
     def __set__(self, obj, value: Any):
+        def _clean_key(key):
+            key = key.strip().lower().casefold()
+            if key.endswith("."):
+                return key[:-1]
+            return key
+
         if isinstance(value, dict):
-            value = {key.lower(): val.lower() for key, val in value.items()}
+            value = {_clean_key(key): val.lower()
+                     for key, val in value.items()}
         super().__set__(obj, value)
