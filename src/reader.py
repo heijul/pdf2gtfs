@@ -149,7 +149,10 @@ class Reader(BaseReader, ABC):
                                   laparams=laparams,
                                   page_numbers=Config.pages.page_numbers)
             for page in pages:
-                page_num = Config.pages.pages[page.pageid - 1]
+                if Config.pages.all:
+                    page_num = page.pageid
+                else:
+                    page_num = Config.pages.pages[page.pageid - 1]
                 logger.info(f"Basic reading of page {page_num} took: "
                             f"{time() - t:.4} seconds.")
                 timetables += self.read_page(page)
