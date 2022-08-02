@@ -18,8 +18,8 @@ import pandas as pd
 import requests
 
 from config import Config
-from finder.routes import (select_shortest_route, display_route2,
-                           generate_routes3)
+from finder.routes import (
+    select_shortest_route, display_route2, generate_routes)
 from utils import SPECIAL_CHARS
 
 
@@ -266,7 +266,7 @@ class Finder:
 
     def generate_routes(self):
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes3(self.df, names)
+        self.routes = generate_routes(names, self.df)
 
     def get_shortest_route(self) -> list[Node2]:
         # STYLE: Weird roundabout way to do all this.

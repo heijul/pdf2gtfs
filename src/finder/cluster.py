@@ -154,3 +154,8 @@ class Cluster2(_Base):
 
     def __repr__(self):
         return f"Cluster({self.stop}, ({self.loc}))"
+
+
+class DummyCluster2(Cluster2):
+    def __init__(self, stop: StopName) -> None:
+        super().__init__(stop, Location(-1, -1))
