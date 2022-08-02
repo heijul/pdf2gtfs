@@ -12,7 +12,7 @@ import folium
 
 from config import Config
 from finder import public_transport
-from finder.cluster import Cluster2, Node2, DummyCluster2, DummyNode2
+from finder.cluster import Cluster, Node, DummyCluster, DummyNode
 from finder.public_transport import PublicTransport
 from finder.location import Location
 from finder.types import StopName, Clusters, StopNames, Routes, Route
@@ -39,7 +39,7 @@ def _create_name_filter(names: StopNames) -> StopNames:
             for name_filter in _create_single_name_filter(name)]
 
 
-def name_filter_to_regex2(names: StopNames) -> str:
+def name_filter_to_regex(names: StopNames) -> str:
     def name_to_regex(_name: str) -> str:
         regex = ""
         for char in _name:
@@ -94,23 +94,23 @@ def select_shortest_route(stops: StopNames, routes: Routes) -> Route:
     return min(dists, key=itemgetter(0))[1]
 
 
-def _create_stop_clusters(stop: StopName, df: pd.DataFrame) -> list[Cluster2]:
+def _create_stop_clusters(stop: StopName, df: pd.DataFrame) -> list[Cluster]:
     """ Create the clusters for a single stop. """
     name_filter = _create_single_name_filter(stop)
-    nf_regex = name_filter_to_regex2(name_filter)
+    nf_regex = name_filter_to_regex(name_filter)
     df = df.where(df["name"].str.contains(nf_regex, regex=True)).dropna()
 
-    clusters: list[Cluster2] = []
+    clusters: list[Cluster] = []
     transports = _create_stop_transports_from_df(stop, df)
     grouped_transports = _group_transports_with_tolerance(transports)
 
     for loc, grouped_transport in grouped_transports.items():
-        cluster = Cluster2(stop, loc)
+        cluster = Cluster(stop, loc)
         for transport in grouped_transport:
-            cluster.add_node(Node2(cluster, transport))
+            cluster.add_node(Node(cluster, transport))
         clusters.append(cluster)
     if not clusters:
-        return [DummyCluster2(stop)]
+        return [DummyCluster(stop)]
     return clusters
 
 
@@ -119,7 +119,7 @@ def generate_clusters(df: pd.DataFrame, stops: StopNames) -> Clusters:
         chars = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
         df["name"] = df["name"].str.replace(chars, "", regex=True)
 
-        regex = name_filter_to_regex2(_create_name_filter(stops))
+        regex = name_filter_to_regex(_create_name_filter(stops))
         return df.where(df["name"].str.contains(regex, regex=True)).dropna()
 
     clean_df = filter_df_with_stops()
@@ -128,17 +128,17 @@ def generate_clusters(df: pd.DataFrame, stops: StopNames) -> Clusters:
 
 
 def _create_route(
-        stops: StopNames, start: Cluster2, clusters: Clusters) -> Route:
+        stops: StopNames, start: Cluster, clusters: Clusters) -> Route:
     cluster_route = [start]
     for stop in stops[1:]:
-        current: Cluster2 = cluster_route[-1]
+        current: Cluster = cluster_route[-1]
         cluster_route.append(current.get_closest_cluster(clusters[stop]))
     return [cluster.get_closest() for cluster in cluster_route]
 
 
 def generate_routes(stops: StopNames, df: pd.DataFrame) -> Routes:
     clusters = generate_clusters(df, stops)
-    starts: list[Cluster2] = clusters[stops[0]]
+    starts: list[Cluster] = clusters[stops[0]]
     routes: Routes = []
     for start in starts:
         route = _create_route(stops, start, clusters)
@@ -146,7 +146,7 @@ def generate_routes(stops: StopNames, df: pd.DataFrame) -> Routes:
     return routes
 
 
-def display_route2(route: Route, cluster=False, nodes=False) -> None:
+def display_route(route: Route, cluster=False, nodes=False) -> None:
     def add_other_node_markers():
         for node in entry.cluster.nodes:
             if node == entry:
@@ -161,7 +161,7 @@ def display_route2(route: Route, cluster=False, nodes=False) -> None:
 
     def get_map_location():
         non_dummy_nodes = [node for node in route
-                           if not isinstance(node, DummyNode2)]
+                           if not isinstance(node, DummyNode)]
         return (mean([node.loc.lat for node in non_dummy_nodes]),
                 mean([node.loc.lon for node in non_dummy_nodes]))
 
@@ -170,7 +170,7 @@ def display_route2(route: Route, cluster=False, nodes=False) -> None:
     # TODO: Adjust zoom/location depending on lat-/lon-minimum
     m = folium.Map(location=get_map_location())
     for i, entry in enumerate(route):
-        if isinstance(entry, DummyNode2):
+        if isinstance(entry, DummyNode):
             continue
         if nodes:
             add_other_node_markers()

@@ -18,7 +18,7 @@ def distance(lat1, lon1, lat2, lon2) -> float:
     return dist
 
 
-def closer_node(node1: Node2, node2: Node2, cluster: Cluster2) -> Node2:
+def closer_node(node1: Node, node2: Node, cluster: Cluster) -> Node:
     if node1.distance(cluster) <= node2.distance(cluster):
         return node1
     return node2
@@ -34,13 +34,13 @@ class _Base(ABC):
         return self.loc.distance(other.loc)
 
 
-class Node2(_Base):
-    cluster: Cluster2
+class Node(_Base):
+    cluster: Cluster
     transport: PublicTransport
     # FEATURE: Maybe add stop, could possibly make some things easier.
     name: str
 
-    def __init__(self, cluster: Cluster2, transport: PublicTransport) -> None:
+    def __init__(self, cluster: Cluster, transport: PublicTransport) -> None:
         # Remove cluster and add it via add_node
         self.cluster = cluster
         self.transport = transport
@@ -48,11 +48,11 @@ class Node2(_Base):
         super().__init__()
 
     @property
-    def cluster(self) -> Cluster2:
+    def cluster(self) -> Cluster:
         return self._cluster
 
     @cluster.setter
-    def cluster(self, cluster: Cluster2) -> None:
+    def cluster(self, cluster: Cluster) -> None:
         self._cluster = cluster
         cluster.add_node(self)
 
@@ -60,8 +60,8 @@ class Node2(_Base):
     def loc(self) -> Location:
         return self.transport.location
 
-    def __lt__(self, other: Node2) -> bool:
-        if isinstance(other, DummyNode2):
+    def __lt__(self, other: Node) -> bool:
+        if isinstance(other, DummyNode):
             return True
         if (self.transport.location.close(other.transport.location) and
                 self.transport != other.transport):
@@ -72,20 +72,20 @@ class Node2(_Base):
         return f"Node2('{self.name}', {self.loc})"
 
 
-class DummyNode2(Node2):
-    def __init__(self, cluster: Cluster2, transport: PublicTransport) -> None:
+class DummyNode(Node):
+    def __init__(self, cluster: Cluster, transport: PublicTransport) -> None:
         super().__init__(cluster, transport)
 
-    def __lt__(self, other: Node2) -> bool:
+    def __lt__(self, other: Node) -> bool:
         return False
 
     def __repr__(self):
         return f"DummyNode2('{self.name}')"
 
 
-class Cluster2(_Base):
+class Cluster(_Base):
     stop: StopName
-    nodes: list[Node2]
+    nodes: list[Node]
 
     def __init__(self, stop: StopName, location: Location) -> None:
         self.nodes = []
@@ -104,11 +104,11 @@ class Cluster2(_Base):
         self._loc = value
 
     @property
-    def next(self) -> Cluster2:
+    def next(self) -> Cluster:
         return self._next
 
     @next.setter
-    def next(self, other: Cluster2 | list[Cluster2]) -> None:
+    def next(self, other: Cluster | list[Cluster]) -> None:
         # TODO: Raise error if other is list and empty
         if isinstance(other, list) and other:
             other = self.get_closest_cluster(other)
@@ -117,16 +117,16 @@ class Cluster2(_Base):
             other.prev = self
 
     @property
-    def prev(self) -> Cluster2:
+    def prev(self) -> Cluster:
         return self._prev
 
     @prev.setter
-    def prev(self, other: Cluster2):
+    def prev(self, other: Cluster):
         self._prev = other
         if not other.next == self:
             other.next = self
 
-    def get_closest_cluster(self, clusters: list[Cluster2]) -> Cluster2:
+    def get_closest_cluster(self, clusters: list[Cluster]) -> Cluster:
         def get_dist_modifier(_cluster) -> float:
             return (1 + 0.2 * min([node.transport.name_dist()
                                    for node in _cluster.nodes]))
@@ -146,12 +146,12 @@ class Cluster2(_Base):
             min_dist = dist
         return closest
 
-    def add_node(self, node: Node2) -> None:
+    def add_node(self, node: Node) -> None:
         if node in self.nodes:
             return
         self.nodes.append(node)
 
-    def get_closest(self) -> Optional[Node2]:
+    def get_closest(self) -> Optional[Node]:
         if not self.nodes:
             return None
         min_node = self.nodes[0]
@@ -170,14 +170,14 @@ class Cluster2(_Base):
         return f"Cluster({self.stop}, {self.loc})"
 
 
-class DummyCluster2(Cluster2):
+class DummyCluster(Cluster):
     def __init__(self, stop: StopName) -> None:
         transport = DummyTransport(stop)
         super().__init__(stop, transport.location)
-        self.nodes = [DummyNode2(self, transport)]
+        self.nodes = [DummyNode(self, transport)]
 
-    def add_node(self, node: DummyNode2) -> None:
-        if isinstance(node, DummyNode2) and len(self.nodes) == 0:
+    def add_node(self, node: DummyNode) -> None:
+        if isinstance(node, DummyNode) and len(self.nodes) == 0:
             super().add_node(node)
             return
         raise Exception("Can only add a single DummyNode to DummyCluster.")
