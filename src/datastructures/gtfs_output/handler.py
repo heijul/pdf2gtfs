@@ -198,7 +198,7 @@ class GTFSHandler:
                         f"with edit distance {dist}.")
                 if stop.stop_lat > 0:
                     continue
-            stop.set_location(node.lat, node.lon)
+            stop.set_location(*node.loc)
         logger.info("Done.")
 
     @property
