@@ -5,7 +5,7 @@ import logging
 import webbrowser
 from operator import itemgetter
 from statistics import mean
-from typing import TypeAlias, TypeVar
+from typing import TypeVar
 import re
 
 import pandas as pd
@@ -14,8 +14,9 @@ import folium
 from config import Config
 from finder import public_transport
 from finder.cluster import Cluster2, Node2
-from finder.public_transport import PublicTransport
-from utils import normalize_name, replace_abbreviations
+from finder.public_transport import PublicTransport, Location
+from finder.types import StopName, Clusters
+from utils import replace_abbreviations, SPECIAL_CHARS
 
 
 logger = logging.getLogger(__name__)
@@ -53,12 +54,6 @@ class Route2:
             path.append(current.get_closest())
             current = current.next
         return path
-
-
-StopName: TypeAlias = str
-CStopName: TypeAlias = str
-Location: TypeAlias = tuple[float, float]
-Clusters: TypeAlias = dict[StopName: list[Cluster2]]
 
 
 def _get_permutations(name) -> list[StopName]:
@@ -118,27 +113,6 @@ def _filter_df(df: pd.DataFrame, name_filter: list[StopName]):
     nf_regex = name_filter_to_regex(name_filter)
     return df.where(df["name"].str.contains(
         nf_regex, flags=re.IGNORECASE, regex=True)).dropna()
-
-
-def _create_clusters2(stops: list[StopName], df: pd.DataFrame) -> Clusters:
-    def by_name(entry_id):
-        _entry = df.loc[entry_id]
-        return normalize_name(_entry["name"]).casefold().lower()
-
-    grouped = df.groupby(by_name, axis=0)
-    clusters = {}
-    for stop in stops:
-        clusters[stop] = []
-        group = grouped.get_group(stop.casefold().lower())
-
-        clustered_groups = _group_df_with_tolerance(group)
-        for loc, values in clustered_groups.items():
-            cluster = Cluster2(*loc)
-            for value in values:
-                Node2(cluster, value["name"], value["lat"], value["lon"])
-            cluster.adjust_location()
-            clusters[stop].append(cluster)
-    return clusters
 
 
 def __create_regex(names):
@@ -237,13 +211,12 @@ def _create_clusters(
         stop_transports = [t for t in transports if t.stop == stop]
         grouped_transports = _group_transports_with_tolerance(stop_transports)
         for loc, grouped_transport in grouped_transports.items():
-            cluster = Cluster2(*loc)
+            cluster = Cluster2(stop, loc)
             for transport in grouped_transport:
-                loc = transport.location.lat, transport.location.lon
-                cluster.add_node(Node2(cluster, transport, *loc))
+                cluster.add_node(Node2(cluster, transport))
             clusters[stop].append(cluster)
         if not clusters[stop]:
-            logger.warning(f"No cluster found {stop}.")
+            logger.warning(f"No cluster found for stop '{stop}'.")
     return clusters
 
 
@@ -251,23 +224,14 @@ _T = TypeVar("_T")
 
 
 def __group_with_tolerance(objs: list[_T], getter) -> dict[Location: list[_T]]:
-    def _get_group_key(keys: list[Location], lat2: float, lon2: float
-                       ) -> Location:
-        """ Tries to find a key in keys, which is close to the given lat/lon.
-        If no such key exists, return the given lat and lon. """
-
-        # 0.008 degree ~= 1km TODO: add cosine for lat/lon.
-        tolerance = 0.008
-        for lat1, lon1 in keys:
-            lat_is_close = abs(lat1 - lat2) <= tolerance
-            lon_is_close = abs(lon1 - lon2) <= tolerance
-            if lat_is_close and lon_is_close:
-                return lat1, lon1
-        return lat2, lon2
+    def _get_group_key(keys: list[Location], loc2: Location) -> Location:
+        """ Tries to find a key in keys, which is close to the given location.
+        If no such key exists, return the given location. """
+        return next((loc1 for loc1 in keys if loc1.close(loc2)), loc2)
 
     groups: dict[Location: list[_T]] = {}
     for obj in objs:
-        key = _get_group_key(list(groups.keys()), *getter(obj))
+        key = _get_group_key(list(groups.keys()), getter(obj))
         groups.setdefault(key, []).append(obj)
 
     return groups
@@ -277,7 +241,7 @@ def _group_transports_with_tolerance(transports: list[PublicTransport]
                                      ) -> dict[Location: list[pd.Series]]:
     """ Group the list by (lat2, lon2), allowing for some tolerances. """
     def _location_getter(transport: PublicTransport):
-        return transport.location.lat, transport.location.lon
+        return transport.location
 
     return __group_with_tolerance(transports, _location_getter)
 
@@ -286,7 +250,7 @@ def _group_df_with_tolerance(df: pd.DataFrame
                              ) -> dict[Location: list[pd.Series]]:
     """ Group the dataframe by (lat2, lon2), allowing tolerances. """
     def _location_getter(series: pd.Series) -> Location:
-        return series["lat"], series["lon"]
+        return Location(series["lat"], series["lon"])
 
     objs = [obj for _, obj in df.iterrows()]
     return __group_with_tolerance(objs, _location_getter)
@@ -314,30 +278,29 @@ def _create_routes2(stops: list[StopName], clusters: Clusters
     return routes
 
 
-def display_route2(names: list[StopName],
-                   route: list[Node2], cluster=False, nodes=False) -> None:
+def display_route2(route: list[Node2], cluster=False, nodes=False) -> None:
     def add_other_node_markers():
         for node in entry.cluster.nodes:
             if node == entry:
                 continue
-            _loc = [node.lat, node.lon]
-            folium.Marker(_loc, popup=f"{node.name}\n{_loc}",
+            folium.Marker(tuple(node.loc), popup=f"{node.name}\n{node.loc}",
                           icon=folium.Icon(color="green")).add_to(m)
 
     def add_cluster_marker():
-        _loc = [entry.cluster.lat, entry.cluster.lon]
-        folium.Marker(_loc, popup=f"{names[i]}\n{_loc}",
+        c = entry.cluster
+        folium.Marker(tuple(c.loc), popup=f"{c.stop}\n{c.loc}",
                       icon=folium.Icon(icon="cloud")).add_to(m)
 
     # FEATURE: Add cluster/nodes to Config.
-    location = mean([e.lat for e in route]), mean([e.lon for e in route])
+    location = (mean([e.loc.lat for e in route]),
+                mean([e.loc.lon for e in route]))
     m = folium.Map(location=location)
     for i, entry in enumerate(route):
         if nodes:
             add_other_node_markers()
         if cluster:
             add_cluster_marker()
-        loc = [entry.lat, entry.lon]
+        loc = [entry.loc.lat, entry.loc.lon]
         folium.Marker(loc, popup=f"{entry.name}\n{loc}").add_to(m)
 
     outfile = Config.output_dir.joinpath("routedisplay.html")
@@ -356,14 +319,6 @@ def select_shortest_route(stops: list[StopName], routes: list[list[Node2]]
         dists.append((dist, route))
     # CHECK: Probably fails if dists[a][0] == dists[b][0]
     return min(dists, key=itemgetter(0))[1]
-
-
-def generate_routes(raw_df: pd.DataFrame, stops: list[StopName]
-                    ) -> list[list[Node2]]:
-    df = _filter_df(raw_df, _create_name_filter(stops))
-    clusters = _create_clusters2(stops, df)
-    routes: list[list[Node2]] = _create_routes(stops, clusters)
-    return routes
 
 
 def generate_routes2(raw_df: pd.DataFrame, stops: list[StopName]

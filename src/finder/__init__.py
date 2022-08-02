@@ -18,7 +18,6 @@ import pandas as pd
 import requests
 
 from config import Config
-from finder.cluster import Node2
 from finder.routes import (select_shortest_route, display_route2,
                            generate_routes2)
 from utils import SPECIAL_CHARS
@@ -26,6 +25,7 @@ from utils import SPECIAL_CHARS
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
+    from finder.cluster import Node2, Cluster2
 
 
 logger = logging.getLogger(__name__)
@@ -272,5 +272,5 @@ class Finder:
         # TODO: Needs check if route exists.
         route = select_shortest_route(names, self.routes)
         if Config.display_route:
-            display_route2(names, route, False, False)
+            display_route2(route, False, False)
         return route

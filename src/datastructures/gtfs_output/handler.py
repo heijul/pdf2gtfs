@@ -15,11 +15,11 @@ from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.gtfs_output.agency import Agency
 from datastructures.timetable.entries import TimeTableRepeatEntry, TimeTableEntry
-from finder import Node2
 
 
 if TYPE_CHECKING:
     from datastructures.timetable.table import TimeTable
+    from finder import Node2
 
 
 logger = logging.getLogger(__name__)

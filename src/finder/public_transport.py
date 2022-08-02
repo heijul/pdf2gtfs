@@ -2,18 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Type, TYPE_CHECKING
+from typing import Optional, Type
 
 import pandas as pd
+from geopy.distance import distance
 
 from utils import get_edit_distance, replace_abbreviations
-
-if TYPE_CHECKING:
-    from finder.routes import StopName
-
-# Tolerance in degree. 0.009 ~= 1km
-# TODO: Add tolerance(*, lat=None, lon=None, km=1) to utils
-CLOSE_TOLERANCE = 0.009
+from finder.types import StopName
 
 
 class TransportType(Enum):
@@ -26,15 +21,23 @@ class TransportType(Enum):
         return int(self.value > other.value) - int(self.value < other.value)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Location:
     lat: float
     lon: float
 
+    def distance(self, other: Location) -> float:
+        """ Return distance between two locations in km. """
+        return distance(tuple(self), tuple(other)).km
+
     def close(self, other: Location) -> bool:
-        # TODO: Add close_tolerance_lat/close_tolerance_lon
-        return (abs(self.lat - other.lat) <= CLOSE_TOLERANCE and
-                abs(self.lon - other.lon) <= CLOSE_TOLERANCE)
+        return self.distance(other) <= 1
+
+    def __str__(self):
+        return f"({self.lat:.4f}, {self.lon:.4f})"
+
+    def __iter__(self):
+        return iter((self.lat, self.lon))
 
 
 class PublicTransport:
