@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import logging
 import os.path
 import platform
@@ -20,7 +19,7 @@ import requests
 from config import Config
 from finder.routes import (
     select_shortest_route, display_route2, generate_routes)
-from utils import SPECIAL_CHARS
+from utils import SPECIAL_CHARS, replace_abbreviation, get_abbreviations_regex
 
 
 if TYPE_CHECKING:
@@ -106,18 +105,8 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
         return series.str.replace(" +", " ", regex=True).str.strip()
 
     def _replace_abbreviations(series: pd.Series) -> pd.Series:
-        def _create_regex(abbrev: str) -> str:
-            return rf"(?:\b{re.escape(abbrev)}(?:\.\B|\b))"
-
-        def replace_abbrev(value):
-            start, end = value.span()
-            key = value.string[start:end].replace(".", "")
-            return abbrevs[key]
-
-        # TODO: Try to match the whole abbrev, but allow missing dots as well
-        abbrevs = Config.name_abbreviations
-        regex = "|".join([_create_regex(abbrev) for abbrev in abbrevs])
-        return series.str.replace(regex, replace_abbrev, regex=True)
+        return series.str.replace(
+            get_abbreviations_regex(), replace_abbreviation, regex=True)
 
     def _cleanup_name(series: pd.Series):
         """ Remove any chars which are not letters or allowed chars.
