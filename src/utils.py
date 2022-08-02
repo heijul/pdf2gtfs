@@ -94,7 +94,7 @@ def get_edit_distance(s1, s2):
     return d[m - 1][n - 1]
 
 
-def replace_abbreviations(name: StopName) -> StopName:
+def replace_abbreviations_old(name: StopName) -> StopName:
     """ Returns a string where all abbreviations in name are replaced by
     their respective full form. """
     from config import Config
@@ -104,3 +104,20 @@ def replace_abbreviations(name: StopName) -> StopName:
         full_name = re.sub(r"\b" + re.escape(abbrev), full, full_name)
         full_name = re.sub(re.escape(abbrev) + r"\B", full, full_name)
     return full_name
+
+
+def replace_abbreviations(name: str) -> str:
+    from config import Config
+
+    def _create_regex(abbrev: str) -> str:
+        if not abbrev.endswith("."):
+            return fr"\b{re.escape(abbrev)}\b"
+        return rf"(?:\b{re.escape(abbrev[:-1])}(?:\.\B|\b))"
+
+    def replace_abbrev(value):
+        start, end = value.span()
+        return abbrevs[value.string[start:end]]
+
+    abbrevs = Config.name_abbreviations
+    regex = "|".join([_create_regex(abbrev) for abbrev in abbrevs])
+    return re.sub(regex, replace_abbrev, name)
