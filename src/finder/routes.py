@@ -13,36 +13,13 @@ import folium
 from config import Config
 from finder import public_transport
 from finder.cluster import Cluster2, Node2, DummyCluster2
-from finder.public_transport import PublicTransport, Location
+from finder.public_transport import PublicTransport
+from finder.location import Location
 from finder.types import StopName, Clusters, StopNames, Routes, Route
 from utils import replace_abbreviations, SPECIAL_CHARS
 
 
 logger = logging.getLogger(__name__)
-
-
-class Route2:
-    stops: StopNames
-    start: Cluster2
-
-    def __init__(self, stops: StopNames) -> None:
-        self.stops = stops
-
-    def create(self, start: Cluster2, clusters: Clusters) -> None:
-        self.start = start
-        current = self.start
-        for stop in self.stops[1:]:
-            # TODO: Need to check if clusters[stop] is empty
-            current.next = clusters[stop]
-            current = current.next
-
-    def find_shortest_path2(self):
-        path: Route = []
-        current = self.start
-        while current is not None:
-            path.append(current.get_closest())
-            current = current.next
-        return path
 
 
 def _get_permutations(name) -> StopNames:
@@ -150,14 +127,22 @@ def generate_clusters(df: pd.DataFrame, stops: StopNames) -> Clusters:
     return {stop: _create_stop_clusters(stop, clean_df) for stop in stops}
 
 
+def _create_route(
+        stops: StopNames, start: Cluster2, clusters: Clusters) -> Route:
+    cluster_route = [start]
+    for stop in stops[1:]:
+        current: Cluster2 = cluster_route[-1]
+        cluster_route.append(current.get_closest_cluster(clusters[stop]))
+    return [cluster.get_closest() for cluster in cluster_route]
+
+
 def generate_routes(stops: StopNames, df: pd.DataFrame) -> Routes:
     clusters = generate_clusters(df, stops)
     starts: list[Cluster2] = clusters[stops[0]]
     routes: Routes = []
     for start in starts:
-        route = Route2(stops)
-        route.create(start, clusters)
-        routes.append(route.find_shortest_path2())
+        route = _create_route(stops, start, clusters)
+        routes.append(route)
     return routes
 
 

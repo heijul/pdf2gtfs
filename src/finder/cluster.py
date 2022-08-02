@@ -7,7 +7,8 @@ from typing import Optional
 from geopy import distance as _distance
 
 from config import Config
-from finder.public_transport import PublicTransport, Location
+from finder.location import Location
+from finder.public_transport import PublicTransport, DummyTransport
 from finder.types import StopName
 
 
@@ -60,13 +61,26 @@ class Node2(_Base):
         return self.transport.location
 
     def __lt__(self, other: Node2) -> bool:
+        if isinstance(other, DummyNode2):
+            return True
         if (self.transport.location.close(other.transport.location) and
                 self.transport != other.transport):
             return self.transport <= other.transport
         return self == closer_node(self, other, self.cluster)
 
     def __repr__(self):
-        return f"Node2('{self.name}', ({self.loc}))"
+        return f"Node2('{self.name}', {self.loc})"
+
+
+class DummyNode2(Node2):
+    def __init__(self, cluster: Cluster2, transport: PublicTransport) -> None:
+        super().__init__(cluster, transport)
+
+    def __lt__(self, other: Node2) -> bool:
+        return False
+
+    def __repr__(self):
+        return f"DummyNode2('{self.name}')"
 
 
 class Cluster2(_Base):
@@ -153,9 +167,20 @@ class Cluster2(_Base):
         self.loc = Location(lat, lon)
 
     def __repr__(self):
-        return f"Cluster({self.stop}, ({self.loc}))"
+        return f"Cluster({self.stop}, {self.loc})"
 
 
 class DummyCluster2(Cluster2):
     def __init__(self, stop: StopName) -> None:
-        super().__init__(stop, Location(-1, -1))
+        transport = DummyTransport(stop)
+        super().__init__(stop, transport.location)
+        self.nodes = [DummyNode2(self, transport)]
+
+    def add_node(self, node: DummyNode2) -> None:
+        if isinstance(node, DummyNode2) and len(self.nodes) == 0:
+            super().add_node(node)
+            return
+        raise Exception("Can only add a single DummyNode to DummyCluster.")
+
+    def __repr__(self):
+        return f"DummyCluster({self.stop})"
