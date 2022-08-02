@@ -12,7 +12,7 @@ import folium
 
 from config import Config
 from finder import public_transport
-from finder.cluster import Cluster2, Node2, DummyCluster2
+from finder.cluster import Cluster2, Node2, DummyCluster2, DummyNode2
 from finder.public_transport import PublicTransport
 from finder.location import Location
 from finder.types import StopName, Clusters, StopNames, Routes, Route
@@ -159,11 +159,19 @@ def display_route2(route: Route, cluster=False, nodes=False) -> None:
         folium.Marker(tuple(c.loc), popup=f"{c.stop}\n{c.loc}",
                       icon=folium.Icon(icon="cloud")).add_to(m)
 
+    def get_map_location():
+        non_dummy_nodes = [node for node in route
+                           if not isinstance(node, DummyNode2)]
+        return (mean([node.loc.lat for node in non_dummy_nodes]),
+                mean([node.loc.lon for node in non_dummy_nodes]))
+
     # FEATURE: Add cluster/nodes to Config.
-    location = (mean([e.loc.lat for e in route]),
-                mean([e.loc.lon for e in route]))
-    m = folium.Map(location=location)
+    # FEATURE: Add info about missing nodes.
+    # TODO: Adjust zoom/location depending on lat-/lon-minimum
+    m = folium.Map(location=get_map_location())
     for i, entry in enumerate(route):
+        if isinstance(entry, DummyNode2):
+            continue
         if nodes:
             add_other_node_markers()
         if cluster:
