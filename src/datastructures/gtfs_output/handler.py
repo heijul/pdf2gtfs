@@ -173,15 +173,16 @@ class GTFSHandler:
     def write_files(self):
         self._remove_unused_routes()
         self.add_annotation_dates()
+        # TODO: Error handling
         path = Path(Config.output_dir).resolve()
         path.mkdir(exist_ok=True)
-        self.agency.write(path)
-        self.stops.write(path)
-        self.routes.write(path)
-        self.calendar.write(path)
-        self.trips.write(path)
-        self.stop_times.write(path)
-        self.calendar_dates.write(path)
+        self.agency.write()
+        self.stops.write()
+        self.routes.write()
+        self.calendar.write()
+        self.trips.write()
+        self.stop_times.write()
+        self.calendar_dates.write()
 
     def add_coordinates(self, route: Route):
         logger.info("Adding coordinates to stops.")

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import pandas as pd
 
-from config import Config
 from datastructures.gtfs_output.__init__ import (
-    BaseDataClass, BaseContainer)
+    BaseDataClass, ExistingBaseContainer)
 
 
 @dataclass
@@ -40,34 +38,14 @@ class DummyAgencyEntry(AgencyEntry):
         self.name = "pdf2gtfs"
 
 
-class Agency(BaseContainer):
+class Agency(ExistingBaseContainer):
     def __init__(self):
         super().__init__("agency.txt", AgencyEntry)
 
     def add(self):
-        # FEATURE: Get data from config/Never overwrite existing agency/etc...
         entries = self.from_file()
         for entry in entries:
             self._add(entry)
 
-    def from_file(self) -> list[AgencyEntry]:
-        path = Path(Config.output_dir).resolve()
-        if not path.exists() or not self.get_filepath(path).exists():
-            return [DummyAgencyEntry()]
-        entries = self.entries_from_df(pd.read_csv(self.get_filepath(path)))
-        return entries
-
-    @staticmethod
-    def entries_from_df(df: pd.DataFrame) -> list[AgencyEntry]:
-        print(df)
-        entries = []
-        for _, values in df.iterrows():
-            entries.append(AgencyEntry.from_series(values))
-        return entries
-
-    def write(self, path: Path) -> None:
-        """ Never overwrite agency. """
-        fp = self.get_filepath(path)
-        if fp.exists():
-            return
-        super().write(path)
+    def from_file(self, default=None) -> list[AgencyEntry]:
+        return super().from_file([DummyAgencyEntry()])

@@ -5,6 +5,8 @@ from dataclasses import dataclass, fields, Field
 from pathlib import Path
 from typing import TypeVar, Type
 
+import pandas as pd
+
 from cli.cli import OverwriteInputHandler
 from utils import next_uid
 
@@ -45,8 +47,10 @@ class BaseContainer:
         self.entry_type = entry_type
         self.entries: list[ContainerObjectType] = []
 
-    def get_filepath(self, path):
-        return path.joinpath(self.filename)
+    @property
+    def fp(self):
+        from config import Config
+        return Path(Config.output_dir).resolve().joinpath(self.filename)
 
     def _add(self, entry: ContainerObjectType) -> None:
         self.entries.append(entry)
@@ -57,26 +61,49 @@ class BaseContainer:
             map(lambda entry: entry.to_output(), self.entries))
         return f"{field_names}\n{entry_output}\n"
 
-    def write(self, path: Path):
-        self._write(path, self.to_output() + "\n")
+    def write(self):
+        self._write(self.to_output() + "\n")
 
-    def _write(self, path: Path, content: str) -> None:
+    def _write(self, content: str) -> None:
         from config import Config
 
-        fp = self.get_filepath(path)
-        if fp.exists():
+        if self.fp.exists():
             if not Config.always_overwrite and Config.non_interactive:
                 logger.warning(
-                    f"File {fp} already exists and overwriting is disabled.")
+                    f"File {self.fp} already exists and overwriting "
+                    f"is disabled.")
                 return
             if not Config.always_overwrite and not Config.non_interactive:
-                handler = OverwriteInputHandler(fp)
+                handler = OverwriteInputHandler(self.fp)
                 handler.run()
                 if not handler.overwrite:
                     return
 
-        with open(fp, "w") as fil:
+        with open(self.fp, "w") as fil:
             fil.write(content)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}: {self.entries!r}"
+
+
+class ExistingBaseContainer(BaseContainer):
+    def __init__(self, filename: str, entry_type: Type[ContainerObjectType]):
+        super().__init__(filename, entry_type)
+
+    def write(self) -> None:
+        """ Never overwrite existing files. """
+        if self.fp.exists():
+            return
+        super().write()
+
+    def from_file(self, default=None) -> list[ContainerObjectType]:
+        if not self.fp.exists():
+            return [] if default is None else default
+        entries = self.entries_from_df(pd.read_csv(self.fp))
+        return entries
+
+    def entries_from_df(self, df: pd.DataFrame) -> list[ContainerObjectType]:
+        entries = []
+        for _, values in df.iterrows():
+            entries.append(self.entry_type.from_series(values))
+        return entries
