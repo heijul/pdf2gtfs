@@ -267,6 +267,19 @@ class Row(FieldContainer):
             for field in fields:
                 column.add_field(field)
 
+    def split_at(self, columns: list[Column]) -> list[Row]:
+        """ Splits the row, depending on the given columns. """
+        fields_list: list[list[Field]] = [[]]
+        columns = list(columns[1:])
+
+        for field in self.fields:
+            if columns and columns[0].bbox.x0 <= field.bbox.x0:
+                columns.pop(0)
+                fields_list.append([])
+            fields_list[-1].append(field)
+
+        return [Row.from_fields(fields) for fields in fields_list]
+
     def __repr__(self):
         fields_repr = ", ".join(repr(f) for f in self.fields)
         return (f"Row(type={self.type},\n\tbbox={self.bbox},\n\t"
@@ -300,6 +313,8 @@ class Column(FieldContainer):
             self._type = ColumnType.REPEAT
         elif previous.type == ColumnType.STOP and not has_time_data:
             self._type = ColumnType.STOP_ANNOTATION
+        elif not has_time_data and not has_repeat_identifier:
+            self._type = ColumnType.STOP
         else:
             self._type = ColumnType.DATA
 

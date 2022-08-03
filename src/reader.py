@@ -194,7 +194,6 @@ class Reader(BaseReader, ABC):
         tables = split_rows_into_tables(rows)
         timetables = []
         for table in tables:
-            table.generate_data_columns_from_rows()
             table.fix_split_stopnames()
             timetables.append(table.to_timetable())
         return timetables

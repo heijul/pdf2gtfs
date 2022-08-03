@@ -148,6 +148,22 @@ class Table:
 
         return ""
 
+    def split_at_stop_columns(self):
+        """ Return a list of tables with each having a single stop column. """
+        stop_columns = self.columns.of_type(ColumnType.STOP)
+        tables: list[Table] = [Table() for _ in stop_columns]
+
+        for row in self.rows:
+            table_rows = row.split_at(stop_columns)
+            for table, table_row in zip(tables, table_rows):
+                table.rows.add(table_row)
+
+        for table in tables:
+            for row in table.rows:
+                row.detect_type()
+            table.generate_data_columns_from_rows()
+        return tables
+
 
 def split_rows_into_tables(rows: list[Row]) -> list[Table]:
     tables = []
@@ -177,7 +193,10 @@ def split_rows_into_tables(rows: list[Row]) -> list[Table]:
         for row in table.rows.get_objects():
             row.detect_type()
 
-    return remerge_tables(tables)
+    remerged_tables = remerge_tables(tables)
+    for table in remerged_tables:
+        table.generate_data_columns_from_rows()
+    return split_tables_with_multiple_stop_columns(remerged_tables)
 
 
 def remerge_tables(tables: list[Table]) -> list[Table]:
@@ -189,3 +208,14 @@ def remerge_tables(tables: list[Table]) -> list[Table]:
         merged_tables[-1].rows.merge(table.rows)
 
     return merged_tables
+
+
+def split_tables_with_multiple_stop_columns(tables: list[Table]) -> list[Table]:
+    split_tables = []
+    for table in tables:
+        stop_columns = table.columns.of_type(ColumnType.STOP)
+        if len(stop_columns) <= 1:
+            split_tables.append(table)
+            continue
+        split_tables += table.split_at_stop_columns()
+    return split_tables
