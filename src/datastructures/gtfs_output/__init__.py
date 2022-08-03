@@ -45,6 +45,9 @@ class BaseContainer:
         self.entry_type = entry_type
         self.entries: list[ContainerObjectType] = []
 
+    def get_filepath(self, path):
+        return path.joinpath(self.filename)
+
     def _add(self, entry: ContainerObjectType) -> None:
         self.entries.append(entry)
 
@@ -60,7 +63,7 @@ class BaseContainer:
     def _write(self, path: Path, content: str) -> None:
         from config import Config
 
-        fp = path.joinpath(self.filename)
+        fp = self.get_filepath(path)
         if fp.exists():
             if not Config.always_overwrite and Config.non_interactive:
                 logger.warning(
@@ -72,7 +75,7 @@ class BaseContainer:
                 if not handler.overwrite:
                     return
 
-        with open(path.joinpath(self.filename), "w") as fil:
+        with open(fp, "w") as fil:
             fil.write(content)
 
     def __repr__(self) -> str:
