@@ -244,8 +244,9 @@ class Reader(BaseReader, ABC):
                 #  Should be fixed there and properly
                 char.text = chr(int(char.text[5:-1]))
             # Fields are continuous streams of chars.
-            if not fields or char.x0 != fields[-1].bbox.x1:
-                fields.append(Field.from_char(char))
+            char_field = Field.from_char(char)
+            if not fields or not char_field.x_is_close(fields[-1]):
+                fields.append(char_field)
                 continue
             fields[-1].add_char(char)
 

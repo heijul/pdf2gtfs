@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from operator import attrgetter
+
 import pandas as pd
 
 
@@ -90,6 +92,10 @@ class BBox:
                     abs(self_1 - other_0),
                     abs(self_1 - other_1)])
 
+    def x_is_close(self, other):
+        lower, upper = sorted((self, other), key=attrgetter("x0"))
+        return abs(upper.x0 - lower.x1) <= 0.01
+
     def __repr__(self):
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
 
@@ -121,3 +127,6 @@ class BBoxObject:
             bbox.merge(bbox_object.bbox)
 
         self.bbox = bbox
+
+    def x_is_close(self, other: BBoxObject) -> bool:
+        return self.bbox.x_is_close(other.bbox)
