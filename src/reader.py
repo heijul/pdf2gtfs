@@ -149,7 +149,6 @@ class Reader(BaseReader, ABC):
                                   laparams=laparams,
                                   page_numbers=Config.pages.page_numbers)
             for page in pages:
-                # TODO: kvv-s1 is broken for pages 10,23
                 if Config.pages.all:
                     page_num = page.pageid
                 else:
@@ -195,7 +194,6 @@ class Reader(BaseReader, ABC):
         tables = split_rows_into_tables(rows)
         timetables = []
         for table in tables:
-            table.generate_data_columns_from_rows()
             table.fix_split_stopnames()
             timetables.append(table.to_timetable())
         return timetables
