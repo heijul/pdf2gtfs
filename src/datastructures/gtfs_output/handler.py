@@ -46,21 +46,21 @@ class GTFSHandler:
             return
         for stop in timetable.stops.stops:
             self.stops.add(stop.name)
-        stop_entries = list(self.stops.entries)
-        route_name = (f"{stop_entries[0].stop_name}"
-                      f"-{stop_entries[-1].stop_name}")
-        basic_route = self.routes.add(long_name=route_name)
+        self.generate_routes(timetable)
 
-        stop_times = self.generate_stop_times(basic_route, timetable.entries)
+        stop_times = self.generate_stop_times(timetable.entries)
         # Add generated stop_times to ours.
         for times in stop_times:
             self.stop_times.merge(times)
 
         self.generate_calendar_dates()
 
-    def generate_stop_times(
-            self, basic_route: Route, entries: list[TimeTableEntry]
-            ) -> list[StopTimes]:
+    def generate_routes(self, timetable: TimeTable) -> None:
+        for entry in timetable.entries:
+            self.routes.add_from_entry(entry)
+
+    def generate_stop_times(self, entries: list[TimeTableEntry]
+                            ) -> list[StopTimes]:
         """ Generate the full stop_times of the given entries.
 
         Will remember the previous stop_times created and use the previous and
@@ -77,12 +77,7 @@ class GTFSHandler:
             if isinstance(entry, TimeTableRepeatEntry):
                 repeat = entry
                 continue
-            route_id = basic_route.route_id
-            if entry.route_name:
-                # If the entry has more info on the route, create a new route.
-                route = self.routes.add(short_name=entry.route_name,
-                                        long_name=basic_route.route_long_name)
-                route_id = route.route_id
+            route_id = self.routes.get_from_entry(entry).route_id
 
             calendar_entry, _ = self.calendar.try_add(
                 entry.days.days, entry.annotations)

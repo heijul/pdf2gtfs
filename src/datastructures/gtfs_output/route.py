@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, Field
 from enum import Enum
+from typing import Optional, TYPE_CHECKING
 
 import config
 from datastructures.gtfs_output.__init__ import (
     BaseDataClass, BaseContainer)
+
+
+if TYPE_CHECKING:
+    from datastructures.timetable.entries import TimeTableEntry
 
 
 class RouteType(Enum):
@@ -67,3 +72,24 @@ class Routes(BaseContainer):
             return self.entries[self.entries.index(route)]
         super()._add(route)
         return route
+
+    def get(self, short_name: str, long_name: str) -> Optional[Route]:
+        route = Route(short_name, long_name)
+        if route in self.entries:
+            return self.entries[self.entries.index(route)]
+        return None
+
+    @staticmethod
+    def names_from_entry(entry: TimeTableEntry) -> tuple[str, str]:
+        short_name = entry.route_name
+        start_name = list(entry.values.keys())[0].name
+        end_name = list(entry.values.keys())[-1].name
+        long_name = f"{start_name}-{end_name}"
+        return short_name, long_name
+
+    def add_from_entry(self, entry: TimeTableEntry) -> None:
+        short_name, long_name = self.names_from_entry(entry)
+        self.add(short_name=short_name, long_name=long_name)
+
+    def get_from_entry(self, entry: TimeTableEntry) -> Route:
+        return self.get(*self.names_from_entry(entry))
