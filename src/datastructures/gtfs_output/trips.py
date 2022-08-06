@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Callable, TypeAlias, Optional
+from typing import Callable, TypeAlias, TYPE_CHECKING
 
 from datastructures.gtfs_output.__init__ import (BaseContainer,
                                                  BaseDataClass)
 
+if TYPE_CHECKING:
+    from datastructures.gtfs_output.stop_times import StopTimes
 
-Trip_Factory: TypeAlias = Callable[[Optional["TripEntry"]], "TripEntry"]
+
+Trip_Factory: TypeAlias = Callable[[], "TripEntry"]
 
 
 @dataclass(init=False)
@@ -38,11 +43,17 @@ class Trips(BaseContainer):
 
     def get_factory(self, service_id, route_id) -> Trip_Factory:
         """ Returns a function which creates a new TripEntry for the given
-        service and route. If entry is given instead removes said entry. """
+        service and route. """
 
-        def factory(entry: TripEntry | None = None):
-            if entry is None:
-                return self.add(route_id, service_id)
-            self.remove(entry)
+        def factory() -> TripEntry:
+            return self.add(route_id, service_id)
 
         return factory
+
+    def remove_unused(self, stop_times: StopTimes) -> None:
+        """ Removes trips, which are not used by any stop_times entries. """
+        trip_ids = {entry.trip_id for entry in stop_times.entries}
+        for entry in list(self.entries):
+            if entry.trip_id in trip_ids:
+                continue
+            self.entries.remove(entry)

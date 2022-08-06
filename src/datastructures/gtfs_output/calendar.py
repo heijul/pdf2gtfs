@@ -84,23 +84,28 @@ class Calendar(BaseContainer):
     def __init__(self):
         super().__init__("calendar.txt", CalendarEntry)
 
-    def try_add(self, days: list[str], annots: set[str]
-                ) -> (CalendarEntry, bool):
-        entry = CalendarEntry(annots)
+    def try_add(self, days: list[str], annots: set[str]) -> CalendarEntry:
+        new_entry = CalendarEntry(annots)
         for day in days:
             # Holidays will be in the calendar_dates.
             if day == "h":
-                entry.on_holidays = True
+                new_entry.on_holidays = True
                 continue
-            setattr(entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
+            setattr(new_entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
+        entry = self.get(new_entry)
+        self._add(entry)
+        return entry
 
-        return entry, self._add(entry)
-
-    def _add(self, new_entry: CalendarEntry) -> bool:
+    def _add(self, new_entry: CalendarEntry) -> None:
         if any(new_entry == entry for entry in self.entries):
-            return False
+            return
         super()._add(new_entry)
-        return True
+
+    def get(self, entry: CalendarEntry) -> CalendarEntry:
+        for existing_entry in self.entries:
+            if existing_entry == entry:
+                return existing_entry
+        return entry
 
     def group_by_holiday(self) -> GroupedEntryTuple:
         """ Return tuple of lists, where the first list only contains entries

@@ -52,7 +52,7 @@ class GTFSHandler:
         # Add generated stop_times to ours.
         for times in stop_times:
             self.stop_times.merge(times)
-
+        self.trips.remove_unused(self.stop_times)
         self.generate_calendar_dates()
 
     def generate_routes(self, timetable: TimeTable) -> None:
@@ -68,6 +68,7 @@ class GTFSHandler:
         generate the stop_times for the repeat column.
         """
 
+        # TODO: Cleanup; Split into multiple
         stop_times = []
         prev = None
         prev_calendar_entry = None
@@ -79,7 +80,7 @@ class GTFSHandler:
                 continue
             route_id = self.routes.get_from_entry(entry).route_id
 
-            calendar_entry, _ = self.calendar.try_add(
+            calendar_entry = self.calendar.try_add(
                 entry.days.days, entry.annotations)
             service_id = calendar_entry.service_id
             if (prev_calendar_entry and
