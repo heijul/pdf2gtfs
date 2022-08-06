@@ -1,8 +1,12 @@
+import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from src.config import Config
-from src.datastructures.gtfs_output.gtfsstop import GTFSStops
-from src.datastructures.gtfs_output.stop_times import Time, StopTimes
+from datastructures.gtfs_output.agency import Agency, DummyAgencyEntry
+from config import Config
+from datastructures.gtfs_output.gtfsstop import GTFSStops
+from datastructures.gtfs_output.stop_times import Time, StopTimes
 
 
 class TestTime(TestCase):
@@ -100,3 +104,59 @@ class TestStopTimes(TestCase):
                         self.stop_times.entries[1].arrival_time)
         self.assertTrue(self.stop_times.entries[1].arrival_time <
                         self.stop_times.entries[2].arrival_time)
+
+
+class TestAgency(TestCase):
+    temp_dir: TemporaryDirectory
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temp_dir = _create_temp_out_dir()
+        cls.filename = Path(cls.temp_dir.name).joinpath("agency.txt")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        _remove_temp_out_dir(cls.temp_dir)
+
+    def setUp(self) -> None:
+        Config.output_dir = self.temp_dir.name
+
+    def tearDown(self) -> None:
+        try:
+            os.unlink(self.filename)
+        except OSError:
+            pass
+
+    def _create_agency(self, entry_count: int = 1):
+        lines = ["agency_id,agency_name,agency_url,agency_timezone"]
+        lines += [f"{i},agency_{i},https://www.pdf2gtfs.com/{i},Europe/Berlin"
+                  for i in range(entry_count)]
+        lines = "\n".join(lines)
+        with open(self.filename, "w") as fil:
+            fil.write(lines)
+
+    def test_create_dummy_agency(self):
+        agency = Agency()
+        agency.add()
+        self.assertEqual(1, len(agency.entries))
+        self.assertTrue(isinstance(agency.entries[0], DummyAgencyEntry))
+
+    def test_read_agency(self):
+        self._create_agency(1)
+        agency = Agency()
+        agency.add()
+        self.assertEqual(1, len(agency.entries))
+        entry = agency.entries[0]
+        self.assertFalse(isinstance(entry, DummyAgencyEntry))
+        self.assertEqual(entry.agency_id, "0")
+        self.assertEqual(entry.agency_name, "agency_0")
+        self.assertEqual(entry.agency_url, "https://www.pdf2gtfs.com/0")
+        self.assertEqual(entry.agency_timezone, "Europe/Berlin")
+
+
+def _create_temp_out_dir():
+    return TemporaryDirectory(prefix="pdf2gtfs_", ignore_cleanup_errors=True)
+
+
+def _remove_temp_out_dir(temp_dir: TemporaryDirectory):
+    temp_dir.cleanup()
