@@ -1,25 +1,11 @@
 import os
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from unittest import TestCase
 
 from config import Config
 from datastructures.gtfs_output.agency import Agency, DummyAgencyEntry
-from test_gtfs_output import _create_temp_out_dir, _remove_temp_out_dir
+from test_gtfs_output import GTFSOutputBaseClass
 
 
-class TestAgency(TestCase):
-    temp_dir: TemporaryDirectory
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.temp_dir = _create_temp_out_dir()
-        cls.filename = Path(cls.temp_dir.name).joinpath("agency.txt")
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        _remove_temp_out_dir(cls.temp_dir)
-
+class TestAgency(GTFSOutputBaseClass):
     def setUp(self) -> None:
         Config.output_dir = self.temp_dir.name
 
