@@ -197,9 +197,6 @@ class PathProperty(Property):
 
     def __set__(self, obj, value):
         if isinstance(value, str):
-            # TODO: Should not try to create output dir immediatly.
-            #  Will be done in the output handler anyway.
-            #  Should only check, if value could be created...
             value = Path(value).resolve()
             try:
                 makedirs(value, exist_ok=True)
