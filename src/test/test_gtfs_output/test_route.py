@@ -3,7 +3,7 @@ from unittest import TestCase
 from config import Config
 from datastructures.gtfs_output.route import Route, Routes, RouteType
 from datastructures.timetable.entries import TimeTableEntry
-from datastructures.timetable.stops import Stop
+from test_timetable import create_stops
 
 
 class TestRouteType(TestCase):
@@ -42,7 +42,7 @@ class TestRoute(TestCase):
 
 class TestRoutes(TestCase):
     def test_names_from_entry(self):
-        stops = _create_stops(3)
+        stops = create_stops(3)
         e = TimeTableEntry("montag-freitag")
         e.set_value(stops[0], "6.00")
         e.set_value(stops[1], "6.30")
@@ -66,11 +66,3 @@ class TestRoutes(TestCase):
         self.assertNotEqual(id(route1), id(route2))
         self.assertEqual(route2, route3)
         self.assertEqual(id(route2), id(route3))
-
-
-def _create_stops(count: int = 3):
-    # TODO: Move to test_timetable/stops
-    stops = []
-    for i in range(count):
-        stops.append(Stop(f"stop{i}", i))
-    return stops

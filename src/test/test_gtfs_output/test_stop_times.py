@@ -3,6 +3,7 @@ from unittest import TestCase
 from config import Config
 from datastructures.gtfs_output.gtfsstop import GTFSStops
 from datastructures.gtfs_output.stop_times import StopTimes, Time
+from test_timetable import create_stops
 
 
 class TestTime(TestCase):
@@ -71,30 +72,35 @@ class TestTime(TestCase):
         self.assertEqual(self.t1.minutes, 52)
         self.assertEqual(self.t1.seconds, 2)
 
+
 class TestStopTimes(TestCase):
     def setUp(self) -> None:
         self.trip_id = 1
         self.stop_times = StopTimes()
 
-        self.stops = GTFSStops()
-        for stop_name in "ABC":
-            self.stops.add(stop_name)
+        self.stops = create_stops(3)
+
+        self.gtfs_stops = GTFSStops()
+        for stop in self.stops:
+            self.gtfs_stops.add(stop.name)
 
     def test_add_multiple(self):
-        self.skipTest("Not implemented yet...")
-
-        # TODO: Easier to test with actual data
-        stops = self.stops.entries
-        times = {stops[0]: "23.29", stops[1]: "23.47", stops[2]: "00.13"}
-        self.assertTrue(len(self.stop_times.entries) == 0)
-        self.stop_times.add_multiple(0, self.stops, 0, times)
-        self.assertTrue(len(self.stop_times.entries) == 1)
-        times = {stops[0]: "23.42", stops[1]: "00.00", stops[2]: "00.26"}
-        self.stop_times.add_multiple(0, self.stops, 0, times)
-        self.assertTrue(len(self.stop_times.entries) == 2)
-        times = {stops[0]: "00.14", stops[1]: "00.15", stops[2]: "00.16"}
-        self.stop_times.add_multiple(0, self.stops, 1, times)
-        self.assertTrue(len(self.stop_times.entries) == 3)
+        times = {self.stops[0]: "23.29",
+                 self.stops[1]: "23.47",
+                 self.stops[2]: "00.13"}
+        self.assertEqual(0, len(self.stop_times.entries))
+        self.stop_times.add_multiple(0, self.gtfs_stops, 0, times)
+        self.assertEqual(3, len(self.stop_times.entries))
+        times = {self.stops[0]: "23.42",
+                 self.stops[1]: "00.00",
+                 self.stops[2]: "00.26"}
+        self.stop_times.add_multiple(0, self.gtfs_stops, 0, times)
+        self.assertTrue(6, len(self.stop_times.entries))
+        times = {self.stops[0]: "00.14",
+                 self.stops[1]: "00.15",
+                 self.stops[2]: "00.16"}
+        self.stop_times.add_multiple(0, self.gtfs_stops, 1, times)
+        self.assertTrue(9, len(self.stop_times.entries))
         self.assertTrue(self.stop_times.entries[0].arrival_time <
                         self.stop_times.entries[1].arrival_time)
         self.assertTrue(self.stop_times.entries[1].arrival_time <
