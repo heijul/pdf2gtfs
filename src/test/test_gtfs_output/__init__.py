@@ -15,9 +15,10 @@ class GTFSOutputBaseClass(TestCase):
     temp_dir: TemporaryDirectory
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUpClass(cls, name="") -> None:
         cls.temp_dir = _create_temp_out_dir()
-        cls.filename = Path(cls.temp_dir.name).joinpath("agency.txt")
+        name = name if name else "test.txt"
+        cls.filename = Path(cls.temp_dir.name).joinpath(name)
 
     @classmethod
     def tearDownClass(cls) -> None:

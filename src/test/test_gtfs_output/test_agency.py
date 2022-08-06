@@ -6,6 +6,10 @@ from test_gtfs_output import GTFSOutputBaseClass
 
 
 class TestAgency(GTFSOutputBaseClass):
+    @classmethod
+    def setUpClass(cls, name="agency.txt") -> None:
+        super().setUpClass(name)
+
     def setUp(self) -> None:
         Config.output_dir = self.temp_dir.name
 

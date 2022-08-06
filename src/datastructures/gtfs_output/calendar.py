@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import fields, dataclass
-from typing import TypeAlias, Callable
+from typing import TypeAlias, Callable, Optional
 
 from config import Config
 from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
@@ -59,16 +59,30 @@ class CalendarEntry(BaseDataClass):
     start_date: ServiceDay = StartDate()
     end_date: ServiceDay = EndDate()
 
-    def __init__(self, annots: set[str] | None = None):
+    def __init__(self, days: list[str] = None, annots: set[str] | None = None):
         super().__init__()
         self.service_id = self.id
         self.on_holidays = False
-        self.annotations = annots or set()
         self.start_date = StartDate()
         self.end_date = EndDate()
+        self._set_days(days)
+        self._set_annotations(annots)
+
+    def _set_days(self, days: Optional[list[str]]) -> None:
+        if not days:
+            return
+        for day in days:
+            # Holidays will be in the calendar_dates.
+            if day == "h":
+                self.on_holidays = True
+                continue
+            setattr(self, WEEKDAY_NAMES[int(day)], DayIsActive(True))
+
+    def _set_annotations(self, annots: Optional[set[str]]) -> None:
+        self.annotations = annots or set()
 
     def same_days(self, other: CalendarEntry) -> bool:
-        for name in _WEEKDAY_NAMES + ["on_holidays"]:
+        for name in WEEKDAY_NAMES + ["on_holidays"]:
             if getattr(self, name) == getattr(other, name):
                 continue
             return False
@@ -85,13 +99,7 @@ class Calendar(BaseContainer):
         super().__init__("calendar.txt", CalendarEntry)
 
     def try_add(self, days: list[str], annots: set[str]) -> CalendarEntry:
-        new_entry = CalendarEntry(annots)
-        for day in days:
-            # Holidays will be in the calendar_dates.
-            if day == "h":
-                new_entry.on_holidays = True
-                continue
-            setattr(new_entry, _WEEKDAY_NAMES[int(day)], DayIsActive(True))
+        new_entry = CalendarEntry(days, annots)
         entry = self.get(new_entry)
         self._add(entry)
         return entry
@@ -124,8 +132,8 @@ class Calendar(BaseContainer):
                 list(filter(non_filter_func, self.entries)))
 
 
-_WEEKDAY_NAMES = [field.name for field in fields(CalendarEntry)
-                  if field.type == "DayIsActive"]
+WEEKDAY_NAMES = [field.name for field in fields(CalendarEntry)
+                 if field.type == "DayIsActive"]
 
 GroupedEntryTuple: TypeAlias = tuple[list[CalendarEntry], list[CalendarEntry]]
 FilterFunction: TypeAlias = Callable[[CalendarEntry], bool]
