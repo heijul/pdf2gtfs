@@ -99,7 +99,7 @@ class ExistingBaseContainer(BaseContainer):
     def from_file(self, default=None) -> list[ContainerObjectType]:
         if not self.fp.exists():
             return [] if default is None else default
-        entries = self.entries_from_df(pd.read_csv(self.fp))
+        entries = self.entries_from_df(pd.read_csv(self.fp, dtype=str))
         return entries
 
     def entries_from_df(self, df: pd.DataFrame) -> list[ContainerObjectType]:
