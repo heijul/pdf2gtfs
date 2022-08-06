@@ -25,7 +25,7 @@ class InvalidRouteTypeValue(PropertyException):
     pass
 
 
-class InvalidPathError(PropertyException):
+class InvalidOutputDirectory(PropertyException):
     pass
 
 

@@ -5,7 +5,6 @@ need to hard-code each property.
 """
 import logging
 import datetime as dt
-from os import makedirs
 from pathlib import Path
 from typing import Any
 
@@ -198,22 +197,12 @@ class PathProperty(Property):
     def __set__(self, obj, value):
         if isinstance(value, str):
             value = Path(value).resolve()
-            try:
-                makedirs(value, exist_ok=True)
-            except (PermissionError, NotADirectoryError, OSError) as e:
-                msg = "Could not create output directory, because "
-                if isinstance(e, PermissionError):
-                    msg += ("you do not have the required permissions to "
-                            "create the directory: '{value}'.")
-                elif isinstance(e, NotADirectoryError):
-                    msg += (f"a file with this name "
-                            f"already exists: '{value}'.")
-                else:
-                    msg += f"the following error occurred: \n\t{str(e)}"
-                logger.error(msg)
-                raise err.InvalidPathError
-            if not value.is_dir():
-                raise err.InvalidPathError
+            if value.exists() and not value.is_dir():
+                logger.error("Output directory is not a directory.")
+                raise err.InvalidOutputDirectory
+            if not value.exists():
+                logger.info(f"Output directory '{value}' does not exist "
+                            f"and will be created.")
         super().__set__(obj, value)
 
 
