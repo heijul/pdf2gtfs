@@ -9,13 +9,9 @@ from time import time
 
 import pandas as pd
 from ghostscript import GhostscriptError
-# noinspection PyPackageRequirements
 from pdfminer.high_level import extract_pages
-# noinspection PyPackageRequirements
 from pdfminer.layout import LAParams
-# noinspection PyPackageRequirements
 from pdfminer.layout import LTTextBox, LTChar, LTTextLine, LTPage
-# noinspection PyPackageRequirements
 from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
