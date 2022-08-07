@@ -103,21 +103,23 @@ class HolidayCodeProperty(Property):
 
 class Pages:
     def __init__(self, pages_string: str = "all"):
-        self.pages = set()
+        self.pages = []
         self._set_value(pages_string)
         self.validate()
 
     def _set_value(self, pages_string):
         pages_string = pages_string.replace(" ", "")
 
-        # pdfminer uses 0-indexed pages or None for all pages.
         if pages_string == "all":
             self.all = True
-            self.page_numbers = None
             return
 
         self._set_pages(pages_string)
-        self.page_numbers = [page - 1 for page in self.pages]
+
+    @property
+    def page_ids(self):
+        # pdfminer uses 0-indexed pages or None for all pages.
+        return None if self.all else [page - 1 for page in self.pages]
 
     def _set_pages(self, pages_string):
         def _handle_non_numeric_pages(non_num_string):
@@ -132,14 +134,18 @@ class Pages:
                            f"Reason: Non-numeric and not a proper range.")
             return set()
 
+        pages = set()
         for value_str in pages_string.split(","):
             if not str.isnumeric(value_str):
-                self.pages.update(_handle_non_numeric_pages(value_str))
+                pages.update(_handle_non_numeric_pages(value_str))
                 continue
-            self.pages.add(int(value_str))
+            pages.add(int(value_str))
 
         self.all = False
-        self.pages = sorted(self.pages)
+        self.pages = sorted(pages)
+
+    def page_num(self, page_id: int) -> int:
+        return page_id if self.all else self.pages[page_id - 1]
 
     def validate(self):
         if self.all:
