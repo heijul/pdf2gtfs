@@ -28,4 +28,11 @@ class TestBBox(TestCase):
         self.assertFalse(self.bbox2.contains_vertical(self.bbox1))
 
     def test_distance(self):
-        self.skipTest("Not implemented yet...")
+        self.assertEqual(0, self.bbox1.distance(self.bbox1, "x"))
+        self.assertEqual(0, self.bbox1.distance(self.bbox1, "y"))
+        self.assertEqual(0, self.bbox1.distance(self.bbox2, "x"))
+        self.assertEqual(0, self.bbox1.distance(self.bbox2, "y"))
+        self.assertEqual(5, self.bbox1.distance(self.bbox3, "x"))
+        self.assertEqual(10, self.bbox1.distance(self.bbox3, "y"))
+        self.assertEqual(10, self.bbox2.distance(self.bbox3, "x"))
+        self.assertEqual(10, self.bbox2.distance(self.bbox3, "y"))

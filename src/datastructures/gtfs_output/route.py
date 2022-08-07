@@ -24,6 +24,7 @@ class RouteType(Enum):
     Ferry = 4
     CableTram = 5
     AerialLift = 6
+    SuspendedCableCar = 6
     Funicular = 7
     Trolleybus = 11
     Monorail = 12
