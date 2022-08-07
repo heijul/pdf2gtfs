@@ -44,7 +44,7 @@ class Route(BaseDataClass):
         self.route_id = self.id
         self.route_long_name = route_long_name
         self.route_short_name = route_short_name
-        self.route_type: RouteType = RouteType[config.Config.gtfs_routetype]
+        self.route_type: RouteType = config.Config.gtfs_routetype
 
     def get_field_value(self, field: Field):
         value = super().get_field_value(field)

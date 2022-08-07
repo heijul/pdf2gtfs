@@ -11,6 +11,7 @@ from typing import Any
 from holidays.utils import list_supported_countries
 
 import config.errors as err
+from datastructures.gtfs_output.route import RouteType
 
 
 logger = logging.getLogger(__name__)
@@ -179,15 +180,16 @@ class FilenameProperty(Property):
 
 class RouteTypeProperty(Property):
     def __init__(self, cls, attr):
-        super().__init__(cls, attr, str)
+        super().__init__(cls, attr, RouteType)
 
-    def validate(self, value: str):
-        from datastructures.gtfs_output.route import RouteType
-
-        super().validate(value)
-        if value in [typ.name for typ in RouteType]:
-            return
-        raise err.InvalidRouteTypeValue
+    def __set__(self, obj, value: str | int) -> None:
+        value = value.strip()
+        value = int(value) if value.isnumeric() else value
+        if isinstance(value, str):
+            value = RouteType[value]
+        elif isinstance(value, int):
+            value = RouteType(value)
+        return super().__set__(obj, value)
 
 
 class PathProperty(Property):
