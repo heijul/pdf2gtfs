@@ -27,6 +27,7 @@ pd.set_option('display.max_colwidth', None)
 logger = logging.getLogger(__name__)
 
 
+# TODO: Remove.
 class BaseReader:
     filepath: Path
     out_path: Path
