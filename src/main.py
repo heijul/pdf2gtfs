@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_timetables():
-    reader = Reader(Config.filename)
+    reader = Reader()
     timetables = reader.read()
     return timetables
 
