@@ -111,14 +111,12 @@ class Table:
             return _last_stop_text + " "
 
         def is_indented() -> bool:
-            max_indention_in_px = 3
-            return abs(column.bbox.x0 - stop.bbox.x0) >= max_indention_in_px
+            min_indention_in_px = 3
+            return abs(column.bbox.x0 - stop.bbox.x0) >= min_indention_in_px
 
         columns = self.columns.of_type(ColumnType.STOP)
         if not columns:
             return
-        # TODO: Tables should be split at ColumnType.STOP, to ensure only a
-        #  single StopColumn exists. See fix_pages_with_split_tables.
         column = columns[0]
         stops = column.fields
         last_stop_text = stops[0].text
