@@ -169,7 +169,7 @@ class StopTimes(BaseContainer):
         new_stop_times = []
 
         while True:
-            trip = trip_factory(None)
+            trip = trip_factory()
             new = previous.duplicate(trip.trip_id)
             new.shift(next(delta_cycle))
             if new > next_:
