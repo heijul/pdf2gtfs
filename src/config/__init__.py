@@ -139,13 +139,13 @@ class _Config(InstanceDescriptorMixin):
         return True
 
     @property
-    def base_path(self) -> Path:
+    def base_dir(self) -> Path:
         """ Returns the path, where the src directory is located. """
         return Path(__file__).parents[2]
 
     @property
     def default_config_path(self):
-        return self.base_path.joinpath("config.template.yaml")
+        return self.base_dir.joinpath("config.template.yaml")
 
     def __str__(self):
         string_like = (str, Path)
