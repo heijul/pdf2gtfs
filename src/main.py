@@ -52,3 +52,4 @@ if __name__ == "__main__":
 
 # TODO: Add readme.md
 # TODO: Use agency from file, if only one exists, ask if multiple exist
+# TODO: Error handling
