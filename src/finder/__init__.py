@@ -81,7 +81,7 @@ def get_osm_data_from_qlever(path: Path) -> bool:
         logger.error(f"Could not get osm data: {r}\n{r.content}")
         return False
 
-    osm_data_to_file(r.content, data["query"], path)
+    osm_data_to_file(r.content, path)
     return True
 
 
@@ -123,16 +123,26 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
     return df.where(df["name"] != "").dropna()
 
 
-def osm_data_to_file(raw_data: bytes, query: str, path: Path):
-    # TODO: Now requires --clear_cache, if allowed_chars/abbrevs are changed.
-    #  Alternative: Save the allowed_chars + abbrevs in the cache as well.
+def get_osm_comments(include_date: bool = True) -> str:
+    join_str = "\n#   "
+    date = dt.date.today().strftime("%Y%m%d")
+    query = join_str.join(get_osm_query().split("\n"))
+    abbrevs = join_str.join(
+        [f"{key}: {value}"
+         for key, value in sorted(Config.name_abbreviations.items())])
+    allowed_chars = sorted(Config.allowed_stop_chars)
+    comments = [f"# Queried: {date}"] if include_date else[]
+    comments += [f"# Query:{join_str}{query}",
+                 f"# Abbreviations:{join_str}{abbrevs}",
+                 f"# Allowed chars:{join_str}{allowed_chars}"]
+    return "\n".join(comments) + "\n"
+
+
+def osm_data_to_file(raw_data: bytes, path: Path):
     df = _clean_osm_data(raw_data)
 
     with open(path, "w") as fil:
-        date = dt.date.today().strftime("%Y%m%d")
-        fil.write(f"# Queried: .{date}.\n")
-        query = "\n#   ".join(query.split("\n"))
-        fil.write(f"# Query: \n#   {query}\n")
+        fil.write(get_osm_comments())
 
     df.to_csv(path, sep="\t", header=False, index=False, mode="a")
 
@@ -212,19 +222,20 @@ class Finder:
         return self._cache_is_stale() or self._query_different_from_cache()
 
     def _cache_is_stale(self) -> bool:
-        with open(self.fp, "rb") as fil:
-            line = fil.readline().decode("utf-8").strip()
+        with open(self.fp, "r") as fil:
+            line = fil.readline().strip()
 
         msg = ("Cache was found, but does not seem valid. First line must "
-               "be a comment '# Queried: .YYYYMMDD.', containing the date "
-               "when the cache was created.")
+               "be a comment '# Queried: YYYYMMDD', where YYYYMMDD is the "
+               "date when the cache was created.")
         if not line.startswith("# Queried: "):
             logger.warning(msg)
             return True
 
         try:
             date = dt.datetime.now()
-            query_date = dt.datetime.strptime(line.split(".")[1], "%Y%m%d")
+            date_str = line.split(": ")[1].strip()
+            query_date = dt.datetime.strptime(date_str, "%Y%m%d")
         except (ValueError, IndexError):
             logger.warning(msg)
             return True
@@ -232,18 +243,14 @@ class Finder:
         return (date - query_date).days > Config.stale_cache_days
 
     def _query_different_from_cache(self):
-        def clean_line(_line):
-            return _line[1:].strip()
-
         lines = []
-        with open(self.fp, "rb") as fil:
-            line = fil.readline().decode("utf-8").strip()
+        with open(self.fp, "r") as fil:
+            line = fil.readline().strip()
             while line.startswith("#"):
-                if clean_line(line):
-                    lines.append(clean_line(line))
-                line = fil.readline().decode("utf-8")
-        query = " \n".join(lines[2:])
-        return query != get_osm_query()
+                lines.append(line)
+                line = fil.readline()
+
+        return get_osm_comments(False) == "\n".join(lines[1:]) + "\n"
 
     def _get_stop_data(self):
         if not self.use_cache or self.rebuild_cache():
