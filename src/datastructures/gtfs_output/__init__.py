@@ -8,6 +8,7 @@ from typing import TypeVar, Type
 import pandas as pd
 
 from cli.cli import OverwriteInputHandler
+from cli.states import overwrite_existing_file
 from utils import next_uid
 
 
@@ -74,9 +75,7 @@ class BaseContainer:
                     f"is disabled.")
                 return
             if not Config.always_overwrite and not Config.non_interactive:
-                handler = OverwriteInputHandler(self.fp)
-                handler.run()
-                if not handler.overwrite:
+                if not overwrite_existing_file(self.fp):
                     return
 
         with open(self.fp, "w") as fil:

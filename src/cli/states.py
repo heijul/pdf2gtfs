@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 from datetime import datetime as dt
+from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, Callable, TypeAlias
 
 
@@ -81,6 +82,14 @@ def handle_annotations(annots: list[str]) -> AnnotException:
                              get_annotation_exceptions())
 
     return exceptions
+
+
+def overwrite_existing_file(filename: str | Path):
+    msg = (f"The file '{filename}' already exists.\n"
+           f"Do you want to overwrite it? [y]es [n]o")
+    # FEATURE: Extend to overwrite all/none/overwrite/skip
+    answer = get_input(msg, ["y", "n"])
+    return answer == "y"
 
 
 class State:
@@ -239,7 +248,6 @@ class OverwriteBaseState(InputState):
     def __init__(self, state_machine: OverwriteInputHandler):
         msg = ("The file {} already exists.\nDo you want to overwrite it? "
                "[y]es [n]o")
-        # FEATURE: Extend to overwrite all/none/overwrite/skip
         self.overwrite = False
         super().__init__(state_machine, "base", msg, "end")
         self.sm: OverwriteInputHandler
