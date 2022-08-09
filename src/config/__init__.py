@@ -75,6 +75,8 @@ class _Config(InstanceDescriptorMixin):
         self.name_abbreviations = AbbrevProperty(self, "name_abbreviations")
         self.disable_location_detection = Property(
             self, "disable_location_detection", bool)
+        self.disable_connection_detection = Property(
+            self, "disable_connection_detection", bool)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

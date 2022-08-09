@@ -181,7 +181,15 @@ name_abbreviations:
 
 # TODO: Add route_display_options = [show_clusters, show_all_cluster_nodes]
 #  (bool, bool) maybe merge with display_route
-# TODO: Add disable_connection_detection: bool = False
+
+# Disables the detection of connections. Usually, any stops between two stops
+#   A and B are not added to the output, iff A and B are the same stop and
+#   A/B is not the start/end of the route. This may however result in valid
+#   stops being discarded, if the route serves the same stop multiple times.
+#
+# Type: bool
+disable_connection_detection: False
+# FEATURE: Change to max_connection_length: int = 1, to allow more granularity
 
 # TODO: Order
 

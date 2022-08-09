@@ -4,6 +4,7 @@ import logging
 from typing import cast
 
 import datastructures.rawtable.table as raw
+from config import Config
 from datastructures.rawtable.enums import ColumnType
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
 from datastructures.timetable.stops import Stop, DummyAnnotationStop
@@ -125,7 +126,8 @@ class TimeTable:
             if not table.entries[-1].values:
                 del table.entries[-1]
 
-        table.detect_connection()
+        if not Config.disable_connection_detection:
+            table.detect_connection()
         if table.stops.stops:
             logger.info(table)
         return table
