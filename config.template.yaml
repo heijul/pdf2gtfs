@@ -158,8 +158,8 @@ stale_cache_days: 7
 
 # When searching for the stop locations, the abbreviations listed here will be
 #   replaced by their respective full form. This will not affect the stop_name
-#   in the 'stops.txt'.This may help with finding the proper location for a
-#   stop, in case the transit agency uses unofficial names with abbreviations.
+#   in the 'stops.txt'. This may help with finding the proper location for a
+#   stop, in case the transit agency uses names with these abbreviations.
 # Notes:
 # - Word boundaries will be respected, i.e. the "ffm" in "hoffmannplatz" would
 #   not be replaced with "Frankfurt" if it is set to {"ffm": "Frankfurt"}.
