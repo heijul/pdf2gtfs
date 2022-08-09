@@ -1,79 +1,86 @@
 from __future__ import annotations
 
+import datetime
+import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar
-from datetime import datetime as dt
-
-from cli.states import (State, StartState, EndState, AnnotBaseState,
-                        AnnotAddDateState, AnnotSetActiveState, OverwriteBaseState)
+from typing import Callable, TypeAlias
 
 
-if TYPE_CHECKING:
-    from datastructures.gtfs_output.handler import GTFSHandler
-
-S_Type = TypeVar("S_Type", bound="State")
-
-
-class InputHandler:
-    states: dict[str, S_Type]
-    current: S_Type
-
-    def __init__(self):
-        self.states = {"start": StartState(self),
-                       "end": EndState(self)}
-        self.current = self.states["start"]
-
-    @property
-    def done(self) -> bool:
-        return isinstance(self.current, EndState)
-
-    def get_state(self, name: str) -> State:
-        return self.states[name]
-
-    def _next_state(self):
-        last = self.current
-        self.current.exit()
-        self.current = self.current.next
-        if self.current is not None:
-            self.current.enter(last)
-
-    def run(self):
-        while True:
-            if self.current.run():
-                self._next_state()
-            if self.done:
-                break
+logger = logging.getLogger(__name__)
+CheckType: TypeAlias = list[str] | Callable[[str], bool]
+AnnotException: TypeAlias = dict[str: tuple[bool, list[datetime.date]]]
 
 
-class AnnotationInputHandler(InputHandler):
-    def __init__(self, gtfs_handler: GTFSHandler, annotations_: set[str]):
-        self.handler = gtfs_handler
-        self.annotations = annotations_
-        super().__init__()
-        self.create_states()
-
-    def create_states(self):
-        states = [AnnotBaseState(self),
-                  AnnotAddDateState(self),
-                  AnnotSetActiveState(self)]
-        self.states.update({state.name: state for state in states})
-        self.current.next = "base"
-
-    def get_next_annotation(self) -> str | None:
-        return self.annotations.pop() if self.annotations else None
-
-    def get_values(self) -> dict[str, dict[dt.date, bool]]:
-        base_state: AnnotBaseState = self.states["base"]
-        return base_state.get_value()
+def get_input(prompt: str, check: CheckType, err_msg: str = "") -> str:
+    answer = input(prompt + "\n> ").lower().strip()
+    valid = answer in check if isinstance(check, list) else check(answer)
+    if valid:
+        return answer
+    if err_msg:
+        logger.warning(err_msg)
+    return get_input(prompt, check, err_msg)
 
 
-class OverwriteInputHandler(InputHandler):
-    def __init__(self, filename: Path) -> None:
-        self.filename = filename
-        super().__init__()
-        self.states["base"] = OverwriteBaseState(self)
-        self.current.next = "base"
+def get_inputs(prompt: str, check: CheckType, err_msg: str = "") -> list[str]:
+    answers = []
+    while True:
+        answer = get_input(prompt, check, err_msg)
+        if answer == "":
+            break
+        answers.append(answer)
+    return answers
 
-    @property
-    def overwrite(self):
-        return self.states["base"].overwrite
+
+def to_date(date_str: str) -> datetime.date | None:
+    try:
+        return datetime.datetime.strptime(date_str, "%Y%m%d")
+    except ValueError:
+        return None
+
+
+def get_annotation_exceptions() -> list[datetime.date]:
+    def is_valid_date(date_str: str) -> bool:
+        return not date_str or to_date(date_str) is not None
+
+    msg = ("Enter a date (YYYYMMDD) where service is different than usual, "
+           "or an empty string if there are no more exceptions "
+           "for this annotation:")
+    err_msg = ("Invalid date. Make sure you use the "
+               "right format, i.e. YYYYMMDD (e.g. 20220420)")
+    dates = get_inputs(msg, is_valid_date, err_msg=err_msg)
+    return list(map(to_date, dates))
+
+
+def get_annotation_default() -> bool:
+    prompt = "Should service be usually active for this annotation? [y/n]"
+    return get_input(prompt, ["y", "n"]) == "y"
+
+
+def handle_annotation(annot: str) -> tuple[bool, bool]:
+    prompt = (f"Found this annotation '{annot}'. What do you want to do?\n"
+              "(S)kip annotation, Add (E)xception for this annotation, "
+              "Skip (A)ll remaining annotations: [s/e/a]")
+    answer = get_input(prompt, ["s", "e", "a"])
+    return answer == "s", answer == "a"
+
+
+def handle_annotations(annots: list[str]) -> AnnotException:
+    exceptions: AnnotException = {}
+    for annot in annots:
+        skip_this, skip_all = handle_annotation(annot)
+        if skip_all:
+            break
+        if skip_this:
+            continue
+        exceptions[annot] = (get_annotation_default(),
+                             get_annotation_exceptions())
+
+    return exceptions
+
+
+def overwrite_existing_file(filename: str | Path):
+    msg = (f"The file '{filename}' already exists.\n"
+           f"Do you want to overwrite it? [y]es [n]o")
+    # FEATURE: Extend to overwrite all/none/overwrite/skip
+    answer = get_input(msg, ["y", "n"])
+    return answer == "y"
