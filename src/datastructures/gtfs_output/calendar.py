@@ -88,6 +88,10 @@ class CalendarEntry(BaseDataClass):
             return False
         return True
 
+    def disable(self):
+        for name in WEEKDAY_NAMES:
+            setattr(self, name, DayIsActive(False))
+
     def __eq__(self, other: CalendarEntry):
         return self.same_days(other) and self.annotations == other.annotations
 

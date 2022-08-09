@@ -84,7 +84,7 @@ class TimeTable:
                     continue
                 # Splitting in case field has multiple annotations
                 _annots |= set(field.text.strip().split(" "))
-            return _annots
+            return {a for a in _annots if a}
 
         def get_route_name(column: raw.Column):
             for field in column.fields:
