@@ -70,3 +70,7 @@ def _add_optional_arguments(parser: ArgumentParser):
     text = "Display the route in your webbrowser."
     parser.add_argument("--display_route", const=True,
                         action="store_const", help=text)
+
+    text = "Disable the detection of the location of the stops."
+    parser.add_argument("--disable_location_detection", const=True,
+                        action="store_const", help=text)

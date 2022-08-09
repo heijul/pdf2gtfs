@@ -73,6 +73,8 @@ class _Config(InstanceDescriptorMixin):
         self.display_route = Property(self, "display_route", bool)
         self.stale_cache_days = Property(self, "stale_cache_days", int)
         self.name_abbreviations = AbbrevProperty(self, "name_abbreviations")
+        self.disable_location_detection = Property(
+            self, "disable_location_detection", bool)
 
     def load_config(self, path: Path | None = None) -> bool:
         """ Load the given config. If no config is given, load the default one.

@@ -182,3 +182,10 @@ name_abbreviations:
 # TODO: Add route_display_options = [show_clusters, show_all_cluster_nodes]
 #  (bool, bool) maybe merge with display_route
 # TODO: Add disable_connection_detection: bool = False
+
+# TODO: Order
+
+# Disable the detection of the stop locations.
+#
+# Type: bool
+disable_location_detection: False

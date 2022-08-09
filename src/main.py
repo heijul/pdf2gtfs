@@ -41,8 +41,9 @@ def main():
 
     tables = get_timetables()
     handler = generate_gtfs(tables)
-    route = match_coordinates(handler)
-    handler.add_coordinates(route)
+    if not Config.disable_location_detection:
+        route = match_coordinates(handler)
+        handler.add_coordinates(route)
     handler.write_files()
 
 
