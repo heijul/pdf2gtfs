@@ -30,3 +30,8 @@ class CalendarDates(BaseContainer):
         entry = CalendarDateEntry(service_id, date_str, exception_type)
         self._add(entry)
         return entry
+
+    def add_multiple(
+            self, service_id: int, dates: list[dt.date], add_service: bool):
+        for date in dates:
+            self.add(service_id, date, add_service)

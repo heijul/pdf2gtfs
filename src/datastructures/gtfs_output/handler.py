@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from holidays.utils import country_holidays
 
-from cli.cli import AnnotationInputHandler
+from cli.states import handle_annotations
 from config import Config
-from datastructures.gtfs_output.calendar import Calendar
+from datastructures.gtfs_output.calendar import Calendar, CalendarEntry
 from datastructures.gtfs_output.calendar_dates import CalendarDates
 from datastructures.gtfs_output.route import Routes, Route
 from datastructures.gtfs_output.gtfsstop import GTFSStops
@@ -136,28 +136,34 @@ class GTFSHandler:
                 self.calendar_dates.add(date.service_id, holiday, False)
 
     def add_annotation_dates(self):
-        def get_services_with_annot(_annot):
+        def get_annots():
+            annot_set = set()
+            raw_annots = [e.annotations for e in self.calendar.entries]
+            for _annot in raw_annots:
+                annot_set |= _annot
+            return list(annot_set)
+
+        def get_services_with_annot(_annot) -> list[CalendarEntry]:
             return [e for e in self.calendar.entries
                     if _annot in e.annotations]
 
         if Config.non_interactive:
             return
 
-        annots = set()
-        raw_annots = [e.annotations for e in self.calendar.entries]
-        for annot in raw_annots:
-            annots |= annot
+        annots = get_annots()
         if not annots:
             return
-        input_handler = AnnotationInputHandler(self, annots)
-        input_handler.run()
 
-        for annot, values in input_handler.get_values().items():
+        # TODO: If multiple annotations which are active on the same service
+        #  have different defaults, default=off will take precedence.
+        annot_exceptions = handle_annotations(annots)
+        for annot, (default, dates) in annot_exceptions.items():
             services = get_services_with_annot(annot)
             for service in services:
-                for value, active in values:
-                    self.calendar_dates.add(
-                        service.service_id, value, active)
+                if not default:
+                    service.disable()
+                self.calendar_dates.add_multiple(
+                    service.service_id, dates, not default)
 
     def _remove_unused_routes(self):
         used_route_ids = set([trip.route_id for trip in self.trips.entries])
