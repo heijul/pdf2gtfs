@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from holidays.utils import country_holidays
 
-from cli.cli import handle_annotations
+from user_input.cli import handle_annotations
 from config import Config
 from datastructures.gtfs_output.calendar import Calendar, CalendarEntry
 from datastructures.gtfs_output.calendar_dates import CalendarDates

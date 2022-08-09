@@ -6,7 +6,7 @@ from p2g_logging import initialize_logging
 
 from reader import Reader
 from config import Config
-from cli.arg_parser import parse_args
+from user_input.arg_parser import parse_args
 
 
 logger = logging.getLogger(__name__)
