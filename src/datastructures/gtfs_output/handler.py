@@ -68,7 +68,24 @@ class GTFSHandler:
         generate the stop_times for the repeat column.
         """
 
-        # TODO: Cleanup; Split into multiple
+        def create_calendar_entry():
+            return self.calendar.try_add(entry.days.days, entry.annotations)
+
+        def new_entry_is_on_new_service_day():
+            if not prev_calendar_entry:
+                return False
+            return not calendar_entry.same_days(prev_calendar_entry)
+
+        def create_stop_times():
+            trip = trip_factory()
+            times = StopTimes()
+            times.add_multiple(
+                trip.trip_id, self.stops, service_day_offset, entry.values)
+            return times
+
+        def end_of_day():
+            return prev and prev > stop_times
+
         stop_times = []
         prev = None
         prev_calendar_entry = None
@@ -80,38 +97,35 @@ class GTFSHandler:
                 continue
             route_id = self.routes.get_from_entry(entry).route_id
 
-            calendar_entry = self.calendar.try_add(
-                entry.days.days, entry.annotations)
-            service_id = calendar_entry.service_id
-            if (prev_calendar_entry and
-                    not calendar_entry.same_days(prev_calendar_entry)):
+            calendar_entry = create_calendar_entry()
+            if new_entry_is_on_new_service_day():
                 service_day_offset = 0
                 prev = None
-            prev_calendar_entry = calendar_entry
-            trip = self.trips.add(route_id, service_id)
-            times = StopTimes()
-            times.add_multiple(trip.trip_id, self.stops,
-                               service_day_offset, entry.values)
 
-            if prev and prev > times:
-                times.shift(Time(24))
+            trip_factory = self.trips.get_factory(
+                calendar_entry.service_id, route_id)
+            stop_times = create_stop_times()
+
+            if end_of_day():
+                stop_times.shift(Time(24))
                 service_day_offset += 1
 
-            stop_times.append(times)
+            stop_times.append(stop_times)
+            prev_calendar_entry = calendar_entry
 
             if not repeat:
-                prev = times
+                prev = stop_times
                 continue
 
-            if not prev:
+            if prev is None:
                 logger.error("Encountered a repeat column, before a normal "
                              "column was added. Skipping repeat column...")
                 repeat = None
                 continue
+
             # Create stop_times between prev and times.
-            trip_factory = self.trips.get_factory(service_id, route_id)
             stop_times += StopTimes.add_repeat(
-                prev, times, repeat.deltas, trip_factory)
+                prev, stop_times, repeat.deltas, trip_factory)
             repeat = None
 
         return stop_times
