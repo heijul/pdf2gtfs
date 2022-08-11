@@ -78,13 +78,13 @@ class GTFSHandler:
 
         def create_stop_times():
             trip = trip_factory()
-            times = StopTimes()
-            times.add_multiple(
+            _stop_times = StopTimes()
+            _stop_times.add_multiple(
                 trip.trip_id, self.stops, service_day_offset, entry.values)
-            return times
+            return _stop_times
 
         def end_of_day():
-            return prev and prev > stop_times
+            return prev and prev > times
 
         stop_times = []
         prev = None
@@ -104,17 +104,17 @@ class GTFSHandler:
 
             trip_factory = self.trips.get_factory(
                 calendar_entry.service_id, route_id)
-            stop_times = create_stop_times()
+            times = create_stop_times()
 
             if end_of_day():
-                stop_times.shift(Time(24))
+                times.shift(Time(24))
                 service_day_offset += 1
 
-            stop_times.append(stop_times)
+            stop_times.append(times)
             prev_calendar_entry = calendar_entry
 
             if not repeat:
-                prev = stop_times
+                prev = times
                 continue
 
             if prev is None:
@@ -125,7 +125,7 @@ class GTFSHandler:
 
             # Create stop_times between prev and times.
             stop_times += StopTimes.add_repeat(
-                prev, stop_times, repeat.deltas, trip_factory)
+                prev, times, repeat.deltas, trip_factory)
             repeat = None
 
         return stop_times
