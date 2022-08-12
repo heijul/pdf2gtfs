@@ -36,15 +36,18 @@ class RouteType(Enum):
 @dataclass
 class Route(BaseDataClass):
     route_id: int
+    agency_id: int
     route_short_name: str
     route_long_name: str
     route_type: RouteType
 
-    def __init__(self, route_short_name: str, route_long_name: str) -> None:
+    def __init__(
+            self, agency_id: int, short_name: str, long_name: str) -> None:
         super().__init__()
         self.route_id = self.id
-        self.route_long_name = route_long_name
-        self.route_short_name = route_short_name
+        self.agency_id = agency_id
+        self.route_long_name = long_name
+        self.route_short_name = short_name
         self.route_type: RouteType = config.Config.gtfs_routetype
 
     def get_field_value(self, field: Field):
@@ -60,15 +63,20 @@ class Route(BaseDataClass):
     def to_output(self) -> str:
         short = f'"{self.route_short_name}"' if self.route_short_name else ""
         long = f'"{self.route_long_name}"' if self.route_long_name else ""
-        return f"{self.route_id},{short},{long},{self.route_type.to_output()}"
+        route_type = self.route_type.to_output()
+        return f"{self.route_id},{self.agency_id},{short},{long},{route_type}"
 
 
 class Routes(BaseContainer):
     def __init__(self):
         super().__init__("routes.txt", Route)
+        self.agency_id = -1
+
+    def set_agency_id(self, agency_id: int) -> None:
+        self.agency_id = agency_id
 
     def add(self, *, short_name: str = "", long_name: str = "") -> Route:
-        route = Route(short_name, long_name)
+        route = Route(self.agency_id, short_name, long_name)
         # TODO: This should be done in super()._add which should return the
         #  added/existing entry.
         if route in self.entries:
@@ -77,7 +85,7 @@ class Routes(BaseContainer):
         return route
 
     def get(self, short_name: str, long_name: str) -> Optional[Route]:
-        route = Route(short_name, long_name)
+        route = Route(self.agency_id, short_name, long_name)
         if route in self.entries:
             return self.entries[self.entries.index(route)]
         return None
