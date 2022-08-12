@@ -39,6 +39,7 @@ class GTFSHandler:
 
     def _setup(self):
         self.agency.add()
+        self.routes.set_agency_id(self.agency.get_default().agency_id)
 
     def timetable_to_gtfs(self, timetable: TimeTable):
         timetable.clean_values()

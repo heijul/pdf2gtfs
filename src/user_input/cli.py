@@ -3,7 +3,11 @@ from __future__ import annotations
 import datetime
 import logging
 from pathlib import Path
-from typing import Callable, TypeAlias
+from typing import Callable, TypeAlias, TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from datastructures.gtfs_output.agency import AgencyEntry
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +35,7 @@ def get_inputs(prompt: str, check: CheckType, err_msg: str = "") -> list[str]:
     return answers
 
 
+# Annotation handling.
 def to_date(date_str: str) -> datetime.date | None:
     try:
         return datetime.datetime.strptime(date_str, "%Y%m%d")
@@ -78,9 +83,65 @@ def handle_annotations(annots: list[str]) -> AnnotException:
     return exceptions
 
 
+# Overwrite handling.
 def overwrite_existing_file(filename: str | Path):
     msg = (f"The file '{filename}' already exists.\n"
            f"Do you want to overwrite it? [y]es [n]o")
     # FEATURE: Extend to overwrite all/none/overwrite/skip
     answer = get_input(msg, ["y", "n"])
     return answer == "y"
+
+
+# Agency selection.
+def _get_agency_string(
+        idx: str, agency: list[str], widths: list[int]) -> str:
+    format_strings = ["{" + ":>" + str(size) + "}" for size in widths]
+
+    idx_str = format_strings[0].format(idx, widths[0]) + " | "
+
+    agency_list = []
+    for i, value in enumerate(agency, 1):
+        agency_list.append(format_strings[i].format(value, widths[i]))
+
+    return idx_str + " | ".join(agency_list)
+
+
+def _get_agency_header(agency: AgencyEntry) -> list[str]:
+    return agency.get_field_names().split(",")
+
+
+def _get_agency_column_widths(agencies: list[AgencyEntry]) -> list[int]:
+    widths = [5] + [len(col) for col in list(_get_agency_header(agencies[0]))]
+    # Index column length.
+    widths[0] = max(widths[0], len(str(len(agencies))))
+
+    for agency in agencies:
+        for i, value in enumerate(agency.values, 1):
+            widths[i] = max(widths[i], len(value))
+
+    return [size for size in widths]
+
+
+def _get_agency_prompt(path: str, agencies: list[AgencyEntry]):
+    agency_strings = []
+    widths = _get_agency_column_widths(agencies)
+
+    for i, agency in enumerate(agencies):
+        agency_string = _get_agency_string(str(i), agency.values, widths)
+        agency_strings.append(agency_string)
+
+    prompt = f"Multiple agencies found in '{path}':"
+    lin_sep = "\n\t"
+
+    columns = _get_agency_header(agencies[0])
+    prompt += lin_sep + _get_agency_string("index", columns, widths)
+    prompt += lin_sep + lin_sep.join(agency_strings)
+
+    prompt += "\n\nPlease provide the index of the agency you want to use."
+    return prompt
+
+
+def select_agency(path: str, agencies: list[AgencyEntry]) -> AgencyEntry:
+    prompt = _get_agency_prompt(path, agencies)
+    answer = get_input(prompt, list(map(str, range(len(agencies)))))
+    return agencies[int(answer)]

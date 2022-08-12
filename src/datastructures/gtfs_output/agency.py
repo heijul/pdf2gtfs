@@ -6,6 +6,7 @@ import pandas as pd
 
 from datastructures.gtfs_output.__init__ import (
     BaseDataClass, ExistingBaseContainer)
+from user_input.cli import select_agency
 
 
 @dataclass
@@ -29,6 +30,11 @@ class AgencyEntry(BaseDataClass):
                            series["agency_timezone"],
                            agency_id=series["agency_id"])
 
+    @property
+    def values(self):
+        return (self.agency_id, self.agency_name,
+                self.agency_url, self.agency_timezone)
+
 
 class DummyAgencyEntry(AgencyEntry):
     entries: list[AgencyEntry]
@@ -49,3 +55,8 @@ class Agency(ExistingBaseContainer):
 
     def from_file(self, default=None) -> list[AgencyEntry]:
         return super().from_file([DummyAgencyEntry()])
+
+    def get_default(self):
+        if len(self.entries) == 1:
+            return self.entries[0]
+        return select_agency(self.fp, self.entries)
