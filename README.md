@@ -29,6 +29,18 @@ cd pdf2gtfs
 pip install -r requirements.txt
 python src/main.py
 ```
+
+
+# Configuration
+pdf2gtfs will attempt to read any JSON file in the config directory
+(`~/.config/pdf2gtfs/` or `%APPDATALOCAL%\pdf2gtfs\` depending on your system),
+if it exists. Files which are read at a later point overwrite any values set
+in previous configuration files.
+
+For more information on how to configure pdf2gtfs, check out the
+[default configuration](config.template.yaml).
+
+
 # Usage
 ###### TODO: Check if this is working
 `python -m src/main.py path/to/pdffile.pdf`
