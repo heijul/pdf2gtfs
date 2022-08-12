@@ -48,11 +48,6 @@ class Agency(ExistingBaseContainer):
     def __init__(self):
         super().__init__("agency.txt", AgencyEntry)
 
-    def add(self):
-        entries = self.from_file()
-        for entry in entries:
-            self._add(entry)
-
     def from_file(self, default=None) -> list[AgencyEntry]:
         return super().from_file([DummyAgencyEntry()])
 

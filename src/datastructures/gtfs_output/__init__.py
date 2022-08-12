@@ -87,12 +87,19 @@ class BaseContainer:
 class ExistingBaseContainer(BaseContainer):
     def __init__(self, filename: str, entry_type: Type[ContainerObjectType]):
         super().__init__(filename, entry_type)
+        # Used if existing file is empty.
+        self.overwrite = False
+        self.initialize_existing()
 
     def write(self) -> None:
         """ Never overwrite existing files. """
-        if self.fp.exists():
+        if self.fp.exists() and not self.overwrite:
             return
         super().write()
+
+    def initialize_existing(self):
+        for entry in self.from_file():
+            self._add(entry)
 
     def from_file(self, default=None) -> list[ContainerObjectType]:
         if default is None:
@@ -102,6 +109,7 @@ class ExistingBaseContainer(BaseContainer):
         # TODO: Add error catching + msg
         entries = self.entries_from_df(pd.read_csv(self.fp, dtype=str))
         if not entries:
+            self.overwrite = True
             return default
         return entries
 
