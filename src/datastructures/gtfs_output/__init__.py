@@ -55,14 +55,14 @@ class BaseContainer:
     def _add(self, entry: ContainerObjectType) -> None:
         self.entries.append(entry)
 
-    def to_output(self):
+    def to_output(self) -> str:
         field_names = self.entry_type.get_field_names()
         entry_output = "\n".join(
             map(lambda entry: entry.to_output(), self.entries))
         return f"{field_names}\n{entry_output}\n"
 
     def write(self):
-        self._write(self.to_output() + "\n")
+        self._write(self.to_output())
 
     def _write(self, content: str) -> None:
         from config import Config
@@ -87,19 +87,19 @@ class BaseContainer:
 class ExistingBaseContainer(BaseContainer):
     def __init__(self, filename: str, entry_type: Type[ContainerObjectType]):
         super().__init__(filename, entry_type)
-        # Used if existing file is empty.
+        # Force overwriting, even if file exists.
         self.overwrite = False
-        self.initialize_existing()
+        self.initialize()
+
+    def initialize(self):
+        for entry in self.from_file():
+            self._add(entry)
 
     def write(self) -> None:
-        """ Never overwrite existing files. """
+        """ Never overwrite existing files by default. """
         if self.fp.exists() and not self.overwrite:
             return
         super().write()
-
-    def initialize_existing(self):
-        for entry in self.from_file():
-            self._add(entry)
 
     def from_file(self, default=None) -> list[ContainerObjectType]:
         if default is None:

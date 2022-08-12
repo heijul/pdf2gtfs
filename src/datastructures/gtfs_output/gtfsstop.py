@@ -51,19 +51,38 @@ class GTFSStops(ExistingBaseContainer):
 
     def __init__(self):
         super().__init__("stops.txt", GTFSStop)
+        self.new_entries = []
+
+    def to_output(self) -> str:
+        if not self.append:
+            return super().to_output()
+        with open(self.fp) as fil:
+            old_entries = fil.read().strip()
+        new_entries = "\n".join([e.to_output() for e in self.new_entries])
+        return f"{old_entries}\n{new_entries}\n"
+
+    def write(self) -> None:
+        if self.new_entries:
+            stops = "', '".join([e.stop_name for e in self.new_entries])
+            stops += "['{}']".format(stops)
+            logger.warning(
+                f"The file '{self.filename}' exists and contains data, but "
+                f"does not contain entries for the following stops:\n{stops}"
+                f"\nNew entries will be created and added to the file.")
+            self.overwrite = True
+        super().write()
 
     def add(self, stop_name: str) -> None:
         if self.get(stop_name):
             return
+        entry = GTFSStop(stop_name)
         if self.fp.exists() and not self.overwrite:
-            logger.warning(
-                f"The file '{self.fp}' exists and contains data, but does "
-                f"not contain a stop for '{stop_name}'. A new entry will "
-                f"be created.")
-        super()._add(GTFSStop(stop_name))
+            self.new_entries.append(entry)
+        super()._add(entry)
 
     def get(self, name) -> GTFSStop:
         for entry in self.entries:
+            # FEATURE: Normalize both names.
             if entry.stop_name != name:
                 continue
             return entry
