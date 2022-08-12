@@ -95,9 +95,14 @@ class ExistingBaseContainer(BaseContainer):
         super().write()
 
     def from_file(self, default=None) -> list[ContainerObjectType]:
+        if default is None:
+            default = []
         if not self.fp.exists():
-            return [] if default is None else default
+            return default
+        # TODO: Add error catching + msg
         entries = self.entries_from_df(pd.read_csv(self.fp, dtype=str))
+        if not entries:
+            return default
         return entries
 
     def entries_from_df(self, df: pd.DataFrame) -> list[ContainerObjectType]:
