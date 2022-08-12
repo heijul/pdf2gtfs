@@ -2,7 +2,6 @@
 pdf2gtfs can be used to extract schedule data from timetables
 and turn it into valid [gtfs](https://developers.google.com/transit/gtfs).
 
-
 The following software is used
 - [QLever](https://github.com/ad-freiburg/qlever), to search
 [openstreetmap](https://www.openstreetmap.org) for the coordinates of the stops
@@ -11,14 +10,17 @@ anything that is not text, to improve the performance by order of magnitudes
 - [pdfminer.six](https://pdfminersix.readthedocs.io/en/latest/), to extract
 the chars from the pdf
 
+
 # Getting started
 ## Prerequisites
+- Linux or Windows
 - python3.10 (required)
+- All libraries in the [requirements.txt](requirements.txt)
 - [ghostscript](https://www.ghostscript.com/) >= 9.56.1-1 (recommended)
-- ??
 
 Older versions may work as well, but only the versions given above
 (and in the requirements.txt) are officially supported.
+
 ## Installation
 1. Clone the repository: `git clone {repository_url}`
 2. (Optional) Create a
@@ -45,7 +47,9 @@ For more information on how to configure pdf2gtfs, check out the
 ###### TODO: Check if this is working
 `python -m src/main.py path/to/pdffile.pdf`
 
+
 # Examples
+###### TODO: Add
 
 # License
 Copyright 2022 Julius Heinzinger
