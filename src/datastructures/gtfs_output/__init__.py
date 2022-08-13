@@ -106,8 +106,14 @@ class ExistingBaseContainer(BaseContainer):
             default = []
         if not self.fp.exists():
             return default
-        # TODO: Add error catching + msg
-        entries = self.entries_from_df(pd.read_csv(self.fp, dtype=str))
+        try:
+            entries = self.entries_from_df(pd.read_csv(self.fp, dtype=str))
+        except Exception as e:
+            def_msg = (f"Found existing file {self.fp}, but when trying to "
+                       f"read it, the following exception occurred:\n{e}")
+            logger.warning(err_msg if err_msg else def_msg)
+            self.overwrite = True
+            return default
         if not entries:
             self.overwrite = True
             return default
