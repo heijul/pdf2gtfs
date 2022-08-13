@@ -54,6 +54,7 @@ class GTFSStops(ExistingBaseContainer):
         self.new_entries = []
 
     def to_output(self) -> str:
+        # TODO: fix
         if not self.append:
             return super().to_output()
         with open(self.fp) as fil:
