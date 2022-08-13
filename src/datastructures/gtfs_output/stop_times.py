@@ -108,8 +108,7 @@ class StopTimes(BaseContainer):
     def add(self, trip_id: int, stop_id: int, sequence: int,
             arrival: Time, departure: Time = None) -> StopTimesEntry:
         entry = StopTimesEntry(trip_id, stop_id, sequence, arrival, departure)
-        self._add(entry)
-        return entry
+        return self._add(entry)
 
     def add_multiple(self, trip_id: int, stops: GTFSStops,
                      offset: int, time_strings: dict[Stop: str]

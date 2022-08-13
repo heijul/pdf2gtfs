@@ -52,8 +52,12 @@ class BaseContainer:
         from config import Config
         return Path(Config.output_dir).resolve().joinpath(self.filename)
 
-    def _add(self, entry: ContainerObjectType) -> None:
+    def _add(self, entry: ContainerObjectType, check_unique: bool = False
+             ) -> ContainerObjectType:
+        if entry in self.entries:
+            return self.entries[self.entries.index(entry)]
         self.entries.append(entry)
+        return entry
 
     def to_output(self) -> str:
         field_names = self.entry_type.get_field_names()

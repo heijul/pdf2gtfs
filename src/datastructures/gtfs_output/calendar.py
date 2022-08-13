@@ -102,16 +102,9 @@ class Calendar(BaseContainer):
     def __init__(self):
         super().__init__("calendar.txt", CalendarEntry)
 
-    def try_add(self, days: list[str], annots: set[str]) -> CalendarEntry:
-        new_entry = CalendarEntry(days, annots)
-        entry = self.get(new_entry)
-        self._add(entry)
-        return entry
-
-    def _add(self, new_entry: CalendarEntry) -> None:
-        if any(new_entry == entry for entry in self.entries):
-            return
-        super()._add(new_entry)
+    def add(self, days: list[str], annots: set[str]) -> CalendarEntry:
+        entry = CalendarEntry(days, annots)
+        return self._add(entry)
 
     def get(self, entry: CalendarEntry) -> CalendarEntry:
         for existing_entry in self.entries:

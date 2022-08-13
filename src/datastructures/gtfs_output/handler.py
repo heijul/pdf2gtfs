@@ -88,7 +88,7 @@ class GTFSHandler:
         """
 
         def create_calendar_entry():
-            return self.calendar.try_add(entry.days.days, entry.annotations)
+            return self.calendar.add(entry.days.days, entry.annotations)
 
         def new_entry_is_on_new_service_day():
             if not prev_calendar_entry:

@@ -77,12 +77,7 @@ class Routes(BaseContainer):
 
     def add(self, *, short_name: str = "", long_name: str = "") -> Route:
         route = Route(self.agency_id, short_name, long_name)
-        # TODO: This should be done in super()._add which should return the
-        #  added/existing entry.
-        if route in self.entries:
-            return self.entries[self.entries.index(route)]
-        super()._add(route)
-        return route
+        return super()._add(route)
 
     def get(self, short_name: str, long_name: str) -> Optional[Route]:
         route = Route(self.agency_id, short_name, long_name)

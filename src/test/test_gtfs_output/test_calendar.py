@@ -60,20 +60,20 @@ class TestCalendar(GTFSOutputBaseClass):
         annots = set()
         c = Calendar()
         self.assertEqual(0, len(c.entries))
-        c.try_add(days, annots)
+        c.add(days, annots)
         self.assertEqual(1, len(c.entries))
-        c.try_add(days, annots)
+        c.add(days, annots)
         self.assertEqual(1, len(c.entries))
-        c.try_add(days, {"test_annotation"})
+        c.add(days, {"test_annotation"})
         self.assertEqual(2, len(c.entries))
-        c.try_add(days + ["h"], {"test_annotation"})
+        c.add(days + ["h"], {"test_annotation"})
         self.assertEqual(3, len(c.entries))
 
     def test_get(self):
         c = Calendar()
         days = ["0", "5", "3"]
         e = CalendarEntry(days, None)
-        c.try_add(days, set())
+        c.add(days, set())
         self.assertEqual(e, c.get(e))
         self.assertEqual(e, c.entries[0])
         self.assertNotEqual(id(e), id(c.get(e)))
@@ -82,9 +82,9 @@ class TestCalendar(GTFSOutputBaseClass):
         c = Calendar()
         for i in range(7):
             if i % 2:
-                c.try_add(["h"], {"holiday", str(i)})
+                c.add(["h"], {"holiday", str(i)})
             else:
-                c.try_add(["1", "2"], {str(i)})
+                c.add(["1", "2"], {str(i)})
         on_holidays, no_holidays = c.group_by_holiday()
         self.assertEqual(len(c.entries), len(on_holidays) + len(no_holidays))
         self.assertEqual(3, len(on_holidays))

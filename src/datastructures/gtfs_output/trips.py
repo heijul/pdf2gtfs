@@ -34,8 +34,7 @@ class Trips(BaseContainer):
 
     def add(self, route_id: int, service_id: int) -> TripEntry:
         entry = TripEntry(route_id, service_id)
-        self._add(entry)
-        return entry
+        return self._add(entry)
 
     def remove(self, entry: TripEntry) -> None:
         if entry in self.entries:
