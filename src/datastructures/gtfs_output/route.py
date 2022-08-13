@@ -81,9 +81,7 @@ class Routes(BaseContainer):
 
     def get(self, short_name: str, long_name: str) -> Optional[Route]:
         route = Route(self.agency_id, short_name, long_name)
-        if route in self.entries:
-            return self.entries[self.entries.index(route)]
-        return None
+        return self._get(route)
 
     @staticmethod
     def names_from_entry(entry: TimeTableEntry) -> tuple[str, str]:

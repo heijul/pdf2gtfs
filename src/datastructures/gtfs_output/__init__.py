@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, fields, Field
 from pathlib import Path
-from typing import TypeVar, Type
+from typing import TypeVar, Type, Optional
 
 import pandas as pd
 
@@ -36,28 +36,38 @@ class BaseDataClass:
         return ",".join(map(self._to_output, fields(self)))
 
 
-ContainerObjectType = TypeVar("ContainerObjectType", bound=BaseDataClass)
+DCType = TypeVar("DCType", bound=BaseDataClass)
 
 
 class BaseContainer:
-    entries: list[ContainerObjectType]
+    entries: list[DCType]
 
-    def __init__(self, filename: str, entry_type: Type[ContainerObjectType]):
+    def __init__(self, filename: str, entry_type: Type[DCType]):
         self.filename = filename
         self.entry_type = entry_type
-        self.entries: list[ContainerObjectType] = []
+        self.entries: list[DCType] = []
 
     @property
     def fp(self):
         from config import Config
         return Path(Config.output_dir).resolve().joinpath(self.filename)
 
-    def _add(self, entry: ContainerObjectType, check_unique: bool = False
-             ) -> ContainerObjectType:
+    def _add(self, entry: DCType, check_unique: bool = False) -> DCType:
         if entry in self.entries:
             return self.entries[self.entries.index(entry)]
         self.entries.append(entry)
         return entry
+
+    def _get(self, new_entry: DCType) -> Optional[DCType]:
+        """ Returns the first entry equal to the argument, in case it exists,
+        otherwise None. If the entry type cannot be compared, return the
+        argument instead. """
+        if not hasattr(self.entry_type, "__eq__"):
+            return new_entry
+        for entry in self.entries:
+            if entry == new_entry:
+                return entry
+        return None
 
     def to_output(self) -> str:
         field_names = self.entry_type.get_field_names()
@@ -89,7 +99,7 @@ class BaseContainer:
 
 
 class ExistingBaseContainer(BaseContainer):
-    def __init__(self, filename: str, entry_type: Type[ContainerObjectType]):
+    def __init__(self, filename: str, entry_type: Type[DCType]):
         super().__init__(filename, entry_type)
         # Force overwriting, even if file exists.
         self.overwrite = False
@@ -105,7 +115,7 @@ class ExistingBaseContainer(BaseContainer):
             return
         super().write()
 
-    def from_file(self, default=None) -> list[ContainerObjectType]:
+    def from_file(self, default=None) -> list[DCType]:
         if default is None:
             default = []
         if not self.fp.exists():
@@ -125,7 +135,7 @@ class ExistingBaseContainer(BaseContainer):
             return default
         return entries
 
-    def entries_from_df(self, df: pd.DataFrame) -> list[ContainerObjectType]:
+    def entries_from_df(self, df: pd.DataFrame) -> list[DCType]:
         entries = []
         for _, values in df.iterrows():
             entries.append(self.entry_type.from_series(values))
