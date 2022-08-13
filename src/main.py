@@ -28,7 +28,8 @@ def generate_gtfs(timetables):
 
 def match_coordinates(gtfs_handler: GTFSHandler):
     finder = Finder(gtfs_handler)
-    # TODO: Check if osm_data could be fetched. If not -> abort adding coords
+    if not finder.df:
+        return None
     finder.generate_routes()
     return finder.get_shortest_route()
 
@@ -51,6 +52,4 @@ if __name__ == "__main__":
     main()
 
 
-# TODO: Add readme.md
-# TODO: Use agency from file, if only one exists, ask if multiple exist
 # TODO: Error handling

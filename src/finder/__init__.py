@@ -190,7 +190,7 @@ def create_cache_dir() -> tuple[bool, Path | None]:
     return True, path
 
 
-def read_csv(file: Path | BytesIO) -> pd.DataFrame:
+def read_csv(file: Path | BytesIO) -> Optional[pd.DataFrame]:
     return pd.read_csv(
         file,
         sep="\t",
@@ -216,7 +216,7 @@ class Finder:
         self.fp = Path(self.temp.name).resolve()
 
     def rebuild_cache(self) -> bool:
-        """ Cache needs to be rebuild, if it does not exist or is too old. """
+        """ Cache needs to be rebuilt, if it does not exist or is too old. """
         if not self.fp.exists() or Path(self.temp.name).resolve() == self.fp:
             return True
         return self._cache_is_stale() or self._query_different_from_cache()
@@ -257,7 +257,14 @@ class Finder:
             if not get_osm_data_from_qlever(self.fp):
                 return
 
-        df = read_csv(self.fp)
+        try:
+            df = read_csv(self.fp)
+        except Exception as e:
+            cache_str = " cached " if self.use_cache else " "
+            logger.error(
+                f"While trying to read the{cache_str}osm data an error "
+                f"occurred:\n{e}\nStop location detection will be skipped.")
+            df = None
         self.df: pd.DataFrame = df
 
     def generate_routes(self):
