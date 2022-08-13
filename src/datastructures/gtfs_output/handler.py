@@ -26,6 +26,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def create_output_dir() -> bool:
+    path = Path(Config.output_dir).resolve()
+    try:
+        path.mkdir(exist_ok=True)
+    except OSError as e:
+        msg = ("An error occurred, while trying "
+               "to create the output directory:\n")
+        if isinstance(e, PermissionError):
+            msg += "You are missing the permissions, to create it."
+        elif isinstance(e, FileExistsError):
+            msg += "There already exists a file with the same name."
+        else:
+            msg += str(e)
+        if Config.non_interactive:
+            return False
+        # TODO: Wait for user input to move files/fix permissions
+    return True
+
+
 class GTFSHandler:
     def __init__(self):
         self._agency = Agency()
@@ -187,11 +206,10 @@ class GTFSHandler:
             self.routes.entries.remove(route)
 
     def write_files(self):
+        if not create_output_dir():
+            return False
         self._remove_unused_routes()
         self.add_annotation_dates()
-        # TODO: Error handling
-        path = Path(Config.output_dir).resolve()
-        path.mkdir(exist_ok=True)
         self.agency.write()
         self.stops.write()
         self.routes.write()
