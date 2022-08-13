@@ -11,7 +11,7 @@ from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib import parse
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import pandas as pd
 import requests
@@ -264,13 +264,14 @@ class Finder:
         names = [stop.stop_name for stop in self.handler.stops.entries]
         self.routes = generate_routes(names, self.df)
 
-    def get_shortest_route(self) -> list[Node]:
+    def get_shortest_route(self) -> Optional[list[Node]]:
         # STYLE: Weird roundabout way to do all this.
         if not self.routes:
             self.generate_routes()
+        if not self.routes:
+            return None
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        # TODO: Needs check if route exists.
         route = select_shortest_route(names, self.routes)
-        if Config.display_route:
+        if Config.display_route and route:
             display_route(route, False, False)
         return route

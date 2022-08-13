@@ -68,7 +68,7 @@ class GTFSHandler:
         self.generate_routes(timetable)
 
         stop_times = self.generate_stop_times(timetable.entries)
-        # Add generated stop_times to ours.
+        # Add generated stoptimes to ours.
         for times in stop_times:
             self.stop_times.merge(times)
         self.trips.remove_unused(self.stop_times)
@@ -80,11 +80,11 @@ class GTFSHandler:
 
     def generate_stop_times(self, entries: list[TimeTableEntry]
                             ) -> list[StopTimes]:
-        """ Generate the full stop_times of the given entries.
+        """ Generate the full stoptimes of the given entries.
 
-        Will remember the previous stop_times created and use the previous and
-        current (i.e. stop_times before and after the repeat column) to
-        generate the stop_times for the repeat column.
+        Will remember the previous stoptimes created and use the previous and
+        current (i.e. stoptimes before and after the repeat column) to
+        generate the stoptimes for the repeat column.
         """
 
         def create_calendar_entry():
@@ -142,7 +142,7 @@ class GTFSHandler:
                 repeat = None
                 continue
 
-            # Create stop_times between prev and times.
+            # Create stoptimes between prev and times.
             stop_times += StopTimes.add_repeat(
                 prev, times, repeat.deltas, trip_factory)
             repeat = None
@@ -218,7 +218,11 @@ class GTFSHandler:
         self.stop_times.write()
         self.calendar_dates.write()
 
-    def add_coordinates(self, route: Route):
+    def add_coordinates(self, route: Route) -> None:
+        if not route:
+            logger.info("Skip adding coordinates to stops, "
+                        "because no route was found.")
+            return
         logger.info("Adding coordinates to stops.")
         for node in route:
             stop = self.stops.get(node.cluster.stop)
