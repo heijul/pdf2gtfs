@@ -112,7 +112,7 @@ class Calendar(BaseContainer):
 
     def group_by_holiday(self) -> GroupedEntryTuple:
         """ Return tuple of lists, where the first list only contains entries
-        which are holidays and the second one only contains non_holidays. """
+        which are holidays and the second one only contains non-holidays. """
         return self._group_by(lambda e: e.on_holidays)
 
     def _group_by(self, filter_func: FilterFunction) -> GroupedEntryTuple:
