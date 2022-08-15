@@ -6,8 +6,8 @@ from typing import Optional, Type
 import pandas as pd
 
 from finder.location import Location
-from utils import get_edit_distance, replace_abbreviations
 from finder.types import StopName
+from utils import get_edit_distance, replace_abbreviations
 
 
 class TransportType(Enum):
@@ -36,7 +36,7 @@ class PublicTransport:
         self.is_permutation = False
 
     @property
-    def stop(self):
+    def stop(self) -> StopName:
         return self._stop
 
     def set_stop(self, stop: StopName, is_permutation: bool = False):
@@ -57,7 +57,7 @@ class PublicTransport:
         obj: cls = cls(series["name"], lat=series["lat"], lon=series["lon"])
         return obj
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if not self.stop:
             return f"{self.type.name}('{self.name}', {self.location})"
         return (f"{self.type.name}('{self.stop}', "

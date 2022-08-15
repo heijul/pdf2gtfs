@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import re
-from typing import TypeVar, TypeAlias
+from typing import Generator, TypeAlias, TypeVar
 
 
-def __uid_generator():
+def __uid_generator() -> Generator[int]:
     """ Infinite sequence of ids. """
     next_id = 0
     while True:
@@ -16,7 +16,7 @@ def __uid_generator():
 __uid_generator = __uid_generator()
 
 
-def next_uid():
+def next_uid() -> int:
     """ Returns the next unique id. IDs are shared by all objects. """
     return next(__uid_generator)
 
@@ -68,7 +68,7 @@ def padded_list(objects: list[T_]) -> tuple[PaddedList, list[T_], PaddedList]:
     return left_pad, objects, right_pad
 
 
-def get_edit_distance(s1, s2):
+def get_edit_distance(s1, s2) -> int:
     """ Uses the Wagner-Fischer Algorithm. """
     s1 = " " + s1.casefold().lower()
     s2 = " " + s2.casefold().lower()

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import pandas as pd
-from datastructures.rawtable.bbox import BBoxObject, BBox
+
+from datastructures.rawtable.bbox import BBox, BBoxObject
 from datastructures.rawtable.container import (
-    Row, Column, FieldRowReference, FieldColumnReference)
+    Column, FieldColumnReference, FieldRowReference, Row)
 
 
 class Field(BBoxObject):
@@ -28,8 +29,8 @@ class Field(BBoxObject):
         super().merge(other.bbox)
         self.text += other.text
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.text)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"'{self.text}'"

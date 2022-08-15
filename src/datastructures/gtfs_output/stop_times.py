@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-
 from datetime import datetime as dt
 from itertools import cycle
 
 from config import Config
-from datastructures.gtfs_output.__init__ import BaseDataClass, BaseContainer
+from datastructures.gtfs_output import BaseContainer, BaseDataClass
 from datastructures.gtfs_output.gtfsstop import GTFSStops
-from datastructures.timetable.stops import Stop
 from datastructures.gtfs_output.trips import Trip_Factory
+from datastructures.timetable.stops import Stop
 
 
 logger = logging.getLogger(__name__)
@@ -35,10 +34,10 @@ class Time:
             return Time()
         return Time(time.hour, time.minute, 0)
 
-    def to_output(self):
+    def to_output(self) -> str:
         return f"{self.hours:02}:{self.minutes:02}:{self.seconds:02}"
 
-    def copy(self):
+    def copy(self) -> Time:
         return Time(self.hours, self.minutes, self.seconds)
 
     def __repr__(self) -> str:
@@ -102,7 +101,7 @@ class StopTimesEntry(BaseDataClass):
 class StopTimes(BaseContainer):
     entries: list[StopTimesEntry]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("stop_times.txt", StopTimesEntry)
 
     def add(self, trip_id: int, stop_id: int, sequence: int,

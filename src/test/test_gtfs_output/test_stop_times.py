@@ -12,33 +12,33 @@ class TestTime(TestCase):
         self.t2 = Time(4, 40, 20)
         self.t3 = Time(5, 55, 1)
 
-    def test_from_string(self):
+    def test_from_string(self) -> None:
         Config.time_format = "%H.%M"
         # Seconds can't be set via from_string.
         self.t1.seconds = 0
         self.assertEqual(self.t1, Time.from_string("04.20"))
         self.assertEqual(self.t1, Time.from_string("4.20"))
 
-    def test_eq(self):
+    def test_eq(self) -> None:
         self.assertTrue(self.t1 == self.t1)
         self.assertFalse(self.t1 == self.t2)
 
-    def test_lt(self):
+    def test_lt(self) -> None:
         self.assertTrue(self.t1 < self.t2)
         self.assertFalse(self.t2 < self.t1)
         self.assertFalse(self.t1 < self.t1)
 
-    def test_gt(self):
+    def test_gt(self) -> None:
         self.assertTrue(self.t2 > self.t1)
         self.assertFalse(self.t1 > self.t2)
         self.assertFalse(self.t1 > self.t1)
 
-    def test_le(self):
+    def test_le(self) -> None:
         self.assertTrue(self.t1 <= self.t1)
         self.assertTrue(self.t1 <= self.t2)
         self.assertFalse(self.t2 <= self.t1)
 
-    def test_copy(self):
+    def test_copy(self) -> None:
         t1c = self.t1.copy()
         self.assertTrue(t1c == self.t1)
         self.assertTrue(t1c.hours == 4)
@@ -48,7 +48,7 @@ class TestTime(TestCase):
         self.assertTrue(self.t1.hours == 4)
         self.assertTrue(self.t1.minutes == 20)
 
-    def test_add(self):
+    def test_add(self) -> None:
         t = self.t1 + self.t2
         self.assertEqual(t.hours, 9)
         self.assertEqual(t.minutes, 1)
@@ -58,7 +58,7 @@ class TestTime(TestCase):
         self.assertEqual(t.minutes, 15)
         self.assertEqual(t.seconds, 41)
 
-    def test_radd(self):
+    def test_radd(self) -> None:
         self.t1 += self.t2
         self.assertEqual(self.t1.hours, 9)
         self.assertEqual(self.t1.minutes, 1)
@@ -84,7 +84,7 @@ class TestStopTimes(TestCase):
         for stop in self.stops:
             self.gtfs_stops.add(stop.name)
 
-    def test_add_multiple(self):
+    def test_add_multiple(self) -> None:
         times = {self.stops[0]: "23.29",
                  self.stops[1]: "23.47",
                  self.stops[2]: "00.13"}

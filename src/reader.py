@@ -5,11 +5,12 @@ from pathlib import Path
 from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import time
+from typing import Iterator
 
 import pandas as pd
 from ghostscript import GhostscriptError
 from pdfminer.high_level import extract_pages
-from pdfminer.layout import LAParams, LTTextBox, LTChar, LTTextLine, LTPage
+from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
@@ -21,7 +22,7 @@ from datastructures.timetable.table import TimeTable
 logger = logging.getLogger(__name__)
 
 
-def contains_bbox(container_bbox, bbox):
+def contains_bbox(container_bbox, bbox) -> bool:
     return (container_bbox[0] <= bbox[0] <= container_bbox[2] and
             container_bbox[1] <= bbox[1] <= container_bbox[3] and
             container_bbox[0] <= bbox[2] <= container_bbox[2] and
@@ -60,7 +61,7 @@ def get_chars_dataframe_from_page(page: LTPage) -> pd.DataFrame:
     return pd.DataFrame(char_list)
 
 
-def get_pages(file):
+def get_pages(file) -> Iterator[LTPage]:
     # Disable advanced layout analysis.
     laparams = LAParams(boxes_flow=None)
     return extract_pages(
@@ -95,7 +96,7 @@ def split_line_into_fields(line: list[pd.Series]) -> list[Field]:
 
 
 def get_lines(df: pd.DataFrame) -> list[Row]:
-    def group_lines():
+    def group_lines() -> list[tuple[float, list[pd.Series]]]:
         _lines: list[tuple[float, list[pd.Series]]] = []
         for idx, value in df.sort_values("top").iterrows():
             value: pd.Series
@@ -139,11 +140,11 @@ def read_page(page: LTPage) -> list[TimeTable]:
 
 
 class Reader:
-    def __init__(self):
+    def __init__(self) -> None:
         self.tempfile = None
         self.filepath = Path(Config.filename).resolve()
 
-    def _preprocess_cleanup(self):
+    def _preprocess_cleanup(self) -> None:
         if not self.tempfile:
             return
         try:
@@ -151,7 +152,7 @@ class Reader:
         except OSError:
             pass
 
-    def preprocess(self):
+    def preprocess(self) -> None:
         # Preprocessing seems to take care of invisible text, while also
         # improving performance by a lot, because only text is preserved.
         logger.info("Beginning preprocessing...")

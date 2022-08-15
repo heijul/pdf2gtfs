@@ -5,13 +5,13 @@ from utils import get_edit_distance, replace_abbreviations
 
 
 class TestUtils(TestCase):
-    def test_get_edit_distance(self):
+    def test_get_edit_distance(self) -> None:
         self.assertEqual(3, get_edit_distance("sitting", "kitten"))
         self.assertEqual(3, get_edit_distance("kitten", "sitting"))
         self.assertEqual(3, get_edit_distance("sunday", "saturday"))
         self.assertEqual(3, get_edit_distance("saturday", "sunday"))
 
-    def test_replace_abbreviations(self):
+    def test_replace_abbreviations(self) -> None:
         Config.name_abbreviations = {
             "str.": "strasse", "bf": "bahnhof", "hbf": "hauptbahnhof"}
         names = {"hauptstr.": "hauptstrasse",

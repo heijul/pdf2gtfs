@@ -3,32 +3,34 @@
 This is to enable a 'Config.some_property'-lookup, without the
 need to hard-code each property.
 """
-import logging
 import datetime as dt
+import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from holidays.utils import list_supported_countries
 
 import config.errors as err
+from config import InstanceDescriptorMixin
 from datastructures.gtfs_output.route import RouteType
 
 
 logger = logging.getLogger(__name__)
+CType = TypeVar("CType", bound=InstanceDescriptorMixin)
 
 
 class Property:
-    def __init__(self, cls, attr, attr_type):
+    def __init__(self, cls: CType, attr: str, attr_type: type) -> None:
         self._register(cls, attr)
         self.attr = "__" + attr
         self.type = attr_type
 
-    def _register(self, cls, attr):
+    def _register(self, cls: CType, attr: str) -> None:
         """ Ensure the instance using this property knows of its existence. """
         self.cls = cls
         self.cls.properties.append(attr)
 
-    def __get__(self, obj, objtype=None):
+    def __get__(self, obj: CType, objtype=None) -> Any:
         try:
             return getattr(obj, self.attr)
         except AttributeError:
@@ -51,7 +53,7 @@ class Property:
 
 
 class HeaderValuesProperty(Property):
-    def __init__(self, cls, attr):
+    def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict)
 
     def validate(self, value: dict):
@@ -77,7 +79,7 @@ class HeaderValuesProperty(Property):
 
 
 class HolidayCodeProperty(Property):
-    def __init__(self, cls, attr):
+    def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict)
 
     def validate(self, value: dict[str, str]):
@@ -107,7 +109,7 @@ class Pages:
         self._set_value(pages_string)
         self.validate()
 
-    def _set_value(self, pages_string):
+    def _set_value(self, pages_string: str) -> None:
         pages_string = pages_string.replace(" ", "")
 
         if pages_string == "all":
@@ -117,12 +119,12 @@ class Pages:
         self._set_pages(pages_string)
 
     @property
-    def page_ids(self):
+    def page_ids(self) -> list[int] | None:
         # pdfminer uses 0-indexed pages or None for all pages.
         return None if self.all else [page - 1 for page in self.pages]
 
-    def _set_pages(self, pages_string):
-        def _handle_non_numeric_pages(non_num_string):
+    def _set_pages(self, pages_string: str) -> None:
+        def _handle_non_numeric_pages(non_num_string: str) -> set[int]:
             """ Try to expand the non_num_string to a range. """
             if "-" in non_num_string:
                 try:
@@ -147,7 +149,7 @@ class Pages:
     def page_num(self, page_id: int) -> int:
         return page_id if self.all else self.pages[page_id - 1]
 
-    def validate(self):
+    def validate(self) -> None:
         if self.all:
             return
 
@@ -161,15 +163,15 @@ class Pages:
             logger.error("No valid pages given. Check the log for more info.")
             quit(err.INVALID_CONFIG_EXIT_CODE)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "all" if self.all else str(list(self.pages))
 
 
 class PagesProperty(Property):
-    def __init__(self, cls, attr):
+    def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, Pages)
 
-    def __set__(self, obj, value):
+    def __set__(self, obj: CType, value: str | Pages) -> None:
         if isinstance(value, str):
             value = Pages(value)
 
@@ -177,7 +179,7 @@ class PagesProperty(Property):
 
 
 class FilenameProperty(Property):
-    def __get__(self, obj, objtype=None):
+    def __get__(self, obj, objtype=None) -> str:
         try:
             return getattr(obj, self.attr)
         except AttributeError:
@@ -185,7 +187,7 @@ class FilenameProperty(Property):
 
 
 class RouteTypeProperty(Property):
-    def __init__(self, cls, attr):
+    def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, RouteType)
 
     def __set__(self, obj, value: str | int) -> None:
@@ -199,10 +201,10 @@ class RouteTypeProperty(Property):
 
 
 class PathProperty(Property):
-    def __init__(self, cls, attr):
+    def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, Path)
 
-    def __set__(self, obj, value):
+    def __set__(self, obj, value: str | Path) -> None:
         if isinstance(value, str):
             value = Path(value).resolve()
             if value.exists() and not value.is_dir():
@@ -215,7 +217,7 @@ class PathProperty(Property):
 
 
 class DatesProperty(Property):
-    def __init__(self, cls, attr):
+    def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, list)
 
     def __set__(self, obj, value: list[str | dt.date]):
@@ -236,11 +238,11 @@ class DatesProperty(Property):
 
 
 class AbbrevProperty(Property):
-    def __init__(self, cls, attr):
+    def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict)
 
     def __set__(self, obj, value: Any):
-        def _clean_key(key):
+        def _clean_key(key: str) -> str:
             key = key.strip().lower().casefold()
             if key.endswith("."):
                 return key[:-1]

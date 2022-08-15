@@ -20,7 +20,7 @@ class CalendarDateEntry(BaseDataClass):
 class CalendarDates(BaseContainer):
     entries: list[CalendarDateEntry]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("calendar_dates.txt", CalendarDateEntry)
 
     def add(self, service_id: int, date: dt.date, add_service: bool

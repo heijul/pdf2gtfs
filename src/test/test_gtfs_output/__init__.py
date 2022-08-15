@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 
-def _create_temp_out_dir():
+def _create_temp_out_dir() -> TemporaryDirectory:
     return TemporaryDirectory(prefix="pdf2gtfs_", ignore_cleanup_errors=True)
 
 

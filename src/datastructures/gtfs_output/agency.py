@@ -11,12 +11,13 @@ from user_input.cli import select_agency
 
 @dataclass
 class AgencyEntry(BaseDataClass):
-    agency_id: str
+    agency_id: int
     agency_name: str
     agency_url: str
     agency_timezone: str
 
-    def __init__(self, name: str, url: str, timezone: str, *, agency_id=None):
+    def __init__(self, name: str, url: str, timezone: str,
+                 *, agency_id: int = None):
         super().__init__()
         self.agency_id = self.id if agency_id is None else agency_id
         self.agency_name = name
@@ -28,30 +29,30 @@ class AgencyEntry(BaseDataClass):
         return AgencyEntry(series["agency_name"],
                            series["agency_url"],
                            series["agency_timezone"],
-                           agency_id=series["agency_id"])
+                           agency_id=int(series["agency_id"]))
 
     @property
-    def values(self):
-        return (self.agency_id, self.agency_name,
-                self.agency_url, self.agency_timezone)
+    def values(self) -> list[str]:
+        return [self.agency_id, self.agency_name,
+                self.agency_url, self.agency_timezone]
 
 
 class DummyAgencyEntry(AgencyEntry):
     entries: list[AgencyEntry]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("pdf2gtfs", "", "Europe/Berlin")
         self.name = "pdf2gtfs"
 
 
 class Agency(ExistingBaseContainer):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("agency.txt", AgencyEntry)
 
     def from_file(self, default=None) -> list[AgencyEntry]:
         return super().from_file([DummyAgencyEntry()])
 
-    def get_default(self):
+    def get_default(self) -> AgencyEntry:
         if len(self.entries) == 1:
             return self.entries[0]
         return select_agency(self.fp, self.entries)

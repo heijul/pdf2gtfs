@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, TypeAlias, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING, TypeAlias
 
 from datastructures.gtfs_output.__init__ import (BaseContainer,
                                                  BaseDataClass)
+
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.stop_times import StopTimes
@@ -19,7 +20,7 @@ class TripEntry(BaseDataClass):
     route_id: int
     service_id: int
 
-    def __init__(self, route_id, service_id):
+    def __init__(self, route_id, service_id) -> None:
         super().__init__()
         self.trip_id = self.id
         self.route_id = route_id
@@ -29,7 +30,7 @@ class TripEntry(BaseDataClass):
 class Trips(BaseContainer):
     entries: list[TripEntry]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("trips.txt", TripEntry)
 
     def add(self, route_id: int, service_id: int) -> TripEntry:

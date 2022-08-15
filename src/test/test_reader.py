@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from config import Config
-from reader import Reader, get_pages, get_chars_dataframe_from_page, get_lines
+from reader import get_chars_dataframe_from_page, get_lines, get_pages, Reader
 
 
 class TestReader(TestCase):
@@ -11,7 +11,7 @@ class TestReader(TestCase):
         self.filename = self.data_dir.joinpath("vag_1_preprocessed.pdf")
         Config.filename = str(self.filename)
 
-    def test_read_vag_1_page_1(self):
+    def test_read_vag_1_page_1(self) -> None:
         Config.pages = "1"
         reader = Reader()
         timetables = reader.read()
@@ -23,7 +23,7 @@ class TestReader(TestCase):
                 self.assertEqual(23, len(timetables[i].stops.all_stops))
                 self.assertEqual(entry_count[i], len(timetables[i].entries))
 
-    def test_get_lines(self):
+    def test_get_lines(self) -> None:
         Config.pages = "all"
         pages = list(get_pages(self.filename))
         self.assertEqual(6, len(pages))

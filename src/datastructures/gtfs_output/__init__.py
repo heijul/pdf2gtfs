@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, fields, Field
+from dataclasses import dataclass, Field, fields
 from pathlib import Path
-from typing import TypeVar, Type, Optional
+from typing import Optional, Type, TypeVar
 
 import pandas as pd
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BaseDataClass:
-    def __init__(self):
+    def __init__(self) -> None:
         self.id = next_uid()
 
     @classmethod
@@ -48,11 +48,11 @@ class BaseContainer:
         self.entries: list[DCType] = []
 
     @property
-    def fp(self):
+    def fp(self) -> Path:
         from config import Config
-        return Path(Config.output_dir).resolve().joinpath(self.filename)
+        return Path(Config.output_dir).joinpath(self.filename).resolve()
 
-    def _add(self, entry: DCType, check_unique: bool = False) -> DCType:
+    def _add(self, entry: DCType) -> DCType:
         if entry in self.entries:
             return self.entries[self.entries.index(entry)]
         self.entries.append(entry)
@@ -75,7 +75,7 @@ class BaseContainer:
             map(lambda entry: entry.to_output(), self.entries))
         return f"{field_names}\n{entry_output}\n"
 
-    def write(self):
+    def write(self) -> None:
         self._write(self.to_output())
 
     def _write(self, content: str) -> None:
@@ -105,7 +105,7 @@ class ExistingBaseContainer(BaseContainer):
         self.overwrite = False
         self.initialize()
 
-    def initialize(self):
+    def initialize(self) -> None:
         for entry in self.from_file():
             self._add(entry)
 

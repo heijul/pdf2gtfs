@@ -49,7 +49,7 @@ class GTFSStop(BaseDataClass):
 class GTFSStops(ExistingBaseContainer):
     entries: list[GTFSStop]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("stops.txt", GTFSStop)
         self.new_entries = []
 

@@ -1,25 +1,24 @@
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import os.path
 import platform
-import datetime as dt
 from io import BytesIO
-
-from requests.exceptions import ConnectionError
 from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Optional, TYPE_CHECKING
 from urllib import parse
-from typing import TYPE_CHECKING, Optional
 
 import pandas as pd
 import requests
+from requests.exceptions import ConnectionError
 
 from config import Config
 from finder.routes import (
-    select_shortest_route, display_route, generate_routes)
-from utils import SPECIAL_CHARS, replace_abbreviation, get_abbreviations_regex
+    display_route, generate_routes, select_shortest_route)
+from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 
 if TYPE_CHECKING:
@@ -242,7 +241,7 @@ class Finder:
 
         return (date - query_date).days > Config.stale_cache_days
 
-    def _query_different_from_cache(self):
+    def _query_different_from_cache(self) -> bool:
         lines = []
         with open(self.fp, "r") as fil:
             line = fil.readline().strip()
@@ -252,7 +251,7 @@ class Finder:
 
         return get_osm_comments(False) == "\n".join(lines[1:]) + "\n"
 
-    def _get_stop_data(self):
+    def _get_stop_data(self) -> None:
         if not self.use_cache or self.rebuild_cache():
             if not get_osm_data_from_qlever(self.fp):
                 return
@@ -267,7 +266,7 @@ class Finder:
             df = None
         self.df: pd.DataFrame = df
 
-    def generate_routes(self):
+    def generate_routes(self) -> None:
         names = [stop.stop_name for stop in self.handler.stops.entries]
         self.routes = generate_routes(names, self.df)
 

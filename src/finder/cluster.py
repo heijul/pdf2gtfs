@@ -8,7 +8,7 @@ from geopy import distance as _distance
 
 from config import Config
 from finder.location import Location
-from finder.public_transport import PublicTransport, DummyTransport
+from finder.public_transport import DummyTransport, PublicTransport
 from finder.types import StopName
 
 
@@ -68,7 +68,7 @@ class Node(_Base):
             return self.transport <= other.transport
         return self == closer_node(self, other, self.cluster)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Node2('{self.name}', {self.loc})"
 
 
@@ -79,7 +79,7 @@ class DummyNode(Node):
     def __lt__(self, other: Node) -> bool:
         return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"DummyNode2('{self.name}')"
 
 
@@ -160,13 +160,13 @@ class Cluster(_Base):
                 min_node = node
         return min_node
 
-    def adjust_location(self):
+    def adjust_location(self) -> None:
         """ Set the location to the mean of the location of the nodes. """
         lat = mean([node.loc.lat for node in self.nodes])
         lon = mean([node.loc.lon for node in self.nodes])
         self.loc = Location(lat, lon)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Cluster({self.stop}, {self.loc})"
 
 
@@ -182,5 +182,5 @@ class DummyCluster(Cluster):
             return
         raise Exception("Can only add a single DummyNode to DummyCluster.")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"DummyCluster({self.stop})"

@@ -3,20 +3,21 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
+
 from holidays.utils import country_holidays
 
-from user_input.cli import handle_annotations
 from config import Config
+from datastructures.gtfs_output.agency import Agency
 from datastructures.gtfs_output.calendar import Calendar, CalendarEntry
 from datastructures.gtfs_output.calendar_dates import CalendarDates
-from datastructures.gtfs_output.route import Routes, Route
 from datastructures.gtfs_output.gtfsstop import GTFSStops
+from datastructures.gtfs_output.route import Route, Routes
 from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
-from datastructures.gtfs_output.agency import Agency
-from datastructures.timetable.entries import TimeTableRepeatEntry, TimeTableEntry
+from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
 from finder.cluster import DummyNode
 from finder.types import Route
+from user_input.cli import handle_annotations
 
 
 if TYPE_CHECKING:
@@ -46,7 +47,7 @@ def create_output_dir() -> bool:
 
 
 class GTFSHandler:
-    def __init__(self):
+    def __init__(self) -> None:
         self._agency = Agency()
         self._stops = GTFSStops()
         self._routes = Routes()
@@ -56,7 +57,7 @@ class GTFSHandler:
         self._calendar_dates = CalendarDates()
         self._setup()
 
-    def _setup(self):
+    def _setup(self) -> None:
         self.routes.set_agency_id(self.agency.get_default().agency_id)
 
     def timetable_to_gtfs(self, timetable: TimeTable):
@@ -87,22 +88,22 @@ class GTFSHandler:
         generate the stoptimes for the repeat column.
         """
 
-        def create_calendar_entry():
+        def create_calendar_entry() -> CalendarEntry:
             return self.calendar.add(entry.days.days, entry.annotations)
 
-        def new_entry_is_on_new_service_day():
+        def new_entry_is_on_new_service_day() -> bool:
             if not prev_calendar_entry:
                 return False
             return not calendar_entry.same_days(prev_calendar_entry)
 
-        def create_stop_times():
+        def create_stop_times() -> StopTimes:
             trip = trip_factory()
             _stop_times = StopTimes()
             _stop_times.add_multiple(
                 trip.trip_id, self.stops, service_day_offset, entry.values)
             return _stop_times
 
-        def end_of_day():
+        def end_of_day() -> bool:
             return prev and prev > times
 
         stop_times = []
@@ -149,7 +150,7 @@ class GTFSHandler:
 
         return stop_times
 
-    def generate_calendar_dates(self):
+    def generate_calendar_dates(self) -> None:
         # CHECK: Should not disable service for sundays on holidays which
         #  fall on sundays... Will only make a difference if there are
         #  different timetables for sundays/holidays... right?
@@ -168,8 +169,8 @@ class GTFSHandler:
             for date in non_holiday_dates:
                 self.calendar_dates.add(date.service_id, holiday, False)
 
-    def add_annotation_dates(self):
-        def get_annots():
+    def add_annotation_dates(self) -> None:
+        def get_annots() -> list[str]:
             annot_set = set()
             raw_annots = [e.annotations for e in self.calendar.entries]
             for _annot in raw_annots:
@@ -198,14 +199,14 @@ class GTFSHandler:
                 self.calendar_dates.add_multiple(
                     service.service_id, dates, not default)
 
-    def _remove_unused_routes(self):
+    def _remove_unused_routes(self) -> None:
         used_route_ids = set([trip.route_id for trip in self.trips.entries])
         for route in list(self.routes.entries):
             if route.route_id in used_route_ids:
                 continue
             self.routes.entries.remove(route)
 
-    def write_files(self):
+    def write_files(self) -> bool:
         if not create_output_dir():
             return False
         self._remove_unused_routes()
@@ -217,6 +218,7 @@ class GTFSHandler:
         self.trips.write()
         self.stop_times.write()
         self.calendar_dates.write()
+        return True
 
     def add_coordinates(self, route: Route) -> None:
         if not route:

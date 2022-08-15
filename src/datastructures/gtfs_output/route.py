@@ -5,8 +5,7 @@ from enum import Enum
 from typing import Optional, TYPE_CHECKING
 
 import config
-from datastructures.gtfs_output.__init__ import (
-    BaseDataClass, BaseContainer)
+from datastructures.gtfs_output import BaseContainer, BaseDataClass
 
 
 if TYPE_CHECKING:
@@ -29,7 +28,7 @@ class RouteType(Enum):
     Trolleybus = 11
     Monorail = 12
 
-    def to_output(self):
+    def to_output(self) -> str:
         return str(self.value)
 
 
@@ -68,7 +67,7 @@ class Route(BaseDataClass):
 
 
 class Routes(BaseContainer):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("routes.txt", Route)
         self.agency_id = -1
 

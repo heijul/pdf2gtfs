@@ -2,7 +2,7 @@ import logging
 from logging import LogRecord
 
 
-def disable_pdfminer_logger():
+def disable_pdfminer_logger() -> None:
     """ Disables all pdfminer log output, that is not a warning or worse. """
 
     def pdfminer_filter(record: LogRecord) -> int:

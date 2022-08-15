@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from operator import attrgetter
 from statistics import mean
-from typing import Generic, TypeVar
+from typing import Generic, Iterator, TypeVar
 
+import datastructures.rawtable.table as tbl
 from datastructures.rawtable.container import Row
 from datastructures.rawtable.enums import FieldContainerType
-import datastructures.rawtable.table as tbl
 
 
 FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")
@@ -59,15 +59,15 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
 
         return self._objects[neighbour_index] if valid_index else None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[FieldContainerT]:
         return iter(self._objects)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         name = self.__class__.__name__
         obj_str = "\n\t".join([str(obj) for obj in self._objects])
         return f"{name}(\n\t{obj_str})"
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._objects.__len__()
 
 
@@ -81,7 +81,7 @@ class RowList(FieldContainerList[TableT, tbl.Row]):
         self._objects: list[Row] = []
 
     @property
-    def mean_row_field_count(self):
+    def mean_row_field_count(self) -> float:
         if not self._objects:
             return 0
         return mean([len(row.fields) for row in self._objects])

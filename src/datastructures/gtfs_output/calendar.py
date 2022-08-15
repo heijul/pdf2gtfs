@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import fields, dataclass
-from typing import TypeAlias, Callable, Optional
+from dataclasses import dataclass, fields
+from typing import Callable, Optional, TypeAlias
 
 from config import Config
 from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
@@ -18,7 +18,7 @@ class DayIsActive:
     def to_output(self) -> str:
         return str(int(self.active))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.to_output()
 
 
@@ -32,17 +32,17 @@ class ServiceDay:
     def __eq__(self, other: ServiceDay):
         return self.date == other.date
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.to_output()
 
 
 class StartDate(ServiceDay):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(Config.gtfs_date_bounds[0])
 
 
 class EndDate(ServiceDay):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(Config.gtfs_date_bounds[1])
 
 
@@ -88,7 +88,7 @@ class CalendarEntry(BaseDataClass):
             return False
         return True
 
-    def disable(self):
+    def disable(self) -> None:
         for name in WEEKDAY_NAMES:
             setattr(self, name, DayIsActive(False))
 
@@ -99,7 +99,7 @@ class CalendarEntry(BaseDataClass):
 class Calendar(BaseContainer):
     entries: list[CalendarEntry]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("calendar.txt", CalendarEntry)
 
     def add(self, days: list[str], annots: set[str]) -> CalendarEntry:

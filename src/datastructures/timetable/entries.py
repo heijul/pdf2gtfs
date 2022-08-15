@@ -9,7 +9,7 @@ class Weekdays:
         self.days = Config.header_values.get(
             raw_header_text.lower().strip(), [])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.days)
 
 
@@ -44,16 +44,16 @@ class TimeTableRepeatEntry(TimeTableEntry):
         super().__init__(raw_header_text)
 
     @property
-    def deltas(self):
-        def to_int_list(_value_str):
+    def deltas(self) -> list[int]:
+        def to_int_list(_value_str: str) -> list[int]:
             try:
                 _values = list(map(int, _value_str.split("-")))
             except ValueError:
-                return None
+                return []
             if len(_values) == 2:
-                return range(_values[0], _values[1] + 1)
+                return list(range(_values[0], _values[1] + 1))
 
-            return [_values[0]] if len(_values) else None
+            return [_values[0]] if len(_values) else []
 
         start = False
         for value_str in self.values.values():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterator
 
 from geopy.distance import distance
 
@@ -17,10 +18,8 @@ class Location:
     def close(self, other: Location) -> bool:
         return self.distance(other) <= 1
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"({self.lat:.4f}, {self.lon:.4f})"
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[float]:
         return iter((self.lat, self.lon))
-
-

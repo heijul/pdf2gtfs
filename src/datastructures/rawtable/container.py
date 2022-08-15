@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from operator import attrgetter
-from typing import TypeVar, Generic, TYPE_CHECKING, Type
+from typing import Generic, Iterator, Type, TYPE_CHECKING, TypeVar
 
 from config import Config
-from datastructures.rawtable.bbox import BBoxObject, BBox
-from datastructures.rawtable.enums import RowType, ColumnType
+from datastructures.rawtable.bbox import BBox, BBoxObject
+from datastructures.rawtable.enums import ColumnType, RowType
 from utils import padded_list
 
 
@@ -27,7 +27,7 @@ TableT = TypeVar("TableT", bound="Table")
 class BaseContainerReference(Generic[ContainerT]):
     """ Descriptor for the row/column references of the fields. """
 
-    def __set_name__(self, owner, name):
+    def __set_name__(self, owner, name) -> None:
         self.public_name = name
         self.private_name = f"_{name}"
         setattr(owner, self.private_name, None)
@@ -113,7 +113,7 @@ class FieldContainer(BBoxObject):
             index += 1
         self._add_field_at_index(new_field, index)
 
-    def _contains_time_data(self):
+    def _contains_time_data(self) -> bool:
         """ Check if any field contains time data. """
         # This may rarely return True, if field text contains the text "05.06"
         # of the annotation "nicht am 05.06.".
@@ -126,13 +126,13 @@ class FieldContainer(BBoxObject):
                 pass
         return False
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str([str(f) for f in self.fields])
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Field]:
         return self.fields.__iter__()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         name = self.__class__.__name__
         return f"{name}(fields: {str(self)}"
 
@@ -161,12 +161,12 @@ class Row(FieldContainer):
         self.detect_type()
 
     @property
-    def type(self):
+    def type(self) -> RowType:
         if not self._type:
             self.detect_type()
         return self._type
 
-    def detect_type(self):
+    def detect_type(self) -> None:
         # IMPROVE: REDO.
         def _contains(idents: list[str]):
             """ Check if any of the fields contain any of the identifier. """
@@ -205,7 +205,7 @@ class Row(FieldContainer):
         # STYLE: This is actually three functions in a trenchcoat.
         from datastructures.rawtable.fields import Field
 
-        def get_stop_bbox():
+        def get_stop_bbox() -> BBox:
             # Generate bbox for the stops, where we want to ignore the scheme.
             _bbox = None
             for _column in columns:
@@ -280,7 +280,7 @@ class Row(FieldContainer):
 
         return [Row.from_fields(fields) for fields in fields_list]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         fields_repr = ", ".join(repr(f) for f in self.fields)
         return (f"Row(type={self.type},\n\tbbox={self.bbox},\n\t"
                 f"fields=[{fields_repr}])")
@@ -299,7 +299,7 @@ class Column(FieldContainer):
             self._detect_type()
         return self._type
 
-    def _detect_type(self):
+    def _detect_type(self) -> None:
         previous = self.table.columns.prev(self)
 
         if not previous:
@@ -318,7 +318,7 @@ class Column(FieldContainer):
         else:
             self._type = ColumnType.DATA
 
-    def _contains_repeat_identifier(self):
+    def _contains_repeat_identifier(self) -> bool:
         # IMPROVE: iterate through fields -> check for identifier
         #  -> check for num -> (maybe check for min/min.)
         return any([f.text.lower() in Config.repeat_identifier
@@ -347,10 +347,10 @@ class Column(FieldContainer):
                 return True
         return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         fields_repr = ", ".join(repr(f) for f in self.fields)
         return f"Column(bbox={self.bbox},\n\tfields=[{fields_repr}])"
 
     @staticmethod
-    def from_field(table, field):
+    def from_field(table, field) -> Column:
         return Column(table, [field], field.bbox)

@@ -18,4 +18,3 @@ class ColumnType(FieldContainerType):
     STOP_ANNOTATION = 2
     DATA = 3
     REPEAT = 4
-

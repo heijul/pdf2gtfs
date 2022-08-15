@@ -9,25 +9,25 @@ class TestBBox(TestCase):
         self.bbox2 = BBox(10, 15, 15, 20)
         self.bbox3 = BBox(0, 0, 30, 30)
 
-    def test_merge(self):
+    def test_merge(self) -> None:
         self.bbox1.merge(self.bbox2)
         self.assertEqual(self.bbox1.x0, 5)
         self.assertEqual(self.bbox1.y0, 10)
         self.assertEqual(self.bbox1.x1, 15)
         self.assertEqual(self.bbox1.y1, 20)
 
-    def test_contains(self):
+    def test_contains(self) -> None:
         self.assertTrue(self.bbox3.contains(self.bbox1))
         self.assertTrue(self.bbox3.contains(self.bbox2))
         self.assertTrue(self.bbox3.contains(self.bbox3))
         self.assertFalse(self.bbox1.contains(self.bbox2))
         self.assertFalse(self.bbox2.contains(self.bbox1))
 
-    def test_contains_vertical(self):
+    def test_contains_vertical(self) -> None:
         self.assertFalse(self.bbox1.contains_vertical(self.bbox2))
         self.assertFalse(self.bbox2.contains_vertical(self.bbox1))
 
-    def test_distance(self):
+    def test_distance(self) -> None:
         self.assertEqual(0, self.bbox1.distance(self.bbox1, "x"))
         self.assertEqual(0, self.bbox1.distance(self.bbox1, "y"))
         self.assertEqual(0, self.bbox1.distance(self.bbox2, "x"))

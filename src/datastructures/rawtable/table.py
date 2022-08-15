@@ -4,9 +4,9 @@ import logging
 from operator import attrgetter
 
 from config import Config
-from datastructures.rawtable.enums import RowType, ColumnType
-from datastructures.rawtable.container import Row, Column
-from datastructures.rawtable.lists import RowList, ColumnList
+from datastructures.rawtable.container import Column, Row
+from datastructures.rawtable.enums import ColumnType, RowType
+from datastructures.rawtable.lists import ColumnList, RowList
 from datastructures.timetable.table import TimeTable
 
 
@@ -40,7 +40,7 @@ class Table:
         else:
             self._columns = ColumnList.from_list(self, columns)
 
-    def generate_data_columns_from_rows(self):
+    def generate_data_columns_from_rows(self) -> None:
         def _get_bounds(_column: Column):
             return _column.bbox.x0, _column.bbox.x1
 
@@ -79,7 +79,7 @@ class Table:
                                        RowType.ROUTE_INFO]):
             row.apply_column_scheme(columns)
 
-    def fix_split_stopnames(self):
+    def fix_split_stopnames(self) -> None:
         """ Finds and tries to repair stop names, which start with a "-",
          indicating that they use the same city/poi as the previous.
 
@@ -146,7 +146,7 @@ class Table:
 
         return ""
 
-    def split_at_stop_columns(self):
+    def split_at_stop_columns(self) -> list[Table]:
         """ Return a list of tables with each having a single stop column. """
         stop_columns = self.columns.of_type(ColumnType.STOP)
         tables: list[Table] = [Table() for _ in stop_columns]

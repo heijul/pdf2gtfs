@@ -7,18 +7,18 @@ import datastructures.rawtable.table as raw
 from config import Config
 from datastructures.rawtable.enums import ColumnType
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
-from datastructures.timetable.stops import Stop, DummyAnnotationStop
+from datastructures.timetable.stops import DummyAnnotationStop, Stop
 
 
 logger = logging.getLogger(__name__)
 
 
 class StopList:
-    def __init__(self):
+    def __init__(self) -> None:
         self._stops: list[Stop] = []
 
     @property
-    def all_stops(self):
+    def all_stops(self) -> list[Stop]:
         return self._stops
 
     @property
@@ -39,17 +39,17 @@ class StopList:
             stop = self.get_from_id(stop_id)
         stop.annotation = text
 
-    def clean(self):
+    def clean(self) -> None:
         for stop in self._stops:
             stop.clean()
 
 
 class TimeTable:
-    def __init__(self):
+    def __init__(self) -> None:
         self.stops = StopList()
         self.entries: list[TimeTableEntry()] = []
 
-    def detect_connection(self):
+    def detect_connection(self) -> None:
         """ Detect stops which are actually connections.
 
         Will search for reoccurring stops and mark every stop within the
@@ -132,10 +132,10 @@ class TimeTable:
             logger.info(table)
         return table
 
-    def clean_values(self):
+    def clean_values(self) -> None:
         self.stops.clean()
 
-    def __str__(self):
+    def __str__(self) -> str:
         # Entry columns + stop column
         base_text = "{:30}" + "{:>6}" * len(self.entries)
         texts = []

@@ -23,11 +23,11 @@ class BBox:
         return BBox(series.x0, series.y0, series.x1, series.y1)
 
     @property
-    def size(self):
+    def size(self) -> tuple[float, float]:
         return self.x1 - self.x0, self.y1 - self.y0
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return self.x0 < self.x1 and self.y0 < self.y1 and self.size > (0, 0)
 
     def copy(self) -> BBox:
@@ -54,8 +54,8 @@ class BBox:
         assert coordinate in ["x0", "y0", "x1", "y1"]
         setattr(self, coordinate, value)
 
-    def _contains(self, other, axis):
-        def _get(cls, bound):
+    def _contains(self, other, axis) -> bool:
+        def _get(cls, bound) -> float:
             if bound == "lower":
                 return getattr(cls, f"{axis}0")
             elif bound == "upper":
@@ -92,11 +92,11 @@ class BBox:
                     abs(self_1 - other_0),
                     abs(self_1 - other_1)])
 
-    def x_is_close(self, other):
+    def x_is_close(self, other) -> bool:
         lower, upper = sorted((self, other), key=attrgetter("x0"))
         return abs(upper.x0 - lower.x1) <= 0.01
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
 
 

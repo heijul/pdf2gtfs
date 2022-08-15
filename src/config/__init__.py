@@ -6,10 +6,10 @@ from yaml import safe_load, YAMLError
 from yaml.scanner import ScannerError
 
 import config.errors as err
-from config.properties import (Property, PagesProperty, FilenameProperty,
-                               HolidayCodeProperty, HeaderValuesProperty,
-                               RouteTypeProperty, PathProperty, DatesProperty,
-                               AbbrevProperty)
+from config.properties import (
+    AbbrevProperty, DatesProperty, FilenameProperty, HeaderValuesProperty,
+    HolidayCodeProperty, PagesProperty, PathProperty, Property,
+    RouteTypeProperty)
 
 
 logger = logging.getLogger(__name__)
@@ -20,13 +20,13 @@ class InstanceDescriptorMixin:
     See https://blog.brianbeck.com/post/74086029/instance-descriptors
     """
 
-    def __getattribute__(self, name):
+    def __getattribute__(self, name: str) -> Any:
         value = object.__getattribute__(self, name)
         if hasattr(value, '__get__'):
             value = value.__get__(self, self.__class__)
         return value
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         try:
             obj = object.__getattribute__(self, name)
         except AttributeError:
@@ -38,7 +38,7 @@ class InstanceDescriptorMixin:
 
 
 class _Config(InstanceDescriptorMixin):
-    def __init__(self):
+    def __init__(self) -> None:
         self._initialize_config_properties()
         # Always load default config first, before loading any custom config
         # or program parameters.
@@ -47,7 +47,7 @@ class _Config(InstanceDescriptorMixin):
             logger.error("Default config could not be loaded. Exiting...")
             quit(err.INVALID_CONFIG_EXIT_CODE)
 
-    def _initialize_config_properties(self):
+    def _initialize_config_properties(self) -> None:
         self.properties = []
         self.time_format = Property(self, "time_format", str)
         self.header_values = HeaderValuesProperty(self, "header_values")
@@ -148,13 +148,13 @@ class _Config(InstanceDescriptorMixin):
         return Path(__file__).parents[2]
 
     @property
-    def default_config_path(self):
+    def default_config_path(self) -> Path:
         return self.base_dir.joinpath("config.template.yaml")
 
-    def __str__(self):
+    def __str__(self) -> str:
         string_like = (str, Path)
 
-        def get_property_string(_name, _value):
+        def get_property_string(_name: str, _value: Any) -> str:
             wrapper = "'" if isinstance(_value, string_like) else ""
             return f"\t{_name:{max_name_len}}: {wrapper}{_value}{wrapper}"
 

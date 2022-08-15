@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 from pathlib import Path
-from typing import Callable, TypeAlias, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING, TypeAlias
 
 
 if TYPE_CHECKING:
@@ -122,7 +122,7 @@ def _get_agency_column_widths(agencies: list[AgencyEntry]) -> list[int]:
     return [size for size in widths]
 
 
-def _get_agency_prompt(path: str, agencies: list[AgencyEntry]):
+def _get_agency_prompt(path: Path, agencies: list[AgencyEntry]):
     agency_strings = []
     widths = _get_agency_column_widths(agencies)
 
@@ -141,7 +141,7 @@ def _get_agency_prompt(path: str, agencies: list[AgencyEntry]):
     return prompt
 
 
-def select_agency(path: str, agencies: list[AgencyEntry]) -> AgencyEntry:
+def select_agency(path: Path, agencies: list[AgencyEntry]) -> AgencyEntry:
     prompt = _get_agency_prompt(path, agencies)
     answer = _get_input(prompt, list(map(str, range(len(agencies)))))
     return agencies[int(answer)]

@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import itertools
 import logging
+import re
 import webbrowser
 from operator import itemgetter
 from statistics import mean
-import re
 
-import pandas as pd
 import folium
+import pandas as pd
 
 from config import Config
 from finder import public_transport
-from finder.cluster import Cluster, Node, DummyCluster, DummyNode
-from finder.public_transport import PublicTransport
+from finder.cluster import Cluster, DummyCluster, DummyNode, Node
 from finder.location import Location
-from finder.types import StopName, Clusters, StopNames, Routes, Route
+from finder.public_transport import PublicTransport
+from finder.types import Clusters, Route, Routes, StopName, StopNames
 from utils import replace_abbreviations, SPECIAL_CHARS
 
 
@@ -115,7 +115,7 @@ def _create_stop_clusters(stop: StopName, df: pd.DataFrame) -> list[Cluster]:
 
 
 def generate_clusters(df: pd.DataFrame, stops: StopNames) -> Clusters:
-    def filter_df_with_stops():
+    def filter_df_with_stops() -> pd.DataFrame:
         chars = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
         df["name"] = df["name"].str.replace(chars, "", regex=True)
 
@@ -147,19 +147,19 @@ def generate_routes(stops: StopNames, df: pd.DataFrame) -> Routes:
 
 
 def display_route(route: Route, cluster=False, nodes=False) -> None:
-    def add_other_node_markers():
+    def add_other_node_markers() -> None:
         for node in entry.cluster.nodes:
             if node == entry:
                 continue
             folium.Marker(tuple(node.loc), popup=f"{node.name}\n{node.loc}",
                           icon=folium.Icon(color="green")).add_to(m)
 
-    def add_cluster_marker():
+    def add_cluster_marker() -> None:
         c = entry.cluster
         folium.Marker(tuple(c.loc), popup=f"{c.stop}\n{c.loc}",
                       icon=folium.Icon(icon="cloud")).add_to(m)
 
-    def get_map_location():
+    def get_map_location() -> tuple[float, float]:
         non_dummy_nodes = [node for node in route
                            if not isinstance(node, DummyNode)]
         return (mean([node.loc.lat for node in non_dummy_nodes]),
