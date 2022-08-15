@@ -58,7 +58,7 @@ repeat_identifier: [
 
 # How to expand the repeating column, if the repeating times occur in a range.
 #
-# Type   : string. Either "cycle" and "mean".
+# Type: String. Either "cycle" or "mean".
 # Example: "Alle 7-8 min." with "cycle" would alternate between using 7 and 8
 #    minutes, while "mean" would always use 7.5 minutes.
 repeat_strategy: "cycle"
