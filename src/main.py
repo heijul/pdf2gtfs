@@ -1,18 +1,22 @@
 import logging
+from typing import TYPE_CHECKING
 
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
-from datastructures.timetable.table import TimeTable
 from finder import Finder
 from p2g_logging import initialize_logging
 from reader import Reader
 from user_input.arg_parser import parse_args
 
 
+if TYPE_CHECKING:
+    from datastructures.timetable.table import TimeTable
+
+
 logger = logging.getLogger(__name__)
 
 
-def get_timetables() -> list[TimeTable]:
+def get_timetables() -> list["TimeTable"]:
     reader = Reader()
     timetables = reader.read()
     return timetables

@@ -11,12 +11,11 @@ from typing import Any, TypeVar
 from holidays.utils import list_supported_countries
 
 import config.errors as err
-from config import InstanceDescriptorMixin
 from datastructures.gtfs_output.route import RouteType
 
 
 logger = logging.getLogger(__name__)
-CType = TypeVar("CType", bound=InstanceDescriptorMixin)
+CType = TypeVar("CType", bound="InstanceDescriptorMixin")
 
 
 class Property:
