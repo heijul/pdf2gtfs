@@ -118,22 +118,23 @@ def _create_stop_clusters(stop: StopName, df: pd.DataFrame) -> list[Cluster]:
     return clusters
 
 
+def filter_df_with_stops(df: pd.DataFrame, stops: StopNames) -> pd.DataFrame:
+    chars = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
+    df["name"] = df["name"].str.replace(chars, "", regex=True)
+
+    regex = name_filter_to_regex(_create_name_filter(stops))
+    return df.where(df["name"].str.contains(regex, regex=True)).dropna()
+
+
 def generate_clusters(df: pd.DataFrame, all_stops: StopNames,
                       handler: GTFSHandler) -> Clusters:
-    def filter_df_with_stops() -> pd.DataFrame:
-        chars = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
-        df["name"] = df["name"].str.replace(chars, "", regex=True)
-
-        regex = name_filter_to_regex(_create_name_filter(stops))
-        return df.where(df["name"].str.contains(regex, regex=True)).dropna()
-
     existing_clusters = {stop.stop_name: [Cluster.from_gtfs_stop(stop)]
                          for stop in handler.stops if stop.valid}
     stops = [stop for stop in all_stops if stop not in existing_clusters]
     # All stops already have a location.
     if not stops:
         return existing_clusters
-    clean_df = filter_df_with_stops()
+    clean_df = filter_df_with_stops(df, stops)
     clusters = {stop: _create_stop_clusters(stop, clean_df) for stop in stops}
     clusters.update(existing_clusters)
     return clusters
@@ -148,7 +149,9 @@ def _create_route(
     return [cluster.get_closest() for cluster in cluster_route]
 
 
-def generate_routes(stops: StopNames, df: pd.DataFrame, handler: GTFSHandler) -> Routes:
+def generate_routes(stops: StopNames, df: pd.DataFrame,
+                    handler: GTFSHandler) -> Routes:
+    display_stops(df, stops)
     clusters = generate_clusters(df, stops, handler)
     starts: list[Cluster] = clusters[stops[0]]
     routes: Routes = []
@@ -194,3 +197,23 @@ def display_route(route: Route, cluster=False, nodes=False) -> None:
     outfile = Config.output_dir.joinpath("routedisplay.html")
     m.save(str(outfile))
     webbrowser.open_new_tab(str(outfile))
+
+
+def display_stops(df: pd.DataFrame, stops: list[str]) -> None:
+    def df_to_loc_list(clean_df: pd.DataFrame) -> list[tuple[int, int]]:
+        locs = []
+        for _, row in clean_df.iterrows():
+            locs.append((row["lat"], row["lon"]))
+        return locs
+
+    def list_to_map(values) -> None:
+        loc = mean([a for a, _ in values]), mean([b for _, b in values])
+        m = folium.Map(location=loc)
+        for node in values:
+            folium.CircleMarker(radius=5, location=node, color="crimson",
+                                fill=True, fill_color="lime").add_to(m)
+        path = str(Config.output_dir.joinpath("stops.html"))
+        m.save(path)
+        webbrowser.open_new_tab(path)
+
+    list_to_map(df_to_loc_list(filter_df_with_stops(df, stops)))
