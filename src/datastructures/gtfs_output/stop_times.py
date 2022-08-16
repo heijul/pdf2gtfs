@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime as dt
 from itertools import cycle
+from statistics import mean
 
 from config import Config
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
@@ -74,6 +75,13 @@ class Time:
     def __gt__(self, other: Time) -> bool:
         return not self <= other
 
+    @staticmethod
+    def from_float(num: float) -> Time:
+        hours = int(num) // 60
+        minutes = int(num % 60)
+        seconds = int(round((num - int(num)) * 60, 0))
+        return Time(hours, minutes, seconds)
+
 
 @dataclass(init=False)
 class StopTimesEntry(BaseDataClass):
@@ -96,6 +104,12 @@ class StopTimesEntry(BaseDataClass):
         """ Return a new instance of this entry with the given trip_id. """
         return StopTimesEntry(trip_id, self.stop_id, self.stop_sequence,
                               self.arrival_time, self.departure_time)
+
+
+def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
+    if Config.repeat_strategy == "mean":
+        return cycle([Time.from_float(mean(deltas))])
+    return cycle([Time.from_float(delta) for delta in deltas])
 
 
 class StopTimes(BaseContainer):
@@ -163,7 +177,7 @@ class StopTimes(BaseContainer):
                    deltas: list[int], trip_factory: Trip_Factory):
         """ Create new stop_times for all times between previous and next. """
         assert previous < next_
-        delta_cycle = cycle([Time(0, delta) for delta in deltas])
+        delta_cycle = _get_repeat_deltas(deltas)
         new_stop_times = []
 
         while True:
