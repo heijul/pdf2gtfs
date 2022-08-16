@@ -44,12 +44,7 @@ class _Config(InstanceDescriptorMixin):
     def __init__(self) -> None:
         self._create_default_config()
         self._initialize_config_properties()
-        # Always load default config first, before loading any custom config
-        # or program parameters.
-        default_config_loaded = self.load_config(None)
-        if not default_config_loaded:
-            logger.error("Default config could not be loaded. Exiting...")
-            quit(err.INVALID_CONFIG_EXIT_CODE)
+        self.load_configs()
 
     def _initialize_config_properties(self) -> None:
         self.properties = []
@@ -82,17 +77,29 @@ class _Config(InstanceDescriptorMixin):
         self.disable_connection_detection = Property(
             self, "disable_connection_detection", bool)
 
-    def load_config(self, path: Path | None = None) -> bool:
+    @staticmethod
+    def list_configs(directory: Path) -> list[Path]:
+        return list(directory.glob("*.yaml"))
+
+    def load_configs(self) -> None:
+        # Always load default config first, before loading any custom config
+        # or program parameters.
+        self.load_config(self.default_config_path)
+        for path in self.list_configs(self.config_dir):
+            if path == self.default_config_path:
+                continue
+            self.load_config(path)
+
+    def load_config(self, path: Path) -> None:
         """ Load the given config. If no config is given, load the default one.
 
         :param path: Path to config file, or None to load the default config.
         :return: True, if loading was a success, False if any errors occurred.
         """
-        if not path:
-            path = self.default_config_path
         if not path.exists():
-            logger.warning(f"File does not exist, skipping: {path}")
-            return False
+            logger.error(f"The given configuration file either does not "
+                         f"exist or is not a proper file: '{path}'.")
+            quit(err.INVALID_CONFIG_EXIT_CODE)
 
         data, valid = _read_yaml(path)
         valid &= self._validate_no_invalid_properties(data)
@@ -102,8 +109,6 @@ class _Config(InstanceDescriptorMixin):
             logger.error("Tried to load invalid configuration file "
                          f"'{path}'. Exiting...")
             quit(err.INVALID_CONFIG_EXIT_CODE)
-
-        return True
 
     def load_args(self, args: dict[str, Any]):
         for path in args.pop("config", []):
