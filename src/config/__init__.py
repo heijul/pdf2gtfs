@@ -40,6 +40,10 @@ class InstanceDescriptorMixin:
         return object.__setattr__(self, name, value)
 
 
+def _list_configs(directory: Path) -> list[Path]:
+    return list(directory.glob("*.yaml")) + list(directory.glob("*.yml"))
+
+
 class _Config(InstanceDescriptorMixin):
     def __init__(self) -> None:
         self._create_default_config()
@@ -77,15 +81,11 @@ class _Config(InstanceDescriptorMixin):
         self.disable_connection_detection = Property(
             self, "disable_connection_detection", bool)
 
-    @staticmethod
-    def list_configs(directory: Path) -> list[Path]:
-        return list(directory.glob("*.yaml"))
-
     def load_configs(self) -> None:
         # Always load default config first, before loading any custom config
         # or program parameters.
         self.load_config(self.default_config_path)
-        for path in self.list_configs(self.config_dir):
+        for path in _list_configs(self.config_dir):
             if path == self.default_config_path:
                 continue
             self.load_config(path)
