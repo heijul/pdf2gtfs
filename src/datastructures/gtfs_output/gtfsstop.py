@@ -30,6 +30,10 @@ class GTFSStop(BaseDataClass):
         self.stop_lat = lat
         self.stop_lon = lon
 
+    @property
+    def valid(self) -> bool:
+        return self.stop_name and self.stop_lat >= 0 and self.stop_lon >= 0
+
     def set_location(self, lat: float, lon: float) -> None:
         self.stop_lat = lat
         self.stop_lon = lon
@@ -41,9 +45,9 @@ class GTFSStop(BaseDataClass):
     @staticmethod
     def from_series(series: pd.Series) -> GTFSStop:
         return GTFSStop(series["stop_name"],
-                        series["stop_lat"],
-                        series["stop_lon"],
-                        stop_id=series["stop_id"])
+                        float(series["stop_lat"]),
+                        float(series["stop_lon"]),
+                        stop_id=int(series["stop_id"]))
 
 
 class GTFSStops(ExistingBaseContainer):

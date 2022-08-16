@@ -11,6 +11,7 @@ from utils import get_edit_distance, replace_abbreviations
 
 
 class TransportType(Enum):
+    ExistingTransportType = 0
     Station = 1
     Platform = 2
     StopPosition = 3
@@ -80,6 +81,11 @@ class PublicTransport:
         return all((self.type == other.type,
                     self.name == other.name,
                     self.stop == other.stop))
+
+
+class ExistingTransport(PublicTransport):
+    def __init__(self, name: StopName, lat: float, lon: float) -> None:
+        super().__init__(name, typ=TransportType(0), lat=lat, lon=lon)
 
 
 class Station(PublicTransport):

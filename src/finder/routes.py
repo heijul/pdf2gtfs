@@ -6,6 +6,7 @@ import re
 import webbrowser
 from operator import itemgetter
 from statistics import mean
+from typing import TYPE_CHECKING
 
 import folium
 import pandas as pd
@@ -17,6 +18,9 @@ from finder.location import Location
 from finder.public_transport import PublicTransport
 from finder.types import Clusters, Route, Routes, StopName, StopNames
 from utils import replace_abbreviations, SPECIAL_CHARS
+
+if TYPE_CHECKING:
+    from datastructures.gtfs_output.handler import GTFSHandler
 
 
 logger = logging.getLogger(__name__)
@@ -114,7 +118,8 @@ def _create_stop_clusters(stop: StopName, df: pd.DataFrame) -> list[Cluster]:
     return clusters
 
 
-def generate_clusters(df: pd.DataFrame, stops: StopNames) -> Clusters:
+def generate_clusters(df: pd.DataFrame, all_stops: StopNames,
+                      handler: GTFSHandler) -> Clusters:
     def filter_df_with_stops() -> pd.DataFrame:
         chars = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
         df["name"] = df["name"].str.replace(chars, "", regex=True)
@@ -122,9 +127,16 @@ def generate_clusters(df: pd.DataFrame, stops: StopNames) -> Clusters:
         regex = name_filter_to_regex(_create_name_filter(stops))
         return df.where(df["name"].str.contains(regex, regex=True)).dropna()
 
+    existing_clusters = {stop.stop_name: [Cluster.from_gtfs_stop(stop)]
+                         for stop in handler.stops if stop.valid}
+    stops = [stop for stop in all_stops if stop not in existing_clusters]
+    # All stops already have a location.
+    if not stops:
+        return existing_clusters
     clean_df = filter_df_with_stops()
-
-    return {stop: _create_stop_clusters(stop, clean_df) for stop in stops}
+    clusters = {stop: _create_stop_clusters(stop, clean_df) for stop in stops}
+    clusters.update(existing_clusters)
+    return clusters
 
 
 def _create_route(
@@ -136,8 +148,8 @@ def _create_route(
     return [cluster.get_closest() for cluster in cluster_route]
 
 
-def generate_routes(stops: StopNames, df: pd.DataFrame) -> Routes:
-    clusters = generate_clusters(df, stops)
+def generate_routes(stops: StopNames, df: pd.DataFrame, handler: GTFSHandler) -> Routes:
+    clusters = generate_clusters(df, stops, handler)
     starts: list[Cluster] = clusters[stops[0]]
     routes: Routes = []
     for start in starts:

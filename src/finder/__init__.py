@@ -266,14 +266,13 @@ class Finder:
             df = None
         self.df: pd.DataFrame = df
 
-    def generate_routes(self) -> None:
+    def _generate_routes(self) -> None:
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes(names, self.df)
+        self.routes = generate_routes(names, self.df, self.handler)
 
     def get_shortest_route(self) -> Optional[list[Node]]:
         # STYLE: Weird roundabout way to do all this.
-        if not self.routes:
-            self.generate_routes()
+        self._generate_routes()
         if not self.routes:
             return None
         names = [stop.stop_name for stop in self.handler.stops.entries]

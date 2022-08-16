@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, Field, fields
 from pathlib import Path
-from typing import Optional, Type, TypeVar
+from typing import Iterator, Optional, Type, TypeVar
 
 import pandas as pd
 
@@ -93,6 +93,9 @@ class BaseContainer:
 
         with open(self.fp, "w") as fil:
             fil.write(content)
+
+    def __iter__(self) -> Iterator[DCType]:
+        return iter(self.entries)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}: {self.entries!r}"

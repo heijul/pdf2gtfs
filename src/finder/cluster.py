@@ -7,8 +7,9 @@ from typing import Optional
 from geopy import distance as _distance
 
 from config import Config
+from datastructures.gtfs_output.gtfsstop import GTFSStop
 from finder.location import Location
-from finder.public_transport import DummyTransport, PublicTransport
+from finder.public_transport import DummyTransport, ExistingTransport, PublicTransport
 from finder.types import StopName
 
 
@@ -165,6 +166,14 @@ class Cluster(_Base):
         lat = mean([node.loc.lat for node in self.nodes])
         lon = mean([node.loc.lon for node in self.nodes])
         self.loc = Location(lat, lon)
+
+    @staticmethod
+    def from_gtfs_stop(gtfsstop: GTFSStop) -> Cluster:
+        name = gtfsstop.stop_name
+        location = Location(gtfsstop.stop_lat, gtfsstop.stop_lon)
+        cluster = Cluster(name, location)
+        cluster.add_node(Node(cluster, ExistingTransport(name, *location)))
+        return cluster
 
     def __repr__(self) -> str:
         return f"Cluster({self.stop}, {self.loc})"

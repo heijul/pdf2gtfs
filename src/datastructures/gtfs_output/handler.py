@@ -228,6 +228,10 @@ class GTFSHandler:
         logger.info("Adding coordinates to stops.")
         for node in route:
             stop = self.stops.get(node.cluster.stop)
+            # No need to add the location to existing stops, as these will
+            #  not be updated anyway  # TODO: Check if this is right
+            if stop.valid:
+                continue
             if isinstance(node, DummyNode):
                 name = node.cluster.stop
                 logger.warning(f"Could not find location for '{name}'. You "
