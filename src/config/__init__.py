@@ -1,4 +1,7 @@
 import logging
+import os.path
+import platform
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +42,7 @@ class InstanceDescriptorMixin:
 
 class _Config(InstanceDescriptorMixin):
     def __init__(self) -> None:
+        self._create_default_config()
         self._initialize_config_properties()
         # Always load default config first, before loading any custom config
         # or program parameters.
@@ -143,13 +147,34 @@ class _Config(InstanceDescriptorMixin):
         return True
 
     @property
-    def base_dir(self) -> Path:
+    def p2g_dir(self) -> Path:
         """ Returns the path, where the src directory is located. """
         return Path(__file__).parents[2]
 
     @property
+    def config_dir(self) -> Path:
+        system = platform.system().lower()
+        if system == "linux":
+            return Path(os.path.expanduser("~/.config/pdf2gtfs/")).resolve()
+        if system == "windows":
+            return Path(
+                os.path.expandvars("%PROGRAMDATA%/pdf2gtfs/")).resolve()
+        logger.warning("Currently only windows and linux are fully "
+                       "supported.")
+        return self.p2g_dir
+
+    @property
     def default_config_path(self) -> Path:
-        return self.base_dir.joinpath("config.template.yaml")
+        return self.config_dir.joinpath("config.yaml")
+
+    def _create_default_config(self) -> None:
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        if self.default_config_path.exists():
+            return
+        src = self.p2g_dir.joinpath("config.template.yaml")
+        shutil.copy(src, self.default_config_path)
+        logger.info(f"Default configuration was created at "
+                    f"'{self.default_config_path}'.")
 
     def __str__(self) -> str:
         string_like = (str, Path)

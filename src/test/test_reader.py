@@ -7,7 +7,7 @@ from reader import get_chars_dataframe_from_page, get_lines, get_pages, Reader
 class TestReader(TestCase):
     def setUp(self) -> None:
         Config.preprocess = False
-        self.data_dir = Config.base_dir.joinpath("src/test/test_data")
+        self.data_dir = Config.p2g_dir.joinpath("src/test/test_data")
         self.filename = self.data_dir.joinpath("vag_1_preprocessed.pdf")
         Config.filename = str(self.filename)
 
