@@ -18,8 +18,8 @@ class AgencyEntry(BaseDataClass):
 
     def __init__(self, name: str, url: str, timezone: str,
                  *, agency_id: int = None):
-        super().__init__()
-        self.agency_id = self.id if agency_id is None else agency_id
+        super().__init__(agency_id)
+        self.agency_id = self.id
         self.agency_name = name
         self.agency_url = url
         self.agency_timezone = timezone

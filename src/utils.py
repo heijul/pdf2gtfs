@@ -1,24 +1,34 @@
 from __future__ import annotations
 
 import re
-from typing import Generator, TypeAlias, TypeVar
+from typing import TypeAlias, TypeVar
 
 
-def __uid_generator() -> Generator[int]:
-    """ Infinite sequence of ids. """
-    next_id = 0
-    while True:
-        yield next_id
-        next_id += 1
+class _UIDGenerator:
+    def __init__(self) -> None:
+        self.id = None
+        self.skip_ids = set()
+
+    def skip(self, skipped_id: int) -> None:
+        self.skip_ids.add(skipped_id)
+
+    def __get_next_id(self) -> int:
+        i = 0 if self.id is None else self.id + 1
+        while i in self.skip_ids:
+            i += 1
+            continue
+        return i
+
+    def next(self) -> int:
+        self.id = self.__get_next_id()
+        return self.id
 
 
-# Override the __uid_generator, to ensure uniqueness.
-__uid_generator = __uid_generator()
+UIDGenerator = _UIDGenerator()
 
 
 def next_uid() -> int:
-    """ Returns the next unique id. IDs are shared by all objects. """
-    return next(__uid_generator)
+    return UIDGenerator.next()
 
 
 SPECIAL_CHARS = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"

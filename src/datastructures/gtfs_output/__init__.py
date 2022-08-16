@@ -8,7 +8,7 @@ from typing import Optional, Type, TypeVar
 import pandas as pd
 
 from user_input.cli import overwrite_existing_file
-from utils import next_uid
+from utils import next_uid, UIDGenerator
 
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BaseDataClass:
-    def __init__(self) -> None:
-        self.id = next_uid()
+    def __init__(self, existing_id: int | None = None) -> None:
+        self.id = next_uid() if existing_id is None else int(existing_id)
 
     @classmethod
     def get_field_names(cls: BaseDataClass) -> str:
@@ -101,13 +101,13 @@ class BaseContainer:
 class ExistingBaseContainer(BaseContainer):
     def __init__(self, filename: str, entry_type: Type[DCType]):
         super().__init__(filename, entry_type)
-        # Force overwriting, even if file exists.
         self.overwrite = False
         self.initialize()
 
     def initialize(self) -> None:
         for entry in self.from_file():
             self._add(entry)
+            UIDGenerator.skip(entry.id)
 
     def write(self) -> None:
         """ Never overwrite existing files by default. """
