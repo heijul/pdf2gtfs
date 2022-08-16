@@ -51,10 +51,10 @@ class GTFSStops(ExistingBaseContainer):
 
     def __init__(self) -> None:
         super().__init__("stops.txt", GTFSStop)
+        self.append = False
         self.new_entries = []
 
     def to_output(self) -> str:
-        # TODO: fix
         if not self.append:
             return super().to_output()
         with open(self.fp) as fil:
@@ -65,7 +65,7 @@ class GTFSStops(ExistingBaseContainer):
     def write(self) -> None:
         if self.new_entries:
             stops = "', '".join([e.stop_name for e in self.new_entries])
-            stops += "['{}']".format(stops)
+            stops = f"['{stops}']"
             logger.warning(
                 f"The file '{self.filename}' exists and contains data, but "
                 f"does not contain entries for the following stops:\n{stops}"
@@ -78,6 +78,7 @@ class GTFSStops(ExistingBaseContainer):
             return
         entry = GTFSStop(stop_name)
         if self.fp.exists() and not self.overwrite:
+            self.append = True
             self.new_entries.append(entry)
         super()._add(entry)
 
