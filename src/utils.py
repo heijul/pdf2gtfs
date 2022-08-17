@@ -6,11 +6,11 @@ from typing import TypeAlias, TypeVar
 
 class _UIDGenerator:
     def __init__(self) -> None:
-        self.id = None
-        self.skip_ids = set()
+        self.id: int | None = None
+        self.skip_ids: set[str] = set()
 
-    def skip(self, skipped_id: int) -> None:
-        self.skip_ids.add(skipped_id)
+    def skip(self, skipped_id: str) -> None:
+        self.skip_ids.add(str(skipped_id))
 
     def __get_next_id(self) -> int:
         i = 0 if self.id is None else self.id + 1
@@ -19,15 +19,15 @@ class _UIDGenerator:
             continue
         return i
 
-    def next(self) -> int:
+    def next(self) -> str:
         self.id = self.__get_next_id()
-        return self.id
+        return str(self.id)
 
 
 UIDGenerator = _UIDGenerator()
 
 
-def next_uid() -> int:
+def next_uid() -> str:
     return UIDGenerator.next()
 
 

@@ -11,13 +11,13 @@ from user_input.cli import select_agency
 
 @dataclass
 class AgencyEntry(BaseDataClass):
-    agency_id: int
+    agency_id: str
     agency_name: str
     agency_url: str
     agency_timezone: str
 
     def __init__(self, name: str, url: str, timezone: str,
-                 *, agency_id: int = None):
+                 *, agency_id: str = None):
         super().__init__(agency_id)
         self.agency_id = self.id
         self.agency_name = name
@@ -29,7 +29,7 @@ class AgencyEntry(BaseDataClass):
         return AgencyEntry(series["agency_name"],
                            series["agency_url"],
                            series["agency_timezone"],
-                           agency_id=int(series["agency_id"]))
+                           agency_id=series["agency_id"])
 
     @property
     def values(self) -> list[str]:

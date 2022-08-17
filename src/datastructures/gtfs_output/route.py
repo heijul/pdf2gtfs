@@ -34,14 +34,14 @@ class RouteType(Enum):
 
 @dataclass
 class Route(BaseDataClass):
-    route_id: int
-    agency_id: int
+    route_id: str
+    agency_id: str
     route_short_name: str
     route_long_name: str
     route_type: RouteType
 
     def __init__(
-            self, agency_id: int, short_name: str, long_name: str) -> None:
+            self, agency_id: str, short_name: str, long_name: str) -> None:
         super().__init__()
         self.route_id = self.id
         self.agency_id = agency_id
@@ -59,20 +59,11 @@ class Route(BaseDataClass):
         return (self.route_short_name == other.route_short_name and
                 self.route_long_name == other.route_long_name)
 
-    def to_output(self) -> str:
-        short = f'"{self.route_short_name}"' if self.route_short_name else ""
-        long = f'"{self.route_long_name}"' if self.route_long_name else ""
-        route_type = self.route_type.to_output()
-        return f"{self.route_id},{self.agency_id},{short},{long},{route_type}"
-
 
 class Routes(BaseContainer):
-    def __init__(self) -> None:
+    def __init__(self, agency_id: str) -> None:
         super().__init__("routes.txt", Route)
-        self.agency_id = -1
-
-    def set_agency_id(self, agency_id: int) -> None:
-        self.agency_id = agency_id
+        self.agency_id: str = agency_id
 
     def add(self, *, short_name: str = "", long_name: str = "") -> Route:
         route = Route(self.agency_id, short_name, long_name)

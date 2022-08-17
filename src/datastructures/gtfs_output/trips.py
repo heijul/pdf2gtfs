@@ -16,11 +16,11 @@ Trip_Factory: TypeAlias = Callable[[], "TripEntry"]
 
 @dataclass(init=False)
 class TripEntry(BaseDataClass):
-    trip_id: int
-    route_id: int
-    service_id: int
+    trip_id: str
+    route_id: str
+    service_id: str
 
-    def __init__(self, route_id, service_id) -> None:
+    def __init__(self, route_id: str, service_id: str) -> None:
         super().__init__()
         self.trip_id = self.id
         self.route_id = route_id
@@ -33,7 +33,7 @@ class Trips(BaseContainer):
     def __init__(self) -> None:
         super().__init__("trips.txt", TripEntry)
 
-    def add(self, route_id: int, service_id: int) -> TripEntry:
+    def add(self, route_id: str, service_id: str) -> TripEntry:
         entry = TripEntry(route_id, service_id)
         return self._add(entry)
 
@@ -41,7 +41,7 @@ class Trips(BaseContainer):
         if entry in self.entries:
             self.entries.remove(entry)
 
-    def get_factory(self, service_id, route_id) -> Trip_Factory:
+    def get_factory(self, service_id: str, route_id: str) -> Trip_Factory:
         """ Returns a function which creates a new TripEntry for the given
         service and route. """
 

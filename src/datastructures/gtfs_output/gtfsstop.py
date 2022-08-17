@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass(init=False)
 class GTFSStop(BaseDataClass):
-    stop_id: int
+    stop_id: str
     stop_name: str
     stop_lat: float
     stop_lon: float
 
     def __init__(self, name: str, lat: float = -1, lon: float = -1,
-                 *, stop_id=None):
+                 *, stop_id: str = None):
         super().__init__(stop_id)
         self.stop_id = self.id
         self.stop_name = name.strip()
@@ -38,16 +38,12 @@ class GTFSStop(BaseDataClass):
         self.stop_lat = lat
         self.stop_lon = lon
 
-    def to_output(self) -> str:
-        return (f"{self.stop_id},\"{self.stop_name}\","
-                f"{self.stop_lat},{self.stop_lon}")
-
     @staticmethod
     def from_series(series: pd.Series) -> GTFSStop:
         return GTFSStop(series["stop_name"],
                         float(series["stop_lat"]),
                         float(series["stop_lon"]),
-                        stop_id=int(series["stop_id"]))
+                        stop_id=series["stop_id"])
 
 
 class GTFSStops(ExistingBaseContainer):

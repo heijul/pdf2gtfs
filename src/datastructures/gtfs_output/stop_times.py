@@ -85,13 +85,13 @@ class Time:
 
 @dataclass(init=False)
 class StopTimesEntry(BaseDataClass):
-    trip_id: int
+    trip_id: str
     arrival_time: Time
     departure_time: Time
-    stop_id: int
+    stop_id: str
     stop_sequence: int
 
-    def __init__(self, trip_id: int, stop_id: int, stop_sequence: int,
+    def __init__(self, trip_id: str, stop_id: str, stop_sequence: int,
                  arrival_time: Time, departure_time: Time = None):
         super().__init__()
         self.trip_id = trip_id
@@ -100,7 +100,7 @@ class StopTimesEntry(BaseDataClass):
         self.arrival_time = arrival_time
         self.departure_time = departure_time or arrival_time.copy()
 
-    def duplicate(self, trip_id: int) -> StopTimesEntry:
+    def duplicate(self, trip_id: str) -> StopTimesEntry:
         """ Return a new instance of this entry with the given trip_id. """
         return StopTimesEntry(trip_id, self.stop_id, self.stop_sequence,
                               self.arrival_time, self.departure_time)
@@ -118,12 +118,12 @@ class StopTimes(BaseContainer):
     def __init__(self) -> None:
         super().__init__("stop_times.txt", StopTimesEntry)
 
-    def add(self, trip_id: int, stop_id: int, sequence: int,
+    def add(self, trip_id: str, stop_id: str, sequence: int,
             arrival: Time, departure: Time = None) -> StopTimesEntry:
         entry = StopTimesEntry(trip_id, stop_id, sequence, arrival, departure)
         return self._add(entry)
 
-    def add_multiple(self, trip_id: int, stops: GTFSStops,
+    def add_multiple(self, trip_id: str, stops: GTFSStops,
                      offset: int, time_strings: dict[Stop: str]
                      ) -> list[StopTimesEntry]:
         """ Creates a new entry for each time_string. """
@@ -191,7 +191,7 @@ class StopTimes(BaseContainer):
 
         return new_stop_times
 
-    def __get_entry_from_stop_id(self, stop_id: int) -> StopTimesEntry | None:
+    def __get_entry_from_stop_id(self, stop_id: str) -> StopTimesEntry | None:
         for i, entry in enumerate(self.entries):
             if entry.stop_id == stop_id:
                 return entry
