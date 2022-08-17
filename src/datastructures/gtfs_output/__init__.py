@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BaseDataClass:
-    def __init__(self, existing_id: int | None = None) -> None:
-        self.id = next_uid() if existing_id is None else int(existing_id)
+    def __init__(self, existing_id: str | None = None) -> None:
+        self.id: str = next_uid() if existing_id is None else existing_id
 
     @classmethod
     def get_field_names(cls: BaseDataClass) -> str:
@@ -30,6 +30,8 @@ class BaseDataClass:
         value = self.get_field_value(field)
         if hasattr(value, "to_output") and callable(value.to_output):
             return value.to_output()
+        if isinstance(value, str):
+            return str_wrap(value)
         return str(value)
 
     def to_output(self) -> str:
@@ -143,3 +145,7 @@ class ExistingBaseContainer(BaseContainer):
         for _, values in df.iterrows():
             entries.append(self.entry_type.from_series(values))
         return entries
+
+
+def str_wrap(value) -> str:
+    return f"\"{str(value)}\""

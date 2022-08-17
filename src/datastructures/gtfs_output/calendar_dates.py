@@ -6,11 +6,11 @@ from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
 
 @dataclass
 class CalendarDateEntry(BaseDataClass):
-    service_id: int
+    service_id: str
     date: str
     exception_type: int
 
-    def __init__(self, service_id: int, date: str, exception_type: int):
+    def __init__(self, service_id: str, date: str, exception_type: int):
         super().__init__()
         self.service_id = service_id
         self.date = date
@@ -23,7 +23,7 @@ class CalendarDates(BaseContainer):
     def __init__(self) -> None:
         super().__init__("calendar_dates.txt", CalendarDateEntry)
 
-    def add(self, service_id: int, date: dt.date, add_service: bool
+    def add(self, service_id: str, date: dt.date, add_service: bool
             ) -> CalendarDateEntry:
         exception_type = 1 if add_service else 2
         date_str = date.strftime("%Y%m%d")
@@ -31,6 +31,6 @@ class CalendarDates(BaseContainer):
         return self._add(entry)
 
     def add_multiple(
-            self, service_id: int, dates: list[dt.date], add_service: bool):
+            self, service_id: str, dates: list[dt.date], add_service: bool):
         for date in dates:
             self.add(service_id, date, add_service)

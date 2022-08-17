@@ -50,15 +50,11 @@ class GTFSHandler:
     def __init__(self) -> None:
         self._agency = Agency()
         self._stops = GTFSStops()
-        self._routes = Routes()
+        self._routes = Routes(self.agency.get_default().agency_id)
         self._calendar = Calendar()
         self._trips = Trips()
         self._stop_times = StopTimes()
         self._calendar_dates = CalendarDates()
-        self._setup()
-
-    def _setup(self) -> None:
-        self.routes.set_agency_id(self.agency.get_default().agency_id)
 
     def timetable_to_gtfs(self, timetable: TimeTable):
         timetable.clean_values()

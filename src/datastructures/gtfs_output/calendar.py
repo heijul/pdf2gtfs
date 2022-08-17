@@ -5,7 +5,7 @@ from dataclasses import dataclass, fields
 from typing import Callable, Optional, TypeAlias
 
 from config import Config
-from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
+from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass, str_wrap
 
 
 @dataclass
@@ -27,7 +27,7 @@ class ServiceDay:
         self.date = date
 
     def to_output(self) -> str:
-        return self.date.strftime("%Y%m%d")
+        return str_wrap(self.date.strftime("%Y%m%d"))
 
     def __eq__(self, other: ServiceDay):
         return self.date == other.date
@@ -48,7 +48,7 @@ class EndDate(ServiceDay):
 
 @dataclass(init=False)
 class CalendarEntry(BaseDataClass):
-    service_id: int
+    service_id: str
     monday: DayIsActive = DayIsActive(False)
     tuesday: DayIsActive = DayIsActive(False)
     wednesday: DayIsActive = DayIsActive(False)
