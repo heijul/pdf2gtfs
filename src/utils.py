@@ -14,7 +14,7 @@ class _UIDGenerator:
 
     def __get_next_id(self) -> int:
         i = 0 if self.id is None else self.id + 1
-        while i in self.skip_ids:
+        while str(i) in self.skip_ids:
             i += 1
             continue
         return i
