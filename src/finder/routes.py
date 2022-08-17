@@ -199,21 +199,22 @@ def display_route(route: Route, cluster=False, nodes=False) -> None:
     webbrowser.open_new_tab(str(outfile))
 
 
+def list_to_map(values, name="stops.html") -> None:
+    loc = mean([a for a, _ in values]), mean([b for _, b in values])
+    m = folium.Map(location=loc, tiles="CartoDB positron")
+    for node in values:
+        folium.CircleMarker(radius=5, location=node, color="crimson",
+                            fill=True, fill_color="lime").add_to(m)
+    path = str(Config.output_dir.joinpath(name))
+    m.save(path)
+    webbrowser.open_new_tab(path)
+
+
 def display_stops(df: pd.DataFrame, stops: list[str]) -> None:
     def df_to_loc_list(clean_df: pd.DataFrame) -> list[tuple[int, int]]:
         locs = []
         for _, row in clean_df.iterrows():
             locs.append((row["lat"], row["lon"]))
         return locs
-
-    def list_to_map(values) -> None:
-        loc = mean([a for a, _ in values]), mean([b for _, b in values])
-        m = folium.Map(location=loc)
-        for node in values:
-            folium.CircleMarker(radius=5, location=node, color="crimson",
-                                fill=True, fill_color="lime").add_to(m)
-        path = str(Config.output_dir.joinpath("stops.html"))
-        m.save(path)
-        webbrowser.open_new_tab(path)
 
     list_to_map(df_to_loc_list(filter_df_with_stops(df, stops)))
