@@ -198,8 +198,9 @@ disable_connection_detection: False
 # Type: bool
 disable_location_detection: False
 
-# Nodes within this radius will be combined into a cluster to reduce the time
-#   it takes to find the stop locations. To disable clustering, set this to 0.
+# Nodes within this radius (in meter) will be combined into a cluster to
+#   reduce the time it takes to find the stop locations.
+# To disable clustering completely, set this to 0.
 #
 # Type: int
-cluster_radius: 50
+cluster_radius: 100
