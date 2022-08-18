@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import folium
 import pandas as pd
+from folium import Circle, Map
 
 from config import Config
 from finder import public_transport
@@ -153,6 +154,7 @@ def generate_routes(stops: StopNames, df: pd.DataFrame,
                     handler: GTFSHandler) -> Routes:
     display_stops(df, stops)
     clusters = generate_clusters(df, stops, handler)
+    display_clusters(clusters)
     starts: list[Cluster] = clusters[stops[0]]
     routes: Routes = []
     for start in starts:
@@ -199,13 +201,31 @@ def display_route(route: Route, cluster=False, nodes=False) -> None:
     webbrowser.open_new_tab(str(outfile))
 
 
-def list_to_map(values, name="stops.html") -> None:
+def list_to_map(values, name="positions.html") -> None:
     loc = mean([a for a, _ in values]), mean([b for _, b in values])
     m = folium.Map(location=loc, tiles="CartoDB positron")
     for node in values:
         folium.CircleMarker(radius=5, location=node, color="crimson",
                             fill=True, fill_color="lime").add_to(m)
     path = str(Config.output_dir.joinpath(name))
+    m.save(path)
+    webbrowser.open_new_tab(path)
+
+
+def display_clusters(clusters_dict: Clusters) -> None:
+    def add_clusters_to_map(c: Cluster) -> None:
+        for n in c.nodes:
+            Circle(radius=1, location=tuple(n.loc),
+                   color="crimson", fill=False, tooltip=n.name).add_to(m)
+        Circle(radius=Config.cluster_radius, location=tuple(c.loc),
+               color="lime", fill=False, tooltip=c.stop).add_to(m)
+
+    m = Map(location=(48, 8), tiles="CartoDB positron")
+    for clusters in clusters_dict.values():
+        for cluster in clusters:
+            add_clusters_to_map(cluster)
+
+    path = str(Config.output_dir.joinpath("clusters.html"))
     m.save(path)
     webbrowser.open_new_tab(path)
 
