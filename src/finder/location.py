@@ -5,6 +5,8 @@ from typing import Iterator
 
 from geopy.distance import distance
 
+from config import Config
+
 
 @dataclass(frozen=True)
 class Location:
@@ -16,7 +18,7 @@ class Location:
         return distance(tuple(self), tuple(other)).km
 
     def close(self, other: Location) -> bool:
-        return self.distance(other) <= 1
+        return self.distance(other) <= Config.cluster_radius
 
     def __str__(self) -> str:
         return f"({self.lat:.4f}, {self.lon:.4f})"

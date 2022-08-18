@@ -76,6 +76,7 @@ class _Config(InstanceDescriptorMixin):
         self.display_route = Property(self, "display_route", bool)
         self.stale_cache_days = Property(self, "stale_cache_days", int)
         self.name_abbreviations = AbbrevProperty(self, "name_abbreviations")
+        self.cluster_radius = Property(self, "cluster_radius", int)
         self.disable_location_detection = Property(
             self, "disable_location_detection", bool)
         self.disable_connection_detection = Property(
