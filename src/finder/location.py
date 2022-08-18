@@ -14,8 +14,8 @@ class Location:
     lon: float
 
     def distance(self, other: Location) -> float:
-        """ Return distance between two locations in km. """
-        return distance(tuple(self), tuple(other)).km
+        """ Return distance between two locations in m. """
+        return distance(tuple(self), tuple(other)).m
 
     def close(self, other: Location) -> bool:
         return self.distance(other) <= Config.cluster_radius
