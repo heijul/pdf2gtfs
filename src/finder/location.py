@@ -21,7 +21,10 @@ class Location:
         return self.distance(other) <= Config.cluster_radius
 
     def __str__(self) -> str:
-        return f"({self.lat:.4f}, {self.lon:.4f})"
+        return f"({self.lat:.5f}, {self.lon:.5f})"
+
+    def __repr__(self) -> str:
+        return f"Location{str(self)}"
 
     def __iter__(self) -> Iterator[float]:
         return iter((self.lat, self.lon))
