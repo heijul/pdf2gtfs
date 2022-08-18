@@ -73,7 +73,7 @@ class _Config(InstanceDescriptorMixin):
         self.always_overwrite = Property(self, "always_overwrite", bool)
         self.non_interactive = Property(self, "non_interactive", bool)
         self.gtfs_date_bounds = DatesProperty(self, "gtfs_date_bounds")
-        self.display_route = Property(self, "display_route", bool)
+        self.display_route = Property(self, "display_route", int)
         self.stale_cache_days = Property(self, "stale_cache_days", int)
         self.name_abbreviations = AbbrevProperty(self, "name_abbreviations")
         self.cluster_radius = Property(self, "cluster_radius", int)

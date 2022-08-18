@@ -152,9 +152,11 @@ def _create_route(
 
 def generate_routes(stops: StopNames, df: pd.DataFrame,
                     handler: GTFSHandler) -> Routes:
-    display_stops(df, stops)
+    if Config.display_route in [4, 5, 6, 7]:
+        display_stops(df, stops)
     clusters = generate_clusters(df, stops, handler)
-    display_clusters(clusters)
+    if Config.display_route in [2, 3, 6, 7]:
+        display_clusters(clusters)
     starts: list[Cluster] = clusters[stops[0]]
     routes: Routes = []
     for start in starts:

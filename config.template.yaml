@@ -146,10 +146,14 @@ non_interactive: False
 # Type: list of dates in YYYYMMDD format or empty string
 gtfs_date_bounds: ["", ""]
 
-# If this is set to True, the route will be displayed in the browser.
+# The locations of the stops can be displayed in a webbrowser.
+# To decide what should be displayed, sum the values of the things you want:
+#      - display final route: 1
+#      - display clusters and their nodes: 2
+#      - display all nodes with names similar to the stops: 4
 #
-# Type: bool
-display_route: True
+# Type: int between 0 and 7
+display_route: 1
 
 # Days after which the cache should be marked as stale, forcing its rebuild.
 #

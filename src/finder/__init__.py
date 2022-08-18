@@ -277,6 +277,6 @@ class Finder:
             return None
         names = [stop.stop_name for stop in self.handler.stops.entries]
         route = select_shortest_route(names, self.routes)
-        if Config.display_route and route:
+        if Config.display_route in [1, 3, 5, 7] and route:
             display_route(route, False, False)
         return route
