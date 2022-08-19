@@ -103,7 +103,8 @@ def _create_stop_clusters(stop: StopName, df: pd.DataFrame) -> list[Cluster]:
     """ Create the clusters for a single stop. """
     name_filter = _create_single_name_filter(stop)
     nf_regex = name_filter_to_regex(name_filter)
-    df = df.where(df["name"].str.contains(nf_regex, regex=True)).dropna()
+    df = df.where(df["name"].str.contains(nf_regex, regex=True)
+                  ).dropna(subset="name")
 
     clusters: list[Cluster] = []
     transports = _create_stop_transports_from_df(stop, df)
@@ -124,7 +125,8 @@ def filter_df_with_stops(df: pd.DataFrame, stops: StopNames) -> pd.DataFrame:
     df["name"] = df["name"].str.replace(chars, "", regex=True)
 
     regex = name_filter_to_regex(_create_name_filter(stops))
-    return df.where(df["name"].str.contains(regex, regex=True)).dropna()
+    return df.where(df["name"].str.contains(regex, regex=True)
+                    ).dropna(subset="name")
 
 
 def generate_clusters(df: pd.DataFrame, all_stops: StopNames,
