@@ -16,6 +16,7 @@ from config import Config
 from finder import public_transport
 from finder.cluster import Cluster, DummyCluster, DummyNode, Node
 from finder.location import Location
+from finder.osm_node import ExistingOSMNode, OSMNode
 from finder.public_transport import PublicTransport
 from finder.types import Clusters, Route, Routes, StopName, StopNames
 from utils import replace_abbreviations, SPECIAL_CHARS
@@ -163,6 +164,65 @@ def generate_routes(stops: StopNames, df: pd.DataFrame,
     routes: Routes = []
     for start in starts:
         route = _create_route(stops, start, clusters)
+        routes.append(route)
+    return routes
+
+
+def _create_stop_nodes(stop: StopName, df: pd.DataFrame) -> list[OSMNode]:
+    name_filter = _create_single_name_filter(stop)
+    nf_regex = name_filter_to_regex(name_filter)
+    df = df.where(df["name"].str.contains(nf_regex, regex=True)
+                  ).dropna(subset="name")
+    nodes = _create_osm_nodes_from_df(stop, df)
+    return nodes
+
+
+def _create_osm_nodes_from_df(stop, df) -> list[OSMNode]:
+    return [OSMNode.from_series(s, stop) for _, s in df.iterrows()]
+
+
+def generate_osm_nodes(df: pd.DataFrame, all_stops: StopNames,
+                       handler: GTFSHandler) -> dict[StopName: list[OSMNode]]:
+    existing_nodes = {stop.stop_name: [ExistingOSMNode.from_gtfsstop(stop)]
+                      for stop in handler.stops if stop.valid}
+    stops = [stop for stop in all_stops if stop not in existing_nodes]
+    # All stops already have a location.
+    if not stops:
+        return existing_nodes
+    clean_df = filter_df_with_stops(df, stops)
+    nodes = {stop: _create_stop_nodes(stop, clean_df) for stop in stops}
+    nodes.update(existing_nodes)
+    return nodes
+
+
+def _create_route2(stops: StopNames, end: OSMNode,
+                   nodes: dict[StopName: list[OSMNode]]) -> Route:
+    def get_min_dist() -> float:
+        return min([current.distance(n) for n in nodes[stop]])
+
+    current = end
+    route = [end]
+    for stop in list(reversed(stops))[1:]:
+        min_dist = get_min_dist()
+        for node in nodes[stop]:
+            node: OSMNode
+            node.calculate_score(current, min_dist)
+        print(sorted(nodes[stop]))
+        current = min(nodes[stop])
+        route.insert(0, current)
+
+    return route
+
+
+def generate_routes2(stops: StopNames, df: pd.DataFrame, handler: GTFSHandler
+                     ) -> Routes:
+    if Config.display_route in [4, 5, 6, 7]:
+        display_stops(df, stops)
+    nodes = generate_osm_nodes(df, stops, handler)
+    ends = nodes[stops[-1]]
+    routes: Routes = []
+    for end in ends:
+        route = _create_route2(stops, end, nodes)
         routes.append(route)
     return routes
 

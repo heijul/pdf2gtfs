@@ -17,7 +17,7 @@ from requests.exceptions import ConnectionError
 
 from config import Config
 from finder.routes import (
-    display_route, generate_routes, select_shortest_route)
+    display_route, generate_routes, generate_routes2, select_shortest_route)
 from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 
@@ -283,7 +283,7 @@ class Finder:
 
     def _generate_routes(self) -> None:
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes(names, self.df, self.handler)
+        self.routes = generate_routes2(names, self.df, self.handler)
 
     def get_shortest_route(self) -> Optional[list[Node]]:
         # STYLE: Weird roundabout way to do all this.
