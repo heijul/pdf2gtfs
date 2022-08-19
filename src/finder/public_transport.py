@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import IntEnum
 from typing import Optional, Type
 
 import pandas as pd
@@ -10,7 +10,7 @@ from finder.types import StopName
 from utils import get_edit_distance, replace_abbreviations
 
 
-class TransportType(Enum):
+class TransportType(IntEnum):
     ExistingTransportType = 0
     Station = 1
     Platform = 2
@@ -20,6 +20,16 @@ class TransportType(Enum):
     def compare(self, other: TransportType) -> int:
         """ -1 if self < other, 0 if self == other, 1 if self > other. """
         return int(self.value > other.value) - int(self.value < other.value)
+
+    @staticmethod
+    def get(name: str) -> TransportType:
+        name = name.lower().replace(" ", "")
+        if name == "station":
+            return TransportType.Station
+        if name == "platform":
+            return TransportType.Platform
+        if name == "stop_position":
+            return TransportType.StopPosition
 
 
 class PublicTransport:
