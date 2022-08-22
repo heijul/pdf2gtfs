@@ -4,7 +4,7 @@ import itertools
 import logging
 import re
 import webbrowser
-from operator import itemgetter
+from operator import attrgetter, itemgetter
 from statistics import mean
 from typing import Callable, TYPE_CHECKING
 
@@ -224,8 +224,17 @@ def _create_route2(stops: StopNames, end: OSMNode,
 def create_node_generator(
         df: pd.DataFrame, stops: StopNames, extended_search: bool = False
         ) -> Callable[[str], list[OSMNode]]:
+    def get_clean_df() -> pd.DataFrame:
+        return filter_df_with_stops(df, stops)
+
     def node_generator(stop: str) -> list[OSMNode]:
-        clean_df = filter_df_with_stops(df, stops)
+        # Ensure get_clean_df is only run when actually needed, instead of
+        # when creating the generator.
+        nonlocal clean_df
+
+        if clean_df is None:
+            clean_df = get_clean_df()
+
         nodes = _create_stop_nodes(stop, clean_df)
         return nodes
 
@@ -233,6 +242,7 @@ def create_node_generator(
         # TODO: Implement this.
         return node_generator(stop)
 
+    clean_df = None
     return node_generator_extended if extended_search else node_generator
 
 
@@ -241,13 +251,35 @@ def generate_routes2(stops: StopNames, df: pd.DataFrame, handler: GTFSHandler
     if Config.display_route in [4, 5, 6, 7]:
         display_stops(df, stops)
     nodes = generate_osm_nodes(df, stops, handler)
-    ends = nodes[stops[-1]]
+    ends = sorted(nodes[stops[-1]][0], key=attrgetter("loc.lat"))
     routes = []
     node_generator = create_node_generator(df, stops, True)
     for end in ends:
         route = Route3.from_nodes(stops, end, nodes, node_generator)
         routes.append(route)
     return routes
+
+
+def display_route2(route: Route3) -> None:
+    def get_map_location() -> tuple[float, float]:
+        non_dummy_nodes = [n for n in route.nodes
+                           if not isinstance(n, DummyOSMNode)]
+        return (mean([n.loc.lat for n in non_dummy_nodes]),
+                mean([n.loc.lon for n in non_dummy_nodes]))
+
+    # FEATURE: Add cluster/nodes to Config.
+    # FEATURE: Add info about missing nodes.
+    # TODO: Adjust zoom/location depending on lat-/lon-minimum
+    m = folium.Map(location=get_map_location())
+    for i, node in enumerate(route.nodes):
+        if isinstance(node, DummyOSMNode):
+            continue
+        loc = [node.loc.lat, node.loc.lon]
+        folium.Marker(loc, popup=f"{node.name}\n{loc}").add_to(m)
+
+    outfile = Config.output_dir.joinpath("routedisplay.html")
+    m.save(str(outfile))
+    webbrowser.open_new_tab(str(outfile))
 
 
 def display_route(route: Route, cluster=False, nodes=False) -> None:

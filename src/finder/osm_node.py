@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from math import log
 from operator import itemgetter
-from typing import Callable, cast
+from typing import Callable, cast, Optional
 
 import pandas as pd
 
@@ -132,30 +132,68 @@ class Route3:
     @staticmethod
     def from_nodes(stops: list[StopName], end: OSMNode,
                    nodes: dict[StopName: tuple[list[OSMNode], bool]],
-                   node_generator: Callable[[str], list[OSMNode]]) -> Route3:
+                   extended_node_generator: Callable[[str], list[OSMNode]]
+                   ) -> Route3:
         def get_min_dist() -> float:
-            return min([current.distance(n) for n, _ in nodes[stop]],
+            valid_stop_nodes = [n for n in stop_nodes
+                                if not isinstance(n, DummyOSMNode)]
+            return min([current.distance(n) for n in valid_stop_nodes],
                        default=-1)
 
         def has_no_valid_nodes() -> bool:
-            return min_dist < 0 or min_dist > Config.max_stop_distance
+            return min_dist < 0 or min_dist > Config.max_stop_distance * 1000
 
         current = end
         route = [end]
         for stop in list(reversed(stops))[1:]:
+            stop_nodes, extended_regex = nodes[stop]
             min_dist = get_min_dist()
-            if has_no_valid_nodes() and not nodes[stop[1]]:
-                nodes[stop] = node_generator(stop), True
+            # Create nodes with extended regex, if no valid nodes are found.
+            if has_no_valid_nodes() and not extended_regex:
+                nodes[stop] = extended_node_generator(stop), True
                 min_dist = get_min_dist()
 
             if has_no_valid_nodes():
                 # CHECK: Maybe current needs to be updated?! If yes, how?
                 route.insert(0, DummyOSMNode(stop))
                 continue
-            for node, _ in nodes[stop]:
-                node: OSMNode
+            for node in stop_nodes:
                 node.calculate_score(current, min_dist)
-            current = get_min_node(nodes[stop], current)
+            current = get_min_node(stop_nodes, current)
             route.insert(0, current)
 
         return Route3(route)
+
+    @property
+    def length(self) -> float:
+        """ Return the cumulative distance between each node. """
+        def get_first_valid_node() -> Optional[OSMNode]:
+            """ Return the first node that is not a dummy node. """
+            for n in self.nodes:
+                if isinstance(n, DummyOSMNode):
+                    continue
+                return n
+            return None
+
+        last = get_first_valid_node()
+        if not last:
+            return 0
+
+        dist = 0
+        for node in self.nodes[1:]:
+            if isinstance(node, DummyOSMNode):
+                continue
+            dist += last.distance(node)
+            last = node
+
+        return dist
+
+    @property
+    def invalid_node_count(self) -> int:
+        return sum([1 for node in self.nodes
+                    if isinstance(node, DummyOSMNode)])
+
+    def __lt__(self, other: Route3) -> bool:
+        if self.invalid_node_count == other.invalid_node_count:
+            return self.length < other.length
+        return self.invalid_node_count < other.invalid_node_count

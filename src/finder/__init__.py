@@ -16,8 +16,9 @@ import requests
 from requests.exceptions import ConnectionError
 
 from config import Config
+from finder.osm_node import OSMNode, Route3
 from finder.routes import (
-    display_route, generate_routes, generate_routes2, select_shortest_route)
+    display_route, display_route2, generate_routes, generate_routes2, select_shortest_route)
 from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 
@@ -220,7 +221,7 @@ class Finder:
         self.use_cache, cache_dir = create_cache_dir()
         self._set_fp(cache_dir)
         self._get_stop_data()
-        self.routes: list[list[Node]] | None = None
+        self.routes: list[Route3] | None = None
 
     def _set_fp(self, cache_dir: Path):
         self.fp: Path = cache_dir.joinpath("osm_cache.tsv").resolve()
@@ -285,13 +286,16 @@ class Finder:
         names = [stop.stop_name for stop in self.handler.stops.entries]
         self.routes = generate_routes2(names, self.df, self.handler)
 
-    def get_shortest_route(self) -> Optional[list[Node]]:
+    def get_shortest_route(self) -> Optional[Route3]:
         # STYLE: Weird roundabout way to do all this.
         self._generate_routes()
         if not self.routes:
             return None
-        names = [stop.stop_name for stop in self.handler.stops.entries]
-        route = select_shortest_route(names, self.routes)
+        route = min(self.routes)
+        if route:
+            logger.info(f"Found route:\n\t"
+                        f"Invalid nodes: {route.invalid_node_count}\n\t"
+                        f"Overall distance in m: {int(route.length)}")
         if Config.display_route in [1, 3, 5, 7] and route:
-            display_route(route, False, False)
+            display_route2(route)
         return route
