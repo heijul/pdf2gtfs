@@ -93,8 +93,11 @@ class OSMNode:
         self.scores[current] = self._calculate_score(current, min_dist)
 
     def __lt__(self, other: OSMNode) -> bool:
-        # TODO: Add checks depending on preference (name, etc.)
-        return False
+        ours = self.base_scores
+        theirs = other.base_scores
+        return (ours["name"] < theirs["name"] or
+                ours["stop_score"] < theirs["stop_score"] or
+                ours["transport_type"] < theirs["transport_types"])
 
 
 class ExistingOSMNode(OSMNode):
