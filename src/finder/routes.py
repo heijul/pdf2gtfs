@@ -16,9 +16,9 @@ from config import Config
 from finder import public_transport
 from finder.cluster import Cluster, DummyCluster, DummyNode, Node
 from finder.location import Location
-from finder.osm_node import ExistingOSMNode, OSMNode
+from finder.osm_node import ExistingOSMNode, get_min_node, OSMNode
 from finder.public_transport import PublicTransport
-from finder.types import Clusters, Route, Routes, StopName, StopNames
+from finder.types import Clusters, Route, Route2, Routes, Routes2, StopName, StopNames
 from utils import replace_abbreviations, SPECIAL_CHARS
 
 if TYPE_CHECKING:
@@ -196,7 +196,7 @@ def generate_osm_nodes(df: pd.DataFrame, all_stops: StopNames,
 
 
 def _create_route2(stops: StopNames, end: OSMNode,
-                   nodes: dict[StopName: list[OSMNode]]) -> Route:
+                   nodes: dict[StopName: list[OSMNode]]) -> Route2:
     def get_min_dist() -> float:
         return min([current.distance(n) for n in nodes[stop]])
 
@@ -207,20 +207,19 @@ def _create_route2(stops: StopNames, end: OSMNode,
         for node in nodes[stop]:
             node: OSMNode
             node.calculate_score(current, min_dist)
-        print(sorted(nodes[stop]))
-        current = min(nodes[stop])
+        current = get_min_node(nodes[stop], current)
         route.insert(0, current)
 
     return route
 
 
 def generate_routes2(stops: StopNames, df: pd.DataFrame, handler: GTFSHandler
-                     ) -> Routes:
+                     ) -> Routes2:
     if Config.display_route in [4, 5, 6, 7]:
         display_stops(df, stops)
     nodes = generate_osm_nodes(df, stops, handler)
     ends = nodes[stops[-1]]
-    routes: Routes = []
+    routes: Routes2 = []
     for end in ends:
         route = _create_route2(stops, end, nodes)
         routes.append(route)
