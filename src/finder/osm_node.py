@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from math import log
 from operator import itemgetter
-from typing import cast
+from typing import Callable, cast
 
 import pandas as pd
 
+from config import Config
 from datastructures.gtfs_output.gtfsstop import GTFSStop
 from finder.location import Location
 from finder.osm_values import get_osm_value, OSMValue
@@ -17,11 +18,11 @@ from utils import get_edit_distance, replace_abbreviations
 class OSMNode:
     def __init__(self, name: StopName, stop: StopName, loc: Location,
                  typ: TransportType, values: dict[str: str]) -> None:
-        self.scores: dict[OSMNode: int] = {}
         self.name: StopName = name
         self.stop: StopName = stop
         self.loc: Location = loc
         self.type: TransportType = typ
+        self.scores: dict[OSMNode: int] = {}
         self.osm_value: OSMValue = get_osm_value()
         self.values: dict[str: str] = values
         # Only calculate the scores that are not dependent on next_node once.
@@ -122,3 +123,39 @@ def get_min_node(nodes: list[OSMNode], parent: OSMNode) -> OSMNode:
     """ Return the node out of nodes with minimal distance to parent. """
     scores = [(node.scores.get(parent, 1000), node) for node in nodes]
     return min(scores, key=itemgetter(0))[1]
+
+
+class Route3:
+    def __init__(self, nodes: list[OSMNode]) -> None:
+        self.nodes = nodes
+
+    @staticmethod
+    def from_nodes(stops: list[StopName], end: OSMNode,
+                   nodes: dict[StopName: tuple[list[OSMNode], bool]],
+                   node_generator: Callable[[str], list[OSMNode]]) -> Route3:
+        def get_min_dist() -> float:
+            return min([current.distance(n) for n, _ in nodes[stop]],
+                       default=-1)
+
+        def has_no_valid_nodes() -> bool:
+            return min_dist < 0 or min_dist > Config.max_stop_distance
+
+        current = end
+        route = [end]
+        for stop in list(reversed(stops))[1:]:
+            min_dist = get_min_dist()
+            if has_no_valid_nodes() and not nodes[stop[1]]:
+                nodes[stop] = node_generator(stop), True
+                min_dist = get_min_dist()
+
+            if has_no_valid_nodes():
+                # CHECK: Maybe current needs to be updated?! If yes, how?
+                route.insert(0, DummyOSMNode(stop))
+                continue
+            for node, _ in nodes[stop]:
+                node: OSMNode
+                node.calculate_score(current, min_dist)
+            current = get_min_node(nodes[stop], current)
+            route.insert(0, current)
+
+        return Route3(route)

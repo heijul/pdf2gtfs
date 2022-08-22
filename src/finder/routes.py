@@ -6,7 +6,7 @@ import re
 import webbrowser
 from operator import itemgetter
 from statistics import mean
-from typing import TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING
 
 import folium
 import pandas as pd
@@ -16,9 +16,9 @@ from config import Config
 from finder import public_transport
 from finder.cluster import Cluster, DummyCluster, DummyNode, Node
 from finder.location import Location
-from finder.osm_node import DummyOSMNode, ExistingOSMNode, get_min_node, OSMNode
+from finder.osm_node import DummyOSMNode, ExistingOSMNode, get_min_node, OSMNode, Route3
 from finder.public_transport import PublicTransport
-from finder.types import Clusters, Route, Route2, Routes, Routes2, StopName, StopNames
+from finder.types import Clusters, Route, Route2, Routes, StopName, StopNames
 from utils import replace_abbreviations, SPECIAL_CHARS
 
 if TYPE_CHECKING:
@@ -88,13 +88,16 @@ def _group_transports_with_tolerance(
     return groups
 
 
-def select_shortest_route(stops: StopNames, routes: Routes) -> Route:
-    dists: list[tuple[float, Route]] = []
+def select_shortest_route(stops: StopNames, routes: list[Route3]) -> Route3:
+    dists: list[tuple[float, Route3]] = []
     for route in routes:
-        if len(route) < len(stops):
+        nodes = route.nodes
+        # TODO: Allow incomplete routes.
+        if len(nodes) < len(stops):
             continue
-        dist: float = sum([route[i].distance(route[i + 1])
-                           for i in range(len(route)) if i < len(route) - 1])
+        # TODO: Use score instead of dist.
+        dist: float = sum([nodes[i].distance(nodes[i + 1])
+                           for i in range(len(nodes)) if i < len(nodes) - 1])
         dists.append((dist, route))
     # CHECK: Probably fails if dists[a][0] == dists[b][0]
     return min(dists, key=itemgetter(0))[1]
@@ -181,16 +184,17 @@ def _create_osm_nodes_from_df(stop, df) -> list[OSMNode]:
     return [OSMNode.from_series(s, stop) for _, s in df.iterrows()]
 
 
-def generate_osm_nodes(df: pd.DataFrame, all_stops: StopNames,
-                       handler: GTFSHandler) -> dict[StopName: list[OSMNode]]:
+def generate_osm_nodes(
+        df: pd.DataFrame, all_stops: StopNames, handler: GTFSHandler
+        ) -> dict[StopName: tuple[list[OSMNode], bool]]:
     existing_nodes = {stop.stop_name: [ExistingOSMNode.from_gtfsstop(stop)]
                       for stop in handler.stops if stop.valid}
     stops = [stop for stop in all_stops if stop not in existing_nodes]
     # All stops already have a location.
     if not stops:
         return existing_nodes
-    clean_df = filter_df_with_stops(df, stops)
-    nodes = {stop: _create_stop_nodes(stop, clean_df) for stop in stops}
+    node_gen = create_node_generator(df, stops, False)
+    nodes = {stop: (node_gen(stop), False) for stop in stops}
     nodes.update(existing_nodes)
     return nodes
 
@@ -217,15 +221,31 @@ def _create_route2(stops: StopNames, end: OSMNode,
     return route
 
 
+def create_node_generator(
+        df: pd.DataFrame, stops: StopNames, extended_search: bool = False
+        ) -> Callable[[str], list[OSMNode]]:
+    def node_generator(stop: str) -> list[OSMNode]:
+        clean_df = filter_df_with_stops(df, stops)
+        nodes = _create_stop_nodes(stop, clean_df)
+        return nodes
+
+    def node_generator_extended(stop: str) -> list[OSMNode]:
+        # TODO: Implement this.
+        return node_generator(stop)
+
+    return node_generator_extended if extended_search else node_generator
+
+
 def generate_routes2(stops: StopNames, df: pd.DataFrame, handler: GTFSHandler
-                     ) -> Routes2:
+                     ) -> list[Route3]:
     if Config.display_route in [4, 5, 6, 7]:
         display_stops(df, stops)
     nodes = generate_osm_nodes(df, stops, handler)
     ends = nodes[stops[-1]]
-    routes: Routes2 = []
+    routes = []
+    node_generator = create_node_generator(df, stops, True)
     for end in ends:
-        route = _create_route2(stops, end, nodes)
+        route = Route3.from_nodes(stops, end, nodes, node_generator)
         routes.append(route)
     return routes
 
