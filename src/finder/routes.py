@@ -16,7 +16,7 @@ from config import Config
 from finder import public_transport
 from finder.cluster import Cluster, DummyCluster, DummyNode, Node
 from finder.location import Location
-from finder.osm_node import ExistingOSMNode, get_min_node, OSMNode
+from finder.osm_node import DummyOSMNode, ExistingOSMNode, get_min_node, OSMNode
 from finder.public_transport import PublicTransport
 from finder.types import Clusters, Route, Route2, Routes, Routes2, StopName, StopNames
 from utils import replace_abbreviations, SPECIAL_CHARS
@@ -198,12 +198,16 @@ def generate_osm_nodes(df: pd.DataFrame, all_stops: StopNames,
 def _create_route2(stops: StopNames, end: OSMNode,
                    nodes: dict[StopName: list[OSMNode]]) -> Route2:
     def get_min_dist() -> float:
-        return min([current.distance(n) for n in nodes[stop]])
+        return min([current.distance(n) for n in nodes[stop]], default=-1)
 
     current = end
     route = [end]
     for stop in list(reversed(stops))[1:]:
         min_dist = get_min_dist()
+        if min_dist < 0:
+            # CHECK: Maybe current needs to be updated?!
+            route.insert(0, DummyOSMNode(stop))
+            continue
         for node in nodes[stop]:
             node: OSMNode
             node.calculate_score(current, min_dist)

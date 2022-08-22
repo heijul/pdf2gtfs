@@ -113,6 +113,11 @@ class ExistingOSMNode(OSMNode):
         return ExistingOSMNode(name, name, loc, TransportType(-1), {})
 
 
+class DummyOSMNode(OSMNode):
+    def __init__(self, stop: StopName):
+        super().__init__(stop, stop, Location(-1, -1), TransportType.Dummy, {})
+
+
 def get_min_node(nodes: list[OSMNode], parent: OSMNode) -> OSMNode:
     """ Return the node out of nodes with minimal distance to parent. """
     scores = [(node.scores.get(parent, 1000), node) for node in nodes]
