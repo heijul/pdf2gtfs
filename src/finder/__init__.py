@@ -16,21 +16,43 @@ import requests
 from requests.exceptions import ConnectionError
 
 from config import Config
-from finder.routes import (
-    display_route, generate_routes, select_shortest_route)
+from finder.osm_node import OSMNode, Route3
+from finder.routes import display_route2, generate_routes2
 from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
-    from finder.cluster import Node, Cluster
-
 
 logger = logging.getLogger(__name__)
 
+KEYS = ["stop", "name", "lat", "lon", "public_transport"]
+KEYS_OPTIONAL = [
+    "railway", "bus", "tram", "train", "subway", "monorail", "light_rail"]
+
 
 def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
+    def get_selection() -> list[str]:
+        identifier = map(lambda key: f"?{key}", KEYS + KEYS_OPTIONAL)
+        return ["SELECT {} WHERE {{".format(" ".join(identifier))]
+
+    def get_transports() -> list[str]:
+        fmt = '?stop osmkey:public_transport "{}" .'
+        transport = ""
+        if stations:
+            transport = union(transport, fmt.format("station"))
+        if stop_positions:
+            transport = union(transport, fmt.format("stop_position"))
+        if platforms:
+            transport = union(transport, fmt.format("platform"))
+        return transport.strip().split("\t")
+
+    def get_optionals() -> list[str]:
+        fmt = "OPTIONAL {{ ?stop osmkey:{0} ?{0} . }}"
+        return [fmt.format(key) for key in KEYS_OPTIONAL]
+
     def union(a: str, b: str) -> str:
+        # Union two statements. Uses \t as delimiter after/before braces.
         if not a:
             return b
         return f"{{\t{a}\t}} UNION {{\t{b}\t}}"
@@ -41,25 +63,15 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
            "PREFIX osm: <https://www.openstreetmap.org/>",
            "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>",
            "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:>"]
-    sel = ["SELECT ?stop ?name ?lat ?lon ?public_transport WHERE {"]
     base = ["?stop osmkey:public_transport ?public_transport .",
             "?stop rdf:type osm:node .",
             "?stop geo:hasGeometry ?location .",
-            "?stop osmkey:name ?name .",
-            "BIND (geof:latitude(?location) AS ?lat)",
-            "BIND (geof:longitude(?location) AS ?lon)",
-            "} ORDER BY ?name"]
-    transport_format = '?stop osmkey:public_transport "{}" .'
-    transport = ""
-    if stations:
-        transport = union(transport, transport_format.format("station"))
-    if stop_positions:
-        transport = union(transport, transport_format.format("stop_position"))
-    if platforms:
-        transport = union(transport, transport_format.format("platform"))
-    transport_list = transport.strip().split("\t")
+            "?stop osmkey:name ?name ."]
+    binds = ["BIND (geof:latitude(?location) AS ?lat)",
+             "BIND (geof:longitude(?location) AS ?lon)"]
 
-    query_list = pre + sel + transport_list + base
+    query_list = (pre + get_selection() +
+                  get_transports() + base + get_optionals() + binds + ["}"])
     return " \n".join(query_list)
 
 
@@ -119,7 +131,7 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
     df = read_csv(BytesIO(raw_data))
     df["name"] = _cleanup_name(df["name"])
     # Remove entries with empty name.
-    return df.where(df["name"] != "").dropna()
+    return df.where(df["name"] != "").dropna(subset="name")
 
 
 def get_osm_comments(include_date: bool = True) -> str:
@@ -130,7 +142,7 @@ def get_osm_comments(include_date: bool = True) -> str:
         [f"{key}: {value}"
          for key, value in sorted(Config.name_abbreviations.items())])
     allowed_chars = sorted(Config.allowed_stop_chars)
-    comments = [f"# Queried: {date}"] if include_date else[]
+    comments = [f"# Queried: {date}"] if include_date else []
     comments += [f"# Query:{join_str}{query}",
                  f"# Abbreviations:{join_str}{abbrevs}",
                  f"# Allowed chars:{join_str}{allowed_chars}"]
@@ -193,7 +205,7 @@ def read_csv(file: Path | BytesIO) -> Optional[pd.DataFrame]:
     return pd.read_csv(
         file,
         sep="\t",
-        names=["stop", "name", "lat", "lon", "transport"],
+        names=KEYS + KEYS_OPTIONAL,
         header=0,
         comment="#")
 
@@ -205,7 +217,7 @@ class Finder:
         self.use_cache, cache_dir = create_cache_dir()
         self._set_fp(cache_dir)
         self._get_stop_data()
-        self.routes: list[list[Node]] | None = None
+        self.routes: list[Route3] | None = None
 
     def _set_fp(self, cache_dir: Path):
         self.fp: Path = cache_dir.joinpath("osm_cache.tsv").resolve()
@@ -268,15 +280,18 @@ class Finder:
 
     def _generate_routes(self) -> None:
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes(names, self.df, self.handler)
+        self.routes = generate_routes2(names, self.df, self.handler)
 
-    def get_shortest_route(self) -> Optional[list[Node]]:
+    def get_shortest_route(self) -> Optional[Route3]:
         # STYLE: Weird roundabout way to do all this.
         self._generate_routes()
         if not self.routes:
             return None
-        names = [stop.stop_name for stop in self.handler.stops.entries]
-        route = select_shortest_route(names, self.routes)
+        route = min(self.routes)
+        if route:
+            logger.info(f"Found route:\n\t"
+                        f"Invalid nodes: {route.invalid_node_count}\n\t"
+                        f"Overall distance in m: {int(route.length)}")
         if Config.display_route in [1, 3, 5, 7] and route:
-            display_route(route, False, False)
+            display_route2(route)
         return route
