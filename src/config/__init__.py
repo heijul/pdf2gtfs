@@ -10,8 +10,8 @@ from yaml.scanner import ScannerError
 
 import config.errors as err
 from config.properties import (
-    AbbrevProperty, DatesProperty, FilenameProperty, HeaderValuesProperty,
-    HolidayCodeProperty, PagesProperty, PathProperty, Property,
+    AbbrevProperty, DateBoundsProperty, FilenameProperty, HeaderValuesProperty,
+    HolidayCodeProperty, IntBoundsProperty, PagesProperty, PathProperty, Property,
     RouteTypeProperty)
 
 
@@ -57,26 +57,25 @@ class _Config(InstanceDescriptorMixin):
         self.holiday_code = HolidayCodeProperty(self, "holiday_code")
         self.repeat_identifier = Property(self, "repeat_identifier", list)
         self.repeat_strategy = Property(self, "repeat_strategy", str)
-        self.min_table_rows = Property(self, "min_table_rows", int)
         self.pages = PagesProperty(self, "pages")
-        self.max_row_distance = Property(self, "max_row_distance", int)
-        self.min_row_count = Property(self, "min_row_count", int)
+        self.max_row_distance = IntBoundsProperty(self, "max_row_distance", 0)
+        self.min_row_count = IntBoundsProperty(self, "min_row_count", 0)
         self.filename = FilenameProperty(self, "filename", str)
         self.annot_identifier = Property(self, "annot_identifier", list)
         self.route_identifier = Property(self, "route_identifier", list)
         self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype")
         self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
-        self.max_stop_distance = Property(self, "max_stop_distance", int)
+        self.max_stop_distance = IntBoundsProperty(
+            self, "max_stop_distance", 0)
         self.output_dir = PathProperty(self, "output_dir")
         self.preprocess = Property(self, "preprocess", bool)
         self.output_pp = Property(self, "output_pp", bool)
         self.always_overwrite = Property(self, "always_overwrite", bool)
         self.non_interactive = Property(self, "non_interactive", bool)
-        self.gtfs_date_bounds = DatesProperty(self, "gtfs_date_bounds")
-        self.display_route = Property(self, "display_route", int)
-        self.stale_cache_days = Property(self, "stale_cache_days", int)
+        self.gtfs_date_bounds = DateBoundsProperty(self, "gtfs_date_bounds")
+        self.display_route = IntBoundsProperty(self, "display_route", 0, 3)
+        self.stale_cache_days = IntBoundsProperty(self, "stale_cache_days", 0)
         self.name_abbreviations = AbbrevProperty(self, "name_abbreviations")
-        self.cluster_radius = Property(self, "cluster_radius", int)
         self.disable_location_detection = Property(
             self, "disable_location_detection", bool)
         self.disable_connection_detection = Property(

@@ -31,3 +31,7 @@ class InvalidOutputDirectory(PropertyException):
 
 class InvalidDateBoundsError(PropertyException):
     pass
+
+
+class OutOfBoundsPropertyError(PropertyException):
+    pass

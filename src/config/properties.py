@@ -51,6 +51,24 @@ class Property:
         setattr(obj, self.attr, value)
 
 
+class IntBoundsProperty(Property):
+    def __init__(self, cls, attr, lower: int = None, upper: int = None
+                 ) -> None:
+        super().__init__(cls, attr, int)
+        self.lower = lower
+        self.upper = upper
+
+    def validate(self, value: int) -> None:
+        super().validate(value)
+        self._validate_within_bounds(value)
+
+    def _validate_within_bounds(self, value: int):
+        upper_oob = self.upper and value > self.upper
+        lower_oob = self.lower and value < self.lower
+        if upper_oob or lower_oob:
+            raise err.OutOfBoundsPropertyError
+
+
 class HeaderValuesProperty(Property):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict)
@@ -215,13 +233,15 @@ class PathProperty(Property):
         super().__set__(obj, value)
 
 
-class DatesProperty(Property):
+class DateBoundsProperty(Property):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, list)
 
     def __set__(self, obj, value: list[str | dt.date]):
         year = dt.date.today().year
         try:
+            if value == "":
+                value = ["", ""]
             if len(value) != 2:
                 raise err.InvalidDateBoundsError
             if value[0] == "":

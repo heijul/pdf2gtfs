@@ -57,17 +57,12 @@ repeat_identifier: [
 ]
 
 # How to expand the repeating column, if the repeating times occur in a range.
+# Example: Given a repeat column with the content "Alle 7-8 min." and strategy
+#   "cycle" would alternate between using 7 and 8 minutes, while
+#   "mean" would always use 7.5 minutes.
 #
 # Type: String. Either "cycle" or "mean".
-# Example: "Alle 7-8 min." with "cycle" would alternate between using 7 and 8
-#    minutes, while "mean" would always use 7.5 minutes.
 repeat_strategy: "cycle"
-
-# The minimum number of consecutive lines required, for something to be
-#   recognized as a table.
-#
-# Type: int
-min_table_rows: 5
 
 # Which pages to consider for extraction. Defaults to 'all' for all pages.
 #
@@ -75,24 +70,24 @@ min_table_rows: 5
 # Example: "1-3,6,8-9" extracts the tables from the pages 1, 2, 3, 6, 8, 9.
 pages: "all"
 
-# Maximum vertical distance in pixel between two rows, to be considered on
-#   the same table. Basically checks if:
+# Maximum vertical distance in points between two rows, to be considered on
+#   the same table. Basically checks if (with origin being the top-left corner):
 #     ((y_max of current row) - (y_min of next row)) <= max_row_distance
 #
-# Type: int
+# Type: non-negative int
 max_row_distance: 3
 
-# Minimum number of rows to be considered as valid table.
+# The minimum number of consecutive (i.e. distance to next line <= max_row_distance)
+#   lines required, for something to be recognized as a table.
 #
-# Type: int
+# Type: non-negative int
 min_row_count: 5
 
 # Routetype.
 #   See https://developers.google.com/transit/gtfs/reference#routestxt
 #
 # Type: str or int
-gtfs_routetype: "Bus"
-
+gtfs_routetype: "Tram"
 
 # Stop names are stripped of all characters which are not letters or whitelisted.
 #
@@ -102,18 +97,19 @@ allowed_stop_chars: ["-", "/", ".", " "]
 # The maximum distance between stops in km. Can be set to a higher value,
 #   but will slow down coordinate matching.
 #
-# Type: int
+# Type: non-negative int
 max_stop_distance: 100
 
 # The path to the output directory for the gtfs files.
 #   Default is "/path/to/pdf2gtfs/out".
+# TODO: Add note about how relative paths are expanded.
 #
 # Type: str
 output_dir: "../out"
 
-# Whether or not the pdf should be preprocessed. This will, among other things,
-#   remove all objects from the pdf which are not text.
-#   Greatly reduces processing time, but may alter the pdf in some other ways.
+# Whether or not the pdf should be preprocessed. This will remove all objects
+#   from the pdf, which are not text (i.e. all images and vector graphics).
+#   Greatly reduces processing time, but may alter the pdf in some unexpected ways.
 #
 # Type: bool
 preprocess: True
@@ -132,32 +128,33 @@ output_pp: True
 always_overwrite: False
 
 # Disable interactive mode (default is on). This will result in no user
-#   interaction necessary and may useful, when run in a script.
+#   interaction necessary and may be useful, when run in a script.
 # Specifically, you will not be asked whether existing files should be
-#   overwritten (always_overwrite takes precedence). You will also not be
-#   able to change at which dates column annotations are active/inactive.
+#   overwritten (value of always_overwrite is respected). You will also not be
+#   able to change on which dates column annotations are active/inactive.
 #
 # Type: bool
 non_interactive: False
 
-# Start-/Enddate used for services in calendar.txt. Defaults to ["", ""],
-#   which will use (YYYY0101, YYYY1231), where YYYY is the current year.
+# Start-/Enddate used for services in calendar.txt. Defaults to "",
+#   which will use [YYYY0101, YYYY1231], where YYYY is the current year.
 #
 # Type: list of dates in YYYYMMDD format or empty string
-gtfs_date_bounds: ["", ""]
+gtfs_date_bounds: ""
 
 # The locations of the stops can be displayed in a webbrowser.
 # To decide what should be displayed, sum the values of the things you want:
 #      - display final route: 1
-#      - display clusters and their nodes: 2
-#      - display all nodes with names similar to the stops: 4
+#      - display all nodes with names similar to the stops: 2
 #
-# Type: int between 0 and 7
+# Type: int between 0 and 3
 display_route: 1
 
 # Days after which the cache should be marked as stale, forcing its rebuild.
+# Note: The cache will be rebuilt regardless of this setting,
+#   if the value of name_abbreviations or allowed_stop_chars is changed.
 #
-# Type: int
+# Type: non-negative int
 stale_cache_days: 7
 
 # When searching for the stop locations, the abbreviations listed here will be
@@ -183,9 +180,6 @@ name_abbreviations:
   "str.": "strasse"
   "ka": "karlsruhe"
 
-# TODO: Add route_display_options = [show_clusters, show_all_cluster_nodes]
-#  (bool, bool) maybe merge with display_route
-
 # Disables the detection of connections. Usually, any stops between two stops
 #   A and B are not added to the output, iff A and B are the same stop and
 #   A/B is not the start/end of the route. This may however result in valid
@@ -201,10 +195,3 @@ disable_connection_detection: False
 #
 # Type: bool
 disable_location_detection: False
-
-# Nodes within this radius (in meter) will be combined into a cluster to
-#   reduce the time it takes to find the stop locations.
-# To disable clustering completely, set this to 0.
-#
-# Type: int
-cluster_radius: 100
