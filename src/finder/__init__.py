@@ -17,18 +17,14 @@ from requests.exceptions import ConnectionError
 
 from config import Config
 from finder.osm_node import OSMNode, Route3
-from finder.routes import (
-    display_route, display_route2, generate_routes, generate_routes2, select_shortest_route)
+from finder.routes import display_route2, generate_routes2
 from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
-    from finder.cluster import Node, Cluster
-
 
 logger = logging.getLogger(__name__)
-
 
 KEYS = ["stop", "name", "lat", "lon", "public_transport"]
 KEYS_OPTIONAL = [
@@ -146,7 +142,7 @@ def get_osm_comments(include_date: bool = True) -> str:
         [f"{key}: {value}"
          for key, value in sorted(Config.name_abbreviations.items())])
     allowed_chars = sorted(Config.allowed_stop_chars)
-    comments = [f"# Queried: {date}"] if include_date else[]
+    comments = [f"# Queried: {date}"] if include_date else []
     comments += [f"# Query:{join_str}{query}",
                  f"# Abbreviations:{join_str}{abbrevs}",
                  f"# Allowed chars:{join_str}{allowed_chars}"]
