@@ -4,8 +4,8 @@ import itertools
 import logging
 import re
 import webbrowser
-from operator import attrgetter
-from statistics import mean
+from operator import attrgetter, itemgetter
+from statistics import mean, StatisticsError
 from typing import Callable, TYPE_CHECKING
 
 import folium
@@ -163,13 +163,20 @@ def display_route2(route: Route3) -> None:
     def get_map_location() -> tuple[float, float]:
         non_dummy_nodes = [n for n in route.nodes
                            if not isinstance(n, DummyOSMNode)]
-        return (mean([n.loc.lat for n in non_dummy_nodes]),
-                mean([n.loc.lon for n in non_dummy_nodes]))
+        try:
+            return (mean([n.loc.lat for n in non_dummy_nodes]),
+                    mean([n.loc.lon for n in non_dummy_nodes]))
+        except StatisticsError:
+            return 0, 0
 
     # FEATURE: Add cluster/nodes to Config.
     # FEATURE: Add info about missing nodes.
     # TODO: Adjust zoom/location depending on lat-/lon-minimum
-    m = folium.Map(location=get_map_location())
+    location = get_map_location()
+    if location == (0, 0):
+        logger.warning("Nothing to display, route is empty.")
+        return
+    m = folium.Map(location=location)
     for i, node in enumerate(route.nodes):
         if isinstance(node, DummyOSMNode):
             continue
