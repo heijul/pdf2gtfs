@@ -118,6 +118,10 @@ class DummyOSMNode(OSMNode):
     def __init__(self, stop: StopName):
         super().__init__(stop, stop, Location(-1, -1), TransportType.Dummy, {})
 
+    def __repr__(self) -> str:
+        return f"DummyOSMNode({self.name})"
+
+
 
 def get_min_node(nodes: list[OSMNode], parent: OSMNode) -> OSMNode:
     """ Return the node out of nodes with minimal distance to parent. """
