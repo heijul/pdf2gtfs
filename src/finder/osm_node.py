@@ -122,7 +122,6 @@ class DummyOSMNode(OSMNode):
         return f"DummyOSMNode({self.name})"
 
 
-
 def get_min_node(nodes: list[OSMNode], parent: OSMNode) -> OSMNode:
     """ Return the node out of nodes with minimal distance to parent. """
     scores = [(node.scores.get(parent, 1000), node) for node in nodes]
