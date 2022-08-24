@@ -15,8 +15,6 @@ from datastructures.gtfs_output.route import Route, Routes
 from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
-from finder.cluster import DummyNode
-from finder.types import Route
 from user_input.cli import handle_annotations
 
 
@@ -217,6 +215,10 @@ class GTFSHandler:
         return True
 
     def add_coordinates(self, route: Route) -> None:
+        # TODO: FIXME
+        from finder.cluster import DummyNode
+        from finder.types import Route
+
         if not route:
             logger.info("Skip adding coordinates to stops, "
                         "because no route was found.")
