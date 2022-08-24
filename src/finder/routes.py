@@ -4,7 +4,7 @@ import itertools
 import logging
 import re
 import webbrowser
-from operator import attrgetter, itemgetter
+from operator import attrgetter
 from statistics import mean, StatisticsError
 from typing import Callable, TYPE_CHECKING
 
@@ -63,18 +63,16 @@ def name_filter_to_regex(names: StopNames) -> str:
 
 def filter_df_with_stops(df: pd.DataFrame, stops: StopNames) -> pd.DataFrame:
     chars = fr"[^a-zA-Z\d{SPECIAL_CHARS}]"
-    df["name"] = df["name"].str.replace(chars, "", regex=True)
+    df["names"] = df["names"].str.replace(chars, "", regex=True)
 
     regex = name_filter_to_regex(_create_name_filter(stops))
-    return df.where(df["name"].str.contains(regex, regex=True)
-                    ).dropna(subset="name")
+    return df.where(df["names"].str.contains(regex, regex=True)).dropna()
 
 
 def _create_stop_nodes(stop: StopName, df: pd.DataFrame) -> list[OSMNode]:
     name_filter = _create_single_name_filter(stop)
     nf_regex = name_filter_to_regex(name_filter)
-    df = df.where(df["name"].str.contains(nf_regex, regex=True)
-                  ).dropna(subset="name")
+    df = df.where(df[["names"]].str.contains(nf_regex, regex=True)).dropna()
     nodes = _create_osm_nodes_from_df(stop, df)
     return nodes
 

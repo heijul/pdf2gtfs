@@ -26,36 +26,55 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-KEYS = ["stop", "name", "lat", "lon", "public_transport"]
+KEYS = ["lat", "lon", "public_transport"]
 KEYS_OPTIONAL = [
     "railway", "bus", "tram", "train", "subway", "monorail", "light_rail"]
+NAME_KEYS = [
+    "name", "alt_name", "reg_name", "short_name", "official_name", "loc_name"]
 
 
 def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
+    def _union(a: str, b: str) -> str:
+        # Union two statements. Uses \t as delimiter after/before braces.
+        if not a:
+            return b
+        return f"{{\t{a}\t}} UNION {{\t{b}\t}}"
+
+    def _to_identifier(key: str) -> str:
+        return f"?{key}"
+
     def get_selection() -> list[str]:
-        identifier = map(lambda key: f"?{key}", KEYS + KEYS_OPTIONAL)
-        return ["SELECT {} WHERE {{".format(" ".join(identifier))]
+        identifier = map(_to_identifier, KEYS + KEYS_OPTIONAL)
+        group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\";;;\") AS ?names)"
+        variables = " ".join(identifier) + group_concat
+        return ["SELECT {} WHERE {{".format(variables)]
 
     def get_transports() -> list[str]:
-        fmt = '?stop osmkey:public_transport "{}" .'
+        fmt = "?stop osmkey:public_transport \"{}\" ."
         transport = ""
         if stations:
-            transport = union(transport, fmt.format("station"))
+            transport = _union(transport, fmt.format("station"))
         if stop_positions:
-            transport = union(transport, fmt.format("stop_position"))
+            transport = _union(transport, fmt.format("stop_position"))
         if platforms:
-            transport = union(transport, fmt.format("platform"))
+            transport = _union(transport, fmt.format("platform"))
         return transport.strip().split("\t")
+
+    def get_names() -> list[str]:
+        name_fmt = "?stop osmkey:{} ?name ."
+        names = ""
+        for name_key in NAME_KEYS:
+            names = _union(names, name_fmt.format(name_key))
+        return names.strip().split("\t")
 
     def get_optionals() -> list[str]:
         fmt = "OPTIONAL {{ ?stop osmkey:{0} ?{0} . }}"
         return [fmt.format(key) for key in KEYS_OPTIONAL]
 
-    def union(a: str, b: str) -> str:
-        # Union two statements. Uses \t as delimiter after/before braces.
-        if not a:
-            return b
-        return f"{{\t{a}\t}} UNION {{\t{b}\t}}"
+    def get_group_by() -> list[str]:
+        fmt = "GROUP BY {}"
+        identifier = " ".join(map(_to_identifier, KEYS + KEYS_OPTIONAL))
+        return [fmt.format(identifier)]
 
     pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
            "PREFIX geo: <http://www.opengis.net/ont/geosparql#>",
@@ -65,13 +84,13 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
            "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:>"]
     base = ["?stop osmkey:public_transport ?public_transport .",
             "?stop rdf:type osm:node .",
-            "?stop geo:hasGeometry ?location .",
-            "?stop osmkey:name ?name ."]
+            "?stop geo:hasGeometry ?location ."]
     binds = ["BIND (geof:latitude(?location) AS ?lat)",
              "BIND (geof:longitude(?location) AS ?lon)"]
 
     query_list = (pre + get_selection() +
-                  get_transports() + base + get_optionals() + binds + ["}"])
+                  get_transports() + base + get_names() +
+                  get_optionals() + binds + ["}"] + get_group_by())
     return " \n".join(query_list)
 
 
@@ -108,8 +127,12 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
     def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
         # Remove all chars other than the allowed ones.
         allowed_chars = "".join(Config.allowed_stop_chars)
-        char_re = fr"[^a-zA-Z\d{SPECIAL_CHARS}{allowed_chars}]"
+        char_re = fr"[^a-zA-Z\d;{SPECIAL_CHARS}{allowed_chars}]"
         return series.str.replace(char_re, "", regex=True)
+
+    def _cleanup_separator(series: pd.Series) -> pd.Series:
+        # Replace three semicolons with pipe and remove remaining semicolons
+        return series.str.replace(";;;", "|", regex=True).replace(";", "")
 
     def _cleanup_spaces(series: pd.Series) -> pd.Series:
         # Remove consecutive, as well as leading/trailing spaces.
@@ -123,15 +146,22 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
         """ Remove any chars which are not letters or allowed chars.
         Doing it this way is a lot faster than using a converter. """
         return _cleanup_spaces(
-            _remove_forbidden_chars(
-                _remove_parentheses(
-                    _replace_abbreviations(
-                        _normalize(series)))))
+            _cleanup_separator(
+                _remove_forbidden_chars(
+                    _remove_parentheses(
+                        _replace_abbreviations(
+                            _normalize(series))))))
+
+    def _cleanup_optional_field(series: pd.Series) -> pd.Series:
+        # TODO: Maybe need to convert to string; maybe in read_csv
+        return series.replace(float("nan"), "").str.strip().str.lower()
 
     df = read_csv(BytesIO(raw_data))
-    df["name"] = _cleanup_name(df["name"])
+    df["names"] = _cleanup_name(df["names"])
+    for key in KEYS_OPTIONAL:
+        df[key] = _cleanup_optional_field(df[key])
     # Remove entries with empty name.
-    return df.where(df["name"] != "").dropna(subset="name")
+    return df.where(df["names"] != "").dropna()
 
 
 def get_osm_comments(include_date: bool = True) -> str:
@@ -205,7 +235,7 @@ def read_csv(file: Path | BytesIO) -> Optional[pd.DataFrame]:
     return pd.read_csv(
         file,
         sep="\t",
-        names=KEYS + KEYS_OPTIONAL,
+        names=KEYS + KEYS_OPTIONAL + ["names"],
         header=0,
         comment="#")
 
