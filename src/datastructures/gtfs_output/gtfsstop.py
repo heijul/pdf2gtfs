@@ -13,6 +13,7 @@ from utils import get_edit_distance
 
 MAX_EDIT_DISTANCE = 3
 logger = logging.getLogger(__name__)
+# TODO: add Pos where Pos.value: float and NoPos(Pos) to check if valid
 
 
 @dataclass(init=False)
@@ -32,6 +33,7 @@ class GTFSStop(BaseDataClass):
 
     @property
     def valid(self) -> bool:
+        # TODO: Needs to check if valid position and update existing stops
         return self.stop_name and self.stop_lat >= 0 and self.stop_lon >= 0
 
     def set_location(self, lat: float, lon: float) -> None:
@@ -88,12 +90,3 @@ class GTFSStops(ExistingBaseContainer):
             if entry.stop_name != name:
                 continue
             return entry
-
-    def get_closest(self, name: str) -> tuple[int, GTFSStop | None]:
-        dists: list[tuple[int, GTFSStop]] = []
-        for entry in self.entries:
-            dist = get_edit_distance(entry.stop_name, name)
-            if dist > MAX_EDIT_DISTANCE:
-                continue
-            dists.append((dist, entry))
-        return min(dists, key=itemgetter(0), default=(0, None))

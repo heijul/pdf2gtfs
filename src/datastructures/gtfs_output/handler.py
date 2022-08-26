@@ -11,10 +11,12 @@ from datastructures.gtfs_output.agency import Agency
 from datastructures.gtfs_output.calendar import Calendar, CalendarEntry
 from datastructures.gtfs_output.calendar_dates import CalendarDates
 from datastructures.gtfs_output.gtfsstop import GTFSStops
-from datastructures.gtfs_output.route import Route, Routes
+from datastructures.gtfs_output.route import Routes
 from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
+from finder import Route3
+from finder.osm_node import DummyOSMNode
 from user_input.cli import handle_annotations
 
 
@@ -214,39 +216,23 @@ class GTFSHandler:
         self.calendar_dates.write()
         return True
 
-    def add_coordinates(self, route: Route) -> None:
-        # TODO: FIXME
-        from finder.cluster import DummyNode
-        from finder.types import Route
-
+    def add_coordinates(self, route: Route3) -> None:
         if not route:
-            logger.info("Skip adding coordinates to stops, "
-                        "because no route was found.")
+            logger.warning("No route was found. "
+                           "Can not add coordinates to stops.")
             return
         logger.info("Adding coordinates to stops.")
-        for node in route:
-            stop = self.stops.get(node.cluster.stop)
+        for node in route.nodes:
+            stop = self.stops.get(node.stop)
             # No need to add the location to existing stops, as these will
-            #  not be updated anyway  # TODO: Check if this is right
+            #  not be updated anyway
             if stop.valid:
                 continue
-            if isinstance(node, DummyNode):
-                name = node.cluster.stop
-                logger.warning(f"Could not find location for '{name}'. You "
-                               f"will need to manually add the coordinates.")
-            # TODO: Rethink this. As it is now, this will never be called.
-            if stop is None:
-                dist, stop = self.stops.get_closest(node.name)
-                msg = f"No precise match for '{node.name}'."
-                if stop is None:
-                    logger.info(msg)
-                    continue
-                if dist != 0:
-                    logger.info(
-                        f"{msg} Found partial match '{stop.stop_name}' "
-                        f"with edit distance {dist}.")
-                if stop.stop_lat > 0:
-                    continue
+            if isinstance(node, DummyOSMNode):
+                logger.warning(
+                    f"Could not find location for '{stop.stop_name}'. "
+                    f"You will have to manually add the coordinates.")
+                continue
             stop.set_location(*node.loc)
         logger.info("Done.")
 
