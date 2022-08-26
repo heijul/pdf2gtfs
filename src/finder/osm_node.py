@@ -39,7 +39,7 @@ class OSMNode:
         typ = TransportType.get(s["public_transport"])
         values = {key: value for key, value in s.items()
                   if key in KEYS_OPTIONAL}
-        return OSMNode(s["name"], stop, location, typ, values)
+        return OSMNode(s["names"], stop, location, typ, values)
 
     def distance(self, other: OSMNode) -> float:
         """ Return the distance between the locations of two Nodes. """
@@ -120,7 +120,6 @@ class DummyOSMNode(OSMNode):
 
     def __repr__(self) -> str:
         return f"DummyOSMNode({self.name})"
-
 
 
 def get_min_node(nodes: list[OSMNode], parent: OSMNode) -> OSMNode:

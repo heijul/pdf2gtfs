@@ -72,7 +72,7 @@ def filter_df_with_stops(df: pd.DataFrame, stops: StopNames) -> pd.DataFrame:
 def _create_stop_nodes(stop: StopName, df: pd.DataFrame) -> list[OSMNode]:
     name_filter = _create_single_name_filter(stop)
     nf_regex = name_filter_to_regex(name_filter)
-    df = df.where(df[["names"]].str.contains(nf_regex, regex=True)).dropna()
+    df = df.where(df["names"].str.contains(nf_regex, regex=True)).dropna()
     nodes = _create_osm_nodes_from_df(stop, df)
     return nodes
 
