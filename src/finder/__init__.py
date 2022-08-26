@@ -152,14 +152,8 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
                         _replace_abbreviations(
                             _normalize(series))))))
 
-    def _cleanup_optional_field(series: pd.Series) -> pd.Series:
-        # TODO: Maybe need to convert to string; maybe in read_csv
-        return series.replace(float("nan"), "").str.strip().str.lower()
-
     df = read_csv(BytesIO(raw_data))
     df["names"] = _cleanup_name(df["names"])
-    for key in KEYS_OPTIONAL:
-        df[key] = _cleanup_optional_field(df[key])
     # Remove entries with empty name.
     return df.where(df["names"] != "").dropna()
 
@@ -232,10 +226,17 @@ def create_cache_dir() -> tuple[bool, Path | None]:
 
 
 def read_csv(file: Path | BytesIO) -> Optional[pd.DataFrame]:
+    dtype = {"lat": float, "lon": float,
+             "public_transport": str, "names": str}
+    for key in KEYS_OPTIONAL:
+        dtype[key] = str
+
     return pd.read_csv(
         file,
         sep="\t",
         names=KEYS + KEYS_OPTIONAL + ["names"],
+        dtype=dtype,
+        keep_default_na=False,
         header=0,
         comment="#")
 
