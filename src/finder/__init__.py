@@ -30,7 +30,7 @@ KEYS = ["lat", "lon", "public_transport"]
 KEYS_OPTIONAL = [
     "railway", "bus", "tram", "train", "subway", "monorail", "light_rail"]
 NAME_KEYS = [
-    "name", "alt_name", "reg_name", "short_name", "official_name", "loc_name"]
+    "name", "alt_name", "ref_name", "short_name", "official_name", "loc_name"]
 
 
 def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
@@ -261,7 +261,7 @@ class Finder:
         """ Cache needs to be rebuilt, if it does not exist or is too old. """
         if not self.fp.exists() or Path(self.temp.name).resolve() == self.fp:
             return True
-        return self._cache_is_stale() or self._query_different_from_cache()
+        return self._cache_is_stale() or not self._query_same_as_cache()
 
     def _cache_is_stale(self) -> bool:
         with open(self.fp, "r") as fil:
@@ -284,15 +284,23 @@ class Finder:
 
         return (date - query_date).days > Config.stale_cache_days
 
-    def _query_different_from_cache(self) -> bool:
+    def _query_same_as_cache(self) -> bool:
+        def get_line() -> str:
+            return fil.readline().strip()
+
         lines = []
         with open(self.fp, "r") as fil:
-            line = fil.readline().strip()
+            line = get_line()
             while line.startswith("#"):
-                lines.append(line)
-                line = fil.readline()
+                if line != "#":
+                    lines.append(line)
+                line = get_line()
+        cache_comments = lines[1:]
+        current_comments = [
+            line.strip()
+            for line in get_osm_comments(False).split("\n") if line]
 
-        return get_osm_comments(False) == "\n".join(lines[1:]) + "\n"
+        return current_comments == cache_comments
 
     def _get_stop_data(self) -> None:
         if not self.use_cache or self.rebuild_cache():
