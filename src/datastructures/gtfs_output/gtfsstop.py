@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from operator import itemgetter
 
 import pandas as pd
 
-from datastructures.gtfs_output.__init__ import (
-    BaseDataClass, ExistingBaseContainer)
-from utils import get_edit_distance
+from datastructures.gtfs_output import BaseDataClass, ExistingBaseContainer
 
 
 MAX_EDIT_DISTANCE = 3
