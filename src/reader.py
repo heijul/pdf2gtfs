@@ -41,11 +41,11 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
 
     def cleanup_df(_df: pd.DataFrame) -> pd.DataFrame:
         # Round to combat possible tolerances in the coordinates.
-        _df = df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
+        _df = _df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
         # Skip objects which are not on the page.
-        return _df[(df["x0"] < df["x1"]) & (df["y0"] < df["y1"]) &
-                   (df["x0"] >= page.x0) & (df["x1"] <= page.x1) &
-                   (df["y0"] >= page.y0) & (df["y1"] <= page.y1)]
+        return _df[(_df["x0"] < _df["x1"]) & (_df["y0"] < _df["y1"]) &
+                   (_df["x0"] >= page.x0) & (_df["x1"] <= page.x1) &
+                   (_df["y0"] >= page.y0) & (_df["y1"] <= page.y1)]
 
     def _unpack_char(element: LTChar) -> dict[str: Any]:
         return {"x0": element.x0,
