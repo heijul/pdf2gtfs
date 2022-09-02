@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from holidays.utils import country_holidays
@@ -17,7 +16,7 @@ from datastructures.gtfs_output.trips import Trips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
 from finder import Route3
 from finder.osm_node import DummyOSMNode
-from user_input.cli import handle_annotations
+from user_input.cli import create_output_directory, handle_annotations
 
 
 if TYPE_CHECKING:
@@ -25,25 +24,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-def create_output_dir() -> bool:
-    path = Path(Config.output_dir).resolve()
-    try:
-        path.mkdir(exist_ok=True)
-    except OSError as e:
-        msg = ("An error occurred, while trying "
-               "to create the output directory:\n")
-        if isinstance(e, PermissionError):
-            msg += "You are missing the permissions, to create it."
-        elif isinstance(e, FileExistsError):
-            msg += "There already exists a file with the same name."
-        else:
-            msg += str(e)
-        if Config.non_interactive:
-            return False
-        # TODO: Wait for user input to move files/fix permissions
-    return True
 
 
 class GTFSHandler:
@@ -203,7 +183,7 @@ class GTFSHandler:
             self.routes.entries.remove(route)
 
     def write_files(self) -> bool:
-        if not create_output_dir():
+        if not create_output_directory():
             return False
         self._remove_unused_routes()
         self.add_annotation_dates()

@@ -145,3 +145,32 @@ def select_agency(path: Path, agencies: list[AgencyEntry]) -> AgencyEntry:
     prompt = _get_agency_prompt(path, agencies)
     answer = _get_input(prompt, list(map(str, range(len(agencies)))))
     return agencies[int(answer)]
+
+
+# Existing outdir handling.
+def create_output_directory() -> bool:
+    from config import Config
+
+    def get_msg_from_error() -> str:
+        msg = ("An error occurred, while trying "
+               "to create the output directory:\n")
+        if isinstance(e, PermissionError):
+            return msg + "You are missing the permissions, to create it."
+        if isinstance(e, FileExistsError):
+            return msg + "There already exists a file with the same name."
+        return msg + str(e)
+
+    path = Path(Config.output_dir).resolve()
+    try:
+        path.mkdir(exist_ok=True)
+    except OSError as e:
+        logger.error(get_msg_from_error())
+        if Config.non_interactive:
+            return False
+        msg = ("You may resolve the issue now and press enter, to try to "
+               "create the output directory again, or enter 'q' to quit.")
+        answer = _get_input(msg, ["", "q"])
+        if answer == "q":
+            return False
+        return create_output_directory()
+    return True
