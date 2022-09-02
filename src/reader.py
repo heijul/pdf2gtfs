@@ -39,11 +39,13 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
             logger.debug("Encountered charcode '{text}' with length "
                          "{len(text)}, but could not convert it to char.")
 
-    def _is_on_page(container_bbox, bbox) -> bool:
-        return (container_bbox[0] <= bbox[0] <= container_bbox[2] and
-                container_bbox[1] <= bbox[1] <= container_bbox[3] and
-                container_bbox[0] <= bbox[2] <= container_bbox[2] and
-                container_bbox[1] <= bbox[3] <= container_bbox[3])
+    def cleanup_df(_df: pd.DataFrame) -> pd.DataFrame:
+        # Round to combat possible tolerances in the coordinates.
+        _df = df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
+        # Skip objects which are not on the page.
+        return _df[(df["x0"] < df["x1"]) & (df["y0"] < df["y1"]) &
+                   (df["x0"] >= page.x0) & (df["x1"] <= page.x1) &
+                   (df["y0"] >= page.y0) & (df["y1"] <= page.y1)]
 
     def _unpack_char(element: LTChar) -> dict[str: Any]:
         return {"x0": element.x0,
@@ -67,9 +69,6 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
                 for textline_element in textbox_element:
                     if not isinstance(textline_element, LTChar):
                         continue
-                    # Skip objects which are not on the page.
-                    if not _is_on_page(page.bbox, textline_element.bbox):
-                        continue
                     char = _unpack_char(textline_element)
                     # Ignore vertical text
                     if not textline_element.upright:
@@ -81,12 +80,12 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
                     char_list.append(_unpack_char(textline_element))
         return char_list
 
-    df = pd.DataFrame(_get_char_list())
-    # Round to combat tolerances.
-    df = df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
+    df = cleanup_df(pd.DataFrame(_get_char_list()))
 
+    # Change type to reduce memory usage.
     text_dtype = pd.CategoricalDtype(set(df["text"]))
     df["text"] = df["text"].astype(text_dtype)
+
     return df
 
 
