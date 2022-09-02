@@ -50,10 +50,6 @@ class BBox:
         self.x1 = max(self.x1, other.x1)
         self.y1 = max(self.y1, other.y1)
 
-    def set(self, coordinate: str, value: float) -> None:
-        assert coordinate in ["x0", "y0", "x1", "y1"]
-        setattr(self, coordinate, value)
-
     def _contains(self, other, axis) -> bool:
         def _get(cls, bound) -> float:
             if bound == "lower":
@@ -66,31 +62,12 @@ class BBox:
 
         return lower <= other_lower <= upper and lower <= other_upper <= upper
 
-    def distance(self, other: BBox, axis: str | None = None) -> float:
-        """ Return the absolute distance of self to other on the given axis.
-
-        If no axis is given return the minimum distance on either axis."""
-        assert axis in ["x", "y", None]
-
-        if axis is not None:
-            return self._distance(other, axis)
-        return min([self._distance(other, "x"), self._distance(other, "y")])
-
-    def _distance(self, other: BBox, axis: str) -> float:
-        """ Returns the minimal distance between two bboxes on the given axis.
-
-        If one bbox is contained by the other, return the minimal distance
-        of the contained bbox to the others' bounds.
-        """
-        self_0 = getattr(self, f"{axis}0")
-        self_1 = getattr(self, f"{axis}1")
-        other_0 = getattr(other, f"{axis}0")
-        other_1 = getattr(other, f"{axis}1")
-
-        return min([abs(self_0 - other_0),
-                    abs(self_0 - other_1),
-                    abs(self_1 - other_0),
-                    abs(self_1 - other_1)])
+    def y_distance(self, other: BBox) -> float:
+        """ Return the absolute distance of self to other on axis. """
+        return min([abs(self.y0 - other.y0),
+                    abs(self.y0 - other.y0),
+                    abs(self.y1 - other.y0),
+                    abs(self.y1 - other.y1)])
 
     def x_is_close(self, other) -> bool:
         lower, upper = sorted((self, other), key=attrgetter("x0"))

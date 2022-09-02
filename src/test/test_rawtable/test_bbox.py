@@ -27,12 +27,8 @@ class TestBBox(TestCase):
         self.assertFalse(self.bbox1.contains_vertical(self.bbox2))
         self.assertFalse(self.bbox2.contains_vertical(self.bbox1))
 
-    def test_distance(self) -> None:
-        self.assertEqual(0, self.bbox1.distance(self.bbox1, "x"))
-        self.assertEqual(0, self.bbox1.distance(self.bbox1, "y"))
-        self.assertEqual(0, self.bbox1.distance(self.bbox2, "x"))
-        self.assertEqual(0, self.bbox1.distance(self.bbox2, "y"))
-        self.assertEqual(5, self.bbox1.distance(self.bbox3, "x"))
-        self.assertEqual(10, self.bbox1.distance(self.bbox3, "y"))
-        self.assertEqual(10, self.bbox2.distance(self.bbox3, "x"))
-        self.assertEqual(10, self.bbox2.distance(self.bbox3, "y"))
+    def test_y_distance(self) -> None:
+        self.assertEqual(0, self.bbox1.y_distance(self.bbox1))
+        self.assertEqual(0, self.bbox1.y_distance(self.bbox2))
+        self.assertEqual(10, self.bbox1.y_distance(self.bbox3))
+        self.assertEqual(10, self.bbox2.y_distance(self.bbox3))

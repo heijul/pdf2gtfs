@@ -169,7 +169,7 @@ def split_rows_into_tables(rows: list[Row]) -> list[Table]:
     for row in rows[1:]:
         if not row.fields:
             continue
-        y_distance = row.distance(current_rows[-1], "y")
+        y_distance = row.y_distance(current_rows[-1])
         if y_distance > Config.max_row_distance:
             if len(current_rows) < Config.min_row_count:
                 # FEATURE: Should not drop the table,

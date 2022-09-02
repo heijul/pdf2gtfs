@@ -153,8 +153,8 @@ class Row(FieldContainer):
     def add_field(self, new_field: Field):
         self._add_field(new_field, "x")
 
-    def distance(self, other: Row, axis: str = "y") -> float:
-        return self.bbox.distance(other.bbox, axis)
+    def y_distance(self, other: Row) -> float:
+        return self.bbox.y_distance(other.bbox)
 
     def set_table(self, table: Table):
         self.table = table
