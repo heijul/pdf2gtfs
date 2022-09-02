@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from operator import attrgetter
 
-import pandas as pd
+from p2g_types import Char
 
 
 class BBox:
@@ -19,8 +19,8 @@ class BBox:
         self.y1 = y1
 
     @staticmethod
-    def from_series(series: pd.Series) -> BBox:
-        return BBox(series.x0, series.y0, series.x1, series.y1)
+    def from_char(char: Char) -> BBox:
+        return BBox(char.x0, char.y0, char.x1, char.y1)
 
     @property
     def size(self) -> tuple[float, float]:
