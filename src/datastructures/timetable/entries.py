@@ -51,13 +51,16 @@ class TimeTableRepeatEntry(TimeTableEntry):
             except ValueError:
                 return []
             if len(_values) == 2:
+                # TODO: Does range make sense here?
+                #  Should probably be done in gtfs_output
                 return list(range(_values[0], _values[1] + 1))
 
             return [_values[0]] if len(_values) else []
 
         start = False
         for value_str in self.values.values():
-            if value_str.lower() in Config.repeat_identifier:
+            value_str = value_str.lower().strip()
+            if value_str in Config.repeat_identifier:
                 start = True
                 continue
             value_str = value_str.replace(" ", "")
