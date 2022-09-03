@@ -14,7 +14,7 @@ from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
-from datastructures.rawtable.fields import Field
+from datastructures.rawtable.field import Field
 from datastructures.rawtable.table import Row, split_rows_into_tables
 from datastructures.timetable.table import TimeTable
 from p2g_types import Char

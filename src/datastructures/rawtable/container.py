@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from operator import attrgetter
-from typing import Generic, Iterator, Type, TYPE_CHECKING, TypeVar
+from typing import Generic, Iterator, TYPE_CHECKING, TypeVar
 
 from config import Config
 from datastructures.rawtable.bbox import BBox, BBoxObject
@@ -13,7 +13,7 @@ from utils import padded_list
 
 if TYPE_CHECKING:
     from datastructures.rawtable.table import Table
-    from datastructures.rawtable.fields import Field
+    from datastructures.rawtable.field import Field
 
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ class FieldContainer(BBoxObject):
         self._fields = fields
 
     @property
-    def table(self) -> Type[TableT]:
+    def table(self) -> TableT:
         return self._table
 
     @table.setter
@@ -203,7 +203,7 @@ class Row(FieldContainer):
 
     def apply_column_scheme(self, columns: list[Column | None]):
         # STYLE: This is actually three functions in a trenchcoat.
-        from datastructures.rawtable.fields import Field
+        from datastructures.rawtable.field import Field
 
         def get_stop_bbox() -> BBox:
             # Generate bbox for the stops, where we want to ignore the scheme.

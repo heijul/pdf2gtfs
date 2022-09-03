@@ -5,7 +5,7 @@ from statistics import mean
 from typing import Generic, Iterator, TypeVar
 
 import datastructures.rawtable.table as tbl
-from datastructures.rawtable.container import Row
+from datastructures.rawtable.container import Row, Column
 from datastructures.rawtable.enums import FieldContainerType
 
 
@@ -71,11 +71,11 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
         return self._objects.__len__()
 
 
-class ColumnList(FieldContainerList[TableT, tbl.Column]):
+class ColumnList(FieldContainerList[TableT, Column]):
     pass
 
 
-class RowList(FieldContainerList[TableT, tbl.Row]):
+class RowList(FieldContainerList[TableT, Row]):
     def __init__(self, table: tbl.Table):
         super().__init__(table)
         self._objects: list[Row] = []
