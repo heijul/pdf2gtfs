@@ -45,7 +45,7 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
 
     def get_selection() -> list[str]:
         identifier = map(_to_identifier, KEYS + KEYS_OPTIONAL)
-        group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\";;;\") AS ?names)"
+        group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\"|\") AS ?names)"
         variables = " ".join(identifier) + group_concat
         return ["SELECT {} WHERE {{".format(variables)]
 
@@ -97,10 +97,8 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
 def get_osm_data_from_qlever(path: Path) -> bool:
     base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
     data = {"action": "tsv_export", "query": get_osm_query()}
-    # FEATURE: Add "OPTIONAL {?stop osmkey:XX Config.osmkey_XX}"
-    #  e.g. railway: "tram_stop". Check branch 'add_railway_key'.
-
     url = base_url + parse.urlencode(data)
+
     try:
         r = requests.get(url)
     except ConnectionError as e:
@@ -112,50 +110,42 @@ def get_osm_data_from_qlever(path: Path) -> bool:
         return False
 
     osm_data_to_file(r.content, path)
+
     return True
 
 
 def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
     def _normalize(series: pd.Series) -> pd.Series:
-        return series.str.lower().str.casefold()
-
-    def _remove_parentheses(series: pd.Series) -> pd.Series:
-        # Remove parentheses and all text enclosed by them.
-        regex = r"(\(.*\))"
-        return series.str.replace(regex, "", regex=True)
-
-    def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
-        # Remove all chars other than the allowed ones.
-        allowed_chars = "".join(Config.allowed_stop_chars)
-        char_re = fr"[^a-zA-Z\d;{SPECIAL_CHARS}{allowed_chars}]"
-        return series.str.replace(char_re, "", regex=True)
-
-    def _cleanup_separator(series: pd.Series) -> pd.Series:
-        # Replace three semicolons with pipe and remove remaining semicolons
-        return series.str.replace(";;;", "|", regex=True).replace(";", "")
-
-    def _cleanup_spaces(series: pd.Series) -> pd.Series:
-        # Remove consecutive, as well as leading/trailing spaces.
-        return series.str.replace(" +", " ", regex=True).str.strip()
+        return series.str.lower().str.casefold().str.strip()
 
     def _replace_abbreviations(series: pd.Series) -> pd.Series:
         return series.str.replace(
             get_abbreviations_regex(), replace_abbreviation, regex=True)
 
+    def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
+        # Match parentheses and all text enclosed by them.
+        parentheses_re = r"(\(.*\))"
+        allowed_chars = "".join(Config.allowed_stop_chars)
+        # Match all chars other than the allowed ones.
+        char_re = fr"([^a-zA-Z\d\|{SPECIAL_CHARS}{allowed_chars}])"
+        regex = "|".join([parentheses_re, char_re])
+        return series.str.replace(regex, "", regex=True)
+
+    def _cleanup_spaces(series: pd.Series) -> pd.Series:
+        # Remove consecutive, as well as leading/trailing spaces.
+        return series.str.replace(" +", " ", regex=True)
+
     def _cleanup_name(series: pd.Series):
-        """ Remove any chars which are not letters or allowed chars.
-        Doing it this way is a lot faster than using a converter. """
-        return _cleanup_spaces(
-            _cleanup_separator(
-                _remove_forbidden_chars(
-                    _remove_parentheses(
-                        _replace_abbreviations(
-                            _normalize(series))))))
+        return (series
+                .pipe(_normalize)
+                .pipe(_replace_abbreviations)
+                .pipe(_remove_forbidden_chars)
+                .pipe(_cleanup_spaces))
 
     df = read_csv(BytesIO(raw_data))
     df["names"] = _cleanup_name(df["names"])
     # Remove entries with empty name.
-    return df.where(df["names"] != "").dropna()
+    return df[df["names"] != ""]
 
 
 def get_osm_comments(include_date: bool = True) -> str:
@@ -180,15 +170,6 @@ def osm_data_to_file(raw_data: bytes, path: Path):
         fil.write(get_osm_comments())
 
     df.to_csv(path, sep="\t", header=False, index=False, mode="a")
-
-
-def stop_loc_converter(value: str) -> str:
-    value = value.replace('"', "")
-    if not value.startswith("POINT("):
-        logger.warning(f"Stop location could not be converted: '{value}'")
-        return ""
-
-    return value[6:].split(")", 1)[0]
 
 
 def get_cache_dir_path() -> Path | None:
@@ -322,15 +303,17 @@ class Finder:
         self.routes = generate_routes2(names, self.df, self.handler)
 
     def get_shortest_route(self) -> Optional[Route3]:
-        # STYLE: Weird roundabout way to do all this.
         self._generate_routes()
         if not self.routes:
             return None
+
         route = min(self.routes)
         if route:
             logger.info(f"Found route:\n\t"
                         f"Invalid nodes: {route.invalid_node_count}\n\t"
                         f"Overall distance in m: {int(route.length)}")
+
         if Config.display_route in [1, 3, 5, 7] and route:
             display_route2(route)
+
         return route
