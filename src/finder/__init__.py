@@ -313,7 +313,7 @@ class Finder:
                         f"Invalid nodes: {route.invalid_node_count}\n\t"
                         f"Overall distance in m: {int(route.length)}")
 
-        if Config.display_route in [1, 3, 5, 7] and route:
+        if Config.display_route in [1, 3] and route:
             display_route2(route)
 
         return route

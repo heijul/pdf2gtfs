@@ -145,7 +145,7 @@ def create_node_generator(
 
 def generate_routes2(stops: StopNames, df: pd.DataFrame, handler: GTFSHandler
                      ) -> list[Route3]:
-    if Config.display_route in [4, 5, 6, 7]:
+    if Config.display_route in [2, 3]:
         display_stops(df, stops)
     nodes = generate_osm_nodes(df, stops, handler)
     ends = sorted(nodes[stops[-1]][0], key=attrgetter("loc.lat"))
