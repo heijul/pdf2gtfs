@@ -26,7 +26,7 @@ class BaseDataClass:
     def get_field_value(self, field: Field):
         return getattr(self, field.name)
 
-    def _to_output(self, field: Field):
+    def _to_output(self, field: Field) -> str:
         value = self.get_field_value(field)
         if hasattr(value, "to_output") and callable(value.to_output):
             return value.to_output()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, Field
 
 import pandas as pd
 
@@ -10,39 +10,55 @@ from datastructures.gtfs_output import BaseDataClass, ExistingBaseContainer
 
 MAX_EDIT_DISTANCE = 3
 logger = logging.getLogger(__name__)
-# TODO: add Pos where Pos.value: float and NoPos(Pos) to check if valid
 
 
 @dataclass(init=False)
 class GTFSStop(BaseDataClass):
+    # TODO: Needs to update existing stops
     stop_id: str
     stop_name: str
-    stop_lat: float
-    stop_lon: float
+    stop_lat: float | None
+    stop_lon: float | None
 
-    def __init__(self, name: str, lat: float = -1, lon: float = -1,
-                 *, stop_id: str = None):
+    def __init__(self, name: str, *, stop_id: str = None) -> None:
         super().__init__(stop_id)
         self.stop_id = self.id
         self.stop_name = name.strip()
-        self.stop_lat = lat
-        self.stop_lon = lon
+        self._stop_lat = None
+        self._stop_lon = None
+
+    @property
+    def stop_lat(self) -> float | None:
+        return self._stop_lat
+
+    @property
+    def stop_lon(self) -> float | None:
+        return self._stop_lon
 
     @property
     def valid(self) -> bool:
-        # TODO: Needs to check if valid position and update existing stops
-        return self.stop_name and self.stop_lat >= 0 and self.stop_lon >= 0
+        return (self.stop_name and
+                self.stop_lat is not None
+                and self.stop_lon is not None)
 
     def set_location(self, lat: float, lon: float) -> None:
-        self.stop_lat = lat
-        self.stop_lon = lon
+        if lat is None or lon is None:
+            lat = None
+            lon = None
+        self._stop_lat = lat
+        self._stop_lon = lon
+
+    def _to_output(self, field: Field) -> str:
+        is_coordinate_field = field in ["stop_lat", "stop_lon"]
+        if is_coordinate_field and self.get_field_value(field) is None:
+            return ""
+        return super()._to_output(field)
 
     @staticmethod
     def from_series(series: pd.Series) -> GTFSStop:
-        return GTFSStop(series["stop_name"],
-                        float(series["stop_lat"]),
-                        float(series["stop_lon"]),
-                        stop_id=series["stop_id"])
+        stop = GTFSStop(series["stop_name"], stop_id=series["stop_id"])
+        stop.set_location(series.get("stop_lat"), series.get("stop_lon"))
+        return stop
 
 
 class GTFSStops(ExistingBaseContainer):
