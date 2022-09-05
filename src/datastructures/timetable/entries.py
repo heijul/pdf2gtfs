@@ -1,13 +1,18 @@
+import logging
+
 from config import Config
 from datastructures.timetable.stops import Stop
+
+
+logger = logging.getLogger(__name__)
 
 
 class Weekdays:
     days: list[str]
 
-    def __init__(self, raw_header_text: str):
+    def __init__(self, header_text: str):
         self.days = Config.header_values.get(
-            raw_header_text.lower().strip(), [])
+            header_text.lower().strip(), [])
 
     def __repr__(self) -> str:
         return str(self.days)
@@ -40,30 +45,12 @@ class TimeTableEntry:
 
 
 class TimeTableRepeatEntry(TimeTableEntry):
-    def __init__(self, raw_header_text: str = "") -> None:
-        super().__init__(raw_header_text)
-
-    @property
-    def deltas(self) -> list[int]:
-        start = False
-        for value in self.values.values():
-            value = value.lower().strip()
-            # TODO: Use regex.
-            if value in Config.repeat_identifier:
-                start = True
-                continue
-            value = value.replace(" ", "")
-            if not start or not value:
-                continue
-
-            int_list = self._to_int_list(value)
-            if not int_list:
-                continue
-            return int_list
-        return []
+    def __init__(self, header_text: str = "", interval_str: str = "") -> None:
+        super().__init__(header_text)
+        self.intervals = self.interval_str_to_int_list(interval_str)
 
     @staticmethod
-    def _to_int_list(value_str: str) -> list[int]:
+    def interval_str_to_int_list(value_str: str) -> list[int]:
         """ Turn the value_str to a list of ints, depending its format.
         If it is of the form:
             - "x,y,..." it returns [x, y, ...]
@@ -79,18 +66,21 @@ class TimeTableRepeatEntry(TimeTableEntry):
             except ValueError:
                 pass
 
+        # value_str is a list, e.g. '3, 5, 7'
         value_list = values[","]
         if value_list:
             return value_list
-
+        # value_str is a range, e.g. '5-7'
         value_list = values["-"]
         if value_list:
             if len(value_list) == 2:
                 return list(range(value_list[0], value_list[1] + 1))
             return value_list
-        # TODO: Convert 'Alle 25 min.' to 25
+        # value_str is a single number, e.g. '30'
         try:
             return [int(value_str)]
         except ValueError:
             pass
+        logger.error(f"Could not turn repeat string '{value_str}' "
+                     f"into interval. Repeat column will be skipped.")
         return []

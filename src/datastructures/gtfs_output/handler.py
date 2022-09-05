@@ -89,7 +89,7 @@ class GTFSHandler:
         service_day_offset = 0
         for entry in entries:
             if isinstance(entry, TimeTableRepeatEntry):
-                repeat = entry
+                repeat = entry if entry.intervals else None
                 continue
             route_id = self.routes.get_from_entry(entry).route_id
 
@@ -121,7 +121,7 @@ class GTFSHandler:
 
             # Create stoptimes between prev and times.
             stop_times += StopTimes.add_repeat(
-                prev, times, repeat.deltas, trip_factory)
+                prev, times, repeat.intervals, trip_factory)
             repeat = None
 
         return stop_times

@@ -102,7 +102,8 @@ class TimeTable:
         for raw_column in list(raw_table.columns):
             raw_header_text = raw_table.get_header_from_column(raw_column)
             if raw_column.type == ColumnType.REPEAT:
-                entry = TimeTableRepeatEntry(raw_header_text)
+                entry = TimeTableRepeatEntry(
+                    raw_header_text, raw_column.get_repeat_intervals())
             else:
                 entry = TimeTableEntry(raw_header_text)
             entry.annotations = get_annotations(raw_column)

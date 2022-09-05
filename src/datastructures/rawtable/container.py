@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 from operator import attrgetter
 from typing import Generic, Iterator, TYPE_CHECKING, TypeVar
@@ -14,7 +15,6 @@ from utils import padded_list
 if TYPE_CHECKING:
     from datastructures.rawtable.table import Table
     from datastructures.rawtable.field import Field
-
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +292,7 @@ class Column(FieldContainer):
                  bbox: BBox = None):
         super().__init__(table, bbox)
         self.fields: list[Field] = fields or []
+        self.intervals = None
 
     @property
     def type(self) -> ColumnType:
@@ -307,7 +308,7 @@ class Column(FieldContainer):
             return
 
         has_time_data = self._contains_time_data()
-        has_repeat_identifier = self._contains_repeat_identifier()
+        has_repeat_identifier = self._contains_any_repeat_identifier()
 
         if has_repeat_identifier:
             self._type = ColumnType.REPEAT
@@ -318,11 +319,53 @@ class Column(FieldContainer):
         else:
             self._type = ColumnType.DATA
 
-    def _contains_repeat_identifier(self) -> bool:
-        # IMPROVE: iterate through fields -> check for identifier
-        #  -> check for num -> (maybe check for min/min.)
-        return any([f.text.lower() in Config.repeat_identifier
-                    for f in self.fields])
+    def _get_repeat_interval_from_identifier(
+            self, start_identifier: str, end_identifier: str) -> str:
+        """ Returns the value between start_identifier and end_identifier. """
+        start_regex = rf".*{re.escape(start_identifier)}"
+        end_regex = rf"{re.escape(end_identifier)}.*"
+        flags = re.IGNORECASE + re.UNICODE
+
+        start = False
+        value = ""
+        for field in self.fields:
+            text = field.text.strip()
+            if not start and re.match(start_regex, text, flags=flags):
+                start = True
+                continue
+            if not start:
+                continue
+            end = re.match(end_regex, text, flags=flags)
+            if not end:
+                value = (value + " " + text).strip()
+            else:
+                value += re.sub(end_regex, "", text, flags=flags).strip()
+            if end and value:
+                return value
+
+        # Log, in case we did not find a proper value.
+        value = value.strip()
+        if start and end_regex:
+            msg = (f"Found start '{start_identifier}' of repeat identifier, "
+                   f"but could not find end '{end_identifier}.")
+            if value:
+                msg += f" Trying to use '{value}' as repeat interval."
+            logger.warning(msg)
+
+        return value
+
+    def get_repeat_intervals(self) -> str:
+        if self.intervals is not None:
+            return self.intervals
+        for start, end in Config.repeat_identifier:
+            interval = self._get_repeat_interval_from_identifier(start, end)
+            if interval:
+                self.intervals = interval
+                return interval
+        return ""
+
+    def _contains_any_repeat_identifier(self) -> bool:
+        return bool(self.get_repeat_intervals())
 
     def merge(self, other: Column):
         # Merge bbox.
