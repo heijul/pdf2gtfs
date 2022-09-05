@@ -48,6 +48,7 @@ class TimeTableRepeatEntry(TimeTableEntry):
         start = False
         for value in self.values.values():
             value = value.lower().strip()
+            # TODO: Use regex.
             if value in Config.repeat_identifier:
                 start = True
                 continue
@@ -70,20 +71,24 @@ class TimeTableRepeatEntry(TimeTableEntry):
               x + 1 < y. E.g. "7-9" returns [7, 8, 9]
             - Otherwise it returns a single element list of int(value_str)
         """
-        values: dict[str: list[int]] = {}
-        split_chars = [",", "-"]
-        try:
-            for char in split_chars:
-                values[char] = []
+        values: dict[str: list[int]] = {",": [], "-": []}
+        for char in values:
+            values[char] = []
+            try:
                 values[char] = list(map(int, value_str.split(char)))
-        except ValueError:
-            pass
-        if values[","]:
-            return values[","]
-        if values["-"]:
-            if len(values["-"]) == 2:
-                return list(range(values["-"][0], values["-"][1] + 1))
-            return values["-"]
+            except ValueError:
+                pass
+
+        value_list = values[","]
+        if value_list:
+            return value_list
+
+        value_list = values["-"]
+        if value_list:
+            if len(value_list) == 2:
+                return list(range(value_list[0], value_list[1] + 1))
+            return value_list
+        # TODO: Convert 'Alle 25 min.' to 25
         try:
             return [int(value_str)]
         except ValueError:

@@ -107,7 +107,7 @@ class Calendar(BaseContainer):
         return self._add(entry)
 
     def get(self, entry: CalendarEntry) -> CalendarEntry:
-        existing_entry = self.get(entry)
+        existing_entry = self._get(entry)
         return existing_entry if existing_entry else entry
 
     def group_by_holiday(self) -> GroupedEntryTuple:

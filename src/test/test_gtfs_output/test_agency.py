@@ -29,14 +29,12 @@ class TestAgency(GTFSOutputBaseClass):
 
     def test_create_dummy_agency(self) -> None:
         agency = Agency()
-        agency.add()
         self.assertEqual(1, len(agency.entries))
         self.assertTrue(isinstance(agency.entries[0], DummyAgencyEntry))
 
     def test_read_agency(self) -> None:
         self._create_agency(1)
         agency = Agency()
-        agency.add()
         self.assertEqual(1, len(agency.entries))
         entry = agency.entries[0]
         self.assertFalse(isinstance(entry, DummyAgencyEntry))

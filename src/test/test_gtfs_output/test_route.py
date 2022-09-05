@@ -18,11 +18,11 @@ class TestRouteType(TestCase):
 
 class TestRoute(TestCase):
     def test_eq(self) -> None:
-        # TODO: Test with different agency ids
-        r1 = Route(1, "short_name", "long_name")
-        r2 = Route(1, "short_name", "long_name")
-        r3 = Route(1, "short_name2", "long_name")
-        r4 = Route(1, "short_name2", "long_name3")
+        r1 = Route("1", "short_name", "long_name")
+        r2 = Route("1", "short_name", "long_name")
+        r3 = Route("1", "short_name2", "long_name")
+        r4 = Route("1", "short_name2", "long_name3")
+        r5 = Route("44", "short_name2", "long_name3")
         self.assertEqual(r1, r1)
         self.assertEqual(r1, r2)
         self.assertNotEqual(r1, r3)
@@ -34,11 +34,14 @@ class TestRoute(TestCase):
         self.assertNotEqual(r3, r4)
         self.assertNotEqual(r3, r4)
         self.assertEqual(r4, r4)
+        self.assertNotEqual(r1, r5)
+        self.assertNotEqual(r2, r5)
+        self.assertNotEqual(r3, r5)
+        self.assertNotEqual(r4, r5)
 
     def test_route_type(self) -> None:
-        route = Route(1, "short", "long")
-        routetype = RouteType[Config.gtfs_routetype]
-        self.assertEqual(routetype, route.route_type)
+        route = Route("1", "short", "long")
+        self.assertEqual(Config.gtfs_routetype, route.route_type)
 
 
 class TestRoutes(TestCase):
@@ -56,7 +59,7 @@ class TestRoutes(TestCase):
         self.assertEqual(short_name, "testroute")
 
     def test_add(self) -> None:
-        routes = Routes()
+        routes = Routes("agency_0")
         self.assertEqual(0, len(routes.entries))
         route1 = routes.add(short_name="short1", long_name="long1")
         self.assertEqual(1, len(routes.entries))

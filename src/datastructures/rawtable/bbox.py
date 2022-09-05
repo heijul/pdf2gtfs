@@ -65,7 +65,7 @@ class BBox:
     def y_distance(self, other: BBox) -> float:
         """ Return the absolute distance of self to other on axis. """
         return min([abs(self.y0 - other.y0),
-                    abs(self.y0 - other.y0),
+                    abs(self.y0 - other.y1),
                     abs(self.y1 - other.y0),
                     abs(self.y1 - other.y1)])
 

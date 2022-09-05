@@ -56,7 +56,8 @@ class Route(BaseDataClass):
         return value.value
 
     def __eq__(self, other: Route):
-        return (self.route_short_name == other.route_short_name and
+        return (self.agency_id == other.agency_id and
+                self.route_short_name == other.route_short_name and
                 self.route_long_name == other.route_long_name)
 
 
