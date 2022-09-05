@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass(init=False)
 class GTFSStop(BaseDataClass):
-    # TODO: Needs to update existing stops
     stop_id: str
     stop_name: str
     stop_lat: float | None

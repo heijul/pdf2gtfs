@@ -125,7 +125,6 @@ class ExistingBaseContainer(BaseContainer):
             default = []
         if not self.fp.exists():
             return default
-        # TODO: Should not overwrite files if we can not read them
         try:
             df = pd.read_csv(self.fp, dtype=str)
         except Exception as e:
