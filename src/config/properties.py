@@ -6,7 +6,8 @@ need to hard-code each property.
 import datetime as dt
 import logging
 from pathlib import Path
-from typing import Any, get_args, get_origin, TypeVar
+from types import UnionType
+from typing import Any, get_args, get_origin, Iterable, TypeVar, Union
 
 from holidays.utils import list_supported_countries
 
@@ -41,16 +42,16 @@ class Property:
     def validate(self, value: Any) -> None:
         self._validate_type(value)
 
-    def _raise_type_error(self, value: Any) -> None:
+    def _raise_type_error(self, typ: type) -> None:
         logger.error(
             f"Invalid config type for {self.attr}. "
-            f"Expected '{self.type}', got '{type(value)}' instead.")
+            f"Expected '{self.type}', got '{typ}' instead.")
         raise err.InvalidPropertyTypeError
 
     def _validate_type(self, value: Any) -> None:
         if isinstance(value, self.type):
             return
-        self._raise_type_error(value)
+        self._raise_type_error(type(value))
 
     def __set__(self, obj, value: Any):
         self.validate(value)
@@ -75,7 +76,41 @@ class IntBoundsProperty(Property):
             raise err.OutOfBoundsPropertyError
 
 
+def value_to_generic(base_value: Any) -> type:
+    """ Returns the generic type of a given value. """
+    def get_dict_item_types() -> tuple[slice]:
+        item_types: dict[type: type] = {}
+        for key, value in base_value.items():
+            key_type = value_to_generic(key)
+            value_type = value_to_generic(value)
+            item_types.setdefault(key_type, value_type)
+            item_types[key_type] |= value_type
+        return tuple([slice(key, value) for key, value in item_types.items()])
+
+    def get_iter_item_types() -> Union[type]:
+        item_types: set[type] = set()
+        for value in base_value:
+            item_types.add(value_to_generic(value))
+        typ = item_types.pop()
+        for item_type in item_types:
+            typ |= item_type
+        return typ
+
+    base_type = type(base_value)
+    # Need to check str first, because it is an Iterable but not a Generic.
+    if base_type is str:
+        return base_type
+    if base_type is dict:
+        return base_type.__class_getitem__(get_dict_item_types())
+    if isinstance(base_value, Iterable):
+        return base_type.__class_getitem__(get_iter_item_types())
+    return base_type
+
+
 class NestedTypeProperty(Property):
+    def _raise_type_error(self, value) -> None:
+        super()._raise_type_error(value_to_generic(value))
+
     def _validate_type(self, value: Any) -> None:
         try:
             self._validate_generic_type(value, self.type)
@@ -90,11 +125,49 @@ class NestedTypeProperty(Property):
         if origin is None:
             if not isinstance(value, typ):
                 raise err.InvalidPropertyTypeError
+            return
+        if origin not in [Union, UnionType]:
+            self._validate_generic_type(value, origin)
+        if origin is dict:
+            self._validate_generic_dict(value, typ)
+        elif isinstance(origin, Iterable):
+            self._validate_generic_iterable(value, typ)
+        else:
+            self._validate_generic_type_args(value, typ)
 
-        self._validate_generic_type(value, origin)
-        self._validate_generic_type_args(value, typ)
+    def _validate_generic_dict(self, value: Any, typ: type) -> None:
+        args = get_args(typ)
+        for key, val in value.items():
+            valid = False
+            for arg in args:
+                try:
+                    if isinstance(arg, slice):
+                        self._validate_generic_type(key, arg.start)
+                        self._validate_generic_type(val, arg.stop)
+                        valid = True
+                        continue
+                    self._validate_generic_type(key, arg)
+                    self._validate_generic_type(val, arg)
+                    valid = True
+                except err.InvalidPropertyTypeError:
+                    pass
+            if not valid:
+                raise err.InvalidPropertyTypeError
 
-    def _validate_generic_type_args(self, value: Any, typ: type):
+    def _validate_generic_iterable(self, value: Any, typ: type) -> bool:
+        args = get_args(typ)
+        for key, val in value:
+            valid = True
+            for arg in args:
+                if isinstance(arg, slice):
+                    valid |= self._validate_generic_type(val, arg.start)
+                    valid |= self._validate_generic_type(val, arg.start)
+                    continue
+                valid |= self._validate_generic_type(val, arg)
+            if not valid:
+                return False
+
+    def _validate_generic_type_args(self, value: Any, typ: type) -> None:
         args = get_args(typ)
         if not args:
             return
@@ -105,6 +178,7 @@ class NestedTypeProperty(Property):
                     try:
                         self._validate_generic_type(val, arg)
                         valid = True
+                        break
                     except err.InvalidPropertyTypeError:
                         pass
                 if not valid:
@@ -127,36 +201,40 @@ class RepeatIdentifierProperty(NestedTypeProperty):
                 logger.error(f"Every entry in '{self.attr}' needs to "
                              f"be a list of two strings. See the "
                              f"config.template.yaml for more details.")
-                raise err.InvalidRepeatIdentifier
+                raise err.InvalidRepeatIdentifierError
 
     def __set__(self, obj, value: list):
         self.validate(value)
         return super().__set__(obj, value)
 
 
-class HeaderValuesProperty(Property):
+class HeaderValuesProperty(NestedTypeProperty):
     def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, dict)
+        super().__init__(cls, attr, dict[str: str | list[str]])
 
     def validate(self, value: dict):
+        def _raise_invalid_header_error() -> None:
+            logger.error(
+                f"Invalid value for '{self.attr}': {{'{ident}': '{day}'}}")
+            raise err.InvalidHeaderDaysError
+
         super().validate(value)
         for ident, days in value.items():
-            if not isinstance(ident, str):
-                raise err.InvalidPropertyTypeError
-            if not isinstance(days, str):
-                raise err.InvalidPropertyTypeError
-            for day in days.split(","):
+            if isinstance(days, str):
+                days = days.split(",")
+            for day in days:
                 day = day.strip()
                 if len(day) != 1:
-                    raise err.InvalidHeaderDays
+                    _raise_invalid_header_error()
                 if day == "h" or (day.isnumeric() and 0 <= int(day) <= 6):
                     continue
-                raise err.InvalidHeaderDays
+                _raise_invalid_header_error()
 
     def __set__(self, obj, value: dict):
         self.validate(value)
         for ident, days in value.items():
-            value[ident] = list(days.split(","))
+            if isinstance(days, str):
+                value[ident] = list(days.split(","))
         setattr(obj, self.attr, value)
 
 
@@ -172,12 +250,12 @@ class HolidayCodeProperty(Property):
         if country is None or country not in supported_countries:
             logger.warning(f"Invalid country code '{country}' "
                            f"for {self.attr} entry.")
-            raise err.InvalidHolidayCode
+            raise err.InvalidHolidayCodeError
         sub = value.get("subdivision")
         if sub and sub not in supported_countries[country]:
             logger.warning(f"Invalid subdivision code '{sub}' for valid "
                            f"country '{country}' of {self.attr} entry.")
-            raise err.InvalidHolidayCode
+            raise err.InvalidHolidayCodeError
 
     def __set__(self, obj, raw_value: dict):
         self.validate(raw_value)
@@ -292,7 +370,7 @@ class OutputDirectoryProperty(Property):
             value = Path(value).resolve()
             if value.exists() and not value.is_dir():
                 logger.error("Output directory is not a directory.")
-                raise err.InvalidOutputDirectory
+                raise err.InvalidOutputDirectoryError
             if not value.exists():
                 logger.info(f"Output directory '{value}' does not exist "
                             f"and will be created.")

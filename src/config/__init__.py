@@ -1,7 +1,6 @@
 import logging
 import os.path
 import platform
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -9,11 +8,7 @@ from yaml import safe_load, YAMLError
 from yaml.scanner import ScannerError
 
 import config.errors as err
-from config.properties import (
-    AbbrevProperty, DateBoundsProperty, FilenameProperty,
-    HeaderValuesProperty, HolidayCodeProperty, IntBoundsProperty,
-    OutputDirectoryProperty, PagesProperty, Property,
-    RepeatIdentifierProperty, RouteTypeProperty)
+import config.properties as p
 
 
 logger = logging.getLogger(__name__)
@@ -42,87 +37,113 @@ class InstanceDescriptorMixin:
 
 
 def _list_configs(directory: Path) -> list[Path]:
+    if not directory.is_dir():
+        logger.warning(f"Could not find configuration files in "
+                       f"{directory}, because it is not a directory.")
+        return []
     return list(directory.glob("*.yaml")) + list(directory.glob("*.yml"))
 
 
 class _Config(InstanceDescriptorMixin):
     def __init__(self) -> None:
-        self._create_default_config()
+        self._create_config_dir()
         self._initialize_config_properties()
-        self.load_configs()
+        # Always load default config first, before loading any custom config
+        # or program parameters.
+        self.load_default_config()
+        self.load_configs(self.config_dir)
 
     def _initialize_config_properties(self) -> None:
         self.properties = []
-        self.time_format = Property(self, "time_format", str)
-        self.header_values = HeaderValuesProperty(self, "header_values")
-        self.holiday_code = HolidayCodeProperty(self, "holiday_code")
-        self.repeat_identifier = RepeatIdentifierProperty(
+        self.time_format = p.Property(self, "time_format", str)
+        self.header_values = p.HeaderValuesProperty(self, "header_values")
+        self.holiday_code = p.HolidayCodeProperty(self, "holiday_code")
+        self.repeat_identifier = p.RepeatIdentifierProperty(
             self, "repeat_identifier")
-        self.repeat_strategy = Property(self, "repeat_strategy", str)
-        self.pages = PagesProperty(self, "pages")
-        self.max_row_distance = IntBoundsProperty(self, "max_row_distance", 0)
-        self.min_row_count = IntBoundsProperty(self, "min_row_count", 0)
-        self.filename = FilenameProperty(self, "filename", str)
-        self.annot_identifier = Property(self, "annot_identifier", list)
-        self.route_identifier = Property(self, "route_identifier", list)
-        self.gtfs_routetype = RouteTypeProperty(self, "gtfs_routetype")
-        self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
-        self.max_stop_distance = IntBoundsProperty(
+        self.repeat_strategy = p.Property(self, "repeat_strategy", str)
+        self.pages = p.PagesProperty(self, "pages")
+        self.max_row_distance = p.IntBoundsProperty(
+            self, "max_row_distance", 0)
+        self.min_row_count = p.IntBoundsProperty(self, "min_row_count", 0)
+        self.filename = p.FilenameProperty(self, "filename", str)
+        self.annot_identifier = p.Property(self, "annot_identifier", list)
+        self.route_identifier = p.Property(self, "route_identifier", list)
+        self.gtfs_routetype = p.RouteTypeProperty(self, "gtfs_routetype")
+        self.allowed_stop_chars = p.Property(self, "allowed_stop_chars", list)
+        self.max_stop_distance = p.IntBoundsProperty(
             self, "max_stop_distance", 0)
-        self.output_dir = OutputDirectoryProperty(self, "output_dir")
-        self.preprocess = Property(self, "preprocess", bool)
-        self.output_pp = Property(self, "output_pp", bool)
-        self.always_overwrite = Property(self, "always_overwrite", bool)
-        self.non_interactive = Property(self, "non_interactive", bool)
-        self.gtfs_date_bounds = DateBoundsProperty(self, "gtfs_date_bounds")
-        self.display_route = IntBoundsProperty(self, "display_route", 0, 3)
-        self.stale_cache_days = IntBoundsProperty(self, "stale_cache_days", 0)
-        self.name_abbreviations = AbbrevProperty(self, "name_abbreviations")
-        self.disable_location_detection = Property(
+        self.output_dir = p.OutputDirectoryProperty(self, "output_dir")
+        self.preprocess = p.Property(self, "preprocess", bool)
+        self.output_pp = p.Property(self, "output_pp", bool)
+        self.always_overwrite = p.Property(self, "always_overwrite", bool)
+        self.non_interactive = p.Property(self, "non_interactive", bool)
+        self.gtfs_date_bounds = p.DateBoundsProperty(self, "gtfs_date_bounds")
+        self.display_route = p.IntBoundsProperty(self, "display_route", 0, 3)
+        self.stale_cache_days = p.IntBoundsProperty(self, "stale_cache_days", 0)
+        self.name_abbreviations = p.AbbrevProperty(self, "name_abbreviations")
+        self.disable_location_detection = p.Property(
             self, "disable_location_detection", bool)
-        self.min_connection_count = Property(
+        self.min_connection_count = p.Property(
             self, "min_connection_count", int)
 
-    def load_configs(self) -> None:
-        # Always load default config first, before loading any custom config
-        # or program parameters.
-        self.load_config(self.default_config_path)
-        for path in _list_configs(self.config_dir):
+    def load_default_config(self) -> None:
+        if not self.load_config(self.default_config_path):
+            logger.error("Errors occurred when reading the given configs. "
+                         "Exiting...")
+            quit(err.INVALID_CONFIG_EXIT_CODE)
+
+    def load_configs(self, path: Path) -> None:
+        configs = [path] if path.is_file() else _list_configs(path)
+        if not configs:
+            return
+
+        valid = True
+        for path in configs:
             if path == self.default_config_path:
                 continue
-            self.load_config(path)
+            valid &= self.load_config(path)
+        valid &= self._validate_no_missing_properties()
+        if valid:
+            return
 
-    def load_config(self, path: Path) -> None:
-        """ Load the given config. If no config is given, load the default one.
+        logger.error(
+            "Errors occurred when reading the given configs. Exiting...")
+        quit(err.INVALID_CONFIG_EXIT_CODE)
 
-        :param path: Path to config file, or None to load the default config.
+    def load_config(self, path: Path) -> bool:
+        """ Load the given config.
+
+        :param path: Path to config file.
         :return: True, if loading was a success, False if any errors occurred.
         """
-        if not path.exists():
-            logger.error(f"The given configuration file either does not "
-                         f"exist or is not a proper file: '{path}'.")
-            quit(err.INVALID_CONFIG_EXIT_CODE)
+        if path.exists() and path.is_file():
+            data, valid = _read_yaml(path)
+            valid &= self._validate_no_invalid_properties(data)
+            return valid
 
-        data, valid = _read_yaml(path)
-        valid &= self._validate_no_invalid_properties(data)
-        valid &= self._validate_no_missing_properties()
-
-        if not valid:
-            logger.error("Tried to load invalid configuration file "
-                         f"'{path}'. Exiting...")
-            quit(err.INVALID_CONFIG_EXIT_CODE)
+        logger.error(f"The given configuration file either does not "
+                     f"exist or is not a proper file: '{path}'.")
+        return False
 
     def load_args(self, args: dict[str, Any]):
-        for path in args.pop("config", []):
-            self.load_config(Path(path).resolve())
+        for config_path in args.pop("config", []):
+            path = Path(config_path).resolve()
+            if path.is_dir():
+                logger.info(
+                    f"The given config path '{path}' leads to a directory. "
+                    f"All configs in the directory will be read.")
+                self.load_configs(path)
+            else:
+                self.load_config(path)
 
         for name, value in args.items():
             if value is None:
+                # Nothing to log, cause this just means argument is unset.
                 continue
-            if name in self.properties:
-                setattr(self, name, value)
+            if name not in self.properties:
+                logger.error(f"Tried to set unknown property '{name}'.")
                 continue
-            logger.warning(f"Tried to set unknown property '{name}'.")
+            setattr(self, name, value)
 
     def _validate_no_invalid_properties(self, data: dict[str: Any]) -> bool:
         valid = True
@@ -131,9 +152,9 @@ class _Config(InstanceDescriptorMixin):
             try:
                 if key not in self.properties:
                     logger.error(f"Invalid config key: {key}")
-                    raise err.InvalidPropertyTypeError
+                    raise err.UnknownPropertyError
                 setattr(self, key, value)
-            except err.InvalidPropertyTypeError:
+            except err.PropertyError:
                 valid = False
         return valid
 
@@ -173,16 +194,12 @@ class _Config(InstanceDescriptorMixin):
 
     @property
     def default_config_path(self) -> Path:
-        return self.config_dir.joinpath("config.yaml")
+        return self.p2g_dir.joinpath("config.template.yaml")
 
-    def _create_default_config(self) -> None:
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        if self.default_config_path.exists():
+    def _create_config_dir(self) -> None:
+        if self.config_dir.exists():
             return
-        src = self.p2g_dir.joinpath("config.template.yaml")
-        shutil.copy(src, self.default_config_path)
-        logger.info(f"Default configuration was created at "
-                    f"'{self.default_config_path}'.")
+        self.config_dir.mkdir(parents=True, exist_ok=True)
 
     def __str__(self) -> str:
         string_like = (str, Path)

@@ -4,41 +4,45 @@ INVALID_CONFIG_EXIT_CODE = 1
 # TODO: Add basic messages to each exception
 
 
-class PropertyException(BaseException):
+class PropertyError(Exception):
     pass
 
 
-class InvalidPropertyTypeError(PropertyException):
+class InvalidPropertyTypeError(PropertyError):
     pass
 
 
-class MissingRequiredPropertyError(PropertyException):
+class MissingRequiredPropertyError(PropertyError):
     pass
 
 
-class InvalidHolidayCode(PropertyException):
+class InvalidHolidayCodeError(PropertyError):
     pass
 
 
-class InvalidHeaderDays(PropertyException):
+class InvalidHeaderDaysError(PropertyError):
     pass
 
 
-class InvalidRouteTypeValue(PropertyException):
+class InvalidRouteTypeValueError(PropertyError):
     pass
 
 
-class InvalidOutputDirectory(PropertyException):
+class InvalidOutputDirectoryError(PropertyError):
     pass
 
 
-class InvalidDateBoundsError(PropertyException):
+class InvalidDateBoundsError(PropertyError):
     pass
 
 
-class OutOfBoundsPropertyError(PropertyException):
+class OutOfBoundsPropertyError(PropertyError):
     pass
 
 
-class InvalidRepeatIdentifier(PropertyException):
+class InvalidRepeatIdentifierError(PropertyError):
+    pass
+
+
+class UnknownPropertyError(PropertyError):
     pass
