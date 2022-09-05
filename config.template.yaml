@@ -65,9 +65,9 @@ repeat_identifier: [
 repeat_strategy: "cycle"
 
 # Which pages to consider for extraction. Defaults to 'all' for all pages.
+# Example: "1-3,6,8-9" extracts the tables from the pages 1, 2, 3, 6, 8, 9.
 #
 # Type: String of comma-separated ints or ranges of ints, or 'all'.
-# Example: "1-3,6,8-9" extracts the tables from the pages 1, 2, 3, 6, 8, 9.
 pages: "all"
 
 # Maximum vertical distance in points between two rows, to be considered on
@@ -180,14 +180,18 @@ name_abbreviations:
   "str.": "strasse"
   "ka": "karlsruhe"
 
-# Disables the detection of connections. Usually, any stops between two stops
-#   A and B are not added to the output, iff A and B are the same stop and
-#   A/B is not the start/end of the route. This may however result in valid
-#   stops being discarded, if the route serves the same stop multiple times.
+# Set the minimum number of stops for a cycle to be recognized as connection.
+# Usually, any stops between two stops A and B are not added to the output,
+#   iff A and B have the same name and A/B are not the start/end of the route.
+#   This may however result in valid stops being discarded,
+#   if the route serves the same stop multiple times.
+# Setting this to 0 disables the detection of connections entirely.
+# Example: Given a route with the stops [A, B, C, A, D], the stops B and C in
+#   the cycle A-B-C-A would be detected as connections if this setting was
+#   set to 1 or 2, but not if it was set to 0 or any number higher than 2.
 #
-# Type: bool
-disable_connection_detection: False
-# FEATURE: Change to max_connection_length: int = 1, to allow more granularity
+# Type: int
+min_connection_count: 1
 
 # TODO: Order
 

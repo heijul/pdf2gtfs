@@ -57,23 +57,26 @@ class TimeTable:
         will not be added as connections because of how range works.
         """
 
+        stops = self.stops.all_stops
         cycles: dict[str, list[int]] = {}
-        for i, stop in enumerate(self.stops.all_stops):
+        for i, stop in enumerate(stops):
             cycle = cycles.setdefault(stop.name, [])
             cycle.append(i)
 
-        indices = []
         for cycle in cycles.values():
+            # Stop only occurs once.
             if len(cycle) == 1:
                 continue
-            start_idx = sorted(cycle)[0] + 1
-            end_idx = sorted(cycle)[-1]
+            start_idx = cycle[0] + 1
+            end_idx = cycle[-1]
 
-            # Prevent marking every stop as connection if it's a round trip.
-            if start_idx == 0 and end_idx == len(self.stops.stops) - 1:
+            indices = list(range(start_idx, end_idx))
+            route_is_round_trip = cycle[0] == 0 and end_idx == len(stops) - 1
+            cycle_is_too_short = len(indices) < Config.min_connection_count
+            if route_is_round_trip or cycle_is_too_short:
                 continue
-            indices += list(range(start_idx, end_idx))
-            for stop in self.stops.all_stops[start_idx:end_idx]:
+
+            for stop in stops[start_idx:end_idx]:
                 stop.is_connection = True
 
     @staticmethod
@@ -126,7 +129,7 @@ class TimeTable:
             if not table.entries[-1].values:
                 del table.entries[-1]
 
-        if not Config.disable_connection_detection:
+        if Config.min_connection_count > 0:
             table.detect_connection()
         if table.stops.stops:
             logger.info(table)

@@ -78,8 +78,8 @@ class _Config(InstanceDescriptorMixin):
         self.name_abbreviations = AbbrevProperty(self, "name_abbreviations")
         self.disable_location_detection = Property(
             self, "disable_location_detection", bool)
-        self.disable_connection_detection = Property(
-            self, "disable_connection_detection", bool)
+        self.min_connection_count = Property(
+            self, "min_connection_count", int)
 
     def load_configs(self) -> None:
         # Always load default config first, before loading any custom config
