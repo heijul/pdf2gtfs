@@ -29,7 +29,6 @@ class Time:
             time_string = time_string.replace(" ", "")
             time = dt.strptime(time_string, Config.time_format)
         except ValueError:
-            # TODO: Maybe change to info.
             logger.warning(f"Value '{time_string}' does not seem to have the "
                            f"necessary format '{Config.time_format}'.")
             return Time()
