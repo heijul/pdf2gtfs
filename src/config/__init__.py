@@ -10,9 +10,9 @@ from yaml.scanner import ScannerError
 
 import config.errors as err
 from config.properties import (
-    AbbrevProperty, DateBoundsProperty, FilenameProperty, HeaderValuesProperty,
-    HolidayCodeProperty, IntBoundsProperty, PagesProperty, PathProperty, Property,
-    RouteTypeProperty)
+    AbbrevProperty, DateBoundsProperty, FilenameProperty,
+    HeaderValuesProperty, HolidayCodeProperty, IntBoundsProperty,
+    OutputDirectoryProperty, PagesProperty, Property, RouteTypeProperty)
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ class _Config(InstanceDescriptorMixin):
         self.allowed_stop_chars = Property(self, "allowed_stop_chars", list)
         self.max_stop_distance = IntBoundsProperty(
             self, "max_stop_distance", 0)
-        self.output_dir = PathProperty(self, "output_dir")
+        self.output_dir = OutputDirectoryProperty(self, "output_dir")
         self.preprocess = Property(self, "preprocess", bool)
         self.output_pp = Property(self, "output_pp", bool)
         self.always_overwrite = Property(self, "always_overwrite", bool)

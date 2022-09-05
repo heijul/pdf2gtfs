@@ -101,11 +101,10 @@ allowed_stop_chars: ["-", "/", ".", " "]
 max_stop_distance: 100
 
 # The path to the output directory for the gtfs files.
-#   Default is "/path/to/pdf2gtfs/out".
-# TODO: Add note about how relative paths are expanded.
+#   Default is "./out".
 #
 # Type: str
-output_dir: "../out"
+output_dir: "./out"
 
 # Whether or not the pdf should be preprocessed. This will remove all objects
 #   from the pdf, which are not text (i.e. all images and vector graphics).
@@ -164,12 +163,13 @@ stale_cache_days: 7
 # Notes:
 # - Word boundaries will be respected, i.e. the "ffm" in "hoffmannplatz" would
 #   not be replaced with "Frankfurt" if it is set to {"ffm": "Frankfurt"}.
-# - However, if the dictionary is set to {"str": "strasse"}, then "Hauptstr."
-#   will be replaced by "Hauptstrasse".
+# - However, if the dictionary is set to e.g. {"str": "strasse"},
+#   then "Hauptstr." will be replaced by "Hauptstrasse".
 #
 # Type: dict of string to string
 # TODO: lower().casefold() on value
 # TODO: Clarify that "str" has the same effect as "str."
+# TODO: Maybe make a difference between "str." and "str"
 name_abbreviations:
   "a.": "am"
   "rh.": "rhein"

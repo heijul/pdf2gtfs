@@ -217,12 +217,13 @@ class RouteTypeProperty(Property):
         return super().__set__(obj, value)
 
 
-class PathProperty(Property):
+class OutputDirectoryProperty(Property):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, Path)
 
     def __set__(self, obj, value: str | Path) -> None:
         if isinstance(value, str):
+            value = value.strip()
             value = Path(value).resolve()
             if value.exists() and not value.is_dir():
                 logger.error("Output directory is not a directory.")
