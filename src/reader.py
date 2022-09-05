@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from operator import attrgetter
 from pathlib import Path
 from shutil import copyfile
@@ -231,8 +232,7 @@ class Reader:
                          "happen for no apparent reason. Please try again.")
             logger.error(e)
             self._remove_preprocess_tempfile()
-            # TODO: Maybe quit(CODE) makes more sense here?
-            return []
+            sys.exit(2)
 
         start = time()
         for page in pages:
