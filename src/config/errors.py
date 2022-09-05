@@ -1,6 +1,9 @@
 INVALID_CONFIG_EXIT_CODE = 1
 
 
+# TODO: Add basic messages to each exception
+
+
 class PropertyException(BaseException):
     pass
 
@@ -34,4 +37,8 @@ class InvalidDateBoundsError(PropertyException):
 
 
 class OutOfBoundsPropertyError(PropertyException):
+    pass
+
+
+class InvalidRepeatIdentifier(PropertyException):
     pass

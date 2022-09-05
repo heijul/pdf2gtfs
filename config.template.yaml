@@ -45,15 +45,24 @@ annot_identifier: ["Verkehrshinweis", "Verkehrsbeschränkung"]
 # Type: List of strings
 route_identifier: ["Linie"]
 
-# If a column does not hold any time data and begins with this identifier,
-#   try to expand the given repeat interval. For example if a table contains
-#   a column (B) containing "Alle 5 min.", this means between the times
-#   of the column left (A) and right (C) of B, the times should be repeated
-#   every 5 minutes. The repeat_identifier are used to identify these columns.
+# If a column does not hold any time data and contains the given identifier,
+#   try to expand the repeat interval.
+# For example, if a table contains a column (B) containing
+#   "Alle 5 min."/"Every 5 min.", meaning: Between the times of the column
+#   left (A) and right (C) of B, the times should be repeated every 5 minutes.
+# The repeat_identifier are used to identify these columns and each should be
+#   a list of 2 strings, where the first is the repeat start identifier and
+#   the second the repeat end identifier. In the example above, these
+#   would be ["alle", "min"] or ["every", "min"].
+# Note: The matching is both case insensitive and greedy, i.e. ["every", "min"]
+#   would match both "every 5 min" as well as "every 5 minutes".
+# Note: The current implementation only works with minutes, so if a repeat
+#   column contains the value "Alle 2 Stunden"/"Every 2 hours", it would
+#   falsely be detected as every 2 minutes.
 #
 # Type: List of strings
 repeat_identifier: [
-  "alle",
+  ["alle", "min"],
 ]
 
 # How to expand the repeating column, if the repeating times occur in a range.

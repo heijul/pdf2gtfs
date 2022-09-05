@@ -12,7 +12,8 @@ import config.errors as err
 from config.properties import (
     AbbrevProperty, DateBoundsProperty, FilenameProperty,
     HeaderValuesProperty, HolidayCodeProperty, IntBoundsProperty,
-    OutputDirectoryProperty, PagesProperty, Property, RouteTypeProperty)
+    OutputDirectoryProperty, PagesProperty, Property,
+    RepeatIdentifierProperty, RouteTypeProperty)
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,8 @@ class _Config(InstanceDescriptorMixin):
         self.time_format = Property(self, "time_format", str)
         self.header_values = HeaderValuesProperty(self, "header_values")
         self.holiday_code = HolidayCodeProperty(self, "holiday_code")
-        self.repeat_identifier = Property(self, "repeat_identifier", list)
+        self.repeat_identifier = RepeatIdentifierProperty(
+            self, "repeat_identifier")
         self.repeat_strategy = Property(self, "repeat_strategy", str)
         self.pages = PagesProperty(self, "pages")
         self.max_row_distance = IntBoundsProperty(self, "max_row_distance", 0)
@@ -123,6 +125,7 @@ class _Config(InstanceDescriptorMixin):
             logger.warning(f"Tried to set unknown property '{name}'.")
 
     def _validate_no_invalid_properties(self, data: dict[str: Any]) -> bool:
+        valid = True
         for key, value in data.items():
             # Even if an item is invalid, continue reading to find all errors.
             try:
@@ -131,8 +134,8 @@ class _Config(InstanceDescriptorMixin):
                     raise err.InvalidPropertyTypeError
                 setattr(self, key, value)
             except err.InvalidPropertyTypeError:
-                return False
-        return True
+                valid = False
+        return valid
 
     def _validate_no_missing_properties(self) -> bool:
         missing_keys = []

@@ -6,7 +6,7 @@ need to hard-code each property.
 import datetime as dt
 import logging
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, get_args, get_origin, TypeVar
 
 from holidays.utils import list_supported_countries
 
@@ -16,6 +16,9 @@ from datastructures.gtfs_output.route import RouteType
 
 logger = logging.getLogger(__name__)
 CType = TypeVar("CType", bound="InstanceDescriptorMixin")
+
+
+# TODO: Add self.name to Property and use it in logs.
 
 
 class Property:
@@ -38,13 +41,16 @@ class Property:
     def validate(self, value: Any) -> None:
         self._validate_type(value)
 
-    def _validate_type(self, value: Any) -> None:
-        if isinstance(value, self.type):
-            return
+    def _raise_type_error(self, value: Any) -> None:
         logger.error(
             f"Invalid config type for {self.attr}. "
             f"Expected '{self.type}', got '{type(value)}' instead.")
         raise err.InvalidPropertyTypeError
+
+    def _validate_type(self, value: Any) -> None:
+        if isinstance(value, self.type):
+            return
+        self._raise_type_error(value)
 
     def __set__(self, obj, value: Any):
         self.validate(value)
@@ -67,6 +73,65 @@ class IntBoundsProperty(Property):
         lower_oob = self.lower and value < self.lower
         if upper_oob or lower_oob:
             raise err.OutOfBoundsPropertyError
+
+
+class NestedTypeProperty(Property):
+    def _validate_type(self, value: Any) -> None:
+        try:
+            self._validate_generic_type(value, self.type)
+        except err.InvalidPropertyTypeError:
+            # TODO: type(value) does not give enough info.
+            self._raise_type_error(value)
+
+    def _validate_generic_type(self, value: Any, typ: type) -> None:
+        if typ is None:
+            return
+        origin = get_origin(typ)
+        if origin is None:
+            if not isinstance(value, typ):
+                raise err.InvalidPropertyTypeError
+
+        self._validate_generic_type(value, origin)
+        self._validate_generic_type_args(value, typ)
+
+    def _validate_generic_type_args(self, value: Any, typ: type):
+        args = get_args(typ)
+        if not args:
+            return
+        try:
+            for val in value:
+                valid = False
+                for arg in args:
+                    try:
+                        self._validate_generic_type(val, arg)
+                        valid = True
+                    except err.InvalidPropertyTypeError:
+                        pass
+                if not valid:
+                    raise err.InvalidPropertyTypeError
+        except TypeError:
+            pass
+
+
+class RepeatIdentifierProperty(NestedTypeProperty):
+    def __init__(self, cls: CType, attr: str) -> None:
+        super().__init__(cls, attr, list[list[str]])
+
+    def validate(self, value: Any) -> None:
+        super().validate(value)
+        self._validate_length(value)
+
+    def _validate_length(self, value: list[list[str]]):
+        for item in value:
+            if len(item) != 2:
+                logger.error(f"Every entry in '{self.attr}' needs to "
+                             f"be a list of two strings. See the "
+                             f"config.template.yaml for more details.")
+                raise err.InvalidRepeatIdentifier
+
+    def __set__(self, obj, value: list):
+        self.validate(value)
+        return super().__set__(obj, value)
 
 
 class HeaderValuesProperty(Property):
