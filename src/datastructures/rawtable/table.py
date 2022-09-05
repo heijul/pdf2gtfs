@@ -83,13 +83,15 @@ class Table:
         """ Finds and tries to repair stop names, which start with a "-",
          indicating that they use the same city/poi as the previous.
 
-        e.g. given a row with stop A with text "Frankfurt - Hauptbahnhof",
+        E.g. given a row with stop A with text "Frankfurt - Hauptbahnhof",
          followed by a stop B with text "- Friedhof", then the text of B
          will be changed to "Frankfurt - Friedhof".
         """
 
         def get_base_text(_last_stop: str, _stop: str) -> str:
-            """ Returns the base name for the split stops. """
+            """ Returns the base name for the split stops.
+            I.e. the 'Frankfurt' in the example above. """
+            # Current stop is equal to last stop, but the short version.
             if _stop in _last_stop:
                 return _last_stop.replace(_stop, "")
             clean_stop = _stop[1:].strip()
@@ -99,39 +101,38 @@ class Table:
 
         def _get_base_from_last_stop_text(_last_stop_text: str) -> str:
             """ Return the base text given only the _last_stop_text. """
-            merge_chars = {",": ", "}
-            split_chars = [", ", ",", " "]
+            split_chars = [",", "-", " "]
             for split_char in split_chars:
                 split_text = _last_stop_text.split(split_char, 1)
                 if len(split_text) <= 1:
                     continue
-                merge_char = merge_chars.get(split_char, split_char)
-                return split_text[0] + merge_char
-            # TODO: Maybe return "" ?!
-            return _last_stop_text + " "
+                return split_text[0].strip()
+            # CHECK: Maybe return "" if no base could be found.
+            return _last_stop_text.strip()
 
         def is_indented() -> bool:
-            min_indention_in_px = 3
-            return abs(column.bbox.x0 - stop.bbox.x0) >= min_indention_in_px
+            min_indention_in_pts = 3
+            dist = abs(stop_col.bbox.x0 - stop.bbox.x0)
+            return dist >= min_indention_in_pts
 
-        columns = self.columns.of_type(ColumnType.STOP)
-        if not columns:
+        stop_columns = self.columns.of_type(ColumnType.STOP)
+        if not stop_columns:
             return
-        column = columns[0]
-        stops = column.fields
-        last_stop_text = stops[0].text
+        stop_col = stop_columns[0]
+        stops = stop_columns[0].fields
+        prev_stop_text = stops[0].text
         base = ""
         for stop in stops[1:]:
-            if not stop or stop.row.type != RowType.DATA:
+            if not stop.text or stop.row.type != RowType.DATA:
                 continue
             stop_text = stop.text.strip()
-            if not stop_text.startswith("-") or is_indented():
-                last_stop_text = stop_text
+            if not stop_text.startswith("-") or not is_indented():
+                prev_stop_text = stop_text
                 base = ""
                 continue
             if not base:
-                base = get_base_text(last_stop_text, stop_text)
-            stop.text = base + stop_text[1:].strip()
+                base = get_base_text(prev_stop_text, stop_text)
+            stop.text = base + ", " + stop_text[1:].strip()
 
     def to_timetable(self) -> TimeTable:
         return TimeTable.from_raw_table(self)
