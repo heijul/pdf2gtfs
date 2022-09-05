@@ -111,7 +111,7 @@ class ExistingOSMNode(OSMNode):
     def from_gtfsstop(stop: GTFSStop) -> ExistingOSMNode:
         loc = Location(stop.stop_lat, stop.stop_lon)
         name = stop.stop_name
-        return ExistingOSMNode(name, name, loc, TransportType(-1), {})
+        return ExistingOSMNode(name, name, loc, TransportType(0), {})
 
 
 class DummyOSMNode(OSMNode):
