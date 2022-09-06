@@ -54,7 +54,7 @@ annot_identifier: ["Verkehrshinweis", "Verkehrsbeschränkung"]
 #   data columns with the entries of that row.
 #
 # Type: List of strings
-route_identifier: ["Linie"]
+route_identifier: ["Linie", "Zugnummer"]
 
 # If a column does not hold any time data and contains the given identifier,
 #   try to expand the repeat interval.
