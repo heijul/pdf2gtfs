@@ -16,7 +16,7 @@ from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
 from datastructures.rawtable.field import Field
-from datastructures.rawtable.table import Row, split_rows_into_tables
+from datastructures.rawtable.table import cleanup_tables, Row, split_rows_into_tables
 from datastructures.timetable.table import TimeTable
 from p2g_types import Char
 
@@ -148,7 +148,7 @@ def get_rows(char_df: pd.DataFrame) -> list[Row]:
 
 def get_tables_from_df(char_df: pd.DataFrame):
     rows = get_rows(char_df)
-    rawtables = split_rows_into_tables(rows)
+    rawtables = cleanup_tables(split_rows_into_tables(rows))
     timetables = []
     for table in rawtables:
         table.fix_split_stopnames()

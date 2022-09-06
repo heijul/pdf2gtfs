@@ -88,4 +88,4 @@ class RowList(FieldContainerList[TableT, Row]):
 
     def merge(self, other: RowList):
         self._objects += other.get_objects()
-        self._objects.sort(key=attrgetter("bbox.x0"))
+        self._objects.sort(key=attrgetter("bbox.y0"))

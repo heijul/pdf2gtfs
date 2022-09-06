@@ -13,14 +13,12 @@ from utils import padded_list
 
 
 if TYPE_CHECKING:
-    from datastructures.rawtable.table import Table
+    from datastructures.rawtable.table import Cols, Rows, Table
     from datastructures.rawtable.field import Field
 
 logger = logging.getLogger(__name__)
 
-RowT = TypeVar("RowT", bound="Row")
-ColumnT = TypeVar("ColumnT", bound="Column")
-ContainerT = TypeVar("ContainerT", bound="BaseContainer")
+ContainerT = TypeVar("ContainerT", bound="FieldContainer")
 TableT = TypeVar("TableT", bound="Table")
 
 
@@ -43,11 +41,11 @@ class BaseContainerReference(Generic[ContainerT]):
         setattr(obj, self.private_name, value)
 
 
-class FieldRowReference(BaseContainerReference[RowT]):
+class FieldRowReference(BaseContainerReference["Row"]):
     pass
 
 
-class FieldColumnReference(BaseContainerReference[ColumnT]):
+class FieldColumnReference(BaseContainerReference["Column"]):
     pass
 
 
@@ -113,6 +111,15 @@ class FieldContainer(BBoxObject):
             index += 1
         self._add_field_at_index(new_field, index)
 
+    def _contains_field_with_values(self, values: list[str]) -> bool:
+        """ Check if any of the fields text match any of the values. """
+        def _contains_field_with_value(value: str) -> bool:
+            """ Returns true if value is equal to any field text. """
+            return any([value.strip().lower() == field.text.strip().lower()
+                        for field in self.fields])
+
+        return any(_contains_field_with_value(value) for value in values)
+
     def _contains_time_data(self) -> bool:
         """ Check if any field contains time data. """
         # This may rarely return True, if field text contains the text "05.06"
@@ -125,6 +132,22 @@ class FieldContainer(BBoxObject):
             except ValueError:
                 pass
         return False
+
+    def _split_at(self, splitter: Rows | Cols) -> list[ContainerT]:
+        # Need copy, because of pop.
+        splitter = list(splitter)
+        fields_list: list[list[Field]] = [[]]
+        for field in self.fields:
+            if splitter and splitter[0].bbox.x0 <= field.bbox.x0:
+                splitter.pop(0)
+                fields_list.append([])
+            fields_list[-1].append(field)
+        return [self.from_fields(fields) for fields in fields_list if fields]
+
+    @staticmethod
+    def from_fields(fields: list[Field]) -> ContainerT:
+        # TODO: Add abc
+        pass
 
     def __str__(self) -> str:
         return str([str(f) for f in self.fields])
@@ -140,7 +163,6 @@ class FieldContainer(BBoxObject):
 class Row(FieldContainer):
     def __init__(self, table: Table = None, bbox: BBox = None):
         super().__init__(table, bbox)
-
         self._type = None
 
     @staticmethod
@@ -158,48 +180,32 @@ class Row(FieldContainer):
 
     def set_table(self, table: Table):
         self.table = table
-        self.detect_type()
+        self.update_type()
 
     @property
     def type(self) -> RowType:
         if not self._type:
-            self.detect_type()
+            self.update_type()
         return self._type
 
-    def detect_type(self) -> None:
-        # IMPROVE: REDO.
-        def _contains(idents: list[str]):
-            """ Check if any of the fields contain any of the identifier. """
-            field_texts = [str(field.text).lower() for field in self.fields]
-            return any([ident.strip().lower() in field_texts
-                        for ident in idents])
+    def update_type(self) -> None:
+        self._type = self._detect_type()
 
-        def previous_row_is(_type: RowType):
-            try:
-                previous = self.table.rows.prev(self)
-            except AttributeError:
-                # No table set yet
-                return False
-            if not previous:
-                return True
-            return previous.type == _type
-
+    def _detect_type(self) -> RowType:
         # Once a row was recognized as annotation it stays an annotation.
+        # CHECK: Why?
         if self._type and self._type == RowType.ANNOTATION:
-            return
+            return RowType.ANNOTATION
+
+        if self._contains_field_with_values(Config.header_values):
+            return RowType.HEADER
+        if self._contains_field_with_values(Config.annot_identifier):
+            return RowType.ANNOTATION
+        if self._contains_field_with_values(Config.route_identifier):
+            return RowType.ROUTE_INFO
         if self._contains_time_data():
-            self._type = RowType.DATA
-            return
-        previous_row_is_header = previous_row_is(RowType.HEADER)
-        if previous_row_is_header and _contains(Config.header_values):
-            self._type = RowType.HEADER
-            return
-        elif _contains(Config.annot_identifier):
-            self._type = RowType.ANNOTATION
-        elif _contains(Config.route_identifier):
-            self._type = RowType.ROUTE_INFO
-        else:
-            self._type = RowType.OTHER
+            return RowType.DATA
+        return RowType.OTHER
 
     def apply_column_scheme(self, columns: list[Column | None]):
         # STYLE: This is actually three functions in a trenchcoat.
@@ -269,16 +275,7 @@ class Row(FieldContainer):
 
     def split_at(self, columns: list[Column]) -> list[Row]:
         """ Splits the row, depending on the given columns. """
-        fields_list: list[list[Field]] = [[]]
-        columns = list(columns[1:])
-
-        for field in self.fields:
-            if columns and columns[0].bbox.x0 <= field.bbox.x0:
-                columns.pop(0)
-                fields_list.append([])
-            fields_list[-1].append(field)
-
-        return [Row.from_fields(fields) for fields in fields_list]
+        return self._split_at(columns)
 
     def __repr__(self) -> str:
         fields_repr = ", ".join(repr(f) for f in self.fields)
@@ -292,67 +289,50 @@ class Column(FieldContainer):
                  bbox: BBox = None):
         super().__init__(table, bbox)
         self.fields: list[Field] = fields or []
+        self._type = None
         self.intervals = None
 
     @property
     def type(self) -> ColumnType:
-        if not hasattr(self, "_type"):
-            self._detect_type()
+        if not self._type:
+            self.update_type()
         return self._type
 
-    def _detect_type(self) -> None:
+    def update_type(self) -> None:
+        self._type = self._detect_type()
+
+    def _detect_type(self) -> ColumnType:
         previous = self.table.columns.prev(self)
 
+        # CHECK: First column is always a stop?
         if not previous:
-            self._type = ColumnType.STOP
-            return
+            return ColumnType.STOP
 
         has_time_data = self._contains_time_data()
-        has_repeat_identifier = self._contains_any_repeat_identifier()
+        has_repeat_identifier = self.get_repeat_intervals() != ""
 
         if has_repeat_identifier:
-            self._type = ColumnType.REPEAT
-        elif previous.type == ColumnType.STOP and not has_time_data:
-            self._type = ColumnType.STOP_ANNOTATION
-        elif not has_time_data and not has_repeat_identifier:
-            self._type = ColumnType.STOP
-        else:
-            self._type = ColumnType.DATA
+            return ColumnType.REPEAT
+        if not has_time_data and previous.type == ColumnType.STOP:
+            return ColumnType.STOP_ANNOTATION
+        if not has_time_data and not has_repeat_identifier:
+            return ColumnType.STOP
+        return ColumnType.DATA
 
     def _get_repeat_interval_from_identifier(
             self, start_identifier: str, end_identifier: str) -> str:
         """ Returns the value between start_identifier and end_identifier. """
-        start_regex = rf".*{re.escape(start_identifier)}"
-        end_regex = rf"{re.escape(end_identifier)}.*"
+        start_regex = rf".*?{re.escape(start_identifier)}\s*"
+        value_regex = r"(\d{1,3}[-,.]\d{1,3}|\d{1,3})"
+        end_regex = rf"\s*{re.escape(end_identifier)}.*"
+        regex = start_regex + value_regex + end_regex
         flags = re.IGNORECASE + re.UNICODE
 
-        start = False
-        value = ""
-        for field in self.fields:
-            text = field.text.strip()
-            if not start and re.match(start_regex, text, flags=flags):
-                start = True
-                continue
-            if not start:
-                continue
-            end = re.match(end_regex, text, flags=flags)
-            if not end:
-                value = (value + " " + text).strip()
-            else:
-                value += re.sub(end_regex, "", text, flags=flags).strip()
-            if end and value:
-                return value
-
-        # Log, in case we did not find a proper value.
-        value = value.strip()
-        if start and end_regex:
-            msg = (f"Found start '{start_identifier}' of repeat identifier, "
-                   f"but could not find end '{end_identifier}.")
-            if value:
-                msg += f" Trying to use '{value}' as repeat interval."
-            logger.warning(msg)
-
-        return value
+        texts = "\n".join([field.text for field in self.fields])
+        match = re.search(regex, texts, flags=flags)
+        if not match:
+            return ""
+        return match.groups()[0]
 
     def get_repeat_intervals(self) -> str:
         if self.intervals is not None:
@@ -364,36 +344,42 @@ class Column(FieldContainer):
                 return interval
         return ""
 
-    def _contains_any_repeat_identifier(self) -> bool:
-        return bool(self.get_repeat_intervals())
-
     def merge(self, other: Column):
-        # Merge bbox.
+        """ Merge self with other, such that self contains all fields and its
+        bbox contains all field bboxes. """
         self.bbox.merge(other.bbox)
-        # Merge fields.
         for field in other.fields:
             self.add_field(field)
 
     def add_field(self, new_field: Field):
-        if self.merge_into_fields(new_field):
+        def _merge_into_fields() -> bool:
+            """ If the field has the same row as an existing one merge them.
+            :returns: True if the field was merged, False otherwise.
+            """
+            for field in self.fields:
+                if field.row == new_field.row:
+                    new_field.text = " " + new_field.text
+                    field.merge(new_field)
+                    return True
+            return False
+
+        if _merge_into_fields():
             return
         self._add_field(new_field, "y")
-
-    def merge_into_fields(self, new_field: Field) -> bool:
-        """ If the field has the same row as an existing one merge them.
-        :returns: True if the field was merged, False otherwise.
-        """
-        for field in self.fields:
-            if field.row == new_field.row:
-                new_field.text = " " + new_field.text
-                field.merge(new_field)
-                return True
-        return False
 
     def __repr__(self) -> str:
         fields_repr = ", ".join(repr(f) for f in self.fields)
         return f"Column(bbox={self.bbox},\n\tfields=[{fields_repr}])"
 
+    def split_at(self, splitter: Rows) -> Cols:
+        return self._split_at(splitter)
+
     @staticmethod
     def from_field(table, field) -> Column:
         return Column(table, [field], field.bbox)
+
+    @staticmethod
+    def from_fields(fields: list[Field]) -> Column:
+        column = Column(fields=fields)
+        column.set_bbox_from_fields()
+        return column
