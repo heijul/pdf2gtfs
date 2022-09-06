@@ -98,7 +98,7 @@ class GTFSStops(ExistingBaseContainer):
 
     def get(self, name) -> GTFSStop:
         for entry in self.entries:
-            # FEATURE: Normalize both names.
+            # TODO: Normalize both names.
             if entry.stop_name != name:
                 continue
             return entry
