@@ -19,9 +19,6 @@ logger = logging.getLogger(__name__)
 CType = TypeVar("CType", bound="InstanceDescriptorMixin")
 
 
-# TODO: Add self.name to Property and use it in logs.
-
-
 class Property:
     def __init__(self, cls: CType, attr: str, attr_type: type) -> None:
         self._register(cls, attr)
@@ -44,7 +41,7 @@ class Property:
 
     def _raise_type_error(self, typ: type) -> None:
         logger.error(
-            f"Invalid config type for {self.attr}. "
+            f"Invalid config type for {self.attr[2:]}. "
             f"Expected '{self.type}', got '{typ}' instead.")
         raise err.InvalidPropertyTypeError
 
@@ -108,15 +105,11 @@ def value_to_generic(base_value: Any) -> type:
 
 
 class NestedTypeProperty(Property):
-    def _raise_type_error(self, value) -> None:
-        super()._raise_type_error(value_to_generic(value))
-
     def _validate_type(self, value: Any) -> None:
         try:
             self._validate_generic_type(value, self.type)
         except err.InvalidPropertyTypeError:
-            # TODO: type(value) does not give enough info.
-            self._raise_type_error(value)
+            self._raise_type_error(value_to_generic(value))
 
     def _validate_generic_type(self, value: Any, typ: type) -> None:
         if typ is None:

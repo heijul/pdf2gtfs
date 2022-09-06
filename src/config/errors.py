@@ -1,8 +1,6 @@
 INVALID_CONFIG_EXIT_CODE = 1
 
 
-# TODO: Add basic messages to each exception
-
 
 class PropertyError(Exception):
     pass
