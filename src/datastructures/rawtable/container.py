@@ -304,16 +304,14 @@ class Column(FieldContainer):
     def _detect_type(self) -> ColumnType:
         previous = self.table.columns.prev(self)
 
-        # CHECK: First column is always a stop?
-        if not previous:
-            return ColumnType.STOP
-
+        # TODO: Maybe use rowtype to check for timedata as well?
         has_time_data = self._contains_time_data()
         has_repeat_identifier = self.get_repeat_intervals() != ""
+        previous_is_stop = previous and previous.type == ColumnType.STOP
 
         if has_repeat_identifier:
             return ColumnType.REPEAT
-        if not has_time_data and previous.type == ColumnType.STOP:
+        if not has_time_data and previous_is_stop:
             return ColumnType.STOP_ANNOTATION
         if not has_time_data and not has_repeat_identifier:
             return ColumnType.STOP
@@ -358,7 +356,8 @@ class Column(FieldContainer):
             """
             for field in self.fields:
                 if field.row == new_field.row:
-                    new_field.text = " " + new_field.text
+                    if (new_field.bbox.x0 - field.bbox.x1) != 0:
+                        new_field.text = " " + new_field.text
                     field.merge(new_field)
                     return True
             return False

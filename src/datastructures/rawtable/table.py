@@ -45,38 +45,34 @@ class Table:
             self._columns = ColumnList.from_list(self, columns)
 
     def generate_data_columns_from_rows(self) -> None:
-        def _get_bounds(_column: Column):
-            return _column.bbox.x0, _column.bbox.x1
+        def _generate_single_field_columns() -> Cols:
+            # Generate single-field columns from the rows.
+            field_columns = [Column.from_field(self, field)
+                             for data_row in data_rows for field in data_row]
+            return sorted(field_columns, key=attrgetter("bbox.x0"))
 
-        def _column_x_is_overlapping(_c1: Column, field_column: Column):
-            b1 = _get_bounds(_c1)
-            b2 = _get_bounds(field_column)
-            # Do not use equality here to prevent returning true
-            #  for columns that are only touching.
-            return b1[0] <= b2[0] <= b1[1] or b1[0] <= b2[1] <= b1[1]
+        def _merge_overlapping_columns(field_columns: Cols) -> Cols:
+            """ Merges overlapping field_columns, without merging those of
+            the same row."""
+            first_field = field_columns.pop(0).fields[0]
+            cols: Cols = [Column.from_field(self, first_field)]
 
+            for column in field_columns:
+                previous_column = cols[-1]
+                # Begin new column, if the current column is not overlapping.
+                if previous_column.bbox.x1 <= column.bbox.x0:
+                    cols.append(Column.from_field(self, column.fields[0]))
+                    continue
+
+                previous_column.add_field(column.fields[0])
+            return cols
+
+        # TODO NOW: Fix type detection of data rows
         data_rows = self.rows.of_type(RowType.DATA)
         if not data_rows:
             return
 
-        # Generate single-field columns from the rows.
-        field_columns = [Column.from_field(self, field)
-                         for row in data_rows for field in row]
-
-        # Merge vertically overlapping columns.
-        columns: Cols = []
-        for column in sorted(field_columns, key=attrgetter("bbox.x0")):
-            if not columns:
-                columns.append(Column.from_field(self, column.fields[0]))
-                continue
-            last = columns[-1]
-            # Do not try to merge columns in the same row.
-            if last.bbox.x1 <= column.bbox.x0:
-                columns.append(Column.from_field(self, column.fields[0]))
-                continue
-            if _column_x_is_overlapping(last, column):
-                last.add_field(column.fields[0])
-
+        columns = _merge_overlapping_columns(_generate_single_field_columns())
         self.columns = columns
         # Add the annotation fields to the columns.
         for row in self.rows.of_types([RowType.ANNOTATION,
@@ -222,7 +218,7 @@ def cleanup_tables(tables: Tables) -> Tables:
     tables = enforce_single_header_row(tables)
     for table in tables:
         table.generate_data_columns_from_rows()
-    # TODO: Handle tables which have no header row; Ask user?
+    # TODO NOW: Handle tables which have no header row; Ask user?
     return split_tables_with_multiple_stop_columns(tables)
 
 

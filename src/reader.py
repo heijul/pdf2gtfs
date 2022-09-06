@@ -148,9 +148,9 @@ def get_rows(char_df: pd.DataFrame) -> list[Row]:
 
 def get_tables_from_df(char_df: pd.DataFrame):
     rows = get_rows(char_df)
-    rawtables = cleanup_tables(split_rows_into_tables(rows))
+    raw_tables = cleanup_tables(split_rows_into_tables(rows))
     timetables = []
-    for table in rawtables:
+    for table in raw_tables:
         table.fix_split_stopnames()
         timetables.append(table.to_timetable())
     return timetables
