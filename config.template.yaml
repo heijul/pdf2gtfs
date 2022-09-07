@@ -76,6 +76,15 @@ repeat_identifier: [
   ["alle", "min"],
 ]
 
+
+# Some columns hold information, on whether the stop on the corresponding row
+#   is an arrival or a departure. The identifiers given here are used to
+#   identify these columns.
+#
+# Type: List of strings
+arrival_identifier: ["an"]
+departure_identifier: ["ab"]
+
 # How to expand the repeating column, if the repeating times occur in a range.
 # Example: Given a repeat column with the content "Alle 7-8 min." and strategy
 #   "cycle" would alternate between using 7 and 8 minutes, while

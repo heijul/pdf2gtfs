@@ -85,6 +85,10 @@ class _Config(InstanceDescriptorMixin):
             self, "disable_location_detection", bool)
         self.min_connection_count = p.Property(
             self, "min_connection_count", int)
+        self.arrival_identifier = p.NestedTypeProperty(
+            self, "arrival_identifier", list[str])
+        self.departure_identifier = p.NestedTypeProperty(
+            self, "departure_identifier", list[str])
 
     def load_default_config(self) -> None:
         if not self.load_config(self.default_config_path):
