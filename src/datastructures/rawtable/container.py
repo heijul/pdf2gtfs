@@ -121,9 +121,11 @@ class FieldContainer(BBoxObject):
         return any(_contains_field_with_value(value) for value in values)
 
     def _contains_time_data(self) -> bool:
-        """ Check if any field contains time data. """
-        # This may rarely return True, if field text contains the text "05.06"
-        # of the annotation "nicht am 05.06.".
+        """ Check if any field contains time data.
+
+        This may rarely return True,
+        e.g. if the field is an annotation with the text "nicht am 05.06.".
+        """
         field_texts = [str(field.text).strip() for field in self.fields]
         for field_text in field_texts:
             try:
