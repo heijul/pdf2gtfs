@@ -69,9 +69,9 @@ class BBox:
                     abs(self.y1 - other.y0),
                     abs(self.y1 - other.y1)])
 
-    def x_is_close(self, other) -> bool:
+    def is_next_to(self, other) -> bool:
         lower, upper = sorted((self, other), key=attrgetter("x0"))
-        return abs(upper.x0 - lower.x1) <= 0.01
+        return upper.x0 - lower.x1 <= 0.01
 
     def __repr__(self) -> str:
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
@@ -105,5 +105,5 @@ class BBoxObject:
 
         self.bbox = bbox
 
-    def x_is_close(self, other: BBoxObject) -> bool:
-        return self.bbox.x_is_close(other.bbox)
+    def is_next_to(self, other: BBoxObject) -> bool:
+        return self.bbox.is_next_to(other.bbox)

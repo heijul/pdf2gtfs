@@ -52,8 +52,7 @@ class Table:
             return sorted(field_columns, key=attrgetter("bbox.x0"))
 
         def _merge_overlapping_columns(field_columns: Cols) -> Cols:
-            """ Merges overlapping field_columns, without merging those of
-            the same row."""
+            """ Merges overlapping field_columns. """
             first_field = field_columns.pop(0).fields[0]
             cols: Cols = [Column.from_field(self, first_field)]
 

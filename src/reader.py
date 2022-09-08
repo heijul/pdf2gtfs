@@ -106,7 +106,7 @@ def split_line_into_fields(line: Line) -> list[Field]:
     #  continuous, because we rounded the coordinates.
     for char in sorted(line, key=attrgetter("x0")):
         char_field = Field.from_char(char)
-        new_field = not fields or not fields[-1].x_is_close(char_field)
+        new_field = not fields or not fields[-1].is_next_to(char_field)
         if new_field:
             fields.append(char_field)
             continue
@@ -119,14 +119,13 @@ def _split_df_into_lines(df: pd.DataFrame) -> Lines:
     """ Turn the df into a list of Line. A list of chars is part of the same
     line if the pairwise y0-distance between the chars is less than a max. """
 
-    cur_y0 = None
+    line_y0 = 0
     lines: Lines = []
     max_char_distance = round((df["y1"] - df["y0"]).mean()) / 2
-
-    for val in df.sort_values("y0", ascending=True).itertuples(False, "Char"):
-        new_line = cur_y0 is None or abs(val.y0 - cur_y0) > max_char_distance
+    for val in df.sort_values(["y0", "x0"]).itertuples(False, "Char"):
+        new_line = abs(val.y0 - line_y0) > max_char_distance
         if new_line:
-            cur_y0 = val.y0
+            line_y0 = val.y0
             lines.append([])
         lines[-1].append(val)
 
