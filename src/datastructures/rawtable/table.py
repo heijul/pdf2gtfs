@@ -67,13 +67,15 @@ class Table:
                 previous_column.add_field(column.fields[0])
             return cols
 
-        # TODO NOW: Fix type detection of data rows
-        data_rows = self.rows.of_type(RowType.DATA)
+        data_rows = self.rows.of_types(
+            [RowType.DATA, RowType.ANNOTATION, RowType.ROUTE_INFO])
         if not data_rows:
             return
 
         columns = _merge_overlapping_columns(_generate_single_field_columns())
         self.columns = columns
+        return
+        # TODO NOW: Needs to only adjust the columns for annotation/route_info
         # Add the annotation fields to the columns.
         for row in self.rows.of_types([RowType.ANNOTATION,
                                        RowType.ROUTE_INFO]):
@@ -163,9 +165,11 @@ class Table:
         tables = [Table() for _ in splitter]
         objects = self.columns if isinstance(splitter[0], Row) else self.rows
 
-        for obj in objects:
-            splits = obj.split_at(splitter)
+        for container in objects:
+            splits = container.split_at(splitter)
             for table, split in zip(tables, splits):
+                if not split.fields:
+                    continue
                 table.add_row_or_column(split)
 
         for table in tables:
@@ -184,6 +188,13 @@ class Table:
 
 
 def split_rows_into_tables(rows: Rows) -> Tables:
+    def log_skipped_rows() -> None:
+        # FEATURE: Should not drop the table,
+        #  but use it to enhance the others
+        row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
+        logger.debug(f"Dropped rows:\n\tDistance: {y_distance:.2f}"
+                     f"\n\tRows: {row_str}")
+
     tables = []
     current_rows = [rows[0]]
     for row in rows[1:]:
@@ -192,11 +203,7 @@ def split_rows_into_tables(rows: Rows) -> Tables:
         y_distance = row.y_distance(current_rows[-1])
         if y_distance > Config.max_row_distance:
             if len(current_rows) < Config.min_row_count:
-                # FEATURE: Should not drop the table,
-                #  but use it to enhance the others
-                row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
-                logger.debug(f"Dropped rows:\n\tDistance: {y_distance}"
-                             f"\n\tRows: {row_str}")
+                log_skipped_rows()
                 current_rows = [row]
                 continue
             logger.info(f"Distance between rows: {y_distance}")
@@ -204,8 +211,10 @@ def split_rows_into_tables(rows: Rows) -> Tables:
             current_rows = []
         current_rows.append(row)
     else:
-        if current_rows:
-            tables.append(Table(current_rows))
+        if len(current_rows) < Config.min_row_count:
+            log_skipped_rows()
+            return tables
+        tables.append(Table(current_rows))
     return tables
 
 
@@ -215,15 +224,15 @@ def cleanup_tables(tables: Tables) -> Tables:
         for row in table.rows.get_objects():
             row.update_type()
 
-    tables = enforce_single_header_row(tables)
+    tables = split_tables_with_multiple_header_rows(tables)
     for table in tables:
         table.generate_data_columns_from_rows()
     # TODO NOW: Handle tables which have no header row; Ask user?
     return split_tables_with_multiple_stop_columns(tables)
 
 
-def enforce_single_header_row(tables: Tables) -> Tables:
-    """ Merge tables with the previous one, if it has no header row. """
+def split_tables_with_multiple_header_rows(tables: Tables) -> Tables:
+    """ Merge table with the previous one, if it has no header row. """
     if not tables:
         return []
 

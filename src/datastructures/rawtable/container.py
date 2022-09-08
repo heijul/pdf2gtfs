@@ -116,15 +116,6 @@ class FieldContainer(BBoxObject):
             index += 1
         self._add_field_at_index(new_field, index)
 
-    def _contains_field_with_values(self, values: list[str]) -> bool:
-        """ Check if any of the fields text match any of the values. """
-        def _contains_field_with_value(value: str) -> bool:
-            """ Returns true if value is equal to any field text. """
-            return any([value.strip().lower() == field.text.strip().lower()
-                        for field in self.fields])
-
-        return any(_contains_field_with_value(value) for value in values)
-
     def _contains_time_data(self) -> bool:
         """ Check if any field contains time data.
 
@@ -140,16 +131,20 @@ class FieldContainer(BBoxObject):
                 pass
         return False
 
-    def _split_at(self, splitter: Rows | Cols) -> list[ContainerT]:
-        # Need copy, because of pop.
-        splitter = list(splitter)
-        fields_list: list[list[Field]] = [[]]
+    def _split_at(self, splitter: list[FieldContainer]) -> list[ContainerT]:
+        idx = 0
+        fields_list: list[list[Field]] = [[] for _ in range(len(splitter))]
+
         for field in self.fields:
-            if splitter and splitter[0].bbox.x0 <= field.bbox.x0:
-                splitter.pop(0)
-                fields_list.append([])
-            fields_list[-1].append(field)
-        return [self.from_fields(fields) for fields in fields_list if fields]
+            next_idx = (idx + 1 < len(splitter) and
+                        splitter[idx + 1].bbox.x0 <= field.bbox.x0)
+            if next_idx:
+                idx += 1
+            fields_list[idx].append(field)
+        return [self.from_fields(fields) for fields in fields_list]
+
+    def has_field_of_type(self, typ: FieldType) -> bool:
+        return any(map(lambda f: f.type == typ, self.fields))
 
     @staticmethod
     def from_fields(fields: list[Field]) -> ContainerT:
@@ -198,18 +193,13 @@ class Row(FieldContainer):
         self._type = self._detect_type()
 
     def _detect_type(self) -> RowType:
-        # Once a row was recognized as annotation it stays an annotation.
-        # CHECK: Why?
-        if self._type and self._type == RowType.ANNOTATION:
-            return RowType.ANNOTATION
-
-        if self._contains_field_with_values(Config.header_values):
+        if self.has_field_of_type(FieldType.HEADER):
             return RowType.HEADER
-        if self._contains_field_with_values(Config.annot_identifier):
+        if self.has_field_of_type(FieldType.ROW_ANNOT):
             return RowType.ANNOTATION
-        if self._contains_field_with_values(Config.route_identifier):
+        if self.has_field_of_type(FieldType.ROUTE_INFO):
             return RowType.ROUTE_INFO
-        if self._contains_time_data():
+        if self.has_field_of_type(FieldType.DATA):
             return RowType.DATA
         return RowType.OTHER
 
@@ -303,11 +293,11 @@ class Column(FieldContainer):
             self.update_type()
         return self._type
 
+    def set_to_stop(self) -> None:
+        self._type = ColumnType.STOP
+
     def update_type(self) -> None:
         self._type = self._detect_type()
-
-    def has_field_of_type(self, typ: FieldType) -> bool:
-        return any(map(lambda f: f.type == typ, self.fields))
 
     def _detect_type(self) -> ColumnType:
         def _constains_long_strings() -> bool:
@@ -317,35 +307,25 @@ class Column(FieldContainer):
         def _is_not_sparse() -> bool:
             """ Returns whether the percentage of empty fields is less than 50%. """
             empty_field_count = sum(map(lambda f: f.text == "", self.fields))
-            return (len(self.fields) / empty_field_count) > 0.5
+            # Adding one to prevent ZeroDivisionError without changing result
+            return ((1 + len(self.fields)) / (1 + empty_field_count)) > 0.5
 
-        previous = self.table.columns.prev(self)
-
-        # TODO: Maybe use rowtype to check for timedata as well?
-        has_time_data = self._contains_time_data()
         has_repeat_identifier = self.get_repeat_intervals() != ""
-        previous_is_stop = previous and previous.type == ColumnType.STOP
         has_data_field = self.has_field_of_type(FieldType.DATA)
 
-
-
+        if _is_not_sparse() and _constains_long_strings():
+            return ColumnType.STOP
         if has_repeat_identifier:
             return ColumnType.REPEAT
-        if not has_time_data and previous_is_stop:
-            return ColumnType.STOP_ANNOTATION
-        if not has_time_data and not has_repeat_identifier:
-            return ColumnType.STOP
-
         if self.has_field_of_type(FieldType.STOP_ANNOT):
             # Update previous column if current is a stop annotation and
-            #  previous' type was not detected properly. TODO: # CHECK:
+            #  previous' type was not detected properly. TODO NOW: # CHECK:
+            previous = self.table.columns.prev(self)
             if previous.has_type() and previous.type == ColumnType.OTHER:
-                previous.set_type(ColumnType.STOP)
+                previous.set_to_stop()
             return ColumnType.STOP_ANNOTATION
         if has_data_field:
             return ColumnType.DATA
-        if _is_not_sparse() and _constains_long_strings():
-            return ColumnType.STOP
         return ColumnType.OTHER
 
     def _get_repeat_interval_from_identifier(
