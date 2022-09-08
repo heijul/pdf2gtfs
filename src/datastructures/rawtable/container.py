@@ -4,11 +4,12 @@ import logging
 import re
 from datetime import datetime
 from operator import attrgetter
+from statistics import mean
 from typing import Generic, Iterator, TYPE_CHECKING, TypeVar
 
 from config import Config
 from datastructures.rawtable.bbox import BBox, BBoxObject
-from datastructures.rawtable.enums import ColumnType, RowType
+from datastructures.rawtable.enums import ColumnType, FieldType, RowType
 from utils import padded_list
 
 
@@ -56,6 +57,7 @@ class FieldContainer(BBoxObject):
         self._table = None
         BBoxObject.__init__(self, bbox)
         self.table = table
+        self._type = None
 
     @property
     def fields(self) -> list[Field]:
@@ -74,6 +76,9 @@ class FieldContainer(BBoxObject):
     @table.setter
     def table(self, table: TableT):
         self._table = table
+
+    def has_type(self) -> bool:
+        return self._type is not None
 
     def add_reference_to_field(self, field: Field) -> None:
         setattr(field, self.field_attr, self)
@@ -165,7 +170,6 @@ class FieldContainer(BBoxObject):
 class Row(FieldContainer):
     def __init__(self, table: Table = None, bbox: BBox = None):
         super().__init__(table, bbox)
-        self._type = None
 
     @staticmethod
     def from_fields(fields: list[Field]) -> Row:
@@ -291,7 +295,6 @@ class Column(FieldContainer):
                  bbox: BBox = None):
         super().__init__(table, bbox)
         self.fields: list[Field] = fields or []
-        self._type = None
         self.intervals = None
 
     @property
@@ -303,13 +306,28 @@ class Column(FieldContainer):
     def update_type(self) -> None:
         self._type = self._detect_type()
 
+    def has_field_of_type(self, typ: FieldType) -> bool:
+        return any(map(lambda f: f.type == typ, self.fields))
+
     def _detect_type(self) -> ColumnType:
+        def _constains_long_strings() -> bool:
+            """ Returns whether the average length of text is higher than 6. """
+            return mean(map(lambda f: len(f.text), self.fields)) > 6
+
+        def _is_not_sparse() -> bool:
+            """ Returns whether the percentage of empty fields is less than 50%. """
+            empty_field_count = sum(map(lambda f: f.text == "", self.fields))
+            return (len(self.fields) / empty_field_count) > 0.5
+
         previous = self.table.columns.prev(self)
 
         # TODO: Maybe use rowtype to check for timedata as well?
         has_time_data = self._contains_time_data()
         has_repeat_identifier = self.get_repeat_intervals() != ""
         previous_is_stop = previous and previous.type == ColumnType.STOP
+        has_data_field = self.has_field_of_type(FieldType.DATA)
+
+
 
         if has_repeat_identifier:
             return ColumnType.REPEAT
@@ -317,7 +335,18 @@ class Column(FieldContainer):
             return ColumnType.STOP_ANNOTATION
         if not has_time_data and not has_repeat_identifier:
             return ColumnType.STOP
-        return ColumnType.DATA
+
+        if self.has_field_of_type(FieldType.STOP_ANNOT):
+            # Update previous column if current is a stop annotation and
+            #  previous' type was not detected properly. TODO: # CHECK:
+            if previous.has_type() and previous.type == ColumnType.OTHER:
+                previous.set_type(ColumnType.STOP)
+            return ColumnType.STOP_ANNOTATION
+        if has_data_field:
+            return ColumnType.DATA
+        if _is_not_sparse() and _constains_long_strings():
+            return ColumnType.STOP
+        return ColumnType.OTHER
 
     def _get_repeat_interval_from_identifier(
             self, start_identifier: str, end_identifier: str) -> str:
