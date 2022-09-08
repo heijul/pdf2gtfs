@@ -92,6 +92,7 @@ class Field(BBoxObject):
             return (self._contains(Config.arrival_identifier) or
                     self._contains(Config.departure_identifier))
 
+    # TODO: Improve str/repr
     def __str__(self) -> str:
         return str(self.text)
 
