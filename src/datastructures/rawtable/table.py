@@ -73,12 +73,6 @@ class Table:
 
         columns = _merge_overlapping_columns(_generate_single_field_columns())
         self.columns = columns
-        return
-        # TODO NOW: Needs to only adjust the columns for annotation/route_info
-        # Add the annotation fields to the columns.
-        for row in self.rows.of_types([RowType.ANNOTATION,
-                                       RowType.ROUTE_INFO]):
-            row.apply_column_scheme(columns)
 
     def fix_split_stopnames(self) -> None:
         """ Finds and tries to repair stop names, which start with a "-",

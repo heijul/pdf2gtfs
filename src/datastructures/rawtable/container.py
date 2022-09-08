@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import logging
 import re
+from abc import ABC, abstractmethod
 from datetime import datetime
-from operator import attrgetter
 from statistics import mean
 from typing import Generic, Iterator, TYPE_CHECKING, TypeVar
 
 from config import Config
 from datastructures.rawtable.bbox import BBox, BBoxObject
 from datastructures.rawtable.enums import ColumnType, FieldType, RowType
-from utils import padded_list
 
 
 if TYPE_CHECKING:
@@ -23,7 +22,7 @@ ContainerT = TypeVar("ContainerT", bound="FieldContainer")
 TableT = TypeVar("TableT", bound="Table")
 
 
-class BaseContainerReference(Generic[ContainerT]):
+class BaseContainerReference(Generic[ContainerT], ABC):
     """ Descriptor for the row/column references of the fields. """
 
     def __set_name__(self, owner, name) -> None:
@@ -147,8 +146,8 @@ class FieldContainer(BBoxObject):
         return any(map(lambda f: f.type == typ, self.fields))
 
     @staticmethod
+    @abstractmethod
     def from_fields(fields: list[Field]) -> ContainerT:
-        # TODO: Add abc
         pass
 
     def __str__(self) -> str:
@@ -179,10 +178,6 @@ class Row(FieldContainer):
     def y_distance(self, other: Row) -> float:
         return self.bbox.y_distance(other.bbox)
 
-    def set_table(self, table: Table):
-        self.table = table
-        self.update_type()
-
     @property
     def type(self) -> RowType:
         if not self._type:
@@ -202,72 +197,6 @@ class Row(FieldContainer):
         if self.has_field_of_type(FieldType.DATA):
             return RowType.DATA
         return RowType.OTHER
-
-    def apply_column_scheme(self, columns: list[Column | None]):
-        # STYLE: This is actually three functions in a trenchcoat.
-        from datastructures.rawtable.field import Field
-
-        def get_stop_bbox() -> BBox:
-            # Generate bbox for the stops, where we want to ignore the scheme.
-            _bbox = None
-            for _column in columns:
-                if _column.type == ColumnType.DATA:
-                    _bbox.x1 += get_x_center(_bbox, _column.bbox)
-                    break
-                if _bbox is None:
-                    _bbox = _column.bbox.copy()
-                    continue
-                _bbox.merge(_column.bbox.copy())
-            return _bbox
-
-        def get_x_center(b1: BBox, b2: BBox) -> float:
-            left, right = sorted([b1, b2], key=attrgetter("x0"))
-            return round((right.x0 - left.x1) / 2, 2)
-
-        def get_delta(_bbox: BBox, other_column: Column | None) -> float:
-            if other_column is None:
-                return 2
-            return get_x_center(_bbox, other_column.bbox)
-
-        stop_bbox = get_stop_bbox()
-        fields = [field for field in self.fields
-                  if not stop_bbox.contains_vertical(field.bbox)]
-        unmatched_fields = sorted(fields, key=attrgetter("bbox.x0"))
-        column_matches: dict[Column: list[Field]] = {}
-
-        for prev_column, column, next_column in zip(*padded_list(columns)):
-            if stop_bbox.contains_vertical(column.bbox):
-                continue
-            # Get bbox where x-bounds are in the center between columns.
-            bbox = column.bbox.copy()
-            bbox.x0 -= get_delta(bbox, prev_column)
-            bbox.x1 += get_delta(bbox, next_column)
-
-            column_matches[column] = []
-            # Check if field fits stretched column bbox.
-            for field in list(unmatched_fields):
-                if not bbox.contains_vertical(field.bbox):
-                    continue
-                column_matches[column].append(field)
-                del unmatched_fields[unmatched_fields.index(field)]
-
-        # Only apply the column scheme, if all fields fit (except stopcolumn).
-        if unmatched_fields:
-            fields = "\n\t".join(map(str, unmatched_fields))
-            logger.debug("Tried to apply column scheme, but could not match "
-                         f"the following fields:\n\t{fields}")
-            return
-
-        for column, fields in column_matches.items():
-            # Add empty field, to ensure all columns have the same height.
-            if not fields:
-                bbox = BBox(column.bbox.x0, self.bbox.y0,
-                            column.bbox.x1, self.bbox.y1)
-                field = Field(bbox, "")
-                self.add_field(field)
-                fields = [field]
-            for field in fields:
-                column.add_field(field)
 
     def split_at(self, columns: list[Column]) -> list[Row]:
         """ Splits the row, depending on the given columns. """
@@ -319,7 +248,8 @@ class Column(FieldContainer):
             return ColumnType.REPEAT
         if self.has_field_of_type(FieldType.STOP_ANNOT):
             # Update previous column if current is a stop annotation and
-            #  previous' type was not detected properly. TODO NOW: # CHECK:
+            #  previous' type was not detected properly.
+            # CHECK: If this makes sense.
             previous = self.table.columns.prev(self)
             if previous.has_type() and previous.type == ColumnType.OTHER:
                 previous.set_to_stop()
