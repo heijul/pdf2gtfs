@@ -202,7 +202,6 @@ class Reader:
         except GhostscriptError as e:
             logger.error("Ghostscript encountered an error trying to convert "
                          f"{self.filepath} into {self.tempfile.name}.")
-            self._remove_preprocess_tempfile()
             raise e
         logger.info(f"Preprocessing done. Took {time() - start:.2f}s")
 
@@ -219,7 +218,7 @@ class Reader:
                            "installed. Skipping preprocessing...")
             return False
 
-    def read(self) -> list[TimeTable]:
+    def _read(self) -> list[TimeTable]:
         if self.preprocess_check():
             self.preprocess()
         file = self.tempfile.name if self.tempfile else self.filepath
@@ -231,7 +230,6 @@ class Reader:
                          "it's a valid pdf file? This may also sometimes "
                          "happen for no apparent reason. Please try again.")
             logger.error(e)
-            self._remove_preprocess_tempfile()
             sys.exit(2)
 
         start = time()
@@ -241,6 +239,13 @@ class Reader:
                         f"{time() - start:.4} seconds.")
             timetables += page_to_timetables(page)
             start = time()
-        self._remove_preprocess_tempfile()
 
         return timetables
+
+    def read(self) -> list[TimeTable]:
+        try:
+            return self._read()
+        except Exception as e:
+            raise e
+        finally:
+            self._remove_preprocess_tempfile()
