@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from datastructures.rawtable.bbox import BBox
+from datastructures.rawtable.bbox import BBox, BBoxObject
 
 
 class TestBBox(TestCase):
@@ -32,3 +32,9 @@ class TestBBox(TestCase):
         self.assertEqual(0, self.bbox1.y_distance(self.bbox2))
         self.assertEqual(10, self.bbox1.y_distance(self.bbox3))
         self.assertEqual(10, self.bbox2.y_distance(self.bbox3))
+
+
+class TestBBoxObject(TestCase):
+    def setUp(self) -> None:
+        self.obj1 = BBoxObject()
+        self.obj2 = BBoxObject(BBox(5, 10, 10, 20))

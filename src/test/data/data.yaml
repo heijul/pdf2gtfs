@@ -1,6 +1,7 @@
 test_table.py:
   TestTable:
     test_generate_data_columns_from_rows:
+      col_types: [1, 2, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
       cols:
         - [VERKEHRSHINWEIS, Laßbergstraße, Römerhof, Hasemannstraße, Emil-Gött-Straße,
            Musikhochschule, Alter Messplatz, Maria-Hilf-Kirche, Brauerei Ganter,
@@ -29,3 +30,23 @@ test_table.py:
         - [7.17, 7.18, 7.19, 7.20, 7.21, 7.22, 7.23, 7.24, 7.26, 7.28, 7.29, 7.31, 7.33, 7.34, 7.35, 7.37, 7.38, 7.40, 7.42, 7.44, 7.45, 7.46, 7.48]
         - [7.32, 7.33, 7.34, 7.35, 7.36, 7.37, 7.38, 7.39, 7.41, 7.43, 7.44, 7.46, 7.48, 7.49, 7.50, 7.52, 7.53, 7.55, 7.57, 7.59, 8.00, 8.01, 8.03]
         - [7.58, 8.00, 8.02, 8.04, 8.05, 8.06, 8.08]
+    test_fix_split_stop_names:
+      texts: ["Freiburg - Hauptbahnhof", "- Wiehre",
+              "- Littenweiler", "Kirchzarten - Bahnhof"]
+      bboxes:
+        - [100, 100, 110, 110]
+        - [100, 110, 110, 120]
+        - [100, 120, 110, 130]
+        - [100, 130, 110, 140]
+      stops: ["Freiburg - Hauptbahnhof", "Freiburg - Wiehre",
+              "Freiburg - Littenweiler", "Kirchzarten - Bahnhof"]
+    test_fix_split_stop_names_indented:
+      texts: ["Freiburg - Hauptbahnhof", "Wiehre",
+              "Littenweiler", "Kirchzarten - Bahnhof"]
+      bboxes:
+        - [100, 100, 110, 110]
+        - [105, 110, 120, 120]
+        - [105, 120, 120, 130]
+        - [100, 130, 110, 140]
+      stops: ["Freiburg - Hauptbahnhof", "Freiburg - Wiehre",
+              "Freiburg - Littenweiler", "Kirchzarten - Bahnhof"]

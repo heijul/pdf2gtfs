@@ -3,7 +3,7 @@ __pycache__/
 tabula-java/
 pdfact/
 xpdf-tools-linux-4.03/
-data/
+/data
 out/
 gtfs-validator/
 
