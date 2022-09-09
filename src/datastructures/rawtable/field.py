@@ -93,7 +93,7 @@ class Field(BBoxObject):
                     self._contains(Config.departure_identifier))
 
     def __str__(self) -> str:
-        return f"F({self.text})"
+        return f"F('{self.text}')"
 
     def __repr__(self) -> str:
         return f"Field('{self.text}', {self.type}, {self.bbox!r})"

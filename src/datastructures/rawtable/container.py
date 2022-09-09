@@ -151,7 +151,8 @@ class FieldContainer(BBoxObject):
         pass
 
     def __str__(self) -> str:
-        return str([str(f) for f in self.fields])
+        field_texts = " ".join([f.text for f in self.fields])
+        return f"{str(self.__class__.__name__)}('{field_texts}')"
 
     def __iter__(self) -> Iterator[Field]:
         return self.fields.__iter__()
