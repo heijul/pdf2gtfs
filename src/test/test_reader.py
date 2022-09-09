@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from config import Config
-from reader import get_chars_dataframe, get_rows, get_pages, Reader
+from reader import get_chars_dataframe, dataframe_to_rows, get_pages, Reader
 
 
 class TestReader(TestCase):
@@ -30,5 +30,5 @@ class TestReader(TestCase):
         line_count = [76, 78, 77, 74, 78, 49]
         for i in range(len(pages)):
             with self.subTest(msg=i):
-                lines = get_rows(get_chars_dataframe(pages[i]))
+                lines = dataframe_to_rows(get_chars_dataframe(pages[i]))
                 self.assertEqual(line_count[i], len(lines))

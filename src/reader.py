@@ -16,10 +16,13 @@ from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
 from datastructures.rawtable.field import Field
-from datastructures.rawtable.table import cleanup_tables, Row, split_rows_into_tables
+from datastructures.rawtable.table import (
+    cleanup_tables, Row, split_rows_into_tables, Table)
 from datastructures.timetable.table import TimeTable
 from p2g_types import Char
 
+
+PDF_READ_ERROR_CODE = 2
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +101,8 @@ def get_pages(file: str | Path) -> Iterator[LTPage]:
 
 
 def split_line_into_fields(line: Line) -> list[Field]:
+    """ Split the given chars into fields,
+    merging multiple fields, based on their x coordinates. """
     fields = []
     if len(line) == 0:
         return fields
@@ -115,7 +120,7 @@ def split_line_into_fields(line: Line) -> list[Field]:
     return fields
 
 
-def _split_df_into_lines(df: pd.DataFrame) -> Lines:
+def split_df_into_lines(df: pd.DataFrame) -> Lines:
     """ Turn the df into a list of Line. A list of chars is part of the same
     line if the pairwise y0-distance between the chars is less than a max. """
 
@@ -132,11 +137,11 @@ def _split_df_into_lines(df: pd.DataFrame) -> Lines:
     return lines
 
 
-def get_rows(char_df: pd.DataFrame) -> list[Row]:
+def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
     rows = []
     start = time()
 
-    for line in _split_df_into_lines(char_df):
+    for line in split_df_into_lines(char_df):
         row = Row.from_fields(split_line_into_fields(line))
         rows.append(row)
 
@@ -145,9 +150,13 @@ def get_rows(char_df: pd.DataFrame) -> list[Row]:
     return rows
 
 
-def get_tables_from_df(char_df: pd.DataFrame):
-    rows = get_rows(char_df)
+def get_raw_tables_from_df(char_df: pd.DataFrame) -> list[Table]:
+    rows = dataframe_to_rows(char_df)
     raw_tables = cleanup_tables(split_rows_into_tables(rows))
+    return raw_tables
+
+
+def raw_tables_to_timetables(raw_tables) -> list[TimeTable]:
     timetables = []
     for table in raw_tables:
         table.fix_split_stopnames()
@@ -157,7 +166,9 @@ def get_tables_from_df(char_df: pd.DataFrame):
 
 def page_to_timetables(page: LTPage) -> list[TimeTable]:
     char_df = get_chars_dataframe(page)
-    tables = get_tables_from_df(char_df)
+    raw_tables = get_raw_tables_from_df(char_df)
+    tables = raw_tables_to_timetables(raw_tables)
+
     logger.info(f"Number of tables found: {len(tables)}")
     return tables
 
@@ -166,6 +177,9 @@ class Reader:
     def __init__(self) -> None:
         self.tempfile = None
         self.filepath = Path(Config.filename).resolve()
+
+    def __del__(self) -> None:
+        self._remove_preprocess_tempfile()
 
     def _remove_preprocess_tempfile(self) -> None:
         if not self.tempfile:
@@ -176,9 +190,11 @@ class Reader:
             pass
 
     def preprocess(self) -> None:
-        # Preprocessing removes invisible text (most likely used for OCR),
-        #  while also significantly improving performance,
-        #  because only text is preserved.
+        """ Remove invisible text (most likely used for OCR/etc.), while also
+        significantly improving performance, cause only text is preserved. """
+        if not _preprocess_check():
+            return
+
         from ghostscript import Ghostscript
 
         logger.info("Beginning preprocessing...")
@@ -204,35 +220,25 @@ class Reader:
             raise e
         logger.info(f"Preprocessing done. Took {time() - start:.2f}s")
 
-    @staticmethod
-    def preprocess_check() -> bool:
-        if not Config.preprocess:
-            logger.info("Preprocessing disabled via config.")
-            return False
-        try:
-            from ghostscript import Ghostscript
-            return True
-        except RuntimeError:
-            logger.warning("Ghostscript library does not seem to be "
-                           "installed. Skipping preprocessing...")
-            return False
-
-    def _read(self) -> list[TimeTable]:
-        if self.preprocess_check():
-            self.preprocess()
+    def get_pages(self) -> Iterator[LTPage]:
+        """ Return the pdfminer page iterator, which is lazy. """
         file = self.tempfile.name if self.tempfile else self.filepath
-        timetables = []
         try:
-            pages = get_pages(file)
+            return get_pages(file)
         except PDFSyntaxError as e:
             logger.error(f"PDFFile '{file}' could not be read. Are you sure "
                          "it's a valid pdf file? This may also sometimes "
                          "happen for no apparent reason. Please try again.")
             logger.error(e)
-            sys.exit(2)
+            sys.exit(PDF_READ_ERROR_CODE)
 
+    def read(self) -> list[TimeTable]:
+        """ Return the timetables from all given pages. """
+        self.preprocess()
+
+        timetables = []
         start = time()
-        for page in pages:
+        for page in self.get_pages():
             page_num = Config.pages.page_num(page.pageid)
             logger.info(f"Basic reading of page {page_num} took: "
                         f"{time() - start:.4} seconds.")
@@ -241,10 +247,17 @@ class Reader:
 
         return timetables
 
-    def read(self) -> list[TimeTable]:
-        try:
-            return self._read()
-        except Exception as e:
-            raise e
-        finally:
-            self._remove_preprocess_tempfile()
+
+def _preprocess_check() -> bool:
+    """ Check if we could theoretically preprocess the pdf. """
+    if not Config.preprocess:
+        logger.info("Preprocessing was disabled via config. "
+                    "Continuing with raw pdf file...")
+        return False
+    try:
+        from ghostscript import Ghostscript
+        return True
+    except RuntimeError:
+        logger.warning("Ghostscript library does not seem to be "
+                       "installed. Skipping preprocessing...")
+        return False
