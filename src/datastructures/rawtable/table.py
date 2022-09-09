@@ -75,65 +75,15 @@ class Table:
         self.columns = columns
 
     def fix_split_stopnames(self) -> None:
-        """ Finds and tries to repair stop names, which start with a "-",
-         indicating that they use the same city/poi as the previous.
-
-        E.g. given a row with stop A with text "Frankfurt - Hauptbahnhof",
-         followed by a stop B with text "- Friedhof", then the text of B
-         will be changed to "Frankfurt - Friedhof".
-        """
-
-        def get_base_name(prev_text: str, text: str) -> str:
-            """ Returns the base name for the split stops.
-            I.e. the 'Frankfurt' in the example above. """
-            text = text.strip()
-            # Current text is equal to previous stop, but the short version.
-            if text in prev_text:
-                return prev_text.replace(text, "")
-            # Current text without delimiter is contained in previous stop.
-            clean_text = text[1:].strip()
-            if clean_text in prev_text:
-                return prev_text.replace(clean_text, "")
-            # Current stop is different from previous stop.
-            return _get_base_from_last_stop_text(prev_text)
-
-        def _get_base_from_last_stop_text(prev_text: str) -> str:
-            """ Find the most likely base_text of a given text, by splitting
-            the text at common delimiters. """
-            split_chars = [",", "-", " "]
-            for split_char in split_chars:
-                split_text = prev_text.split(split_char, 1)
-                if len(split_text) <= 1:
-                    continue
-                return split_text[0].strip()
-            return prev_text.strip()
-
-        def is_indented() -> bool:
-            min_indention_in_pts = 3
-            dist = abs(stop_columns[0].bbox.x0 - stop.bbox.x0)
-            return dist >= min_indention_in_pts
-
-        stop_columns = self.columns.of_type(ColumnType.STOP)
-        if not stop_columns or not stop_columns[0].fields:
-            return
-
-        stops = stop_columns[0].fields
-        prev_stop_text = stops[0].text
-        base_text = ""
-        for stop in stops[1:]:
-            stop_text = stop.text.strip()
-            if not stop_text or stop.row.type != RowType.DATA:
-                continue
-            is_normal_stop = not (stop_text.startswith("-") or is_indented())
-            if is_normal_stop:
-                prev_stop_text = stop_text
-                base_text = ""
-                continue
-            # Need to save the base_stop_name,
-            #  in case multiple consecutive stops are split
-            if not base_text:
-                base_text = get_base_name(prev_stop_text, stop_text)
-            stop.text = base_text + ", " + stop_text[1:].strip()
+        """ Fix stop names (indented or starting with a delimiter),
+        indicating they use the same city/POI as the previous stop. """
+        stop_column = self.columns.of_type(ColumnType.STOP)[0]
+        fields = stop_column.fields
+        reference_field = fields[0]
+        for field in fields[1:]:
+            # Don't update the reference_field, in case field is indented.
+            if not field.fix_name_if_split(reference_field):
+                reference_field = field
 
     def to_timetable(self) -> TimeTable:
         return TimeTable.from_raw_table(self)
