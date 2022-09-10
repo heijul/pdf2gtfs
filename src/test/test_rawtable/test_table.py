@@ -60,7 +60,7 @@ class TestTable(TestCase):
         table.generate_data_columns_from_rows()
         table.fix_split_stopnames()
 
-        fields = table.columns.get_objects()[0].fields
+        fields = table.columns[0].fields
         for stop, field in zip(data["stops"], fields, strict=True):
             self.assertEqual(stop, field.text)
 
@@ -71,7 +71,7 @@ class TestTable(TestCase):
         table.generate_data_columns_from_rows()
         table.fix_split_stopnames()
 
-        fields = table.columns.get_objects()[0].fields
+        fields = table.columns[0].fields
         for stop, field in zip(data["stops"], fields, strict=True):
             self.assertEqual(stop, field.text)
 

@@ -135,10 +135,10 @@ class Table:
             """ Splits the current tables' rows such that each split starts
             with a splitter_row and assigns each split to a table. """
             rows_list = [[] for _ in splitter_rows]
-            first_is_splitter = self.rows.get_objects()[0] in splitter_rows
+            first_is_splitter = self.rows[0] in splitter_rows
             idx = -1 if first_is_splitter else 0
 
-            for row in self.rows.get_objects():
+            for row in self.rows:
                 if row in splitter_rows:
                     idx += 1
                 rows_list[idx].append(row)
@@ -183,7 +183,7 @@ def split_rows_into_tables(rows: Rows) -> Tables:
 def cleanup_tables(tables: Tables) -> Tables:
     """ Fix some errors in the tables. """
     for table in tables:
-        for row in table.rows.get_objects():
+        for row in table.rows:
             row.update_type()
 
     tables = split_tables_with_multiple_header_rows(tables)

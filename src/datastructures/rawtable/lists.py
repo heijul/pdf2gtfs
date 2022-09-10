@@ -18,7 +18,8 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
         self._objects: list[FieldContainerT] = []
         self.table = table
 
-    def get_objects(self) -> list[FieldContainerT]:
+    @property
+    def objects(self) -> list[FieldContainerT]:
         return self._objects
 
     def add(self, obj: FieldContainerT):
@@ -64,11 +65,14 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
 
     def __repr__(self) -> str:
         name = self.__class__.__name__
-        obj_str = "\n\t".join([str(obj) for obj in self._objects])
+        obj_str = "\n\t".join([str(obj) for obj in self.objects])
         return f"{name}(\n\t{obj_str})"
 
     def __len__(self) -> int:
-        return self._objects.__len__()
+        return len(self.objects)
+
+    def __getitem__(self, item) -> FieldContainerT:
+        return self.objects[item]
 
 
 class ColumnList(FieldContainerList[TableT, Column]):
@@ -87,5 +91,5 @@ class RowList(FieldContainerList[TableT, Row]):
         return mean([len(row.fields) for row in self._objects])
 
     def merge(self, other: RowList):
-        self._objects += other.get_objects()
+        self._objects += other.objects
         self._objects.sort(key=attrgetter("bbox.y0"))
