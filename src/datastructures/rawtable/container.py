@@ -5,7 +5,7 @@ import re
 from abc import ABC, abstractmethod
 from datetime import datetime
 from statistics import mean
-from typing import Generic, Iterator, TYPE_CHECKING, TypeVar
+from typing import Callable, Generic, Iterator, TYPE_CHECKING, TypeVar
 
 from config import Config
 from datastructures.rawtable.bbox import BBox, BBoxObject
@@ -130,14 +130,19 @@ class FieldContainer(BBoxObject):
                 pass
         return False
 
-    def _split_at(self, splitter: list[FieldContainer]) -> list[ContainerT]:
+    def _split_at(self, splitters: list[FieldContainer],
+                  next_idx: Callable[[FieldContainer, Field], bool]
+                  ) -> list[ContainerT]:
+        """ Splits the container at splitters. next_idx should be a function,
+        which takes the next available splitter and returns True,
+        if the index should be incremented.
+        """
         idx = 0
-        fields_list: list[list[Field]] = [[] for _ in range(len(splitter))]
+        fields_list: list[list[Field]] = [[] for _ in range(len(splitters))]
 
         for field in self.fields:
-            next_idx = (idx + 1 < len(splitter) and
-                        splitter[idx + 1].bbox.x0 <= field.bbox.x0)
-            if next_idx:
+            splitter_available = idx + 1 < len(splitters)
+            if splitter_available and next_idx(splitters[idx + 1], field):
                 idx += 1
             fields_list[idx].append(field)
         return [self.from_fields(fields) for fields in fields_list]
@@ -199,9 +204,12 @@ class Row(FieldContainer):
             return RowType.DATA
         return RowType.OTHER
 
-    def split_at(self, columns: list[Column]) -> list[Row]:
+    def split_at(self, splitter: Cols) -> Rows:
         """ Splits the row, depending on the given columns. """
-        return self._split_at(columns)
+        def next_idx(column: FieldContainer, field: Field) -> bool:
+            return column.bbox.x0 <= field.bbox.x0
+
+        return self._split_at(splitter, next_idx)
 
     def __repr__(self) -> str:
         fields_repr = ", ".join(repr(f) for f in self.fields)
@@ -313,7 +321,10 @@ class Column(FieldContainer):
         return f"Column(bbox={self.bbox},\n\tfields=[{fields_repr}])"
 
     def split_at(self, splitter: Rows) -> Cols:
-        return self._split_at(splitter)
+        def next_idx(column: FieldContainer, field: Field) -> bool:
+            return column.bbox.y0 <= field.bbox.y0
+
+        return self._split_at(splitter, next_idx)
 
     @staticmethod
     def from_field(table, field) -> Column:

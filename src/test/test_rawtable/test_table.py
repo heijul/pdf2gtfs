@@ -88,6 +88,22 @@ class TestTable(TestCase):
         self.assertEqual(left_row_texts, [str(r) for r in tables[0].rows])
         self.assertEqual(right_row_texts, [str(r) for r in tables[1].rows])
 
+    def test_split_at_header_rows(self) -> None:
+        rows = create_rows(12, 5, True)
+        headers = list(Config.header_values.keys())
+        rows[0].fields[0].text = headers[0]
+        rows[0].update_type()
+        rows[5].fields[0].text = headers[1]
+        rows[5].update_type()
+        top_rows_texts = [str(r) for r in rows[:5]]
+        bot_rows_texts = [str(r) for r in rows[5:]]
+
+        table = split_rows_into_tables(rows)[0]
+        table.generate_data_columns_from_rows()
+        tables = table.split_at_header_rows()
+        self.assertEqual(top_rows_texts, [str(r) for r in tables[0].rows])
+        self.assertEqual(bot_rows_texts, [str(r) for r in tables[1].rows])
+
 
 def create_rows(row_count: int = 5, col_count: int = 3,
                 data_fields: bool = True, first_stop: bool = True,

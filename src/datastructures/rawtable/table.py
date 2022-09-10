@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 from operator import attrgetter
-from typing import TypeAlias
+from typing import Callable, TypeAlias
 
 from config import Config
-from datastructures.rawtable.container import Column, Row
+from datastructures.rawtable.container import Column, FieldContainer, Row
 from datastructures.rawtable.enums import ColumnType, RowType
 from datastructures.rawtable.lists import ColumnList, RowList
 from datastructures.timetable.table import TimeTable
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 Tables: TypeAlias = list["Table"]
 Rows: TypeAlias = list[Row]
 Cols: TypeAlias = list[Column]
+Splitter: TypeAlias = Callable[[Tables, list[FieldContainer]], None]
 
 
 class Table:
@@ -103,31 +104,49 @@ class Table:
             return
         self.columns.add(obj)
 
-    def _split_at(self, splitter: Rows | Cols) -> Tables:
-        """ Split the table at the given splitter. """
-        tables = [Table() for _ in splitter]
-        objects = self.columns if isinstance(splitter[0], Row) else self.rows
+    @staticmethod
+    def _split_at(splitter: list, splitter_func: Splitter) -> Tables:
+        tables: Tables = [Table() for _ in splitter]
 
-        for container in objects:
-            splits = container.split_at(splitter)
-            for table, split in zip(tables, splits):
-                if not split.fields:
-                    continue
-                table.add_row_or_column(split)
+        splitter_func(tables, splitter)
 
         for table in tables:
             for row in table.rows:
                 row.update_type()
             table.generate_data_columns_from_rows()
+
         return tables
 
     def split_at_stop_columns(self) -> Tables:
         """ Return a list of tables with each having a single stop column. """
-        return self._split_at(self.columns.of_type(ColumnType.STOP))
+        def splitter(tables: Tables, splitter_columns: list) -> None:
+            for row in self.rows:
+                splits = row.split_at(splitter_columns)
+                for table, split in zip(tables, splits):
+                    if not split.fields:
+                        continue
+                    table.add_row_or_column(split)
+
+        return self._split_at(self.columns.of_type(ColumnType.STOP), splitter)
 
     def split_at_header_rows(self) -> Tables:
         """ Return a list of tables with each having a single header row. """
-        return self._split_at(self.rows.of_type(RowType.HEADER))
+        def splitter(tables: Tables, splitter_rows: list) -> None:
+            """ Splits the current tables' rows such that each split starts
+            with a splitter_row and assigns each split to a table. """
+            rows_list = [[] for _ in splitter_rows]
+            first_is_splitter = self.rows.get_objects()[0] in splitter_rows
+            idx = -1 if first_is_splitter else 0
+
+            for row in self.rows.get_objects():
+                if row in splitter_rows:
+                    idx += 1
+                rows_list[idx].append(row)
+
+            for table, rows in zip(tables, rows_list, strict=True):
+                table.rows = rows
+
+        return self._split_at(self.rows.of_type(RowType.HEADER), splitter)
 
 
 def split_rows_into_tables(rows: Rows) -> Tables:
