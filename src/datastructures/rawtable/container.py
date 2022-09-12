@@ -50,6 +50,7 @@ class FieldColumnReference(BaseContainerReference["Column"]):
 
 
 class FieldContainer(BBoxObject):
+    """ Base class for Row/Column. """
     def __init__(self, table: Table = None, bbox: BBox = None):
         self._fields: list[Field] = []
         self.field_attr = self.__class__.__name__.lower()

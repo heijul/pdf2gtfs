@@ -16,6 +16,47 @@ def set_up_config() -> None:
     Config.output_dir = get_test_src_dir().joinpath("out/")
 
 
+def create_rows(row_count: int = 5, col_count: int = 3,
+                data_fields: bool = True, first_stop: bool = True,
+                right_of: list[Row] = None) -> list[Row]:
+    """ Create [count] rows with [field_count] fields each.  """
+
+    def get_text() -> str:
+        if first_stop and col_num == 0:
+            return f"row_{row_num}-col_{col_num}"
+        if data_fields:
+            return f"{row_num}.{col_num}"
+        return f"row_{row_num}-col_{col_num}"
+
+    def get_base() -> tuple[float, float, float, float]:
+        if not right_of:
+            return 100, 100, 110, 110
+        # Don't add base_delta to y0, to start in the same line.
+        left_x1 = max(right_of, key=attrgetter("bbox.x1")).bbox.x1
+        return (left_x1 + base_delta,
+                min(right_of, key=attrgetter("bbox.y0")).bbox.y0,
+                left_x1 + base_delta + base_delta,
+                min(right_of, key=attrgetter("bbox.y0")).bbox.y0 + base_delta)
+
+    base_delta = 10
+    base_x0, y0, base_x1, y1 = get_base()
+
+    rows = []
+    for row_num in range(row_count):
+        fields = []
+        # Reset xs.
+        x0, x1 = base_x0, base_x1
+        for col_num in range(col_count):
+            fields.append(Field(BBox(x0, y0, x1, y1), get_text()))
+            x0 += base_delta
+            x1 += base_delta
+        rows.append(Row.from_fields(fields))
+        y0 += base_delta
+        y1 += base_delta
+
+    return rows
+
+
 def create_table_from_data(texts: list[str], bboxes: list[str]
                            ) -> Tables:
     rows = []
@@ -103,44 +144,3 @@ class TestTable(TestCase):
         tables = table.split_at_header_rows()
         self.assertEqual(top_rows_texts, [str(r) for r in tables[0].rows])
         self.assertEqual(bot_rows_texts, [str(r) for r in tables[1].rows])
-
-
-def create_rows(row_count: int = 5, col_count: int = 3,
-                data_fields: bool = True, first_stop: bool = True,
-                right_of: list[Row] = None) -> list[Row]:
-    """ Create [count] rows with [field_count] fields each.  """
-
-    def get_text() -> str:
-        if first_stop and col_num == 0:
-            return f"row_{row_num}-col_{col_num}"
-        if data_fields:
-            return f"{row_num}.{col_num}"
-        return f"row_{row_num}-col_{col_num}"
-
-    def get_base() -> tuple[float, float, float, float]:
-        if not right_of:
-            return 100, 100, 110, 110
-        # Don't add base_delta to y0, to start in the same line.
-        left_x1 = max(right_of, key=attrgetter("bbox.x1")).bbox.x1
-        return (left_x1 + base_delta,
-                min(right_of, key=attrgetter("bbox.y0")).bbox.y0,
-                left_x1 + base_delta + base_delta,
-                min(right_of, key=attrgetter("bbox.y0")).bbox.y0 + base_delta)
-
-    base_delta = 10
-    base_x0, y0, base_x1, y1 = get_base()
-
-    rows = []
-    for row_num in range(row_count):
-        fields = []
-        # Reset xs.
-        x0, x1 = base_x0, base_x1
-        for col_num in range(col_count):
-            fields.append(Field(BBox(x0, y0, x1, y1), get_text()))
-            x0 += base_delta
-            x1 += base_delta
-        rows.append(Row.from_fields(fields))
-        y0 += base_delta
-        y1 += base_delta
-
-    return rows
