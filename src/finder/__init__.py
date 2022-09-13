@@ -17,7 +17,9 @@ from requests.exceptions import ConnectionError
 
 from config import Config
 from finder.osm_node import OSMNode, Route3
+from finder.osm_values import get_all_cat_scores
 from finder.routes import display_route2, generate_routes2
+from finder.scores import find_shortest_route
 from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 
@@ -317,3 +319,39 @@ class Finder:
             display_route2(route)
 
         return route
+
+    def find(self) -> None:
+        full_df = fix_df(self.df)
+        df = to_score_df(full_df)
+        names = [stop.stop_name for stop in self.handler.stops.entries]
+        find_shortest_route(names, df)
+        print(df)
+
+
+def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
+    def get_score(value: str) -> float:
+        if value in bad:
+            return bad_value
+        try:
+            return good[value] - 4
+        except KeyError:
+            return 0
+
+    bad_value = float("inf")
+    # Apply cat scores
+    goods, bads = get_all_cat_scores()
+    df = raw_df.copy()
+    for key in KEYS_OPTIONAL:
+        good = goods.get(key, {})
+        bad = bads.get(key, {})
+        df[key] = df[key].apply(get_score)
+
+    return df
+
+
+def to_score_df(full_df: pd.DataFrame) -> pd.DataFrame:
+    columns = pd.Index({"lat": float, "lon": float, "names": str,
+                        "node_score": float, "name_score": float})
+    df = pd.DataFrame(full_df.loc[:, ["lat", "lon", "names"]], columns=columns)
+    df.loc[:, "node_score"] = full_df[KEYS_OPTIONAL].sum(axis=1)
+    return df
