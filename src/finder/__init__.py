@@ -8,6 +8,7 @@ from io import BytesIO
 from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from time import time
 from typing import Optional, TYPE_CHECKING
 from urllib import parse
 
@@ -321,9 +322,13 @@ class Finder:
         return route
 
     def find(self) -> None:
+        logger.info(f"Calculating location scores based on routetype "
+                    f"({Config.gtfs_routetype})...")
+        t = time()
         full_df = fix_df(self.df)
         df = to_score_df(full_df)
         names = [stop.stop_name for stop in self.handler.stops.entries]
+        logger.info(f"Done. Took {time() - t}s")
         find_shortest_route(names, df)
         print(df)
 

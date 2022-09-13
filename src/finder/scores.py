@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import re
 from operator import attrgetter
+from time import time
 from typing import NamedTuple, TypeAlias
 
 import pandas as pd
@@ -12,6 +14,7 @@ from finder.types import StopName, StopNames
 from utils import get_edit_distance, replace_abbreviations
 
 
+logger = logging.getLogger(__name__)
 DF: TypeAlias = pd.DataFrame
 
 
@@ -55,9 +58,12 @@ def split_df(stops: StopNames, full_df: DF) -> DF:
 
 
 def find_shortest_route(stops: StopNames, full_df: DF) -> None:
+    logger.info("Starting location detection using dijkstra...")
     df = split_df(stops, full_df)
-    dd = DuoDijkstra(stops, df)
+    t = time()
+    dd = DuoDijkstra(stops, df.copy())
     dd.dijkstra()
+    logger.info(f"Done. Took {time() - t:4f}s")
 
 
 class DuoDijkstra:
