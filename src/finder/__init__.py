@@ -322,8 +322,8 @@ class Finder:
         return route
 
     def find(self) -> None:
-        logger.info(f"Calculating location scores based on routetype "
-                    f"({Config.gtfs_routetype})...")
+        logger.info(f"Calculating location scores based on selected "
+                    f"routetype ({Config.gtfs_routetype.name})...")
         t = time()
         full_df = fix_df(self.df)
         df = to_score_df(full_df)
