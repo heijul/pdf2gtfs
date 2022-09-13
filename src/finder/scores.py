@@ -7,7 +7,6 @@ from typing import NamedTuple, TypeAlias
 import pandas as pd
 from geopy.distance import distance
 
-from config import Config
 from finder.location import Location
 from finder.types import StopName, StopNames
 from utils import get_edit_distance, replace_abbreviations
@@ -61,64 +60,18 @@ def find_shortest_route(stops: StopNames, full_df: DF) -> None:
     dd.dijkstra()
 
 
-class RouteNode:
-    def __init__(self, name: str, loc: Location, score: float, dist: float, *,
-                 prev_node: RouteNode = None, next_node: RouteNode = None
-                 ) -> None:
-        self.name = name
-        self.loc = loc
-        self.score = score
-        self._prev = prev_node
-        self._next = next_node
-
-    @staticmethod
-    def from_series(s: pd.Series, dist: float = -1) -> RouteNode:
-        return RouteNode(
-            s["name"], Location(s["lat"], s["lon"]), s["score"], dist)
-
-    @property
-    def prev(self) -> RouteNode:
-        return self._prev
-
-    @prev.setter
-    def prev(self, value: RouteNode) -> None:
-        self.prev = value
-
-    @prev.deleter
-    def prev(self) -> None:
-        pass
-
-    @property
-    def next(self) -> RouteNode:
-        return self._next
-
-    @next.setter
-    def next(self, value) -> None:
-        pass
-
-    @next.deleter
-    def next(self) -> None:
-        pass
-
-    def distance(self, parent: RouteNode) -> float:
-        return distance(*self.loc, *parent.loc).m
-
-    def score(self, parent) -> float:
-        return self.distance(parent) + self.score
-
-
 class DuoDijkstra:
     def __init__(self, stops: StopNames, df: DF) -> None:
         self.df = df
         self.stops = stops
-        self.start_node = StartX(self.stops[-1])
-        self.end_node = EndX(self.stops[0])
+        self.start_node = StartNode(self.stops[-1])
+        self.end_node = EndNode(self.stops[0])
         self.nodes: Nodes = Nodes()
 
     def get_neighbors(self, current_node: DijkstraNode) -> DF | DijkstraNode:
-        if isinstance(current_node, EndX):
+        if isinstance(current_node, EndNode):
             return pd.DataFrame()
-        if isinstance(current_node, StartX):
+        if isinstance(current_node, StartNode):
             stop_idx = -1
         else:
             stop_idx = self.stops.index(current_node.stop)
@@ -131,16 +84,15 @@ class DuoDijkstra:
         while True:
             # Update neighbors.
             neighbors = self.get_neighbors(current_node)
-            if isinstance(neighbors, EndX):
+            if isinstance(neighbors, EndNode):
                 self.end_node.parent = current_node
                 break
-            for neighbor in neighbors.itertuples(index=False):
-                neighbor: AAA
+            for neighbor in neighbors.itertuples(False, "StopPosition"):
+                neighbor: StopPosition
                 # TODO: Check rough distance before creating node.
                 neighbor_node = self.nodes.get_or_create(neighbor)
                 dist = current_node.distance_to(neighbor_node)
-
-
+                # TODO: Need to filter nodes with too much distance
                 if dist < neighbor_node.dist:
                     neighbor_node.parent = current_node
                     neighbor_node.dist = dist
@@ -150,7 +102,6 @@ class DuoDijkstra:
                 break
 
             current_node = self.get_current()
-        print("aa")
 
     def get_current(self) -> DijkstraNode:
         min_node = self.nodes.get_min_node()
@@ -193,12 +144,12 @@ class DijkstraNode:
         return self._dist_score
 
     def distance_to(self, other: DijkstraNode) -> float:
-        if isinstance(other, (StartX, EndX)):
+        if isinstance(other, (StartNode, EndNode)):
             return 0
         return distance(tuple(self.loc), tuple(other.loc)).m
 
 
-class StartX(DijkstraNode):
+class StartNode(DijkstraNode):
     def __init__(self, stop: StopName) -> None:
         super().__init__(stop, -1, None)
         self.dist = 0
@@ -207,7 +158,7 @@ class StartX(DijkstraNode):
         return 0
 
 
-class EndX(DijkstraNode):
+class EndNode(DijkstraNode):
     def __init__(self, stop: StopName) -> None:
         super().__init__(stop, -1, None)
         self.dist = float("inf")
@@ -216,9 +167,9 @@ class EndX(DijkstraNode):
         return 0
 
 
-AAA = NamedTuple("AAA", [("idx", int), ("stop", str),
-                         ("lat", float), ("lon", float),
-                         ])
+StopPosition = NamedTuple("StopPosition", [("idx", int), ("stop", str),
+                                           ("lat", float), ("lon", float),
+                                           ])
 
 
 class Nodes:
@@ -228,13 +179,13 @@ class Nodes:
     def add(self, node: DijkstraNode) -> None:
         self.nodes.setdefault(node.stop, {}).update({node.idx: node})
 
-    def _create(self, values: AAA) -> DijkstraNode:
+    def _create(self, values: StopPosition) -> DijkstraNode:
         loc = Location(values.lat, values.lon)
         node = DijkstraNode(values.stop, values.idx, loc)
         self.add(node)
         return node
 
-    def get_or_create(self, values: AAA) -> DijkstraNode:
+    def get_or_create(self, values: StopPosition) -> DijkstraNode:
         stop = values.stop
         idx = values.idx
         node = self.nodes.get(stop, {}).get(idx)
@@ -248,32 +199,3 @@ class Nodes:
                  for node in stop_nodes.values()
                  if not node.visited]
         return min(nodes, key=attrgetter("score"))
-
-
-
-class Route:
-    nodes: dict[str: list[RouteNode]]
-
-    def __init__(self, dfs: dict[StopName: DF]) -> None:
-        self.stops = list(dfs.keys())
-        self.dfs = dfs
-
-    def dijkstra(self) -> None:
-        end_df = self.dfs[self.stops[-1]]
-        start_node = RouteNode.from_series(
-            self.dfs[end_df[end_df["score"].min()]], 0)
-        known_nodes = [start_node]
-
-        next_df = self.dfs[self.stops[-2]]
-        nodes = map(RouteNode.from_series,
-                    self.dfs[next_df["score"] == min(next_df["score"])])
-
-
-    def find_next(self):
-        ...
-
-
-
-    @staticmethod
-    def from_df(df: DF) -> Route:
-        ...
