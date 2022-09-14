@@ -323,12 +323,12 @@ class Finder:
 
     def find(self) -> None:
         logger.info(f"Calculating location scores based on selected "
-                    f"routetype ({Config.gtfs_routetype.name})...")
+                    f"routetype '{Config.gtfs_routetype.name}'...")
         t = time()
         full_df = fix_df(self.df)
         df = to_score_df(full_df)
         names = [stop.stop_name for stop in self.handler.stops.entries]
-        logger.info(f"Done. Took {time() - t}s")
+        logger.info(f"Done. Took {time() - t:.2f}s")
         find_shortest_route(names, df)
         print(df)
 
@@ -338,9 +338,9 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
         if value in bad:
             return bad_value
         try:
-            return good[value] - 4
+            return good[value]
         except KeyError:
-            return 0
+            return 4
 
     bad_value = float("inf")
     # Apply cat scores
