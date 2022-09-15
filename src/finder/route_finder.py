@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import logging
-import re
 import webbrowser
 from math import cos, log
-from operator import attrgetter
 from statistics import mean, StatisticsError
 from time import time
 from typing import NamedTuple, TypeAlias
@@ -15,74 +13,20 @@ import folium
 from config import Config
 from finder.location import Location
 from finder.types import StopName, StopNames
-from utils import get_edit_distance, replace_abbreviations
 
 
 logger = logging.getLogger(__name__)
 DF: TypeAlias = pd.DataFrame
 
 
-def _normalize_stop(stop: str) -> str:
-    return replace_abbreviations(stop).casefold().lower()
-
-
-def _create_stop_regex(stop: str) -> str:
-    return "|".join([re.escape(s) for s in stop.split("|")])
-
-
-def _compile_regex(regex: str) -> re.Pattern[str]:
-    flags = re.IGNORECASE + re.UNICODE
-    return re.compile(regex, flags=flags)
-
-
-def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
-    c_regex = _compile_regex(_create_stop_regex(_normalize_stop(stop)))
-    df = full_df[full_df["names"].str.contains(c_regex, regex=True)]
-    return df.copy()
-
-
-def split_df(stops: StopNames, full_df: DF) -> DF:
-    def name_distance(name) -> int:
-        """ Edit distance between name and stop after normalizing both. """
-        normal_name = _normalize_stop(name)
-        normal_stop = _normalize_stop(stop)
-        # TODO: permutations
-        if normal_name == normal_stop:
-            return 0
-        return get_edit_distance(normal_name, normal_stop)
-
-    dfs = []
-    for stop in stops:
-        df = _filter_df_by_stop(stop, full_df)
-        if df.empty:
-            continue
-        df.loc[:, "name_score"] = df["names"].apply(name_distance)
-        df.loc[:, "stop"] = stop
-        df.loc[:, "idx"] = df.index
-        dfs.append(df)
-    return pd.concat(dfs, ignore_index=True)
-
-
-def prefilter_df(stops: StopNames, full_df: DF) -> DF:
-    regexes = [_create_stop_regex(_normalize_stop(stop)) for stop in stops]
-    df = full_df[full_df["names"].str.contains(
-        "|".join(regexes), regex=True, flags=re.IGNORECASE + re.UNICODE)]
-    return df.copy()
-
-
-def find_shortest_route(stops: StopNames, full_df: DF) -> list[Node]:
-    logger.info("Splitting DataFrame based on stop names...")
-    t = time()
-    df = split_df(stops, prefilter_df(stops, full_df))
-    logger.info(f"Done. Took {time() - t:.2f}s")
+def find_shortest_route(stops: StopNames, df: DF) -> list[Node]:
     logger.info("Starting location detection...")
     t = time()
     route_finder = RouteFinder(stops, df.copy())
     route_finder.calculate_node_scores()
     logger.info(f"Done. Took {time() - t:.2f}s")
+
     route = route_finder.get_shortest_route()
-    if Config.display_route in [1, 3]:
-        display_route(route)
     return route
 
 
@@ -337,17 +281,6 @@ class Nodes:
             node = self._create(values)
         return node
 
-    def get_min_node(self) -> Node:
-        nodes = [node
-                 for stop_nodes in self.nodes.values()
-                 for node in stop_nodes.values()
-                 if not node.visited]
-        return min(nodes, key=attrgetter("score"))
-
-    def get_min(self, stop: str) -> Node:
-        nodes = self.nodes[stop].values()
-        return min(nodes, key=attrgetter("score"))
-
 
 def display_route(nodes: list[Node]) -> None:
     def get_map_location() -> tuple[float, float]:
@@ -359,7 +292,7 @@ def display_route(nodes: list[Node]) -> None:
             return 0, 0
 
     # FEATURE: Add info about missing nodes.
-    # TODO: Adjust zoom/location depending on lat-/lon-minimum
+    # FEATURE: Adjust zoom/location depending on lat-/lon-minimum
     location = get_map_location()
     if location == (0, 0):
         logger.warning("Nothing to display, route is empty.")

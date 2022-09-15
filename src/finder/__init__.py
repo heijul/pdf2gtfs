@@ -4,12 +4,13 @@ import datetime as dt
 import logging
 import os.path
 import platform
+import re
 from io import BytesIO
 from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from time import time
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, TypeAlias
 from urllib import parse
 
 import pandas as pd
@@ -20,14 +21,19 @@ from config import Config
 from finder.osm_node import OSMNode, Route3
 from finder.osm_values import get_all_cat_scores
 from finder.routes import display_route2, generate_routes2
-from finder.route_finder import find_shortest_route
-from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
+from finder.route_finder import find_shortest_route, Node
+from finder.types import StopNames
+from utils import (
+    get_abbreviations_regex, get_edit_distance, replace_abbreviation, replace_abbreviations,
+    SPECIAL_CHARS)
 
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
 
 logger = logging.getLogger(__name__)
+
+DF: TypeAlias = pd.DataFrame
 
 KEYS = ["lat", "lon", "public_transport"]
 KEYS_OPTIONAL = [
@@ -321,16 +327,70 @@ class Finder:
 
         return route
 
-    def find(self) -> None:
+    def find(self) -> list[Node]:
+        names = [stop.stop_name for stop in self.handler.stops.entries]
+        logger.info("Splitting DataFrame based on stop names...")
+        t = time()
+        df = add_extra_columns(names, prefilter_df(names, self.df))
+        logger.info(f"Done. Took {time() - t:.2f}s")
+
         logger.info(f"Calculating location scores based on selected "
                     f"routetype '{Config.gtfs_routetype.name}'...")
         t = time()
-        full_df = fix_df(self.df)
-        df = to_score_df(full_df)
-        names = [stop.stop_name for stop in self.handler.stops.entries]
+        full_df = fix_df(df)
+        df.loc[:, "node_score"] = get_node_score(full_df)
         logger.info(f"Done. Took {time() - t:.2f}s")
-        find_shortest_route(names, df)
-        print(df)
+
+        route = find_shortest_route(names, df)
+        return route
+
+
+def _normalize_stop(stop: str) -> str:
+    return replace_abbreviations(stop).casefold().lower()
+
+
+def _create_stop_regex(stop: str) -> str:
+    return "|".join([re.escape(s) for s in stop.split("|")])
+
+
+def _compile_regex(regex: str) -> re.Pattern[str]:
+    flags = re.IGNORECASE + re.UNICODE
+    return re.compile(regex, flags=flags)
+
+
+def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
+    c_regex = _compile_regex(_create_stop_regex(_normalize_stop(stop)))
+    df = full_df[full_df["names"].str.contains(c_regex, regex=True)]
+    return df.copy()
+
+
+def add_extra_columns(stops: StopNames, full_df: DF) -> DF:
+    def name_distance(name) -> int:
+        """ Edit distance between name and stop after normalizing both. """
+        normal_name = _normalize_stop(name)
+        normal_stop = _normalize_stop(stop)
+        # TODO: permutations
+        if normal_name == normal_stop:
+            return 0
+        return get_edit_distance(normal_name, normal_stop)
+
+    dfs = []
+    for stop in stops:
+        df = _filter_df_by_stop(stop, full_df)
+        if df.empty:
+            continue
+        df.loc[:, "name_score"] = df["names"].apply(name_distance)
+        df.loc[:, "stop"] = stop
+        df.loc[:, "idx"] = df.index
+        dfs.append(df)
+    return pd.concat(dfs, ignore_index=True)
+
+
+def prefilter_df(stops: StopNames, full_df: DF) -> DF:
+    regexes = [_create_stop_regex(_normalize_stop(stop)) for stop in stops]
+    df = full_df[full_df["names"].str.contains(
+        "|".join(regexes), regex=True, flags=re.IGNORECASE + re.UNICODE)]
+    return df.copy()
 
 
 def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
@@ -354,9 +414,5 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def to_score_df(full_df: pd.DataFrame) -> pd.DataFrame:
-    columns = pd.Index({"lat": float, "lon": float, "names": str,
-                        "node_score": float, "name_score": float})
-    df = pd.DataFrame(full_df.loc[:, ["lat", "lon", "names"]], columns=columns)
-    df.loc[:, "node_score"] = full_df[KEYS_OPTIONAL].sum(axis=1)
-    return df
+def get_node_score(full_df: pd.DataFrame) -> pd.DataFrame:
+    return full_df[KEYS_OPTIONAL].sum(axis=1)

@@ -14,8 +14,7 @@ from datastructures.gtfs_output.route import Routes
 from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
-from finder import Route3
-from finder.osm_node import DummyOSMNode
+from finder.route_finder import Node, MissingNode
 from user_input.cli import create_output_directory, handle_annotations
 
 
@@ -196,19 +195,19 @@ class GTFSHandler:
         self.calendar_dates.write()
         return True
 
-    def add_coordinates(self, route: Route3) -> None:
+    def add_coordinates(self, route: list[Node]) -> None:
         if not route:
             logger.warning("No route was found. "
                            "Can not add coordinates to stops.")
             return
         logger.info("Adding coordinates to stops.")
-        for node in route.nodes:
+        for node in route:
             stop = self.stops.get(node.stop)
             # No need to add the location to existing stops, as these will
             #  not be updated anyway
             if stop.valid:
                 continue
-            if isinstance(node, DummyOSMNode):
+            if isinstance(node, MissingNode):
                 logger.warning(
                     f"Could not find location for '{stop.stop_name}'. "
                     f"You will have to manually add the coordinates.")
