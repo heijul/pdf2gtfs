@@ -20,7 +20,7 @@ from config import Config
 from finder.osm_node import OSMNode, Route3
 from finder.osm_values import get_all_cat_scores
 from finder.routes import display_route2, generate_routes2
-from finder.scores import find_shortest_route
+from finder.route_finder import find_shortest_route
 from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 

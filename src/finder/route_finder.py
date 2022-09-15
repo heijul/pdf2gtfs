@@ -11,7 +11,6 @@ from typing import NamedTuple, TypeAlias
 
 import pandas as pd
 import folium
-from geopy.distance import distance
 
 from config import Config
 from finder.location import Location
@@ -71,23 +70,23 @@ def prefilter_df(stops: StopNames, full_df: DF) -> DF:
     return df.copy()
 
 
-def find_shortest_route(stops: StopNames, full_df: DF) -> list[DijkstraNode]:
+def find_shortest_route(stops: StopNames, full_df: DF) -> list[Node]:
     logger.info("Splitting DataFrame based on stop names...")
     t = time()
     df = split_df(stops, prefilter_df(stops, full_df))
     logger.info(f"Done. Took {time() - t:.2f}s")
-    logger.info("Starting location detection using dijkstra...")
+    logger.info("Starting location detection...")
     t = time()
-    dijkstra = Dijkstra(stops, df.copy())
-    dijkstra.calculate_node_scores()
+    route_finder = RouteFinder(stops, df.copy())
+    route_finder.calculate_node_scores()
     logger.info(f"Done. Took {time() - t:.2f}s")
-    route = dijkstra.get_shortest_route()
+    route = route_finder.get_shortest_route()
     if Config.display_route in [1, 3]:
         display_route(route)
     return route
 
 
-class Dijkstra:
+class RouteFinder:
     def __init__(self, stops: StopNames, df: DF) -> None:
         self.df = df
         self.stops = stops
@@ -115,7 +114,7 @@ class Dijkstra:
             node = self.nodes.get_or_create_missing(stop)
             node.parent = self._get_node_parent(node)
 
-    def _get_node_parent(self, node: DijkstraNode) -> DijkstraNode:
+    def _get_node_parent(self, node: Node) -> Node:
         # TODO: This assumes the end stopname is unique.
         if node.stop == self.stops[-1]:
             return self.end_node
@@ -125,8 +124,8 @@ class Dijkstra:
         neighbors = self._get_df_with_stop(next_stop)
         return self._get_closest_neighbor(node, next_stop, neighbors)
 
-    def _get_closest_neighbor(self, node: DijkstraNode, stop: StopName,
-                              neighbors: DF) -> DijkstraNode:
+    def _get_closest_neighbor(self, node: Node, stop: StopName,
+                              neighbors: DF) -> Node:
         def get_node_score() -> float:
             # Check rough distance first, to improve performance.
             dist = node.get_rough_distance(neighbor.lat, neighbor.lon)
@@ -159,9 +158,8 @@ class Dijkstra:
             return min_node
         return self.nodes.get_or_create_missing(stop, node)
 
-    def get_shortest_route(self) -> list[DijkstraNode]:
-        node: DijkstraNode = self.nodes.get_min(self.stops[0])
-        route: list[DijkstraNode] = []
+    def _get_route_with_start(self, node: Node) -> list[Node]:
+        route: list[Node] = []
 
         while True:
             route.append(node)
@@ -170,6 +168,17 @@ class Dijkstra:
                 break
 
         return route
+
+    def get_shortest_route(self) -> list[Node]:
+        routes: list[list[Node]] = []
+        for start in self.nodes.nodes[self.stops[0]].values():
+            routes.append(self._get_route_with_start(start))
+
+        max_len = max([len(r) for r in routes])
+        max_len_routes = [r for r in routes if len(r) == max_len]
+        scores = [sum([node.score for node in route])
+                  for route in max_len_routes]
+        return max_len_routes[scores.index(min(scores))]
 
 
 def get_rough_distance(lat1, lon1, lat2, lon2) -> float:
@@ -188,7 +197,7 @@ def _get_dist_score(dist: float) -> float:
         return float("inf")
 
 
-class DijkstraNode:
+class Node:
     def __init__(self, stop: str, idx: int,
                  loc: Location | None, score: float) -> None:
         self.stop = stop
@@ -202,7 +211,7 @@ class DijkstraNode:
         self.done = False
 
     @property
-    def parent(self) -> DijkstraNode:
+    def parent(self) -> Node:
         return self._parent
 
     @parent.setter
@@ -214,8 +223,7 @@ class DijkstraNode:
     def score(self) -> int:
         return self._score
 
-    def calculate_score(self, parent: DijkstraNode, dist_score: float = None
-                        ) -> int:
+    def calculate_score(self, parent: Node, dist_score: float = None) -> int:
         if dist_score is None:
             return self.score_to(parent)
         score = self.stop_score + dist_score + parent.score
@@ -237,14 +245,14 @@ class DijkstraNode:
     def dist_score(self) -> float:
         return self._dist_score
 
-    def distance_to(self, other: DijkstraNode) -> float:
-        if isinstance(other, (StartNode, EndNode)):
+    def distance_to(self, other: Node) -> float:
+        if isinstance(other, EndNode):
             return -1
         if isinstance(other, MissingNode):
             return other.distance_to(self)
-        return distance(tuple(self.loc), tuple(other.loc)).m
+        return self.loc.distance(other.loc)
 
-    def score_to(self, other: DijkstraNode, dist: float = None) -> int:
+    def score_to(self, other: Node, dist: float = None) -> int:
         if dist is None:
             dist = self.distance_to(other)
         return self.calculate_score(other, _get_dist_score(dist))
@@ -253,24 +261,7 @@ class DijkstraNode:
         return get_rough_distance(self.loc.lat, self.loc.lon, lat, lon)
 
 
-class StartNode(DijkstraNode):
-    def __init__(self) -> None:
-        super().__init__("", -1, None, 0)
-        self.dist = 0
-
-    @property
-    def parent(self) -> DijkstraNode:
-        return self
-
-    @property
-    def score(self) -> int:
-        return 0
-
-    def distance_to(self, other: DijkstraNode) -> float:
-        return 1
-
-
-class EndNode(DijkstraNode):
+class EndNode(Node):
     def __init__(self) -> None:
         super().__init__("", -1, None, 0)
         self.dist = float("inf")
@@ -279,31 +270,30 @@ class EndNode(DijkstraNode):
     def score(self) -> int:
         return 0
 
-    def distance_to(self, other: DijkstraNode) -> float:
+    def distance_to(self, other: Node) -> float:
         return 1
 
 
-class MissingNode(DijkstraNode):
-    def __init__(self, stop: StopName, ref_node: DijkstraNode | None) -> None:
+class MissingNode(Node):
+    def __init__(self, stop: StopName, ref_node: Node) -> None:
         super().__init__(stop, -1, None, 0)
         self.dist = float("inf")
-        self.ref_node = ref_node
+        self.reference_node = ref_node
 
     def get_rough_distance(self, lat: float, lon: float) -> float:
-        if not self.ref_node:
+        if not self.reference_node:
             return 1
-        return self.ref_node.get_rough_distance(lat, lon)
+        return self.reference_node.get_rough_distance(lat, lon)
 
     @property
     def score(self) -> int:
         return 10
 
-    def distance_to(self, other: DijkstraNode) -> float:
-        if isinstance(other, (StartNode, EndNode)):
+    def distance_to(self, other: Node) -> float:
+        if isinstance(other, EndNode):
             return super().distance_to(other)
-        if not self.ref_node:
-            return 1
-        dist = self.ref_node.distance_to(other)
+        # TODO: dist -> 0 if MissingNode has MissingNode as reference_node
+        dist = self.reference_node.distance_to(other)
         # Assume the missing node is in the middle of its two neighbors.
         return dist / 2
 
@@ -316,14 +306,14 @@ StopPosition = NamedTuple("StopPosition", [("idx", int), ("stop", str),
 
 class Nodes:
     def __init__(self) -> None:
-        self.nodes: dict[str: dict[int: DijkstraNode]] = {}
+        self.nodes: dict[str: dict[int: Node]] = {}
 
-    def add(self, node: DijkstraNode) -> None:
+    def add(self, node: Node) -> None:
         self.nodes.setdefault(node.stop, {}).update({node.idx: node})
 
-    def _create(self, values: StopPosition) -> DijkstraNode:
+    def _create(self, values: StopPosition) -> Node:
         loc = Location(values.lat, values.lon)
-        node = DijkstraNode(values.stop, values.idx, loc, values.node_score)
+        node = Node(values.stop, values.idx, loc, values.node_score)
         self.add(node)
         return node
 
@@ -333,13 +323,13 @@ class Nodes:
         return node
 
     def get_or_create_missing(self, stop: StopName,
-                              ref_node: DijkstraNode | None = None) -> MissingNode:
+                              ref_node: Node | None = None) -> MissingNode:
         node = self.nodes.get(stop, {}).get(-1)
         if not node:
             node = self._create_missing(stop, ref_node)
         return node
 
-    def get_or_create(self, values: StopPosition) -> DijkstraNode:
+    def get_or_create(self, values: StopPosition) -> Node:
         stop = values.stop
         idx = values.idx
         node = self.nodes.get(stop, {}).get(idx)
@@ -347,19 +337,19 @@ class Nodes:
             node = self._create(values)
         return node
 
-    def get_min_node(self) -> DijkstraNode:
+    def get_min_node(self) -> Node:
         nodes = [node
                  for stop_nodes in self.nodes.values()
                  for node in stop_nodes.values()
                  if not node.visited]
         return min(nodes, key=attrgetter("score"))
 
-    def get_min(self, stop: str) -> DijkstraNode:
+    def get_min(self, stop: str) -> Node:
         nodes = self.nodes[stop].values()
         return min(nodes, key=attrgetter("score"))
 
 
-def display_route(nodes: list[DijkstraNode]) -> None:
+def display_route(nodes: list[Node]) -> None:
     def get_map_location() -> tuple[float, float]:
         try:
             valid_nodes = [n for n in nodes if not isinstance(n, MissingNode)]
@@ -368,7 +358,6 @@ def display_route(nodes: list[DijkstraNode]) -> None:
         except StatisticsError:
             return 0, 0
 
-    # FEATURE: Add cluster/nodes to Config.
     # FEATURE: Add info about missing nodes.
     # TODO: Adjust zoom/location depending on lat-/lon-minimum
     location = get_map_location()
