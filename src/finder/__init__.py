@@ -339,6 +339,8 @@ class Finder:
         t = time()
         full_df = fix_df(df)
         df.loc[:, "node_score"] = get_node_score(full_df)
+        df = df.loc[:, ["lat", "lon", "names",
+                        "name_score", "stop", "idx", "node_score"]]
         logger.info(f"Done. Took {time() - t:.2f}s")
 
         route = find_shortest_route(names, df)

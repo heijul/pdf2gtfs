@@ -27,6 +27,7 @@ def find_shortest_route(stops: StopNames, df: DF) -> list[Node]:
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     route = route_finder.get_shortest_route()
+    display_route(route)
     return route
 
 
@@ -74,7 +75,7 @@ class RouteFinder:
             # Check rough distance first, to improve performance.
             dist = node.get_rough_distance(neighbor.lat, neighbor.lon)
             max_dist = Config.max_stop_distance * 1000
-            if dist * 2 > max_dist:
+            if dist > 2 * max_dist:
                 return float("inf")
 
             neighbor_node = self.nodes.get_or_create(neighbor)
@@ -227,7 +228,7 @@ class MissingNode(Node):
     def get_rough_distance(self, lat: float, lon: float) -> float:
         if not self.reference_node:
             return 1
-        return self.reference_node.get_rough_distance(lat, lon)
+        return self.reference_node.get_rough_distance(lat, lon) / 2
 
     @property
     def score(self) -> int:
