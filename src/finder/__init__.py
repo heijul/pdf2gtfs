@@ -21,7 +21,7 @@ from config import Config
 from finder.osm_node import OSMNode, Route3
 from finder.osm_values import get_all_cat_scores
 from finder.routes import display_route2, generate_routes2
-from finder.route_finder import find_shortest_route, Node
+from finder.route_finder2 import find_shortest_route, Node
 from finder.types import StopNames
 from utils import (
     get_abbreviations_regex, get_edit_distance, replace_abbreviation, replace_abbreviations,
@@ -340,10 +340,10 @@ class Finder:
         full_df = fix_df(df)
         df.loc[:, "node_score"] = get_node_score(full_df)
         df = df.loc[:, ["lat", "lon", "names",
-                        "name_score", "stop", "idx", "node_score"]]
+                        "name_score", "stop_idx", "idx", "node_score"]]
         logger.info(f"Done. Took {time() - t:.2f}s")
 
-        route = find_shortest_route(names, df)
+        route = find_shortest_route(self.handler, names, df)
         return route
 
 
@@ -377,12 +377,12 @@ def add_extra_columns(stops: StopNames, full_df: DF) -> DF:
         return get_edit_distance(normal_name, normal_stop)
 
     dfs = []
-    for stop in stops:
+    for stop_idx, stop in enumerate(stops):
         df = _filter_df_by_stop(stop, full_df)
         if df.empty:
             continue
         df.loc[:, "name_score"] = df["names"].apply(name_distance)
-        df.loc[:, "stop"] = stop
+        df.loc[:, "stop_idx"] = stop_idx
         df.loc[:, "idx"] = df.index
         dfs.append(df)
     return pd.concat(dfs, ignore_index=True)

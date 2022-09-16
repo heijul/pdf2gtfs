@@ -43,6 +43,9 @@ class Time:
     def __repr__(self) -> str:
         return f"'{self.to_output()}'"
 
+    def __bool__(self) -> bool:
+        return bool(self.hours or self.minutes or self.seconds)
+
     def __radd__(self, other) -> Time:
         return self.__add__(other)
 
@@ -78,16 +81,21 @@ class Time:
         if not isinstance(other, Time):
             raise TypeError(f"Can only substract Time from "
                             f"Time, not '{type(other)}'.")
-        return self.from_float(self.to_float() - other.to_float())
+        return self.from_float(
+            minutes=(self.to_float_hours() - other.to_float_hours()) * 60)
 
-    def to_float(self) -> float:
+    # TODO NOW: This is ugly
+    def to_float_hours(self) -> float:
         return self.hours + self.minutes / 60 + self.seconds / 3600
 
     @staticmethod
-    def from_float(num: float) -> Time:
-        hours = int(num) // 60
-        minutes = int(num % 60)
-        seconds = int(round((num - int(num)) * 60, 0))
+    def from_float(*, hours: float = None, minutes: float = None) -> Time:
+        if hours is not None:
+            assert minutes is None
+            minutes = 60 * hours
+        hours = int(minutes) // 60
+        minutes = int(minutes % 60)
+        seconds = int(round((minutes - int(minutes)) * 60, 0))
         return Time(hours, minutes, seconds)
 
 
@@ -116,8 +124,8 @@ class StopTimesEntry(BaseDataClass):
 
 def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
     if Config.repeat_strategy == "mean":
-        return cycle([Time.from_float(mean(deltas))])
-    return cycle([Time.from_float(delta) for delta in deltas])
+        return cycle([Time.from_float(minutes=mean(deltas))])
+    return cycle([Time.from_float(minutes=delta) for delta in deltas])
 
 
 class StopTimes(BaseContainer):

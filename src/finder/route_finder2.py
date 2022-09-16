@@ -7,15 +7,18 @@ from collections import abc
 from functools import partial
 from math import cos, log, pi, sqrt
 from statistics import mean, StatisticsError
-from typing import Callable, Generator, NamedTuple, TypeAlias
+from time import time
+from typing import Callable, Generator, NamedTuple, TYPE_CHECKING, TypeAlias
 
 import pandas as pd
 import folium
 
 from config import Config
-from datastructures.gtfs_output.handler import GTFSHandler
 from datastructures.gtfs_output.stop_times import Time
 from finder.location import Location
+
+if TYPE_CHECKING:
+    from datastructures.gtfs_output.handler import GTFSHandler
 
 
 logger = logging.getLogger(__name__)
@@ -29,9 +32,8 @@ StopPosition = NamedTuple("StopPosition",
 
 
 class Distance:
-    def __init__(self, *, m: float = -1, km: float = -1):
-        assert m >= 0 or km >= 0
-        self.distance = m if m >= 0 else km * 1000
+    def __init__(self, *, m: float = None, km: float = None):
+        self.distance = abs(m if m is not None else km * 1000)
 
     @property
     def m(self) -> float:
@@ -84,18 +86,19 @@ DISTANCE_PER_LAT_DEG = Distance(km=111.32)
 
 def get_distance_per_lon_deg(lat: float) -> Distance:
     lat_in_rad = pi * lat / 180
-    return DISTANCE_PER_LAT_DEG * cos(lat_in_rad)
+    return DISTANCE_PER_LAT_DEG * abs(cos(lat_in_rad))
 
 
 class Stop:
     speed_in_km_h: float = None
     stops: Stops = None
 
-    def __init__(self, idx: int, name: str) -> None:
+    def __init__(self, idx: int, name: str, next_: Stop = None) -> None:
         self.idx = idx
         self.name = name
-        self._next = None
+        self._next = next_
         self._avg_time_to_next = None
+        self._max_dist_to_next = None
         if Stop.speed_in_km_h is None:
             Stop.set_speed()
 
@@ -116,14 +119,18 @@ class Stop:
         def _calculate_avg_time_to_next() -> Time:
             return Stop.stops.get_avg_time_between(self, self.next)
         if self._avg_time_to_next is None:
-            self._avg_time_to_next = _calculate_avg_time_to_next().to_float()
+            self._avg_time_to_next = _calculate_avg_time_to_next().to_float_hours()
         return self._avg_time_to_next
 
     @property
     def max_dist_to_next(self) -> Distance:
-        if not self.next:
-            return Distance(m=0)
-        return Distance(km=self.avg_time_to_next_in_h * Stop.speed_in_km_h)
+        if not self._max_dist_to_next:
+            if not self.next:
+                dist = 0
+            else:
+                dist = self.avg_time_to_next_in_h * Stop.speed_in_km_h
+            self._max_dist_to_next = Distance(km=dist)
+        return self._max_dist_to_next
 
     def __hash__(self) -> int:
         return hash(self.idx)
@@ -148,16 +155,14 @@ class Stops(abc.Iterator):
     @staticmethod
     def _create_stops(stop_names: list[str]) -> tuple[Stop, Stop]:
         last = None
-        next_ = None
+        stop = None
 
         for idx, stop_name in reversed(list(enumerate(stop_names))):
-            stop = Stop(idx, stop_name)
+            stop = Stop(idx, stop_name, stop)
             if not last:
                 last = stop
-            stop.next = next_
-            next_ = stop
 
-        return next_, last
+        return stop, last
 
     def get_avg_time_between(self, stop1: Stop, stop2: Stop) -> Time:
         return self.handler.get_avg_time_between_stops(stop1.idx, stop2.idx)
@@ -289,7 +294,7 @@ class Node:
 
     def construct_route(self) -> list[Node]:
         if not self.parent:
-            return []
+            return [self]
         return self.parent.construct_route() + [self]
 
     def __eq__(self, other: object) -> bool:
@@ -347,15 +352,16 @@ class Nodes:
         return node
 
     def filter_df_by_stop(self, stop: Stop) -> DF:
-        df = self.df.filter(self.df["stop_idx"] == stop.idx)
+        df = self.df[self.df["stop_idx"] == stop.idx]
         self.dfs[stop] = df
         return df
 
     def get_close_to_next(self, node: Node) -> Generator[Node, None, None]:
         next_stop = node.stop.next
-        df = self.dfs.get(next_stop)
-        if not df:
+        if next_stop not in self.dfs:
             df = self.filter_df_by_stop(next_stop)
+        else:
+            df = self.dfs.get(next_stop)
 
         create_node_partial: Callable[[StopPosition], Node]
         create_node_partial = partial(self.get_or_create, next_stop)
@@ -368,7 +374,10 @@ class Nodes:
         return heapq.heappop(self.node_heap)
 
     def update_parent(self, parent: Node, node: Node, score: Score) -> None:
-        self.node_heap.remove(node)
+        try:
+            self.node_heap.remove(node)
+        except ValueError:
+            pass
         node.parent = parent
         node.score = score
         heapq.heappush(self.node_heap, node)
@@ -387,10 +396,10 @@ class RouteFinder:
         self._initialize_start()
         while True:
             node = self.nodes.get_min()
-            for neighbor in node.get_neighbors():
-                node.update_neighbor(neighbor)
             if node.stop == self.stops.last:
                 break
+            for neighbor in node.get_neighbors():
+                node.update_neighbor(neighbor)
 
         return node.construct_route()
 
@@ -427,3 +436,14 @@ def display_route(nodes: list[Node]) -> None:
     outfile = Config.output_dir.joinpath("routedisplay.html")
     m.save(str(outfile))
     webbrowser.open_new_tab(str(outfile))
+
+
+def find_shortest_route(handler: GTFSHandler, stop_names: list[str], df: DF
+                        ) -> list[Node]:
+    logger.info("Starting location detection...")
+    t = time()
+    route_finder = RouteFinder(handler, stop_names, df.copy())
+    route = route_finder.find_dijkstra()
+    logger.info(f"Done. Took {time() - t:.2f}s")
+    display_route(route)
+    return route

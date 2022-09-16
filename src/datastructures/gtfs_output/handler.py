@@ -253,5 +253,8 @@ class GTFSHandler:
         # TODO NOW: This may fail if one stop_times is longer than the other
         times = []
         for s1, s2 in zip(stop_times1, stop_times2):
-            times.append((s2.arrival_time - s1.departure_time).to_float())
-        return Time.from_float(mean(times))
+            t_diff = s2.arrival_time - s1.departure_time
+            if not t_diff:
+                continue
+            times.append(t_diff.to_float_hours())
+        return Time.from_float(hours=mean(times))
