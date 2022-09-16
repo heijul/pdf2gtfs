@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import heapq
 import logging
+import webbrowser
 from collections import abc
 from functools import partial
 from math import cos, log, pi, sqrt
-from statistics import mean
-from typing import Callable, Generator, TypeAlias
+from statistics import mean, StatisticsError
+from typing import Callable, Generator, NamedTuple, TypeAlias
 
 import pandas as pd
+import folium
 
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
@@ -20,7 +22,10 @@ logger = logging.getLogger(__name__)
 
 Heap: TypeAlias = list["Node"]
 DF: TypeAlias = pd.DataFrame
-S: TypeAlias = pd.Series
+StopPosition = NamedTuple("StopPosition",
+                          [("idx", int), ("stop", str), ("names", str),
+                           ("lat", float), ("lon", float),
+                           ("node_score", float), ("name_score", float)])
 
 
 class Distance:
@@ -128,19 +133,7 @@ class Stops(abc.Iterator):
     def __init__(self, handler: GTFSHandler, stop_names: list[str]) -> None:
         self.handler = handler
         Stop.stops = self
-        self.first: Stop = self._create_stops(stop_names)
-
-    @staticmethod
-    def _create_stops(stop_names: list[str]) -> Stop:
-        next_ = None
-        for idx, stop_name in reversed(list(enumerate(stop_names))):
-            stop = Stop(idx, stop_name)
-            stop.next = next_
-            next_ = stop
-        return next_
-
-    def get_avg_time_between(self, stop1: Stop, stop2: Stop) -> Time:
-        return self.handler.get_avg_time_between_stops(stop1.idx, stop2.idx)
+        self.first, self.last = self._create_stops(stop_names)
 
     @property
     def stops(self) -> list[Stop]:
@@ -151,6 +144,23 @@ class Stops(abc.Iterator):
             current = current.next
 
         return stops
+
+    @staticmethod
+    def _create_stops(stop_names: list[str]) -> tuple[Stop, Stop]:
+        last = None
+        next_ = None
+
+        for idx, stop_name in reversed(list(enumerate(stop_names))):
+            stop = Stop(idx, stop_name)
+            if not last:
+                last = stop
+            stop.next = next_
+            next_ = stop
+
+        return next_, last
+
+    def get_avg_time_between(self, stop1: Stop, stop2: Stop) -> Time:
+        return self.handler.get_avg_time_between_stops(stop1.idx, stop2.idx)
 
     def __next__(self) -> Generator[Stop]:
         current = self.first
@@ -226,6 +236,15 @@ class Score:
         return not self < other
 
 
+class StartScore(Score):
+    @property
+    def scores(self) -> tuple[float, float, float]:
+        return 0, 0, 0
+
+    def set_dist_score_from_dist(self, node: Node, dist: Distance) -> None:
+        raise NotImplementedError("Can not set dist score for start nodes.")
+
+
 class Node:
     nodes: Nodes = None
 
@@ -235,6 +254,7 @@ class Node:
         self.index = index
         self.names = names
         self.loc = loc
+        self.parent = None
         self.score: Score = Score()
         if Node.nodes is None:
             raise Exception("Nodes needs to be set, before creating a node.")
@@ -267,6 +287,11 @@ class Node:
         score.set_dist_score_from_dist(self, self.dist_exact(node))
         return score
 
+    def construct_route(self) -> list[Node]:
+        if not self.parent:
+            return []
+        return self.parent.construct_route() + [self]
+
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Node) and
                 self.stop == other.stop and self.index == other.index and
@@ -287,6 +312,14 @@ class Node:
     def __ge__(self, other: Node) -> bool:
         return not self < other
 
+    def update_neighbor(self, node: Node) -> None:
+        score = self.score_to(node)
+        if score >= node.score:
+            return
+        self.nodes.update_parent(self, node, score)
+        node.score = score
+        node.parent = self
+
 
 class Nodes:
     def __init__(self, df: DF) -> None:
@@ -294,25 +327,26 @@ class Nodes:
         self.dfs: dict[Stop: DF] = {}
         self.node_map: dict[tuple[Stop, int]: Node] = {}
         self.node_heap: Heap[Node] = []
+        Node.nodes = self
 
     def _add(self, node: Node) -> None:
         self.node_map[(node.stop, node.index)] = node
         heapq.heappush(self.node_heap, node)
 
-    def _create_node(self, stop: Stop, values: S) -> Node:
+    def _create_node(self, stop: Stop, values: StopPosition) -> Node:
         idx = values.idx
         loc = Location(values.lat, values.lon)
         node = Node(stop, idx, values.names, loc)
         self._add(node)
         return node
 
-    def get_or_create(self, stop: Stop, values: S) -> Node:
+    def get_or_create(self, stop: Stop, values: StopPosition) -> Node:
         node = self.node_map.get((stop, values.idx))
         if node is None:
             node = self._create_node(stop, values)
         return node
 
-    def _filter_df_by_stop(self, stop: Stop) -> DF:
+    def filter_df_by_stop(self, stop: Stop) -> DF:
         df = self.df.filter(self.df["stop_idx"] == stop.idx)
         self.dfs[stop] = df
         return df
@@ -321,9 +355,9 @@ class Nodes:
         next_stop = node.stop.next
         df = self.dfs.get(next_stop)
         if not df:
-            df = self._filter_df_by_stop(next_stop)
+            df = self.filter_df_by_stop(next_stop)
 
-        create_node_partial: Callable[[S], Node]
+        create_node_partial: Callable[[StopPosition], Node]
         create_node_partial = partial(self.get_or_create, next_stop)
         close_df = df[df[["lat", "lon"]].apply(node.is_close, axis=1)]
 
@@ -332,3 +366,64 @@ class Nodes:
 
     def get_min(self) -> Node:
         return heapq.heappop(self.node_heap)
+
+    def update_parent(self, parent: Node, node: Node, score: Score) -> None:
+        self.node_heap.remove(node)
+        node.parent = parent
+        node.score = score
+        heapq.heappush(self.node_heap, node)
+
+
+class RouteFinder:
+    def __init__(self, handler: GTFSHandler, stop_names: list[str], df: DF) -> None:
+        self.handler = handler
+        self.stops = Stops(handler, stop_names)
+        self.nodes = Nodes(df)
+
+    def find_dp(self) -> list[Node]:
+        ...
+
+    def find_dijkstra(self) -> list[Node]:
+        self._initialize_start()
+        while True:
+            node = self.nodes.get_min()
+            for neighbor in node.get_neighbors():
+                node.update_neighbor(neighbor)
+            if node.stop == self.stops.last:
+                break
+
+        return node.construct_route()
+
+    def _initialize_start(self) -> None:
+        stop = self.stops.first
+        df = self.nodes.filter_df_by_stop(stop)
+        for values in df.itertuples(False, "StopPosition"):
+            values: StopPosition
+            node = self.nodes.get_or_create(stop, values)
+            node.score = StartScore()
+
+
+def display_route(nodes: list[Node]) -> None:
+    def get_map_location() -> tuple[float, float]:
+        try:
+            valid_nodes = nodes
+            return (mean([n.loc.lat for n in valid_nodes]),
+                    mean([n.loc.lon for n in valid_nodes]))
+        except StatisticsError:
+            return 0, 0
+
+    # FEATURE: Add info about missing nodes.
+    # FEATURE: Adjust zoom/location depending on lat-/lon-minimum
+    location = get_map_location()
+    if location == (0, 0):
+        logger.warning("Nothing to display, route is empty.")
+        return
+    m = folium.Map(location=location)
+    for i, node in enumerate(nodes):
+        loc = [node.loc.lat, node.loc.lon]
+        folium.Marker(loc, popup=f"{node.stop}\n{node.score}\n{loc}"
+                      ).add_to(m)
+
+    outfile = Config.output_dir.joinpath("routedisplay.html")
+    m.save(str(outfile))
+    webbrowser.open_new_tab(str(outfile))
