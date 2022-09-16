@@ -116,3 +116,48 @@ class Stops(abc.Iterator):
         while current is not None:
             yield current
         raise StopIteration
+
+
+class Score:
+    def __init__(self, node_score: float = None, name_score: float = None,
+                 dist_score: float = None) -> None:
+        self.node_score = self._get_score(node_score)
+        self.name_score = self._get_score(name_score)
+        self.dist_score = self._get_score(dist_score)
+
+    @property
+    def score(self) -> float:
+        return sum(self.scores)
+
+    @property
+    def scores(self) -> tuple[float, float, float]:
+        return self.node_score, self.name_score, self.dist_score
+
+    @property
+    def invalid(self) -> bool:
+        def invalid_score(score: float) -> bool:
+            return score is None or score == float("inf")
+
+        return any(map(invalid_score, self.scores))
+
+    @staticmethod
+    def _get_score(score: float) -> float:
+        return float("inf") if score is None or score < 0 else score
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Score) and self.score == other.score
+
+    def __lt__(self, other: Score) -> bool:
+        if not isinstance(other, Score):
+            raise TypeError(
+                f"Can only compare Score to Score, not {type(object)}.")
+        return self.score < other.score
+
+    def __le__(self, other: Score) -> bool:
+        return self == other or self < other
+
+    def __gt__(self, other: Score) -> bool:
+        return self != other and not self < other
+
+    def __ge__(self, other: Score) -> bool:
+        return self == other or self > other
