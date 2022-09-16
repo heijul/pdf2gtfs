@@ -118,6 +118,12 @@ min_row_count: 5
 # Type: str or int
 gtfs_routetype: "Tram"
 
+# Average speed of the public transport vehicle in km per hour.
+# This is used to reduce the search radius for the locations of the stops.
+#
+# Type: int
+average_speed: 100
+
 # Stop names are stripped of all characters which are not letters or whitelisted.
 #
 # Type: list of str

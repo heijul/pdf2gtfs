@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import abc
 from typing import Generator
 
+from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
 from datastructures.gtfs_output.stop_times import Time
 
@@ -55,7 +56,7 @@ class Stop:
 
     @staticmethod
     def set_speed() -> None:
-        ...
+        Stop.speed_in_km_h = Config.average_speed
 
     @property
     def next(self) -> Stop | None:
