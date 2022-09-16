@@ -74,6 +74,15 @@ class Time:
     def __gt__(self, other: Time) -> bool:
         return not self <= other
 
+    def __sub__(self, other: Time) -> Time:
+        if not isinstance(other, Time):
+            raise TypeError(f"Can only substract Time from "
+                            f"Time, not '{type(other)}'.")
+        return self.from_float(self.to_float() - other.to_float())
+
+    def to_float(self) -> float:
+        return self.hours + self.minutes / 60 + self.seconds / 3600
+
     @staticmethod
     def from_float(num: float) -> Time:
         hours = int(num) // 60
@@ -207,3 +216,10 @@ class StopTimes(BaseContainer):
 
     def __gt__(self, other: StopTimes):
         return not self.__lt__(other)
+
+    def get_with_stop_id(self, stop_id: str) -> list[StopTimesEntry]:
+        entries = []
+        for entry in self.entries:
+            if entry.stop_id == stop_id:
+                entries.append(entry)
+        return entries

@@ -102,3 +102,7 @@ class GTFSStops(ExistingBaseContainer):
             if entry.stop_name != name:
                 continue
             return entry
+
+    def get_by_idx(self, idx: int) -> GTFSStop:
+        # TODO NOW: Does not work, if stops already exist.
+        return self.entries[idx]

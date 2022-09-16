@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from statistics import mean
 from typing import TYPE_CHECKING
 
 from holidays.utils import country_holidays
@@ -242,3 +243,15 @@ class GTFSHandler:
     @property
     def calendar_dates(self) -> CalendarDates:
         return self._calendar_dates
+
+    def get_avg_time_between_stops(self, idx1: int, idx2: int) -> Time:
+        stop1 = self.stops.get_by_idx(idx1)
+        stop_times1 = self.stop_times.get_with_stop_id(stop1.stop_id)
+        stop2 = self.stops.get_by_idx(idx2)
+        stop_times2 = self.stop_times.get_with_stop_id(stop2.stop_id)
+
+        # TODO NOW: This may fail if one stop_times is longer than the other
+        times = []
+        for s1, s2 in zip(stop_times1, stop_times2):
+            times.append((s2.arrival_time - s1.departure_time).to_float())
+        return Time.from_float(mean(times))
