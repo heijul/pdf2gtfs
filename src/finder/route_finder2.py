@@ -10,6 +10,7 @@ from statistics import mean, StatisticsError
 from time import time
 from typing import Callable, Generator, NamedTuple, TYPE_CHECKING, TypeAlias
 
+import numpy as np
 import pandas as pd
 import folium
 
@@ -261,11 +262,17 @@ class Node:
         self.loc = loc
         self.parent = None
         self.score: Score = Score()
+        self.has_neighbors = False
+        self.visited = False
         if Node.nodes is None:
             raise Exception("Nodes needs to be set, before creating a node.")
 
     def get_neighbors(self) -> Generator[Node, None, None]:
-        return Node.nodes.get_close_to_next(self)
+        next_stop = self.stop.next
+        df = Node.nodes.get_df_close_to_next(self)
+        if not df.empty:
+            return Node.nodes.node_factory(df, next_stop)
+        return Node.nodes.node_factory(df, next_stop)
 
     def dist_exact(self, node: Node) -> Distance:
         lat_mid = mean((self.loc.lat, node.loc.lat))
@@ -284,8 +291,8 @@ class Node:
         return (lat_diff * DISTANCE_PER_LAT_DEG <= max_dist and
                 lon_diff * get_distance_per_lon_deg(lat_mid) <= max_dist)
 
-    def is_close(self, series: pd.Series) -> bool:
-        return self._is_close(series.lat, series.lon)
+    def is_close(self, array: np.ndarray) -> bool:
+        return self._is_close(array[0], array[1])
 
     def score_to(self, node: Node) -> Score:
         score = Score.from_score(self.score)
@@ -356,22 +363,27 @@ class Nodes:
         self.dfs[stop] = df
         return df
 
-    def get_close_to_next(self, node: Node) -> Generator[Node, None, None]:
+    def get_df_close_to_next(self, node: Node) -> DF:
         next_stop = node.stop.next
         if next_stop not in self.dfs:
             df = self.filter_df_by_stop(next_stop)
         else:
             df = self.dfs.get(next_stop)
 
-        create_node_partial: Callable[[StopPosition], Node]
-        create_node_partial = partial(self.get_or_create, next_stop)
-        close_df = df[df[["lat", "lon"]].apply(node.is_close, axis=1)]
+        return df[df[["lat", "lon"]].apply(node.is_close, raw=True, axis=1)]
 
-        return (create_node_partial(values)
-                for values in close_df.itertuples(False, "StopPosition"))
+    def node_factory(self, df: DF, stop: Stop) -> Generator[Node, None, None]:
+        create_node_partial: Callable[[StopPosition], Node]
+        create_node_partial = partial(self.get_or_create, stop)
+        stop_positions = df.itertuples(False, "StopPosition")
+        return (create_node_partial(position) for position in stop_positions)
 
     def get_min(self) -> Node:
-        return heapq.heappop(self.node_heap)
+        node = heapq.heappop(self.node_heap)
+        # Do not return nodes that are already visited.
+        if node.visited:
+            return self.get_min()
+        return node
 
     def update_parent(self, parent: Node, node: Node, score: Score) -> None:
         try:
@@ -395,11 +407,16 @@ class RouteFinder:
     def find_dijkstra(self) -> list[Node]:
         self._initialize_start()
         while True:
-            node = self.nodes.get_min()
+            node: Node = self.nodes.get_min()
             if node.stop == self.stops.last:
                 break
             for neighbor in node.get_neighbors():
+                node.has_neighbors = True
                 node.update_neighbor(neighbor)
+            node.visited = True
+            # Create MissingNode as neighbor.
+            if not node.has_neighbors:
+                pass
 
         return node.construct_route()
 
