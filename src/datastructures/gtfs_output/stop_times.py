@@ -81,8 +81,14 @@ class Time:
         if not isinstance(other, Time):
             raise TypeError(f"Can only substract Time from "
                             f"Time, not '{type(other)}'.")
-        return self.from_float(
-            minutes=(self.to_float_hours() - other.to_float_hours()) * 60)
+        hours = self.hours - other.hours
+        minutes = self.minutes - other.minutes
+        seconds = self.seconds - other.seconds
+        if seconds < 0:
+            minutes -= seconds // 60
+        if minutes < 0:
+            hours -= minutes // 60
+        return Time(hours, minutes, seconds)
 
     # TODO NOW: This is ugly
     def to_float_hours(self) -> float:
