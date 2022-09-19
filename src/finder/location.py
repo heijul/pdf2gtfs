@@ -20,6 +20,12 @@ class Location:
     def close(self, other: Location) -> bool:
         return self.distance(other) <= Config.cluster_radius
 
+    def __add__(self, other: Location) -> Location:
+        if not isinstance(other, Location):
+            raise TypeError(f"Can only add Location to Location, "
+                            f"not {type(other)}")
+        return Location(self.lat + other.lat, self.lon + other.lon)
+
     def __str__(self) -> str:
         return f"({self.lat:.5f}, {self.lon:.5f})"
 
