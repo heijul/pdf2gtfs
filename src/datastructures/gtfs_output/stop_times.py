@@ -237,3 +237,10 @@ class StopTimes(BaseContainer):
             if entry.stop_id == stop_id:
                 entries.append(entry)
         return entries
+
+    def get_with_trip_id(self, trip_id: str) -> list[StopTimesEntry]:
+        stop_times = []
+        for stop_time in self.entries:
+            if stop_time.trip_id == trip_id:
+                stop_times.append(stop_time)
+        return stop_times

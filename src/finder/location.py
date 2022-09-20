@@ -35,6 +35,9 @@ class Location:
     def __iter__(self) -> Iterator[float]:
         return iter((self.lat, self.lon))
 
+    def __hash__(self) -> int:
+        return hash(f"{self.lat},{self.lon}")
+
     def valid(self) -> bool:
         # TODO: Change existing nodes to use None instead of -1???
         return self.lat is not None and self.lon is not None

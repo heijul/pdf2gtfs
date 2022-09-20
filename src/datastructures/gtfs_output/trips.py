@@ -57,3 +57,10 @@ class Trips(BaseContainer):
             if entry.trip_id in trip_ids:
                 continue
             self.entries.remove(entry)
+
+    def get_with_route_id(self, route_id: str) -> list[TripEntry]:
+        trips = []
+        for trip in self.entries:
+            if trip.route_id == route_id:
+                trips.append(trip)
+        return trips

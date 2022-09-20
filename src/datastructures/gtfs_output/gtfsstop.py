@@ -103,6 +103,8 @@ class GTFSStops(ExistingBaseContainer):
                 continue
             return entry
 
-    def get_by_idx(self, idx: int) -> GTFSStop:
-        # TODO NOW: Does not work, if stops already exist.
-        return self.entries[idx]
+    def get_by_stop_id(self, stop_id: str) -> GTFSStop:
+        for entry in self.entries:
+            if entry.stop_id == stop_id:
+                return entry
+        raise KeyError(f"No stop with stop_id '{stop_id}'.")

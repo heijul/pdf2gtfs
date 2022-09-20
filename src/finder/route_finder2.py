@@ -105,8 +105,8 @@ class Stop:
     speed_in_km_h: float = None
     stops: Stops = None
 
-    def __init__(self, idx: int, name: str, next_: Stop = None) -> None:
-        self.idx = idx
+    def __init__(self, stop_id: str, name: str, next_: Stop = None) -> None:
+        self.stop_id = stop_id
         self.name = name
         self._next = next_
         self._avg_time_to_next = None
@@ -146,14 +146,14 @@ class Stop:
         return self._max_dist_to_next
 
     def __hash__(self) -> int:
-        return hash(self.idx)
+        return hash(self.stop_id)
 
     def __repr__(self) -> str:
-        return f"Stop({self.idx}, '{self.name}')"
+        return f"Stop({self.stop_id}, '{self.name}')"
 
 
 class Stops(abc.Iterator):
-    def __init__(self, handler: GTFSHandler, stop_names: list[str]) -> None:
+    def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]]) -> None:
         self.handler = handler
         Stop.stops = self
         self.first, self.last = self._create_stops(stop_names)
@@ -169,11 +169,11 @@ class Stops(abc.Iterator):
         return stops
 
     @staticmethod
-    def _create_stops(stop_names: list[str]) -> tuple[Stop, Stop]:
+    def _create_stops(stop_names: list[tuple[str, str]]) -> tuple[Stop, Stop]:
         last = None
         stop = None
 
-        for idx, stop_name in reversed(list(enumerate(stop_names))):
+        for idx, stop_name in reversed(list(stop_names)):
             stop = Stop(idx, stop_name, stop)
             if not last:
                 last = stop
@@ -181,7 +181,7 @@ class Stops(abc.Iterator):
         return stop, last
 
     def get_avg_time_between(self, stop1: Stop, stop2: Stop) -> Time:
-        return self.handler.get_avg_time_between_stops(stop1.idx, stop2.idx)
+        return self.handler.get_avg_time_between_stops(stop1.stop_id, stop2.stop_id)
 
     def __next__(self) -> Generator[Stop]:
         current = self.first
@@ -457,9 +457,9 @@ class Nodes:
         return node
 
     def filter_df_by_stop(self, stop: Stop) -> DF:
-        df = self.df[self.df["stop_idx"] == stop.idx]
+        df = self.df[self.df["stop_id"] == stop.stop_id]
         if df.empty:
-            data = {"idx": self.next_missing_node_idx, "stop_idx": stop.idx,
+            data = {"idx": self.next_missing_node_idx, "stop_id": stop.stop_id,
                     "names": stop.name, "lat": 0, "lon": 0,
                     "node_score": MISSING_NODE_SCORE, "name_score": 0}
             self.next_missing_node_idx -= 1
@@ -551,7 +551,7 @@ def update_missing_locations(route) -> None:
 
 
 class RouteFinder:
-    def __init__(self, handler: GTFSHandler, stop_names: list[str], df: DF) -> None:
+    def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]], df: DF) -> None:
         self.handler = handler
         self.stops = Stops(handler, stop_names)
         self.nodes = Nodes(df)
@@ -619,8 +619,9 @@ def display_route(nodes: list[Node]) -> None:
     webbrowser.open_new_tab(str(outfile))
 
 
-def find_shortest_route(handler: GTFSHandler, stop_names: list[str], df: DF
-                        ) -> list[Node]:
+def find_shortest_route(handler: GTFSHandler,
+                        stop_names: list[tuple[str, str]], df: DF
+                        ) -> dict[str: Location]:
     logger.info("Starting location detection...")
     t = time()
     route_finder = RouteFinder(handler, stop_names, df.copy())
@@ -628,4 +629,4 @@ def find_shortest_route(handler: GTFSHandler, stop_names: list[str], df: DF
     update_missing_locations(route)
     logger.info(f"Done. Took {time() - t:.2f}s")
     display_route(route)
-    return route
+    return {node.stop.stop_id: node.loc for node in route}

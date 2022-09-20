@@ -18,14 +18,14 @@ import requests
 from requests.exceptions import ConnectionError
 
 from config import Config
+from finder.location import Location
 from finder.osm_node import OSMNode, Route3
 from finder.osm_values import get_all_cat_scores
-from finder.routes import display_route2, generate_routes2
 from finder.route_finder2 import find_shortest_route, Node
 from finder.types import StopNames
 from utils import (
-    get_abbreviations_regex, get_edit_distance, replace_abbreviation, replace_abbreviations,
-    SPECIAL_CHARS)
+    get_abbreviations_regex, get_edit_distance, replace_abbreviation,
+    replace_abbreviations, SPECIAL_CHARS)
 
 
 if TYPE_CHECKING:
@@ -307,31 +307,13 @@ class Finder:
             df = None
         self.df: pd.DataFrame = df
 
-    def _generate_routes(self) -> None:
-        names = [stop.stop_name for stop in self.handler.stops.entries]
-        self.routes = generate_routes2(names, self.df, self.handler)
-
-    def get_shortest_route(self) -> Optional[Route3]:
-        self._generate_routes()
-        if not self.routes:
-            return None
-
-        route = min(self.routes)
-        if route:
-            logger.info(f"Found route:\n\t"
-                        f"Invalid nodes: {route.invalid_node_count}\n\t"
-                        f"Overall distance in m: {int(route.length)}")
-
-        if Config.display_route in [1, 3] and route:
-            display_route2(route)
-
-        return route
-
-    def find(self) -> list[Node]:
-        names = [stop.stop_name for stop in self.handler.stops.entries]
+    def find(self) -> dict[str: Location]:
+        stops = [(stop.stop_id, stop.stop_name)
+                 for stop in self.handler.stops.entries]
         logger.info("Splitting DataFrame based on stop names...")
         t = time()
-        df = add_extra_columns(names, prefilter_df(names, self.df))
+        prefiltered_df = prefilter_df([name for _, name in stops], self.df)
+        df = add_extra_columns(stops, prefiltered_df)
         logger.info(f"Done. Took {time() - t:.2f}s")
 
         logger.info(f"Calculating location scores based on selected "
@@ -340,11 +322,39 @@ class Finder:
         full_df = fix_df(df)
         df.loc[:, "node_score"] = get_node_score(full_df)
         df = df.loc[:, ["lat", "lon", "names",
-                        "name_score", "stop_idx", "idx", "node_score"]]
+                        "name_score", "stop_id", "idx", "node_score"]]
         logger.info(f"Done. Took {time() - t:.2f}s")
+        # TODO NOW: Split
+        routes_names = get_routes_names(self.handler)
+        stops_locations: dict[str: list[Location]] = {}
+        for route_names in routes_names:
+            route = find_shortest_route(self.handler, route_names, df)
+            for stop_id, loc in route.items():
+                stops_locations.setdefault(stop_id, []).append(loc)
 
-        route = find_shortest_route(self.handler, names, df)
-        return route
+        # Get best location for all stops
+        stops_location: dict[str: Location] = {}
+        for stop_id, locs in stops_locations.items():
+            items = set(locs)
+            counts = {item: locs.count(item) for item in items}
+            highest_count = max(locs, key=lambda x: counts[x])
+            stops_location[stop_id] = highest_count
+
+        return stops_location
+
+
+def get_routes_names(handler: GTFSHandler) -> list[list[tuple[str, str]]]:
+    # Get routes from gtfs_routes
+    route_stop_ids: list[tuple[str]] = []
+    for route in handler.routes.entries:
+        route_stop_ids += handler.get_stop_ids(route.route_id)
+    # Get names from routes
+    routes = []
+    for stop_ids in set(route_stop_ids):
+        routes.append(
+            [(stop_id, handler.stops.get_by_stop_id(stop_id).stop_name)
+             for stop_id in stop_ids])
+    return routes
 
 
 def _normalize_stop(stop: str) -> str:
@@ -366,7 +376,7 @@ def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
     return df.copy()
 
 
-def add_extra_columns(stops: StopNames, full_df: DF) -> DF:
+def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
     def name_distance(name) -> int:
         """ Edit distance between name and stop after normalizing both. """
         normal_name = _normalize_stop(name)
@@ -377,12 +387,12 @@ def add_extra_columns(stops: StopNames, full_df: DF) -> DF:
         return get_edit_distance(normal_name, normal_stop)
 
     dfs = []
-    for stop_idx, stop in enumerate(stops):
+    for stop_id, stop in stops:
         df = _filter_df_by_stop(stop, full_df)
         if df.empty:
             continue
         df.loc[:, "name_score"] = df["names"].apply(name_distance)
-        df.loc[:, "stop_idx"] = stop_idx
+        df.loc[:, "stop_id"] = stop_id
         df.loc[:, "idx"] = df.index
         dfs.append(df)
     return pd.concat(dfs, ignore_index=True)

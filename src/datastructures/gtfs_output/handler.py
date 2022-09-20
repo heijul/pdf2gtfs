@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+from operator import attrgetter
 from statistics import mean
-from typing import TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 from holidays.utils import country_holidays
 
@@ -216,6 +217,20 @@ class GTFSHandler:
             stop.set_location(*node.loc)
         logger.info("Done.")
 
+    def get_stop_ids(self, route_id: str) -> list[tuple[str]]:
+        trips = self.trips.get_with_route_id(route_id)
+        trip_stop_times = [self.stop_times.get_with_trip_id(trip.trip_id)
+                           for trip in trips]
+
+        stops_ids: list[tuple[str]] = []
+        for stop_times in trip_stop_times:
+            stop_times = sorted(stop_times, key=attrgetter("stop_sequence"))
+            stop_ids = tuple([stop_time.stop_id for stop_time in stop_times])
+            stops_ids.append(cast(tuple[str], stop_ids))
+
+        stops_ids = list(set([tuple(stop_ids) for stop_ids in stops_ids]))
+        return stops_ids
+
     @property
     def agency(self) -> Agency:
         return self._agency
@@ -244,11 +259,9 @@ class GTFSHandler:
     def calendar_dates(self) -> CalendarDates:
         return self._calendar_dates
 
-    def get_avg_time_between_stops(self, idx1: int, idx2: int) -> Time:
-        stop1 = self.stops.get_by_idx(idx1)
-        stop_times1 = self.stop_times.get_with_stop_id(stop1.stop_id)
-        stop2 = self.stops.get_by_idx(idx2)
-        stop_times2 = self.stop_times.get_with_stop_id(stop2.stop_id)
+    def get_avg_time_between_stops(self, stop_id1: str, stop_id2: str) -> Time:
+        stop_times1 = self.stop_times.get_with_stop_id(stop_id1)
+        stop_times2 = self.stop_times.get_with_stop_id(stop_id2)
 
         # TODO NOW: This may fail if one stop_times is longer than the other
         times = []
