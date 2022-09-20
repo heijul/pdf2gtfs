@@ -393,7 +393,7 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
         df = _filter_df_by_stop(stop, full_df)
         if df.empty:
             continue
-        df.loc[:, "name_score"] = df["names"].apply(name_distance)
+        df.loc[:, "name_score"] = df["names"].apply(name_distance) * 2
         df.loc[:, "stop_id"] = stop_id
         df.loc[:, "idx"] = df.index
         dfs.append(df)
@@ -412,9 +412,9 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
         if value in bad:
             return bad_value
         try:
-            return good[value]
+            return good[value] ** 3
         except KeyError:
-            return 4
+            return 3
 
     bad_value = float("inf")
     # Apply cat scores

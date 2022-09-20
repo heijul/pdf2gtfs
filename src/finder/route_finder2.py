@@ -255,8 +255,12 @@ class Score:
         return not self < other
 
     def __repr__(self) -> str:
-        return (f"Score(total: {self.score:.2f}, node: {self.node_score:.2f},"
-                f" name: {self.name_score:.2f}, dist: {self.dist_score:.2f})")
+        fmt = ">8.2f"
+        return (f"Score("
+                f"total: {self.score:{fmt}}, "
+                f"node: {self.node_score:{fmt}}, "
+                f"name: {self.name_score:{fmt}}, "
+                f"dist: {self.dist_score:{fmt}})")
 
 
 class StartScore(Score):
@@ -326,20 +330,28 @@ class Node:
 
     def update_neighbor(self, node: Node) -> None:
         """ Set the nodes' parent to self, if self has a better score. """
-        score = self.score_to(node)
+        new_node_score = self.score_to(node)
 
         no_parent = node.parent is None
         missing_parent = (not no_parent and
                           isinstance(node.parent, MissingNode))
         missing_self = isinstance(self, MissingNode)
-        better_score = score < node.score
+        score_diff = new_node_score.score - node.score.score
+        better_score = 0.5 < score_diff <= 1
         is_better = no_parent or (missing_parent and not missing_self)
         # Compare score only if both or neither are MissingNode.
         is_better |= missing_parent + missing_self in [0, 2] and better_score
         if not is_better:
             return
+        if not missing_self and not missing_parent and not no_parent:
+            logger.info(f"Found better node\n"
+                        f"\t{self}\n"
+                        f"\t\twith score: {node.score}\n"
+                        f"\t{node.parent}\n"
+                        f"\t\twith score: {new_node_score}\n"
+                        f"\tscorediff: {score_diff}")
 
-        self.nodes.update_parent(self, node, score)
+        self.nodes.update_parent(self, node, new_node_score)
 
     def construct_route(self) -> list[Node]:
         if not self.parent:
