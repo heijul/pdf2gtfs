@@ -21,7 +21,7 @@ from config import Config
 from finder.location import Location
 from finder.osm_node import OSMNode, Route3
 from finder.osm_values import get_all_cat_scores
-from finder.route_finder2 import find_shortest_route, Node
+from finder.route_finder2 import display_route, find_shortest_route, Node
 from finder.types import StopNames
 from utils import (
     get_abbreviations_regex, get_edit_distance, replace_abbreviation,
@@ -325,22 +325,23 @@ class Finder:
                         "name_score", "stop_id", "idx", "node_score"]]
         logger.info(f"Done. Took {time() - t:.2f}s")
         # TODO NOW: Split
-        routes_names = get_routes_names(self.handler)
-        stops_locations: dict[str: list[Location]] = {}
+        routes_names: list[list[tuple[str, str]]] = get_routes_names(self.handler)
+        stops_nodes: dict[str: list[Node]] = {}
         for route_names in routes_names:
-            route = find_shortest_route(self.handler, route_names, df)
-            for stop_id, loc in route.items():
-                stops_locations.setdefault(stop_id, []).append(loc)
+            route: dict[str: Node] = find_shortest_route(self.handler, route_names, df)
+            for stop_id, node in route.items():
+                stops_nodes.setdefault(stop_id, []).append(node)
 
         # Get best location for all stops
-        stops_location: dict[str: Location] = {}
-        for stop_id, locs in stops_locations.items():
-            items = set(locs)
-            counts = {item: locs.count(item) for item in items}
-            highest_count = max(locs, key=lambda x: counts[x])
-            stops_location[stop_id] = highest_count
+        stops_node: dict[str: Location] = {}
+        for stop_id, nodes in stops_nodes.items():
+            nodes_unique = set(nodes)
+            nodes_count = {node: nodes.count(node) for node in nodes_unique}
+            node_with_max_count = max(nodes, key=lambda x: nodes_count[x])
+            stops_node[stop_id] = node_with_max_count
+        display_route(list(stops_node.values()))
 
-        return stops_location
+        return stops_node
 
 
 def get_routes_names(handler: GTFSHandler) -> list[list[tuple[str, str]]]:

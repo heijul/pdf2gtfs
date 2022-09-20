@@ -374,6 +374,9 @@ class Node:
             base += f", to_parent: {dist_to_parent.m:.2f}"
         return base + ")"
 
+    def __hash__(self) -> int:
+        return hash(repr(self))
+
 
 class MissingNode(Node):
     def __init__(self, stop: Stop, index: int, names: str, loc: Location
@@ -621,7 +624,7 @@ def display_route(nodes: list[Node]) -> None:
 
 def find_shortest_route(handler: GTFSHandler,
                         stop_names: list[tuple[str, str]], df: DF
-                        ) -> dict[str: Location]:
+                        ) -> dict[str: Node]:
     logger.info("Starting location detection...")
     t = time()
     route_finder = RouteFinder(handler, stop_names, df.copy())
@@ -629,4 +632,5 @@ def find_shortest_route(handler: GTFSHandler,
     update_missing_locations(route)
     logger.info(f"Done. Took {time() - t:.2f}s")
     display_route(route)
-    return {node.stop.stop_id: node.loc for node in route}
+    return {node.stop.stop_id: node
+            for node in route if not isinstance(node, MissingNode)}
