@@ -18,9 +18,9 @@ from config import Config
 from datastructures.gtfs_output.stop_times import Time
 from finder.location import Location
 
+
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
-
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,8 @@ StopPosition = NamedTuple("StopPosition",
                           [("idx", int), ("stop", str), ("names", str),
                            ("lat", float), ("lon", float),
                            ("node_score", float), ("name_score", float)])
+
+MISSING_NODE_SCORE = 100
 
 
 class Distance:
@@ -54,6 +56,12 @@ class Distance:
 
     def __mul__(self, other: object) -> Distance:
         return self.__rmul__(other)
+
+    def __add__(self, other: object):
+        if isinstance(other, Distance):
+            return Distance(m=self.m + other.m)
+        raise TypeError(f"Can only add Distances to Distances, "
+                        f"not '{type(object)}'.")
 
     def __truediv__(self, other: object) -> Distance:
         if isinstance(other, Distance):
@@ -80,6 +88,9 @@ class Distance:
 
     def __ge__(self, other: Distance) -> bool:
         return not self < other
+
+    def __repr__(self) -> str:
+        return f"Dist({self.m}m)"
 
 
 DISTANCE_PER_LAT_DEG = Distance(km=111.32)
@@ -119,6 +130,7 @@ class Stop:
     def avg_time_to_next_in_h(self) -> float:
         def _calculate_avg_time_to_next() -> Time:
             return Stop.stops.get_avg_time_between(self, self.next)
+
         if self._avg_time_to_next is None:
             self._avg_time_to_next = _calculate_avg_time_to_next().to_float_hours()
         return self._avg_time_to_next
@@ -135,6 +147,9 @@ class Stop:
 
     def __hash__(self) -> int:
         return hash(self.idx)
+
+    def __repr__(self) -> str:
+        return f"Stop({self.idx}, '{self.name}')"
 
 
 class Stops(abc.Iterator):
@@ -198,13 +213,11 @@ class Score:
         return any(map(invalid_score, self.scores))
 
     def set_dist_score_from_dist(self, node: Node, dist: Distance) -> None:
-        dist_to_expected = abs(node.stop.max_dist_to_next.m - dist.m)
-        self.dist_score = self.get_dist_score_from_dist(dist_to_expected)
+        diff_to_expected = abs(node.stop.max_dist_to_next.m - dist.m)
+        self.dist_score = self.get_dist_score_from_dist(diff_to_expected)
 
     @staticmethod
     def get_dist_score_from_dist(dist: float) -> float:
-        if dist == -1:
-            return 0
         try:
             return log(dist, 4) * 0.3 * log(dist, 20)
         except ValueError:
@@ -241,11 +254,17 @@ class Score:
     def __ge__(self, other: Score) -> bool:
         return not self < other
 
+    def __repr__(self) -> str:
+        return (f"Score(total: {self.score:.2f}, node: {self.node_score:.2f},"
+                f" name: {self.name_score:.2f}, dist: {self.dist_score:.2f})")
+
 
 class StartScore(Score):
-    @property
-    def scores(self) -> tuple[float, float, float]:
-        return 0, 0, 0
+    @staticmethod
+    def from_score(score: Score) -> Score:
+        s = Score.from_score(score)
+        s.dist_score = 0
+        return s
 
     def set_dist_score_from_dist(self, node: Node, dist: Distance) -> None:
         raise NotImplementedError("Can not set dist score for start nodes.")
@@ -254,14 +273,15 @@ class StartScore(Score):
 class Node:
     nodes: Nodes = None
 
-    def __init__(self, stop: Stop, index: int, names: str, loc: Location
-                 ) -> None:
+    def __init__(self, stop: Stop, index: int, names: str,
+                 loc: Location, score: Score) -> None:
         self.stop = stop
         self.index = index
         self.names = names
         self.loc = loc
         self.parent = None
-        self.score: Score = Score()
+        self.has_children = False
+        self.score: Score = score
         self.has_neighbors = False
         self.visited = False
         if Node.nodes is None:
@@ -270,8 +290,8 @@ class Node:
     def get_neighbors(self) -> Generator[Node, None, None]:
         next_stop = self.stop.next
         df = Node.nodes.get_df_close_to_next(self)
-        if not df.empty:
-            return Node.nodes.node_factory(df, next_stop)
+        if -1 in df.index.values:
+            return Node.nodes.missing_node_factory(df, next_stop)
         return Node.nodes.node_factory(df, next_stop)
 
     def dist_exact(self, node: Node) -> Distance:
@@ -282,22 +302,44 @@ class Node:
         dist = sqrt(lat_dist.m ** 2 + lon_dist.m ** 2)
         return Distance(m=dist)
 
-    def _is_close(self, lat, lon) -> bool:
+    def _is_close(self, lat: float, lon: float, max_dist: Distance) -> bool:
+        """ Checks if the given lat/lon is within a square of
+        size 2 * max_dist. Faster than calculating the exact distance. """
         # TODO: Maybe use self.loc.lat instead of lat_mid
         lat_mid = self.loc.lat + lat
         lat_diff = abs(self.loc.lat - lat)
         lon_diff = abs(self.loc.lon - lon)
-        max_dist = self.stop.max_dist_to_next
         return (lat_diff * DISTANCE_PER_LAT_DEG <= max_dist and
                 lon_diff * get_distance_per_lon_deg(lat_mid) <= max_dist)
 
-    def is_close(self, array: np.ndarray) -> bool:
-        return self._is_close(array[0], array[1])
+    def is_close(self, array: np.ndarray, max_dist: float = None) -> bool:
+        if array[0] == 0 and array[1] == 0:
+            return True
+        if max_dist is None:
+            max_dist = self.stop.max_dist_to_next
+        return self._is_close(array[0], array[1], max_dist)
 
     def score_to(self, node: Node) -> Score:
-        score = Score.from_score(self.score)
+        score = Score.from_score(node.score)
         score.set_dist_score_from_dist(self, self.dist_exact(node))
         return score
+
+    def update_neighbor(self, node: Node) -> None:
+        """ Set the nodes' parent to self, if self has a better score. """
+        score = self.score_to(node)
+
+        no_parent = node.parent is None
+        missing_parent = (not no_parent and
+                          isinstance(node.parent, MissingNode))
+        missing_self = isinstance(self, MissingNode)
+        better_score = score < node.score
+        is_better = no_parent or (missing_parent and not missing_self)
+        # Compare score only if both or neither are MissingNode.
+        is_better |= missing_parent + missing_self in [0, 2] and better_score
+        if not is_better:
+            return
+
+        self.nodes.update_parent(self, node, score)
 
     def construct_route(self) -> list[Node]:
         if not self.parent:
@@ -324,13 +366,47 @@ class Node:
     def __ge__(self, other: Node) -> bool:
         return not self < other
 
-    def update_neighbor(self, node: Node) -> None:
-        score = self.score_to(node)
-        if score >= node.score:
-            return
-        self.nodes.update_parent(self, node, score)
-        node.score = score
-        node.parent = self
+    def __repr__(self) -> str:
+        base = (f"Node('{self.stop.name}', score: {self.score.score:.2f}, "
+                f"loc: [{self.loc.lat}, {self.loc.lon}]")
+        if self.parent:
+            dist_to_parent = self.dist_exact(self.parent)
+            base += f", to_parent: {dist_to_parent.m:.2f}"
+        return base + ")"
+
+
+class MissingNode(Node):
+    def __init__(self, stop: Stop, index: int, names: str, loc: Location
+                 ) -> None:
+        score = Score(MISSING_NODE_SCORE, 0, 0)
+        super().__init__(stop, index, names, loc, score)
+
+    def dist_exact(self, node: Node) -> Distance:
+        if self.parent:
+            return self.parent.dist_exact(node)
+        raise NotImplementedError(
+            "Can't calculate distance to missing node without parent.")
+
+    def is_close(self, array: np.ndarray, max_dist: float = None) -> bool:
+        if not self.parent:
+            # We don't know where the missing node is,
+            # so we have to assume it is close.
+            return True
+
+        max_dist = (self.stop.max_dist_to_next +
+                    self.parent.stop.max_dist_to_next)
+        return self.parent.is_close(array, max_dist)
+
+    def score_to(self, node: Node) -> Score:
+        if self.parent and node.parent:
+            return self.parent.score_to(node)
+
+        score = Score.from_score(self.score)
+        score.dist_score = MISSING_NODE_SCORE
+        return score
+
+    def __repr__(self) -> str:
+        return "Missing" + super().__repr__()
 
 
 class Nodes:
@@ -339,6 +415,7 @@ class Nodes:
         self.dfs: dict[Stop: DF] = {}
         self.node_map: dict[tuple[Stop, int]: Node] = {}
         self.node_heap: Heap[Node] = []
+        self.next_missing_node_idx = -1
         Node.nodes = self
 
     def _add(self, node: Node) -> None:
@@ -346,9 +423,16 @@ class Nodes:
         heapq.heappush(self.node_heap, node)
 
     def _create_node(self, stop: Stop, values: StopPosition) -> Node:
-        idx = values.idx
         loc = Location(values.lat, values.lon)
-        node = Node(stop, idx, values.names, loc)
+        score = Score(values.node_score, values.name_score)
+        node = Node(stop, values.idx, values.names, loc, score)
+        self._add(node)
+        return node
+
+    def _create_missing_node(self, stop: Stop, values: StopPosition
+                             ) -> MissingNode:
+        loc = Location(values.lat, values.lon)
+        node = MissingNode(stop, values.idx, values.names, loc)
         self._add(node)
         return node
 
@@ -358,25 +442,48 @@ class Nodes:
             node = self._create_node(stop, values)
         return node
 
+    def create_missing(self, stop: Stop, node_score: float) -> MissingNode:
+        values = StopPosition(self.next_missing_node_idx, stop.name,
+                              stop.name, 0, 0, node_score, 0)
+        node = self._create_missing_node(stop, values)
+        self.next_missing_node_idx -= 1
+        return node
+
+    def get_or_create_missing(self, stop: Stop, values: StopPosition,
+                              ) -> MissingNode:
+        node = self.node_map.get((stop, values.idx))
+        if node is None:
+            node = self._create_missing_node(stop, values)
+        return node
+
     def filter_df_by_stop(self, stop: Stop) -> DF:
         df = self.df[self.df["stop_idx"] == stop.idx]
+        if df.empty:
+            data = {"idx": self.next_missing_node_idx, "stop_idx": stop.idx,
+                    "names": stop.name, "lat": 0, "lon": 0,
+                    "node_score": MISSING_NODE_SCORE, "name_score": 0}
+            self.next_missing_node_idx -= 1
+            df = pd.DataFrame(data, index=pd.Index([-1]), columns=df.columns)
         self.dfs[stop] = df
         return df
 
     def get_df_close_to_next(self, node: Node) -> DF:
         next_stop = node.stop.next
-        if next_stop not in self.dfs:
-            df = self.filter_df_by_stop(next_stop)
-        else:
-            df = self.dfs.get(next_stop)
-
+        df = self.dfs.setdefault(next_stop, self.filter_df_by_stop(next_stop))
         return df[df[["lat", "lon"]].apply(node.is_close, raw=True, axis=1)]
 
     def node_factory(self, df: DF, stop: Stop) -> Generator[Node, None, None]:
         create_node_partial: Callable[[StopPosition], Node]
         create_node_partial = partial(self.get_or_create, stop)
         stop_positions = df.itertuples(False, "StopPosition")
-        return (create_node_partial(position) for position in stop_positions)
+        return (create_node_partial(pos) for pos in stop_positions)
+
+    def missing_node_factory(self, df: DF, stop: Stop
+                             ) -> Generator[Node, None, None]:
+        create_missing_partial: Callable[[StopPosition], Node]
+        create_missing_partial = partial(self.get_or_create_missing, stop)
+        stop_positions = df.itertuples(False, "StopPosition")
+        return (create_missing_partial(pos) for pos in stop_positions)
 
     def get_min(self) -> Node:
         node = heapq.heappop(self.node_heap)
@@ -390,9 +497,57 @@ class Nodes:
             self.node_heap.remove(node)
         except ValueError:
             pass
+
         node.parent = parent
         node.score = score
+        parent.has_children = True
+        if False and isinstance(node, MissingNode):
+            self.duplicate_missing_node(node)
         heapq.heappush(self.node_heap, node)
+
+    def duplicate_missing_node(self, node: MissingNode) -> None:
+        duplicate = MissingNode(node.stop, self.next_missing_node_idx,
+                                node.names, node.loc)
+        self._add(duplicate)
+        self.next_missing_node_idx -= 1
+
+    def __repr__(self) -> str:
+        num_stops = len(set([nodes for nodes, _ in self.node_map]))
+        return (f"Nodes(# stops: {num_stops}, "
+                f"# nodes: {len(self.node_map)}, "
+                f"# unvisited nodes: {len(self.node_heap)})")
+
+
+def update_missing_locations(route) -> None:
+    def get_first_node() -> tuple[int, Node | None]:
+        for i, n in enumerate(route):
+            if isinstance(n, MissingNode):
+                continue
+            return i + 1, n
+        return 0, None
+
+    start_id, prev = get_first_node()
+    if prev is None:
+        return
+
+    missing_nodes = []
+    for node in route[start_id:]:
+        if isinstance(node, MissingNode):
+            missing_nodes.append(node)
+            continue
+        if not missing_nodes:
+            prev = node
+            continue
+
+        delta = Location((node.loc.lat - prev.loc.lat) / (len(missing_nodes) + 1),
+                         (node.loc.lon - prev.loc.lon) / (len(missing_nodes) + 1))
+        loc = prev.loc + delta
+
+        for m in missing_nodes:
+            m.loc = loc
+            loc += delta
+        missing_nodes = []
+        prev = node
 
 
 class RouteFinder:
@@ -401,9 +556,6 @@ class RouteFinder:
         self.stops = Stops(handler, stop_names)
         self.nodes = Nodes(df)
 
-    def find_dp(self) -> list[Node]:
-        ...
-
     def find_dijkstra(self) -> list[Node]:
         self._initialize_start()
         while True:
@@ -411,14 +563,17 @@ class RouteFinder:
             if node.stop == self.stops.last:
                 break
             for neighbor in node.get_neighbors():
-                node.has_neighbors = True
+                node.update_neighbor(neighbor)
+                if isinstance(neighbor, MissingNode):
+                    continue
+            if not node.has_children:
+                neighbor = self.nodes.create_missing(node.stop.next,
+                                                     node.score.score)
                 node.update_neighbor(neighbor)
             node.visited = True
-            # Create MissingNode as neighbor.
-            if not node.has_neighbors:
-                pass
 
-        return node.construct_route()
+        route = node.construct_route()
+        return route
 
     def _initialize_start(self) -> None:
         stop = self.stops.first
@@ -426,13 +581,13 @@ class RouteFinder:
         for values in df.itertuples(False, "StopPosition"):
             values: StopPosition
             node = self.nodes.get_or_create(stop, values)
-            node.score = StartScore()
+            node.score = StartScore.from_score(node.score)
 
 
 def display_route(nodes: list[Node]) -> None:
     def get_map_location() -> tuple[float, float]:
         try:
-            valid_nodes = nodes
+            valid_nodes = [n for n in nodes if not isinstance(n, MissingNode)]
             return (mean([n.loc.lat for n in valid_nodes]),
                     mean([n.loc.lon for n in valid_nodes]))
         except StatisticsError:
@@ -447,8 +602,17 @@ def display_route(nodes: list[Node]) -> None:
     m = folium.Map(location=location)
     for i, node in enumerate(nodes):
         loc = [node.loc.lat, node.loc.lon]
-        folium.Marker(loc, popup=f"{node.stop}\n{node.score}\n{loc}"
-                      ).add_to(m)
+        if loc[0] == 0 and loc[1] == 0:
+            continue
+        if isinstance(node, MissingNode):
+            icon = folium.Icon(color="red", icon="remove-circle")
+        else:
+            icon = folium.Icon(color="green", icon="map-marker")
+        popup = (f"Stop:  '{node.stop.name}'<br>"
+                 f"Score: {node.score.score:.2f}<br>"
+                 f"Lat:   {loc[0]:>7.4f}<br>"
+                 f"Lon:   {loc[1]:>7.4f}")
+        folium.Marker(loc, popup=popup, icon=icon).add_to(m)
 
     outfile = Config.output_dir.joinpath("routedisplay.html")
     m.save(str(outfile))
@@ -461,6 +625,7 @@ def find_shortest_route(handler: GTFSHandler, stop_names: list[str], df: DF
     t = time()
     route_finder = RouteFinder(handler, stop_names, df.copy())
     route = route_finder.find_dijkstra()
+    update_missing_locations(route)
     logger.info(f"Done. Took {time() - t:.2f}s")
     display_route(route)
     return route

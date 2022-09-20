@@ -15,7 +15,7 @@ from datastructures.gtfs_output.route import Routes
 from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
-from finder.route_finder import Node, MissingNode
+from finder.route_finder2 import Node, MissingNode
 from user_input.cli import create_output_directory, handle_annotations
 
 
