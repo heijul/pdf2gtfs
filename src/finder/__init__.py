@@ -339,7 +339,8 @@ class Finder:
             nodes_count = {node: nodes.count(node) for node in nodes_unique}
             node_with_max_count = max(nodes, key=lambda x: nodes_count[x])
             stops_node[stop_id] = node_with_max_count
-        display_route(list(stops_node.values()))
+        if Config.display_route in [1, 3]:
+            display_route(list(stops_node.values()))
 
         return stops_node
 

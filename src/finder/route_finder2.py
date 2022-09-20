@@ -631,6 +631,7 @@ def find_shortest_route(handler: GTFSHandler,
     route = route_finder.find_dijkstra()
     update_missing_locations(route)
     logger.info(f"Done. Took {time() - t:.2f}s")
-    display_route(route)
+    if Config.display_route in [2, 3]:
+        display_route(route)
     return {node.stop.stop_id: node
             for node in route if not isinstance(node, MissingNode)}
