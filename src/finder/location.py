@@ -27,7 +27,7 @@ class Location:
         return Location(self.lat + other.lat, self.lon + other.lon)
 
     def __str__(self) -> str:
-        return f"({self.lat:.5f}, {self.lon:.5f})"
+        return f"({self.lat:> 9.5f}, {self.lon:> 9.5f})"
 
     def __repr__(self) -> str:
         return f"Location{str(self)}"

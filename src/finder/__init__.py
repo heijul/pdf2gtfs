@@ -356,7 +356,7 @@ def get_routes_names(handler: GTFSHandler) -> list[list[tuple[str, str]]]:
         routes.append(
             [(stop_id, handler.stops.get_by_stop_id(stop_id).stop_name)
              for stop_id in stop_ids])
-    return routes
+    return sorted(routes, key=len, reverse=True)
 
 
 def _normalize_stop(stop: str) -> str:
@@ -393,7 +393,7 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
         df = _filter_df_by_stop(stop, full_df)
         if df.empty:
             continue
-        df.loc[:, "name_score"] = df["names"].apply(name_distance) * 2
+        df.loc[:, "name_score"] = df["names"].apply(name_distance)
         df.loc[:, "stop_id"] = stop_id
         df.loc[:, "idx"] = df.index
         dfs.append(df)
@@ -412,7 +412,7 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
         if value in bad:
             return bad_value
         try:
-            return good[value] ** 3
+            return good[value]
         except KeyError:
             return 3
 
