@@ -105,8 +105,7 @@ DISTANCE_PER_LAT_DEG = Distance(km=111.32)
 
 
 def get_distance_per_lon_deg(lat: float) -> Distance:
-    lat_in_rad = math.tau * lat / 360
-    return DISTANCE_PER_LAT_DEG * abs(math.cos(lat_in_rad))
+    return DISTANCE_PER_LAT_DEG * abs(math.cos(math.radians(lat)))
 
 
 class Stop:
@@ -203,15 +202,15 @@ class Stops(abc.Iterator):
 
 
 class Score:
-    def __init__(self, node_score: float = None, name_score: float = None,
-                 dist_score: float = None) -> None:
-        self.parent_score = 0
+    def __init__(self, parent_score: float = None, node_score: float = None,
+                 name_score: float = None, dist_score: float = None) -> None:
+        self.parent_score = self._get_score(parent_score)
         self.node_score = self._get_score(node_score)
         self.name_score = self._get_score(name_score)
         self.dist_score = self._get_score(dist_score)
 
     @property
-    def score(self) -> float:
+    def as_float(self) -> float:
         return sum(self.scores)
 
     @property
@@ -220,7 +219,9 @@ class Score:
 
     @dist_score.setter
     def dist_score(self, value: float) -> None:
-        self._dist_score = min(value, 100)
+        if value != float("inf"):
+            value = min(value, 100)
+        self._dist_score = value
 
     @property
     def scores(self) -> tuple[float, float, float, float]:
@@ -235,16 +236,54 @@ class Score:
         return any(map(invalid_score, self.scores))
 
     def set_dist_score_from_dist(self, node: Node, dist: Distance) -> None:
-        diff_to_expected = abs(node.stop.max_dist_to_next.m - dist.m)
-        self.dist_score = self.get_dist_score_from_dist(diff_to_expected)
+        if dist.m == 0:
+            self.dist_score = float("inf")
+            return
+        max_dist = node.stop.max_dist_to_next
+        is_close = math.isclose(dist.m, max_dist.m, rel_tol=0.5, abs_tol=250)
+        if False and not is_close:
+            print(dist, max_dist)
+            self.dist_score = float("inf")
+            return
+        diff_to_expected = abs(max_dist.m - dist.m)
+        dist_score = self.calculate_dist_score_from_dist(diff_to_expected)
+        self.dist_score = dist_score
 
     @staticmethod
-    def get_dist_score_from_dist(dist: float) -> float:
+    def calculate_dist_score_from_dist(dist: float) -> float:
         try:
             return math.log(dist, 4) * 0.3 * math.log(dist, 20)
         except ValueError:
             # Two different stops should not use the same location.
             return float("inf")
+
+    def set_dist_score_from_dist2(self, node: Node, dist: Distance) -> None:
+        diff_to_expected = abs(node.stop.max_dist_to_next.km - dist.km)
+        dist_score = self.calculate_dist_score_from_diff2(diff_to_expected)
+        if diff_to_expected / node.stop.max_dist_to_next.km > 1:
+            self.dist_score = float("inf")
+            return
+        dist_score = dist_score
+        self.dist_score = dist_score
+
+    @staticmethod
+    def calculate_dist_score_from_diff2(diff_km: float) -> float:
+        def low_diff() -> float:
+            return 3 * diff_km
+
+        def mid_diff() -> float:
+            return (0.69 * diff_km) ** 2 + 3
+
+        def high_diff() -> float:
+            return diff_km ** 2 - 7 * diff_km + 20
+
+        if diff_km < 0:
+            return float("inf")
+        if diff_km < 1:
+            return low_diff()
+        if diff_km < 3:
+            return mid_diff()
+        return high_diff()
 
     @staticmethod
     def _get_score(score: float) -> float:
@@ -255,7 +294,7 @@ class Score:
         return Score(*score.scores)
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Score) and self.score == other.score
+        return isinstance(other, Score) and self.as_float == other.as_float
 
     def __lt__(self, other: Score) -> bool:
         if not isinstance(other, Score):
@@ -265,7 +304,7 @@ class Score:
             return True
         if self.invalid:
             return False
-        return self.score < other.score
+        return self.as_float < other.as_float
 
     def __le__(self, other: Score) -> bool:
         return self == other or self < other
@@ -279,16 +318,18 @@ class Score:
     def __repr__(self) -> str:
         fmt = ">8.2f"
         return (f"Score("
-                f"total: {self.score:{fmt}}, "
-                f"node: {self.node_score:{fmt}}, "
-                f"name: {self.name_score:{fmt}}, "
-                f"dist: {self.dist_score:{fmt}})")
+                f"total:   {self.as_float:{fmt}}, "
+                f"parent:  {self.parent_score:{fmt}}, "
+                f"node:    {self.node_score:{fmt}}, "
+                f"name:    {self.name_score:{fmt}}, "
+                f"dist:    {self.dist_score:{fmt}})")
 
 
 class StartScore(Score):
     @staticmethod
     def from_score(score: Score) -> Score:
         s = Score.from_score(score)
+        s.parent_score = 0
         s.dist_score = 0
         return s
 
@@ -316,7 +357,7 @@ class Node:
     def get_neighbors(self) -> Generator[Node, None, None]:
         next_stop = self.stop.next
         df = Node.nodes.get_df_close_to_next(self)
-        if -1 in df.index.values:
+        if (df.index.values < 0).any():
             return Node.nodes.missing_node_factory(df, next_stop)
         return Node.nodes.node_factory(df, next_stop)
 
@@ -335,8 +376,13 @@ class Node:
         lat_mid = self.loc.lat + lat
         lat_diff = abs(self.loc.lat - lat)
         lon_diff = abs(self.loc.lon - lon)
-        return (lat_diff * DISTANCE_PER_LAT_DEG <= max_dist and
-                lon_diff * get_distance_per_lon_deg(lat_mid) <= max_dist)
+        lat_dist = lat_diff * DISTANCE_PER_LAT_DEG
+        lon_dist = lon_diff * get_distance_per_lon_deg(lat_mid)
+        lat_close = math.isclose(lat_dist.m, max_dist.m,
+                                 rel_tol=0.5, abs_tol=500)
+        lon_close = math.isclose(lon_dist.m, max_dist.m,
+                                 rel_tol=0.5, abs_tol=500)
+        return lat_close and lon_close
 
     def is_close(self, array: np.ndarray, max_dist: float = None) -> bool:
         if array[0] == 0 and array[1] == 0:
@@ -346,12 +392,12 @@ class Node:
         return self._is_close(array[0], array[1], max_dist)
 
     def score_to(self, node: Node) -> Score:
-        score = Score.from_score(node.score)
+        score = Score.from_score(self.score)
         if isinstance(node, MissingNode):
-            score.dist_score = MISSING_NODE_SCORE
+            score.dist_score = 3
         else:
             score.set_dist_score_from_dist(self, self.dist_exact(node))
-        score.parent_score = node.score.score
+        score.parent_score = node.score.as_float
         return score
 
     def update_neighbor(self, node: Node) -> None:
@@ -362,20 +408,45 @@ class Node:
 
         missing_parent = (not no_parent and
                           isinstance(node.parent, MissingNode))
-        score_diff = new_node_score.score - node.score.score
-        better_score = score_diff <= -0.5
+        score_diff = node.score.as_float - new_node_score.as_float
+        better_score = score_diff >= 1
         is_better = no_parent or (missing_parent and not missing_self)
         # Compare score only if both or neither are MissingNode.
         is_better |= missing_parent + missing_self in [0, 2] and better_score
         if not is_better:
             return
-        if not missing_self and not missing_parent and not no_parent:
+        if not no_parent and not missing_self and not missing_parent:
             msg = (f"Found parent with better score for {node}.\n"
                    f"\tCurrent: {node.parent}\n"
                    f"\t\twith score: {node.score}\n"
                    f"\tBetter:  {self}\n"
                    f"\t\twith score: {new_node_score}\n"
                    f"\tScore difference: {score_diff:.3f}\n")
+            logger.info(msg)
+
+        self.nodes.update_parent(self, node, new_node_score)
+
+    def update_neighbor2(self, node: Node) -> None:
+        """ Set the nodes' parent to self, if self has a better score. """
+        # Calculate new score and compare.
+        new_node_score = self.score_to(node)
+        score_diff = new_node_score.as_float - node.score.as_float
+        # Prevent distance being the only deciding factor.
+        better_score = score_diff < -1
+        # Check if we want to update parent regardless of score.
+        has_parent = node.parent is not None
+        missing_parent = has_parent and isinstance(node.parent, MissingNode)
+        missing_self = isinstance(self, MissingNode)
+
+        if better_score and (missing_parent and not missing_self):
+            return
+        if has_parent and better_score:
+            msg = (f"Found parent with better score for {node}.\n"
+                   f"\tCurrent: {node.parent}\n"
+                   f"\t\twith score: {node.score}\n"
+                   f"\tBetter:  {self}\n"
+                   f"\t\twith score: {new_node_score}\n"
+                   f"\tScore difference: {score_diff}\n")
             logger.info(msg)
 
         self.nodes.update_parent(self, node, new_node_score)
@@ -406,7 +477,7 @@ class Node:
         return not self < other
 
     def __repr__(self) -> str:
-        base = (f"Node('{self.stop.name}', score: {self.score.score:.2f}, "
+        base = (f"Node('{self.stop.name}', score: {self.score.as_float:.2f}, "
                 f"loc: {self.loc}")
         if self.parent:
             dist_to_parent = self.dist_exact(self.parent)
@@ -416,11 +487,36 @@ class Node:
     def __hash__(self) -> int:
         return hash(repr(self))
 
+    @property
+    def has_parent(self) -> bool:
+        return self.parent is not None
+
+    def update_parent(self, node: Node) -> None:
+        score_to_node = self.score_to(node)
+        too_far_awaaay = score_to_node.dist_score >= 50
+        if not self.has_parent:
+            if not too_far_awaaay:
+                self.nodes.update_parent(node, self, score_to_node)
+            return
+
+        force_no_update = (isinstance(node, MissingNode) and
+                           not isinstance(self.parent, MissingNode))
+        if force_no_update:
+            return
+
+        better_score = score_to_node.as_float < self.score.as_float
+        force_update = (isinstance(self.parent, MissingNode) and
+                        not isinstance(node, MissingNode))
+        if not better_score and not force_update:
+            return
+
+        self.nodes.update_parent(node, self, score_to_node)
+
 
 class MissingNode(Node):
     def __init__(self, stop: Stop, index: int, names: str, loc: Location,
-                 node_score: float) -> None:
-        score = Score(node_score, 0, 0)
+                 parent_score: float) -> None:
+        score = Score(parent_score, MISSING_NODE_SCORE, 0, 0)
         super().__init__(stop, index, names, loc, score)
 
     def dist_exact(self, node: Node) -> Distance:
@@ -440,11 +536,7 @@ class MissingNode(Node):
         return self.parent.is_close(array, max_dist)
 
     def score_to(self, node: Node) -> Score:
-        if self.parent and node.parent:
-            return self.parent.score_to(node)
-
-        score = Score.from_score(self.score)
-        score.dist_score = MISSING_NODE_SCORE
+        score = Score(node.score.as_float, MISSING_NODE_SCORE, 0, 3)
         return score
 
     def __repr__(self) -> str:
@@ -466,15 +558,16 @@ class Nodes:
 
     def _create_node(self, stop: Stop, values: StopPosition) -> Node:
         loc = Location(values.lat, values.lon)
-        score = Score(values.node_score, values.name_score)
+        score = Score(float("inf"), values.node_score, values.name_score)
         node = Node(stop, values.idx, values.names, loc, score)
         self._add(node)
         return node
 
     def _create_missing_node(self, stop: Stop, values: StopPosition
                              ) -> MissingNode:
+        parent_score = values.node_score
         loc = Location(values.lat, values.lon)
-        node = MissingNode(stop, values.idx, values.names, loc, values.node_score)
+        node = MissingNode(stop, values.idx, values.names, loc, parent_score)
         self._add(node)
         return node
 
@@ -484,9 +577,9 @@ class Nodes:
             node = self._create_node(stop, values)
         return node
 
-    def create_missing(self, stop: Stop, node_score: float) -> MissingNode:
+    def create_missing(self, stop: Stop, parent_score: float) -> MissingNode:
         values = StopPosition(self.next_missing_node_idx, stop.name,
-                              stop.name, 0, 0, node_score, 0)
+                              stop.name, 0, 0, parent_score, 0)
         node = self._create_missing_node(stop, values)
         self.next_missing_node_idx -= 1
         return node
@@ -504,8 +597,9 @@ class Nodes:
             data = {"idx": self.next_missing_node_idx, "stop_id": stop.stop_id,
                     "names": stop.name, "lat": 0, "lon": 0,
                     "node_score": MISSING_NODE_SCORE, "name_score": 0}
+            index = pd.Index([self.next_missing_node_idx])
+            df = pd.DataFrame(data, index=index, columns=df.columns)
             self.next_missing_node_idx -= 1
-            df = pd.DataFrame(data, index=pd.Index([-1]), columns=df.columns)
         self.dfs[stop] = df
         return df
 
@@ -514,10 +608,20 @@ class Nodes:
         df = self.dfs.setdefault(next_stop, self.filter_df_by_stop(next_stop))
         return df[df[["lat", "lon"]].apply(node.is_close, raw=True, axis=1)]
 
+    def get_missing_from_stop(self, stop: Stop) -> list[StopPosition]:
+        stop_positions = []
+        for i in range(self.next_missing_node_idx, 0):
+            if (stop, i) not in self.node_map:
+                continue
+            stop_positions.append(StopPosition(
+                i, stop.name, stop.name, 0, 0, MISSING_NODE_SCORE, 0))
+        return stop_positions
+
     def node_factory(self, df: DF, stop: Stop) -> Generator[Node, None, None]:
         create_node_partial: Callable[[StopPosition], Node]
         create_node_partial = partial(self.get_or_create, stop)
-        stop_positions = df.itertuples(False, "StopPosition")
+        stop_positions = list(df.itertuples(False, "StopPosition"))
+        stop_positions += self.get_missing_from_stop(stop)
         return (create_node_partial(pos) for pos in stop_positions)
 
     def missing_node_factory(self, df: DF, stop: Stop
@@ -604,13 +708,13 @@ class RouteFinder:
             node: Node = self.nodes.get_min()
             if node.stop == self.stops.last:
                 break
+            has_neighbors = False
             for neighbor in node.get_neighbors():
-                node.update_neighbor(neighbor)
-                if isinstance(neighbor, MissingNode):
-                    continue
-            if not node.has_children:
+                neighbor.update_parent(node)
+                has_neighbors = True
+            if not has_neighbors and not node.has_children:
                 neighbor = self.nodes.create_missing(
-                    node.stop.next, node.score.score)
+                    node.stop.next, node.score.as_float)
                 node.update_neighbor(neighbor)
             node.visited = True
 
@@ -651,7 +755,7 @@ def display_route(nodes: list[Node]) -> None:
         else:
             icon = folium.Icon(color="green", icon="map-marker")
         popup = (f"Stop:  '{node.stop.name}'<br>"
-                 f"Score: {node.score.score:>7.2f}<br>"
+                 f"Score: {node.score.as_float:>7.2f}<br>"
                  f"Node:  {node.score.node_score:>7.2f}<br>"
                  f"Name:  {node.score.name_score:>7.2f}<br>"
                  f"Dist:  {node.score.dist_score:>7.2f}<br>"
@@ -675,7 +779,7 @@ def find_shortest_route(handler: GTFSHandler,
     logger.info(f"Done. Took {time() - t:.2f}s")
     nodes = [node for node in route_finder.nodes.node_map.values()
              if not isinstance(node, MissingNode)
-             and node.score.score != float("inf")]
+             and node.score.as_float != float("inf")]
     display_route(nodes)
     if Config.display_route in [2, 3]:
         display_route(route)
