@@ -13,6 +13,7 @@ from time import time
 from typing import Optional, TYPE_CHECKING, TypeAlias
 from urllib import parse
 
+import numpy as np
 import pandas as pd
 import requests
 from requests.exceptions import ConnectionError
@@ -379,21 +380,25 @@ def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
 
 
 def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
-    def name_distance(name) -> int:
+    def name_distance(names: np.array) -> list[int]:
         """ Edit distance between name and stop after normalizing both. """
-        normal_name = _normalize_stop(name)
+        distances = []
         normal_stop = _normalize_stop(stop)
-        # TODO: permutations
-        if normal_name == normal_stop:
-            return 0
-        return get_edit_distance(normal_name, normal_stop)
+        for name in names:
+            normal_name = _normalize_stop(name[0])
+            if normal_name == normal_stop:
+                dist = 0
+            else:
+                dist = get_edit_distance(normal_name, normal_stop)
+            distances.append(dist)
+        return distances
 
     dfs = []
     for stop_id, stop in stops:
         df = _filter_df_by_stop(stop, full_df)
         if df.empty:
             continue
-        df.loc[:, "name_score"] = df["names"].apply(name_distance)
+        df.loc[:, "name_score"] = df[["names"]].apply(name_distance, raw=True)
         df.loc[:, "stop_id"] = stop_id
         df.loc[:, "idx"] = df.index
         dfs.append(df)
