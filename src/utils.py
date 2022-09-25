@@ -120,4 +120,4 @@ def replace_abbreviation(value: re.Match) -> str:
 
     start, end = value.span()
     key = value.string[start:end].replace(".", "")
-    return Config.name_abbreviations[key]
+    return Config.name_abbreviations[key.lower()]
