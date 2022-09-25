@@ -140,7 +140,7 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
         # Match all chars other than the allowed ones.
         char_re = fr"([^a-zA-Z\d\|{SPECIAL_CHARS}{allowed_chars}])"
         regex = "|".join([parentheses_re, char_re])
-        return series.str.replace(regex, "", regex=True)
+        return series.str.replace(regex, " ", regex=True)
 
     def _cleanup_spaces(series: pd.Series) -> pd.Series:
         # Remove consecutive, as well as leading/trailing spaces.
@@ -381,7 +381,21 @@ def _normalize_stop(stop: str) -> str:
 
 
 def _create_stop_regex(stop: str) -> str:
-    return "|".join([re.escape(s) for s in stop.split("|")])
+    def _remove_forbidden_chars(string: str) -> str:
+        # Match parentheses and all text enclosed by them.
+        parentheses_re = r"(\(.*\))"
+        allowed_chars = "".join(Config.allowed_stop_chars)
+        # Match all chars other than the allowed ones.
+        char_re = fr"([^a-zA-Z\d\|{SPECIAL_CHARS}{allowed_chars}])"
+        regex = "|".join([parentheses_re, char_re])
+        return re.sub(regex, " ", string, flags=re.I + re.U)
+
+    def _cleanup_spaces(string: str) -> str:
+        # Remove consecutive, as well as leading/trailing spaces.
+        return re.sub(" +", " ", string, flags=re.I + re.U)
+
+    return "|".join([re.escape(_cleanup_spaces(_remove_forbidden_chars(s)))
+                     for s in stop.split("|")])
 
 
 def _compile_regex(regex: str) -> re.Pattern[str]:

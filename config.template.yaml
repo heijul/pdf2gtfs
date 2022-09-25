@@ -127,7 +127,7 @@ average_speed: 100
 # Stop names are stripped of all characters which are not letters or whitelisted.
 #
 # Type: list of str
-allowed_stop_chars: ["-", "/", ".", " "]
+allowed_stop_chars: [" "]  # ["-", "/", ".", " "]
 
 # The maximum distance between stops in km. Can be set to a higher value,
 #   but will slow down coordinate matching.
