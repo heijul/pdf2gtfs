@@ -317,7 +317,7 @@ class Finder:
         df = add_extra_columns(stops, prefiltered_df)
         logger.info(f"Done. Took {time() - t:.2f}s")
 
-        logger.info(f"Calculating location scores based on selected "
+        logger.info(f"Calculating location scores based on the selected "
                     f"routetype '{Config.gtfs_routetype.name}'...")
         t = time()
         full_df = fix_df(df)

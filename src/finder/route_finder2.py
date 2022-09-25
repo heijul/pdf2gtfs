@@ -30,7 +30,8 @@ StopPosition = NamedTuple("StopPosition",
                            ("lat", float), ("lon", float),
                            ("node_cost", float), ("name_cost", float)])
 
-MISSING_NODE_SCORE = 100
+MISSING_NODE_SCORE = 1500
+INF = float("inf")
 
 
 class Distance:
@@ -124,10 +125,14 @@ class Stop:
         self.stop_id = stop_id
         self.name = name
         self._next = next_
-        self.stop_cost = stop_cost
+        self.cost = stop_cost
         self._avg_time_to_next = None
         self._max_dist_to_next = None
         self._set_distance_bounds()
+
+    @property
+    def is_last(self) -> bool:
+        return self is self.stops.last
 
     @property
     def next(self) -> Stop | None:
@@ -182,11 +187,10 @@ class Stop:
 
 class Stops:
     def __init__(self, handler: GTFSHandler,
-                 stop_names: list[tuple[str, str]],
-                 df: DF) -> None:
+                 stop_names: list[tuple[str, str]]) -> None:
         self.handler = handler
         Stop.stops = self
-        self.first, self.last = self._create_stops(stop_names, df)
+        self.first, self.last = self._create_stops(stop_names)
 
     @property
     def stops(self) -> list[Stop]:
@@ -199,27 +203,14 @@ class Stops:
         return stops
 
     @staticmethod
-    def _create_stops(stop_names: list[tuple[str, str]], df: DF
-                      ) -> tuple[Stop, Stop]:
-        def _get_min_cost_from_df() -> DF:
-            cost_df = pd.DataFrame(df[["stop_id", "node_cost", "name_cost"]])
-            cost_df.loc[:, "cost"] = cost_df[
-                ["node_cost", "name_cost"]].sum(axis=1)
-            grouped = cost_df.groupby("stop_id", sort=False)
-            return grouped["cost"].agg("min").cumsum()
-
+    def _create_stops(stop_names: list[tuple[str, str]]) -> tuple[Stop, Stop]:
         last = None
         stop = None
-        stop_costs: DF = _get_min_cost_from_df()
-        stop_names_with_index = [
-            (idx, s_id, name) for idx, (s_id, name) in enumerate(stop_names)]
+        names_with_index = [(idx, s_id, name)
+                            for idx, (s_id, name) in enumerate(stop_names)]
 
-        for i, idx, stop_name in reversed(stop_names_with_index):
-            try:
-                stop_cost = stop_costs.loc[idx]
-            except KeyError:
-                stop_cost = i * MISSING_NODE_SCORE
-            stop = Stop(i, idx, stop_name, stop, stop_cost)
+        for i, idx, stop_name in reversed(names_with_index):
+            stop = Stop(i, idx, stop_name, stop, i * 1000)
             if not last:
                 last = stop
 
@@ -240,7 +231,7 @@ class Cost:
                  name_cost: float = None, travel_cost: float = None,
                  stop_cost: float = None) -> None:
         def _get_cost(cost: float) -> float:
-            return float("inf") if cost is None or cost < 0 else cost
+            return INF if cost is None or cost < 0 else cost
 
         self.parent_cost = _get_cost(parent_cost)
         self.node_cost = _get_cost(node_cost)
@@ -258,7 +249,7 @@ class Cost:
 
     @travel_cost.setter
     def travel_cost(self, travel_cost: float) -> None:
-        if travel_cost != float("inf"):
+        if travel_cost != INF:
             travel_cost = min(round(travel_cost), 100)
         self._travel_cost = travel_cost
 
@@ -274,13 +265,32 @@ class Cost:
                     cost.stop_cost)
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Cost) and self.as_float == other.as_float
+        if not isinstance(other, Cost):
+            return False
+        self_is_inf = self.as_float == INF
+        other_is_inf = other.as_float == INF
+        # One is inf the other is not.
+        if (self_is_inf + other_is_inf) % 2 == 1:
+            return False
+        if not self_is_inf or not other_is_inf:
+            return (self.stop_cost == other.stop_cost and
+                    self.as_float == other.as_float)
+        return self.as_float == other.as_float
 
     def __lt__(self, other: Cost) -> bool:
         if not isinstance(other, Cost):
             raise TypeError(
                 f"Can only compare Cost to Cost, not {type(object)}.")
-        return self.as_float < other.as_float
+
+        self_is_inf = self.as_float == INF
+        other_is_inf = other.as_float == INF
+        if not self_is_inf and not other_is_inf:
+            return self.as_float < other.as_float
+        if self_is_inf and not other_is_inf:
+            return False
+        if not self_is_inf and other_is_inf:
+            return True
+        return self.costs.count(INF) < other.costs.count(INF)
 
     def __le__(self, other: Cost) -> bool:
         return self == other or self < other
@@ -318,13 +328,13 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
     lower, upper = from_node.stop.distance_bounds
     actual_distance: Distance = from_node.dist_exact(to_node)
     # Too far away from either bound. Lower is >= 0
-    if not (lower < actual_distance <= upper):
-        return float("inf")
+    if actual_distance.m == 0 or False and not (lower < actual_distance <= upper):
+        return INF
     # Discrete function.
     expected_distance = upper - lower
     distance_diff = (actual_distance - expected_distance).m
     step_distance = (expected_distance - lower).m / step_count
-    return (distance_diff // step_distance) + 1
+    return (distance_diff // (step_distance + 1)) + 1
 
 
 class Node:
@@ -345,11 +355,10 @@ class Node:
             raise Exception("Nodes needs to be set, before creating a node.")
 
     def get_neighbors(self) -> Generator[Node, None, None]:
-        next_stop = self.stop.next
         df = Node.nodes.get_df_close_to_next(self)
         if (df.index.values < 0).any():
-            return Node.nodes.missing_node_factory(df, next_stop)
-        return Node.nodes.node_factory(df, next_stop)
+            return Node.nodes.missing_node_factory(df, self.stop.next)
+        return Node.nodes.node_factory(df, self.stop.next)
 
     def dist_exact(self, node: Node) -> Distance:
         lat_mid = mean((self.loc.lat, node.loc.lat))
@@ -374,16 +383,16 @@ class Node:
         if array[0] == 0 and array[1] == 0:
             return True
         if max_dist is None:
-            max_dist = self.stop.max_dist_to_next
+            max_dist = self.stop.max_dist_to_next * 10
         return self._is_close(array[0], array[1], max_dist)
 
     def cost_with_parent(self, parent_node: Node) -> Cost:
         """ Return the cost of self, if parent_node was its parent. """
 
         travel_cost = calculate_travel_cost_between(self, parent_node)
-        cost = Cost(parent_node.cost.as_float, self.cost.node_cost,
-                    self.cost.name_cost, travel_cost)
-        cost.parent_cost = parent_node.cost.as_float
+        parent_cost = parent_node.cost.as_float - parent_node.cost.stop_cost
+        cost = Cost(parent_cost, self.cost.node_cost,
+                    self.cost.name_cost, travel_cost, self.stop.cost)
         return cost
 
     def construct_route(self) -> list[Node]:
@@ -400,11 +409,10 @@ class Node:
         if not isinstance(other, Node):
             raise TypeError(
                 f"Can only compare Node to Node, not {type(object)}.")
-        return self.stop.before(other.stop) and self.cost < other.cost
+        return self.cost < other.cost
 
     def __le__(self, other: Node) -> bool:
-        return ((self == other or self < other) and
-                not self.stop.after(other.stop))
+        return self < other or self == other
 
     def __gt__(self, other: Node):
         return not self <= other
@@ -413,7 +421,7 @@ class Node:
         return not self < other
 
     def __repr__(self) -> str:
-        base = (f"Node('{self.stop.name}', cost: {self.cost.as_float:.2f}, "
+        base = (f"Node('{self.stop.name}', cost: {self.cost.as_float:.0f}, "
                 f"loc: {self.loc}")
         if self.parent:
             dist_to_parent = self.dist_exact(self.parent)
@@ -432,7 +440,7 @@ class Node:
         if not self.has_parent:
             msg = (f"Found parent for {self}:\n"
                    f"\t{new_parent}\n"
-                   f"\t\twith cost: {cost_to_new_parent}")
+                   f"\t\twith cost: {cost_to_new_parent}\n")
             logger.info(msg)
             self.nodes.update_parent(new_parent, self, cost_to_new_parent)
             return
@@ -483,8 +491,9 @@ class MissingNode(Node):
         return self.parent.is_close(array, max_dist)
 
     def cost_with_parent(self, parent_node: Node) -> Cost:
-        cost = Cost(parent_node.cost.as_float, MISSING_NODE_SCORE, 0,
-                    MissingNode.default_travel_cost)
+        parent_cost = parent_node.cost.as_float - parent_node.cost.stop_cost
+        cost = Cost(parent_cost, MISSING_NODE_SCORE, 0,
+                    MissingNode.default_travel_cost, self.stop.cost)
         return cost
 
     def __repr__(self) -> str:
@@ -532,8 +541,7 @@ class Nodes:
 
     def _create_node(self, stop: Stop, values: StopPosition) -> Node:
         loc = Location(values.lat, values.lon)
-        cost = Cost(float("inf"), values.node_cost, values.name_cost,
-                    stop_cost=stop.stop_cost)
+        cost = Cost(INF, values.node_cost, values.name_cost, None, stop.cost)
         node = Node(stop, values.idx, values.names, loc, cost)
         self._add(node)
         return node
@@ -543,7 +551,7 @@ class Nodes:
         loc = Location(values.lat, values.lon)
         node = MissingNode(
             stop, values.idx, values.names, loc, values.node_cost)
-        node.cost.stop_cost = stop.stop_cost
+        node.cost.stop_cost = stop.cost
         self._add(node)
         return node
 
@@ -555,7 +563,7 @@ class Nodes:
 
     def create_missing_neighbor_for_node(self, parent_node: Node) -> None:
         stop: Stop = parent_node.stop.next
-        node_cost: float = parent_node.cost.as_float
+        node_cost: float = parent_node.cost.as_float - parent_node.cost.stop_cost
         values = StopPosition(self.next_missing_node_idx, stop.name,
                               stop.name, 0, 0, node_cost, 0)
         neighbor = self._create_missing_node(stop, values)
@@ -610,17 +618,13 @@ class Nodes:
 
     def get_min(self) -> Node:
         node = heapq.heappop(self.node_heap)
-        # Do not return nodes that are already visited.
+        # Check is needed, because we do not remove the existing node
+        # from the heap, when updating its parent.
         if node.visited:
             return self.get_min()
         return node
 
     def update_parent(self, parent: Node, node: Node, cost: Cost) -> None:
-        try:
-            self.node_heap.remove(node)
-        except ValueError:
-            pass
-
         node.parent = parent
         node.cost = cost
         parent.has_children = True
@@ -672,45 +676,34 @@ def update_missing_locations(route) -> None:
 
 
 class RouteFinder:
-    def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]], df: DF) -> None:
+    def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]],
+                 df: DF) -> None:
         self.handler = handler
-        self.stops = Stops(handler, stop_names, df)
+        self.stops = Stops(handler, stop_names)
         self.nodes = Nodes(df, self.stops)
 
     def find_dijkstra(self) -> list[Node]:
-        self._initialize_start()
-        self._initialize_nodes()
         while True:
             node: Node = self.nodes.get_min()
-            if node.stop == self.stops.last:
+            if node.cost.as_float == INF:
+                continue
+            if node.stop.is_last:
+                if not node.parent:
+                    continue
                 break
+            has_neighbors = False
             for neighbor in node.get_neighbors():
                 neighbor.update_parent_if_lower_cost(node)
-            if not node.has_children:
+                if isinstance(neighbor, MissingNode):
+                    continue
+                has_neighbors = True
+            if not node.has_children and not has_neighbors:
+                logger.info(f"Created missing childnode for {node}")
                 self.nodes.create_missing_neighbor_for_node(node)
             node.visited = True
 
         route = node.construct_route()
         return route
-
-    def _initialize_start(self) -> None:
-        stop = self.stops.first
-        df = self.nodes.filter_df_by_stop(stop)
-        for values in df.itertuples(False, "StopPosition"):
-            values: StopPosition
-            node = self.nodes.get_or_create(stop, values)
-            node.cost = StartCost.from_cost(node.cost)
-
-    def _initialize_nodes(self) -> None:
-        stop = self.stops.first
-        while True:
-            stop = stop.next
-            if stop is None:
-                break
-            df = self.nodes.filter_df_by_stop(stop)
-            for values in df.itertuples(False, "StopPosition"):
-                values: StopPosition
-                self.nodes.get_or_create(stop, values)
 
 
 def display_route(nodes: list[Node]) -> None:
@@ -737,13 +730,13 @@ def display_route(nodes: list[Node]) -> None:
             icon = folium.Icon(color="red", icon="remove-circle")
         else:
             icon = folium.Icon(color="green", icon="map-marker")
-        popup = (f"Stop:  '{node.stop.name}'<br>"
+        popup = (f"Stop: '{node.stop.name}'<br>"
                  f"Cost: {node.cost.as_float:>7.2f}<br>"
-                 f"Node:  {node.cost.node_cost:>7.2f}<br>"
-                 f"Name:  {node.cost.name_cost:>7.2f}<br>"
-                 f"Dist:  {node.cost.travel_cost:>7.2f}<br>"
-                 f"Lat:   {loc[0]:>7.4f}<br>"
-                 f"Lon:   {loc[1]:>7.4f}")
+                 f"Node: {node.cost.node_cost:>7.2f}<br>"
+                 f"Name: {node.cost.name_cost:>7.2f}<br>"
+                 f"Dist: {node.cost.travel_cost:>7.2f}<br>"
+                 f"Lat:  {loc[0]:>7.4f}<br>"
+                 f"Lon:  {loc[1]:>7.4f}")
         folium.Marker(loc, popup=popup, icon=icon).add_to(m)
 
     outfile = Config.output_dir.joinpath("routedisplay.html")
@@ -756,7 +749,8 @@ def find_shortest_route(handler: GTFSHandler,
                         ) -> dict[str: Node]:
     logger.info("Starting location detection...")
     t = time()
-    route_finder = RouteFinder(handler, stop_names, df.copy())
+    d = df.copy()
+    route_finder = RouteFinder(handler, stop_names, d.copy())
     route = route_finder.find_dijkstra()
     update_missing_locations(route)
     logger.info(f"Done. Took {time() - t:.2f}s")
@@ -764,7 +758,7 @@ def find_shortest_route(handler: GTFSHandler,
     if Config.display_route in [4, 5, 6, 7]:
         nodes = [node for node in route_finder.nodes.node_map.values()
                  if not isinstance(node, MissingNode)
-                 and node.cost.as_float != float("inf")]
+                 and node.cost.as_float != INF]
         display_route(nodes)
 
     if Config.display_route in [2, 3, 6, 7]:
