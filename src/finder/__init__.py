@@ -321,10 +321,12 @@ class Finder:
                     f"routetype '{Config.gtfs_routetype.name}'...")
         t = time()
         full_df = fix_df(df)
-        df.loc[:, "node_score"] = get_node_score(full_df)
+        df.loc[:, "node_cost"] = get_node_cost(full_df)
         df = df.loc[:, ["lat", "lon", "names",
-                        "name_score", "stop_id", "idx", "node_score"]]
+                        "node_cost", "stop_id", "idx", "name_cost"]]
         logger.info(f"Done. Took {time() - t:.2f}s")
+        # TODO NOW: Create multiindex
+        # TODO NOW: Fill empty stops with dummy values.
         # TODO NOW: Split
         routes_names: list[list[tuple[str, str]]] = get_routes_names(self.handler)
         stops_nodes: dict[str: list[Node]] = {}
@@ -344,6 +346,15 @@ class Finder:
             display_route(list(stops_node.values()))
 
         return stops_node
+
+
+def get_df_with_min_cost(df: DF) -> DF:
+    min_costs = df.groupby("stop_id", sort=False)["node_cost"].agg("min")
+    cum_costs = min_costs.cumsum()
+    cum_costs.name = "min_cost"
+    df2 = pd.merge(df, cum_costs, left_on="stop_id", right_on="stop_id")
+    df2["min_cost"] = df2["min_cost"] + df2["node_cost"]
+    return df2
 
 
 def get_routes_names(handler: GTFSHandler) -> list[list[tuple[str, str]]]:
@@ -398,7 +409,7 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
         df = _filter_df_by_stop(stop, full_df)
         if df.empty:
             continue
-        df.loc[:, "name_score"] = df[["names"]].apply(name_distance, raw=True)
+        df.loc[:, "name_cost"] = df[["names"]].apply(name_distance, raw=True)
         df.loc[:, "stop_id"] = stop_id
         df.loc[:, "idx"] = df.index
         dfs.append(df)
@@ -433,5 +444,5 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_node_score(full_df: pd.DataFrame) -> pd.DataFrame:
+def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     return full_df[KEYS_OPTIONAL].sum(axis=1)
