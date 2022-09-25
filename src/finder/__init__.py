@@ -331,6 +331,7 @@ class Finder:
         # TODO NOW: Split
         logger.info("Searching for the stop locations of each route.")
         t = time()
+        # TODO NOW: Remove routes which are contained by others.
         routes_names: list[list[tuple[str, str]]] = get_routes_names(self.handler)
         stops_nodes: dict[str: list[Node]] = {}
         for route_names in routes_names:
