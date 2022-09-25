@@ -6,6 +6,7 @@ import os.path
 import platform
 import re
 from io import BytesIO
+from math import inf
 from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -328,6 +329,8 @@ class Finder:
         # TODO NOW: Create multiindex
         # TODO NOW: Fill empty stops with dummy values.
         # TODO NOW: Split
+        logger.info("Searching for the stop locations of each route.")
+        t = time()
         routes_names: list[list[tuple[str, str]]] = get_routes_names(self.handler)
         stops_nodes: dict[str: list[Node]] = {}
         for route_names in routes_names:
@@ -345,6 +348,7 @@ class Finder:
         if Config.display_route in [1, 3]:
             display_route(list(stops_node.values()))
 
+        logger.info(f"Done. Took {time() - t:.2f}s")
         return stops_node
 
 
@@ -432,7 +436,7 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
         except KeyError:
             return 3
 
-    bad_value = float("inf")
+    bad_value = inf
     # Apply cat scores
     goods, bads = get_all_cat_scores()
     df = raw_df.copy()

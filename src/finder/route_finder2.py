@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import heapq
 import logging
-import math
+from math import inf, cos, radians, sqrt
 import webbrowser
 from functools import partial
 from statistics import mean, StatisticsError
@@ -31,7 +31,6 @@ StopPosition = NamedTuple("StopPosition",
                            ("node_cost", float), ("name_cost", float)])
 
 MISSING_NODE_SCORE = 1500
-INF = float("inf")
 
 
 class Distance:
@@ -113,7 +112,7 @@ DISTANCE_PER_LAT_DEG = Distance(km=111.32)
 
 
 def get_distance_per_lon_deg(lat: float) -> Distance:
-    return DISTANCE_PER_LAT_DEG * abs(math.cos(math.radians(lat)))
+    return DISTANCE_PER_LAT_DEG * abs(cos(radians(lat)))
 
 
 class Stop:
@@ -231,7 +230,7 @@ class Cost:
                  name_cost: float = None, travel_cost: float = None,
                  stop_cost: float = None) -> None:
         def _get_cost(cost: float) -> float:
-            return INF if cost is None or cost < 0 else cost
+            return inf if cost is None or cost < 0 else cost
 
         self.parent_cost = _get_cost(parent_cost)
         self.node_cost = _get_cost(node_cost)
@@ -249,7 +248,7 @@ class Cost:
 
     @travel_cost.setter
     def travel_cost(self, travel_cost: float) -> None:
-        if travel_cost != INF:
+        if travel_cost != inf:
             travel_cost = min(round(travel_cost), 100)
         self._travel_cost = travel_cost
 
@@ -267,8 +266,8 @@ class Cost:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Cost):
             return False
-        self_is_inf = self.as_float == INF
-        other_is_inf = other.as_float == INF
+        self_is_inf = self.as_float == inf
+        other_is_inf = other.as_float == inf
         # One is inf the other is not.
         if (self_is_inf + other_is_inf) % 2 == 1:
             return False
@@ -282,15 +281,15 @@ class Cost:
             raise TypeError(
                 f"Can only compare Cost to Cost, not {type(object)}.")
 
-        self_is_inf = self.as_float == INF
-        other_is_inf = other.as_float == INF
+        self_is_inf = self.as_float == inf
+        other_is_inf = other.as_float == inf
         if not self_is_inf and not other_is_inf:
             return self.as_float < other.as_float
         if self_is_inf and not other_is_inf:
             return False
         if not self_is_inf and other_is_inf:
             return True
-        return self.costs.count(INF) < other.costs.count(INF)
+        return self.costs.count(inf) < other.costs.count(inf)
 
     def __le__(self, other: Cost) -> bool:
         return self == other or self < other
@@ -329,7 +328,7 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
     actual_distance: Distance = from_node.dist_exact(to_node)
     # Too far away from either bound. Lower is >= 0
     if actual_distance.m == 0 or False and not (lower < actual_distance <= upper):
-        return INF
+        return inf
     # Discrete function.
     expected_distance = upper - lower
     distance_diff = (actual_distance - expected_distance).m
@@ -365,7 +364,7 @@ class Node:
         distance_per_lon_deg = get_distance_per_lon_deg(lat_mid)
         lat_dist = abs(self.loc.lat - node.loc.lat) * DISTANCE_PER_LAT_DEG
         lon_dist = abs(self.loc.lon - node.loc.lon) * distance_per_lon_deg
-        dist = math.sqrt(lat_dist.m ** 2 + lon_dist.m ** 2)
+        dist = sqrt(lat_dist.m ** 2 + lon_dist.m ** 2)
         return Distance(m=dist)
 
     def _is_close(self, lat: float, lon: float, max_dist: Distance) -> bool:
@@ -541,7 +540,7 @@ class Nodes:
 
     def _create_node(self, stop: Stop, values: StopPosition) -> Node:
         loc = Location(values.lat, values.lon)
-        cost = Cost(INF, values.node_cost, values.name_cost, None, stop.cost)
+        cost = Cost(inf, values.node_cost, values.name_cost, None, stop.cost)
         node = Node(stop, values.idx, values.names, loc, cost)
         self._add(node)
         return node
@@ -685,7 +684,7 @@ class RouteFinder:
     def find_dijkstra(self) -> list[Node]:
         while True:
             node: Node = self.nodes.get_min()
-            if node.cost.as_float == INF:
+            if node.cost.as_float == inf:
                 continue
             if node.stop.is_last:
                 if not node.parent:
@@ -758,7 +757,7 @@ def find_shortest_route(handler: GTFSHandler,
     if Config.display_route in [4, 5, 6, 7]:
         nodes = [node for node in route_finder.nodes.node_map.values()
                  if not isinstance(node, MissingNode)
-                 and node.cost.as_float != INF]
+                 and node.cost.as_float != inf]
         display_route(nodes)
 
     if Config.display_route in [2, 3, 6, 7]:
