@@ -270,4 +270,6 @@ class GTFSHandler:
             if not t_diff:
                 continue
             times.append(t_diff.to_float_hours())
+        if not times:
+            return Time()
         return Time.from_float(hours=mean(times))
