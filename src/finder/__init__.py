@@ -435,7 +435,7 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
         try:
             return good[value]
         except KeyError:
-            return 3
+            return 10
 
     bad_value = inf
     # Apply cat scores
