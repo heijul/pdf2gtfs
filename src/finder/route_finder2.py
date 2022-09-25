@@ -422,7 +422,10 @@ class Node:
     def __repr__(self) -> str:
         base = (f"Node('{self.stop.name}', cost: {self.cost.as_float:.0f}, "
                 f"loc: {self.loc}")
-        if self.parent:
+        valid_parent = (self.parent and
+                        not isinstance(self.parent, MissingNode) and
+                        not isinstance(self, MissingNode))
+        if valid_parent:
             dist_to_parent = self.dist_exact(self.parent)
             base += f", to_parent: {dist_to_parent.km:.3f}km"
         return base + ")"
