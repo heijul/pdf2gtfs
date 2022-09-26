@@ -746,15 +746,15 @@ def display_route(nodes: list[Node]) -> None:
     webbrowser.open_new_tab(str(outfile))
 
 
-def find_shortest_route(handler: GTFSHandler,
-                        stop_names: list[tuple[str, str]], df: DF
-                        ) -> dict[str: Node]:
+def find_stop_nodes(handler: GTFSHandler,
+                    route: list[tuple[str, str]], df: DF
+                    ) -> dict[str: Node]:
     logger.info("Starting location detection...")
     t = time()
     d = df.copy()
-    route_finder = RouteFinder(handler, stop_names, d.copy())
-    route = route_finder.find_dijkstra()
-    update_missing_locations(route)
+    route_finder = RouteFinder(handler, route, d.copy())
+    locations = route_finder.find_dijkstra()
+    update_missing_locations(locations)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     if Config.display_route in [4, 5, 6, 7]:
@@ -764,7 +764,7 @@ def find_shortest_route(handler: GTFSHandler,
         display_route(nodes)
 
     if Config.display_route in [2, 3, 6, 7]:
-        display_route(route)
+        display_route(locations)
 
     return {node.stop.stop_id: node
-            for node in route if not isinstance(node, MissingNode)}
+            for node in locations if not isinstance(node, MissingNode)}

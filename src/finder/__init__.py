@@ -11,7 +11,7 @@ from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from time import time
-from typing import Optional, TYPE_CHECKING, TypeAlias
+from typing import cast, Optional, TYPE_CHECKING, TypeAlias
 from urllib import parse
 
 import numpy as np
@@ -23,7 +23,7 @@ from config import Config
 from finder.location import Location
 from finder.osm_node import OSMNode, Route3
 from finder.osm_values import get_all_cat_scores
-from finder.route_finder2 import display_route, find_shortest_route, Node
+from finder.route_finder2 import display_route, find_stop_nodes, Node
 from finder.types import StopNames
 from utils import (
     get_abbreviations_regex, get_edit_distance, replace_abbreviation,
@@ -36,6 +36,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DF: TypeAlias = pd.DataFrame
+StopID: TypeAlias = str
+StopName: TypeAlias = str
+StopIdent: TypeAlias = tuple[StopID, StopName]
+Route: TypeAlias = list[StopIdent]
+Routes: TypeAlias = list[Route]
+RouteStopIDs: TypeAlias = list[tuple[StopID]]
+StopsNode: TypeAlias = dict[StopID, Node]
+StopsNodes: TypeAlias = dict[StopID, list[Node]]
+
 
 KEYS = ["lat", "lon", "public_transport"]
 KEYS_OPTIONAL = [
@@ -307,18 +316,55 @@ class Finder:
                 f"While trying to read the{cache_str}osm data an error "
                 f"occurred:\n{e}\nStop location detection will be skipped.")
             df = None
-        self.df: pd.DataFrame = df
+        self.full_df: pd.DataFrame = df
 
     def find(self) -> dict[str: Location]:
-        stops = [(stop.stop_id, stop.stop_name)
-                 for stop in self.handler.stops.entries]
-        logger.info("Splitting DataFrame based on stop names...")
+        def _search_stop_nodes_of_all_routes() -> StopsNodes:
+            routes: Routes = get_routes(self.handler)
+            nodes: dict[str: list[Node]] = {}
+            for route in routes:
+                stop_nodes = find_stop_nodes(self.handler, route, df)
+                for stop_id, node in stop_nodes.items():
+                    nodes.setdefault(stop_id, []).append(node)
+            return nodes
+
+        def _select_best_nodes(stops_nodes: StopsNodes) -> StopsNode:
+            nodes: dict[str: Node] = {}
+            for stop_id, stop_nodes in stops_nodes.items():
+                stop_id: StopID
+                stop_nodes = cast(list[Node], stop_nodes)
+                nodes_unique = set(stop_nodes)
+                nodes_count = {n: stop_nodes.count(n) for n in nodes_unique}
+                node_with_max_count = max(stop_nodes, key=nodes_count.get)
+                nodes[stop_id] = node_with_max_count
+            return nodes
+
+        df = get_df(self.handler.stops.entries, self.full_df)
+
+        logger.info("Searching for the stop locations of each route.")
         t = time()
-        prefiltered_df = prefilter_df([name for _, name in stops], self.df)
-        df = add_extra_columns(stops, prefiltered_df)
+
+        route_stop_nodes = _search_stop_nodes_of_all_routes()
+        best_nodes = _select_best_nodes(route_stop_nodes)
         logger.info(f"Done. Took {time() - t:.2f}s")
 
-        logger.info(f"Calculating location scores based on the selected "
+        if Config.display_route in [1, 3, 7]:
+            display_route(list(best_nodes.values()))
+        return best_nodes
+
+
+def get_df(stop_entries: list, raw_df: DF) -> DF:
+    def _split_df(df: DF) -> DF:
+        logger.info("Splitting DataFrame based on stop names...")
+        t = time()
+        stops = [(stop.stop_id, stop.stop_name) for stop in stop_entries]
+        prefiltered_df = prefilter_df([name for _, name in stops], df)
+        df = add_extra_columns(stops, prefiltered_df)
+        logger.info(f"Done. Took {time() - t:.2f}s")
+        return df
+
+    def _calculate_location_costs(df: DF) -> DF:
+        logger.info(f"Calculating location costs based on the selected "
                     f"routetype '{Config.gtfs_routetype.name}'...")
         t = time()
         full_df = fix_df(df)
@@ -326,34 +372,15 @@ class Finder:
         df = df.loc[:, ["lat", "lon", "names",
                         "node_cost", "stop_id", "idx", "name_cost"]]
         logger.info(f"Done. Took {time() - t:.2f}s")
-        # TODO NOW: Create multiindex
-        # TODO NOW: Fill empty stops with dummy values.
-        # TODO NOW: Split
-        logger.info("Searching for the stop locations of each route.")
-        t = time()
-        # TODO NOW: Remove routes which are contained by others.
-        routes_names: list[list[tuple[str, str]]] = get_routes_names(self.handler)
-        stops_nodes: dict[str: list[Node]] = {}
-        for route_names in routes_names:
-            route: dict[str: Node] = find_shortest_route(self.handler, route_names, df)
-            for stop_id, node in route.items():
-                stops_nodes.setdefault(stop_id, []).append(node)
+        return df
 
-        # Get best location for all stops
-        stops_node: dict[str: Location] = {}
-        for stop_id, nodes in stops_nodes.items():
-            nodes_unique = set(nodes)
-            nodes_count = {node: nodes.count(node) for node in nodes_unique}
-            node_with_max_count = max(nodes, key=lambda x: nodes_count[x])
-            stops_node[stop_id] = node_with_max_count
-        if Config.display_route in [1, 3]:
-            display_route(list(stops_node.values()))
-
-        logger.info(f"Done. Took {time() - t:.2f}s")
-        return stops_node
+    split_df = _split_df(raw_df)
+    cost_df = _calculate_location_costs(split_df)
+    return cost_df
 
 
 def get_df_with_min_cost(df: DF) -> DF:
+    # TODO NOW: Use to get the stop_costs?
     min_costs = df.groupby("stop_id", sort=False)["node_cost"].agg("min")
     cum_costs = min_costs.cumsum()
     cum_costs.name = "min_cost"
@@ -362,18 +389,48 @@ def get_df_with_min_cost(df: DF) -> DF:
     return df2
 
 
-def get_routes_names(handler: GTFSHandler) -> list[list[tuple[str, str]]]:
-    # Get routes from gtfs_routes
-    route_stop_ids: list[tuple[str]] = []
-    for route in handler.routes.entries:
-        route_stop_ids += handler.get_stop_ids(route.route_id)
-    # Get names from routes
-    routes = []
-    for stop_ids in set(route_stop_ids):
-        routes.append(
-            [(stop_id, handler.stops.get_by_stop_id(stop_id).stop_name)
-             for stop_id in stop_ids])
-    return sorted(routes, key=len, reverse=True)
+def get_routes(handler: GTFSHandler) -> Routes:
+    def get_stop_ids_from_gtfs_routes() -> RouteStopIDs:
+        stop_ids: list[tuple[str]] = []
+        for route in handler.routes.entries:
+            stop_ids += handler.get_stop_ids(route.route_id)
+        return stop_ids
+
+    def get_routes_from_stop_ids(stop_ids: RouteStopIDs) -> Routes:
+        def __get_route_from_stop_id(stop_id: StopID) -> StopIdent:
+            return stop_id, handler.stops.get_by_stop_id(stop_id).stop_name
+
+        routes = []
+        for stop_ids in set(stop_ids):
+            routes.append(list(map(__get_route_from_stop_id, stop_ids)))
+        routes = sorted(routes, key=len, reverse=True)
+        return routes
+
+    def remove_routes_contained_by_others(raw_routes: Routes) -> Routes:
+        def __route_is_contained(r1: Route, r2: Route) -> bool:
+            start_idx = r1.index(r2[0]) if r2[0] in r1 else None
+            if start_idx is None:
+                return False
+
+            # No need to check for length, as r1 has at least the length of r2.
+            for idx, stop in enumerate(r2, start_idx):
+                if r1[idx] == stop:
+                    return False
+            return True
+
+        routes = [raw_routes[0]]
+        for route_idx, new_route in enumerate(raw_routes[1:], 1):
+            for route in routes:
+                if __route_is_contained(route, new_route):
+                    continue
+            routes.append(new_route)
+
+        return routes
+
+    route_stop_ids = get_stop_ids_from_gtfs_routes()
+    duplicate_routes = get_routes_from_stop_ids(route_stop_ids)
+    clean_routes = remove_routes_contained_by_others(duplicate_routes)
+    return clean_routes
 
 
 def _normalize_stop(stop: str) -> str:
