@@ -333,6 +333,8 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
     expected_distance = upper - lower
     distance_diff = (actual_distance - expected_distance).m
     step_distance = (expected_distance - lower).m / step_count
+    if step_distance < 1:
+        return 1
     return (distance_diff // (step_distance + 1)) + 1
 
 
@@ -392,7 +394,7 @@ class Node:
     def cost_with_parent(self, parent_node: Node) -> Cost:
         """ Return the cost of self, if parent_node was its parent. """
 
-        travel_cost = calculate_travel_cost_between(self, parent_node)
+        travel_cost = calculate_travel_cost_between(parent_node, self)
         parent_cost = parent_node.cost.as_float - parent_node.cost.stop_cost
         cost = Cost(parent_cost, self.cost.node_cost,
                     self.cost.name_cost, travel_cost, self.stop.cost)
@@ -540,12 +542,15 @@ class Nodes:
                 node = self.get_or_create(stop, values)
                 if stop == stops.first:
                     node.cost = StartCost.from_cost(node.cost)
+                    heapq.heappush(self.node_heap, node)
             if stop.is_last:
                 break
             stop = stop.next
 
     def _add(self, node: Node) -> None:
         self.node_map[(node.stop, node.index)] = node
+        if node.cost.as_float == inf:
+            return
         heapq.heappush(self.node_heap, node)
 
     def _create_node(self, stop: Stop, values: StopPosition) -> Node:
@@ -693,9 +698,8 @@ class RouteFinder:
 
     def find_dijkstra(self) -> list[Node]:
         while True:
+            heapq.heapify(self.nodes.node_heap)
             node: Node = self.nodes.get_min()
-            if node.cost.as_float == inf:
-                continue
             if node.stop.is_last:
                 if not node.parent:
                     continue
