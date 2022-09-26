@@ -378,11 +378,15 @@ class Node:
         lon_dist = lon_diff * get_distance_per_lon_deg(lat_mid)
         return lat_dist < max_dist and lon_dist < max_dist
 
-    def is_close(self, array: np.ndarray, max_dist: float = None) -> bool:
+    def is_close(self, array: np.ndarray, max_dist: float = None,
+                 add_self: bool = False) -> bool:
         if array[0] == 0 and array[1] == 0:
             return True
         if max_dist is None:
-            max_dist = self.stop.max_dist_to_next * 10
+            max_dist = Distance(m=0)
+            add_self = True
+        if add_self:
+            max_dist += self.stop.max_dist_to_next * 3
         return self._is_close(array[0], array[1], max_dist)
 
     def cost_with_parent(self, parent_node: Node) -> Cost:
@@ -482,15 +486,18 @@ class MissingNode(Node):
         raise NotImplementedError(
             "Can't calculate distance to missing node without parent.")
 
-    def is_close(self, array: np.ndarray, max_dist: float = None) -> bool:
+    def is_close(self, array: np.ndarray,
+                 max_dist: float = None, add_self: bool = True) -> bool:
         if not self.parent:
-            # We don't know where the missing node is,
-            # so we have to assume it is close.
+            # We don't know where the missing node is, so we have to assume
+            # it is close. Only relevant if there are no start nodes.
             return True
 
-        max_dist = (self.stop.max_dist_to_next +
-                    self.parent.stop.max_dist_to_next)
-        return self.parent.is_close(array, max_dist)
+        if max_dist is None:
+            max_dist = Distance(m=0)
+        if add_self:
+            max_dist += self.stop.max_dist_to_next * 3
+        return self.parent.is_close(array, max_dist, add_self)
 
     def cost_with_parent(self, parent_node: Node) -> Cost:
         parent_cost = parent_node.cost.as_float - parent_node.cost.stop_cost
@@ -533,9 +540,9 @@ class Nodes:
                 node = self.get_or_create(stop, values)
                 if stop == stops.first:
                     node.cost = StartCost.from_cost(node.cost)
-            stop = stop.next
-            if stop is None:
+            if stop.is_last:
                 break
+            stop = stop.next
 
     def _add(self, node: Node) -> None:
         self.node_map[(node.stop, node.index)] = node
