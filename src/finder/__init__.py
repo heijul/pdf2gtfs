@@ -348,7 +348,7 @@ class Finder:
         best_nodes = _select_best_nodes(route_stop_nodes)
         logger.info(f"Done. Took {time() - t:.2f}s")
 
-        if Config.display_route in [1, 3, 7]:
+        if Config.display_route in [1, 3, 5, 7]:
             display_route(list(best_nodes.values()))
         return best_nodes
 
