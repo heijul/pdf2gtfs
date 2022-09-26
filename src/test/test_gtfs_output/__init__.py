@@ -7,7 +7,7 @@ def _create_temp_out_dir() -> TemporaryDirectory:
     return TemporaryDirectory(prefix="pdf2gtfs_", ignore_cleanup_errors=True)
 
 
-def _remove_temp_out_dir(temp_dir: TemporaryDirectory):
+def _remove_temp_out_dir(temp_dir: TemporaryDirectory) -> None:
     temp_dir.cleanup()
 
 

@@ -7,6 +7,7 @@ from finder import Finder
 from p2g_logging import initialize_logging
 from reader import Reader
 from user_input.arg_parser import parse_args
+from user_input.cli import create_output_directory
 
 
 if TYPE_CHECKING:
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_timetables() -> list["TimeTable"]:
+    logger.info(f"Reading the following pages: {Config.pages.pages}.")
     reader = Reader()
     timetables = reader.read()
     return timetables
@@ -40,7 +42,7 @@ def main() -> None:
     parse_args()
     initialize_logging(logging.DEBUG)
 
-    logger.info(f"Reading the following pages: {Config.pages.pages}.")
+    create_output_directory()
 
     tables = get_timetables()
     handler = generate_gtfs(tables)

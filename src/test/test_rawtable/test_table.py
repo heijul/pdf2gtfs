@@ -1,5 +1,8 @@
 from operator import attrgetter
+from typing import Iterator
 from unittest import TestCase
+
+from pdfminer.layout import LTPage
 
 from config import Config
 from datastructures.rawtable.bbox import BBox
@@ -69,6 +72,9 @@ def create_table_from_data(texts: list[str], bboxes: list[str]
 
 
 class TestTable(TestCase):
+    reader: Reader = None
+    pages: Iterator[LTPage] = None
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

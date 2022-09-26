@@ -160,16 +160,16 @@ def create_output_directory() -> bool:
             return msg + "There already exists a file with the same name."
         return msg + str(e)
 
-    path = Path(Config.output_dir).resolve()
+    path = Config.output_dir
     try:
-        path.mkdir(exist_ok=True)
+        path.mkdir(parents=True, exist_ok=True)
     except OSError as e:
         logger.error(get_msg_from_error())
         if Config.non_interactive:
             return False
-        msg = ("You may resolve the issue now and press enter, to try to "
-               "create the output directory again, or enter 'q' to quit.")
-        answer = _get_input(msg, ["", "q"])
+        prompt = ("You may resolve the issue now and press enter, to try to "
+                  "create the output directory again, or enter 'q' to quit.")
+        answer = _get_input(prompt, ["", "q"])
         if answer == "q":
             return False
         return create_output_directory()

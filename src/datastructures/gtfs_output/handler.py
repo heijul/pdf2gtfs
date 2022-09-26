@@ -17,7 +17,7 @@ from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
 from finder.route_finder2 import Node, MissingNode
-from user_input.cli import create_output_directory, handle_annotations
+from user_input.cli import handle_annotations
 
 
 if TYPE_CHECKING:
@@ -184,8 +184,6 @@ class GTFSHandler:
             self.routes.entries.remove(route)
 
     def write_files(self) -> bool:
-        if not create_output_directory():
-            return False
         self._remove_unused_routes()
         self.add_annotation_dates()
         self.agency.write()

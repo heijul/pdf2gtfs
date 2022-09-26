@@ -363,8 +363,8 @@ class OutputDirectoryProperty(Property):
             value = value.strip()
             value = Path(value).resolve()
             if value.exists() and not value.is_dir():
-                logger.error("Output directory is not a directory.")
-                raise err.InvalidOutputDirectoryError
+                logger.error("Given output directory is not a directory.")
+                raise err.InvalidOutputDirectoryError(str(value))
             if not value.exists():
                 logger.info(f"Output directory '{value}' does not exist "
                             f"and will be created.")
