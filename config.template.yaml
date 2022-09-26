@@ -178,11 +178,12 @@ gtfs_date_bounds: ""
 
 # The locations of the stops can be displayed in a webbrowser.
 # To decide what should be displayed, sum the values of the things you want:
-#      - display final route: 1
-#      - display all nodes with names similar to the stops: 2
+#      - display final locations: 1
+#      - display intermediate locations based on route: 2
+#      - display all nodes with names similar to the stops for each route: 4
 #
-# Type: int between 0 and 3
-display_route: 1
+# Type: int between 0 and 7
+display_route: 7
 
 # Days after which the cache should be marked as stale, forcing its rebuild.
 # Note: The cache will be rebuilt regardless of this setting,

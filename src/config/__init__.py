@@ -79,7 +79,7 @@ class _Config(InstanceDescriptorMixin):
         self.always_overwrite = p.Property(self, "always_overwrite", bool)
         self.non_interactive = p.Property(self, "non_interactive", bool)
         self.gtfs_date_bounds = p.DateBoundsProperty(self, "gtfs_date_bounds")
-        self.display_route = p.IntBoundsProperty(self, "display_route", 0, 3)
+        self.display_route = p.IntBoundsProperty(self, "display_route", 0, 7)
         self.stale_cache_days = p.IntBoundsProperty(self, "stale_cache_days", 0)
         self.name_abbreviations = p.AbbrevProperty(self, "name_abbreviations")
         self.disable_location_detection = p.Property(
