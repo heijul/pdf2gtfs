@@ -55,6 +55,7 @@ class Property:
         setattr(obj, self.attr, value)
 
 
+# TODO: Needs proper errors, if oob.
 class IntBoundsProperty(Property):
     def __init__(self, cls, attr, lower: int = None, upper: int = None
                  ) -> None:
@@ -393,6 +394,7 @@ class DateBoundsProperty(Property):
         super().__set__(obj, value)
 
 
+# TODO: Make NestedTypeProperty
 class AbbrevProperty(Property):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict)

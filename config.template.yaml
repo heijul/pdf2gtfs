@@ -122,7 +122,7 @@ gtfs_routetype: "Tram"
 # This is used to reduce the search radius for the locations of the stops.
 #
 # Type: int
-average_speed: 100
+average_speed: 20
 
 # Stop names are stripped of all characters which are not letters or whitelisted.
 #
@@ -183,7 +183,7 @@ gtfs_date_bounds: ""
 #      - display all nodes with names similar to the stops for each route: 4
 #
 # Type: int between 0 and 7
-display_route: 7
+display_route: 1
 
 # Days after which the cache should be marked as stale, forcing its rebuild.
 # Note: The cache will be rebuilt regardless of this setting,
