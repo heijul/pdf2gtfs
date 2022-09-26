@@ -504,9 +504,9 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
         if value in bad:
             return bad_value
         try:
-            return good[value]
+            return good[value] * 5
         except KeyError:
-            return 10
+            return 20
 
     bad_value = inf
     # Apply cat scores
@@ -521,4 +521,4 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
-    return full_df[KEYS_OPTIONAL].sum(axis=1)
+    return full_df[KEYS_OPTIONAL].min(axis=1) ** 2 // 20
