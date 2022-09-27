@@ -1,10 +1,14 @@
-from typing import TYPE_CHECKING, TypeAlias
+from typing import NamedTuple, TYPE_CHECKING, TypeAlias
 
+import pandas as pd
 
 if TYPE_CHECKING:
-    from finder.osm_node import OSMNode
+    from finder.location_nodes import Node
 
-StopName: TypeAlias = str
-Route2: TypeAlias = list["OSMNode"]
-Routes2: TypeAlias = list[Route2]
-StopNames: TypeAlias = list[StopName]
+
+Heap: TypeAlias = list["Node"]
+DF: TypeAlias = pd.DataFrame
+StopPosition = NamedTuple("StopPosition",
+                          [("idx", int), ("stop", str), ("names", str),
+                           ("lat", float), ("lon", float),
+                           ("node_cost", float), ("name_cost", float)])

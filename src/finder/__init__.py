@@ -21,10 +21,9 @@ from requests.exceptions import ConnectionError
 
 from config import Config
 from finder.location import Location
-from finder.osm_node import OSMNode, Route3
 from finder.osm_values import get_all_cat_scores
-from finder.route_finder2 import display_route, find_stop_nodes, Node
-from finder.types import StopNames
+from finder.route_finder2 import display_route, find_stop_nodes
+from finder.location_nodes import Node
 from utils import (
     get_abbreviations_regex, get_edit_distance, replace_abbreviation,
     replace_abbreviations, SPECIAL_CHARS)
@@ -249,7 +248,6 @@ class Finder:
         self.use_cache, cache_dir = create_cache_dir()
         self._set_fp(cache_dir)
         self._get_stop_data()
-        self.routes: list[Route3] | None = None
 
     def _set_fp(self, cache_dir: Path):
         self.fp: Path = cache_dir.joinpath("osm_cache.tsv").resolve()
@@ -492,7 +490,7 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
     return pd.concat(dfs, ignore_index=True)
 
 
-def prefilter_df(stops: StopNames, full_df: DF) -> DF:
+def prefilter_df(stops: list[str], full_df: DF) -> DF:
     regexes = [_create_stop_regex(_normalize_stop(stop)) for stop in stops]
     df = full_df[full_df["names"].str.contains(
         "|".join(regexes), regex=True, flags=re.IGNORECASE + re.UNICODE)]
