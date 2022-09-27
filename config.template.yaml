@@ -2,15 +2,16 @@
 #   changes may prevent pdf2gtfs from running, if you ever update it.
 # Instead create a new .yaml file either in the config_dir
 #   ('~/.config/pdf2gtfs/' for linux, '%PROGRAMDATA%/pdf2gtfs/' for windows).
-#
+
 # This default configuration will always be read first,
 #   after which all other .yaml/.yml files in the config_dir will be
-#   read, overriding any default values. Lastly the command line arguments
-#   will override any values set in the config files.
-#
+#   read in lexicographic order, overriding any default values. Lastly the
+#   command line arguments will override any values set in the config files.
+
 # Info for string values: leading/trailing whitespace will be stripped.
 #   This also applies to stringlists (e.g. "1,2, 3" is equal to "1,2,3").
 #   They will also be made lowercase, unless they are part of a format spec.
+
 
 # The format of the times given in the table.
 #
