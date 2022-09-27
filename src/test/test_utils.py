@@ -11,6 +11,32 @@ class TestUtils(TestCase):
         self.assertEqual(3, get_edit_distance("sunday", "saturday"))
         self.assertEqual(3, get_edit_distance("saturday", "sunday"))
 
+    def test_replace_abbreviations__no_dot(self) -> None:
+        Config.name_abbreviations = {"str": "strasse"}
+        names = {"hauptstr.": "hauptstr.",
+                 "hauptstr": "hauptstr",
+                 "haupt str.": "haupt strasse",
+                 "haupt str": "haupt strasse",
+                 "strasse": "strasse",
+                 "bf str": "bf strasse",
+                 "hauptstrberg": "hauptstrberg",
+                 }
+        for short_name, full_name in names.items():
+            self.assertEqual(full_name, replace_abbreviations(short_name))
+
+    def test_replace_abbreviations__with_dot(self) -> None:
+        Config.name_abbreviations = {"str.": "strasse"}
+        names = {"hauptstr.": "hauptstrasse",
+                 "hauptstr": "hauptstr",
+                 "haupt str.": "haupt strasse",
+                 "haupt str": "haupt strasse",
+                 "strasse": "strasse",
+                 "bf str": "bf strasse",
+                 "hauptstrberg": "hauptstrberg",
+                 }
+        for short_name, full_name in names.items():
+            self.assertEqual(full_name, replace_abbreviations(short_name))
+
     def test_replace_abbreviations(self) -> None:
         Config.name_abbreviations = {
             "str.": "strasse", "bf": "bahnhof", "hbf": "hauptbahnhof"}
@@ -22,6 +48,7 @@ class TestUtils(TestCase):
                  "frankfurt bf": "frankfurt bahnhof",
                  "frankfurt hbf.": "frankfurt hauptbahnhof",
                  "bf str": "bahnhof strasse",
+                 "hbf": "hauptbahnhof",
                  "hauptstrberg": "hauptstrberg",
                  }
         for short_name, full_name in names.items():

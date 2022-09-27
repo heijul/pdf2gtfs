@@ -102,22 +102,37 @@ def get_edit_distance(s1, s2) -> int:
 
 
 def replace_abbreviations(name: str) -> str:
-    return re.sub(get_abbreviations_regex(), replace_abbreviation, name,
-                  flags=REGEX_FLAGS)
+    regex = get_abbreviations_regex()
+    return re.sub(regex, replace_abbreviation, name, flags=REGEX_FLAGS)
 
 
 def get_abbreviations_regex() -> str:
+    def _to_regex(abbrev_key: str) -> str:
+        ends_with_key_regex = ""
+        if abbrev_key.endswith("."):
+            abbrev_key = re.escape(abbrev_key[:-1])
+            ends_with_key_regex = rf"|({abbrev_key}\.)"
+
+        # Full word may end with a dot as well, which could then be wrongly
+        #  replaced by another abbrev. E.g. if given a string "hbf." and
+        #  name_abbreviations = {"hbf": "hauptbahnhof", "of.": "offenbach"},
+        #  would result in "hbf." -> "hauptbahnhof." -> "hauptbahnoffenbach"
+        abbrev_key = re.escape(abbrev_key)
+        key_matches_word_regex = rf"(\b{abbrev_key}\.)|(\b{abbrev_key}\b)"
+
+        return key_matches_word_regex + ends_with_key_regex
+
     from config import Config
 
     abbrevs = Config.name_abbreviations
-    base_regex = r"({0}\.)|(\b{0}\b)"
-    return "|".join(
-        [base_regex.format(re.escape(abbrev)) for abbrev in abbrevs])
+    return "|".join(map(_to_regex, abbrevs))
 
 
 def replace_abbreviation(value: re.Match) -> str:
     from config import Config
 
     start, end = value.span()
-    key = value.string[start:end].replace(".", "")
+    key = value.string[start:end].replace(".", "").lower()
+    if key not in Config.name_abbreviations:
+        return Config.name_abbreviations[key + "."]
     return Config.name_abbreviations[key.lower()]

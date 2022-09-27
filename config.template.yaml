@@ -194,19 +194,33 @@ display_route: 1
 stale_cache_days: 7
 
 # When searching for the stop locations, the abbreviations listed here will be
-#   replaced by their respective full form. This will not affect the stop_name
-#   in the 'stops.txt'. This may help with finding the proper location for a
-#   stop, in case the transit agency uses names with these abbreviations.
+#   replaced by their respective full form, when searching for stop locations.
+#   This may help with finding the proper location for a stop, in case the
+#   transit agency uses names with these abbreviations.
+#
+# Essentially the following regex is created for keys not ending in ".":
+#     "(\bstr\.)|(\bstr\b)"
+#  If the key ends with a dot, the regex instead looks like this:
+#     "(\bstr\.)|(\bstr\b)|(str\.)"
+#
+# Example:
+#   - Given the following name_abbreviations:
+#       "str.": "strasse"
+#       "bf.": "BAHNHOF"
+#       "HBF": "hauptbahnhof"
+#   - would result in the following changes to some example stop names:
+#       "hbf"             ->  "hauptbahnhof"
+#       "hbf."            ->  "hauptbahnhof"
+#       "Frankfurthbf."   ->  "frankfurthbahnhof" (!)
+#       "Bahnhofsstr."    ->  "bahnhofsstrasse"
+#   Note the line with (!): The "[...]hbf." is replaced by "[...]hbahnhof"
+#   instead of "hauptbahnhof", because the key "hbf" does not end with a dot.
+#
 # Notes:
-# - Word boundaries will be respected, i.e. the "ffm" in "hoffmannplatz" would
-#   not be replaced with "Frankfurt" if it is set to {"ffm": "Frankfurt"}.
-# - However, if the dictionary is set to e.g. {"str": "strasse"},
-#   then "Hauptstr." will be replaced by "Hauptstrasse".
+# - This will not affect the stop_name in the 'stops.txt'.
+# - All keys/values will be .lower()ed and .casefold()ed.
 #
 # Type: dict of string to string
-# TODO: lower().casefold() on value
-# TODO: Clarify that "str" has the same effect as "str."
-# TODO: Maybe make a difference between "str." and "str"
 name_abbreviations:
   "a.": "am"
   "rh.": "rhein"

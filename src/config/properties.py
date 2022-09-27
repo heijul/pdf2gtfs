@@ -399,19 +399,14 @@ class AbbrevProperty(NestedTypeProperty):
         super().__init__(cls, attr, dict[str: str])
 
     def __set__(self, obj, value: Any):
-        def _clean_key(key: str) -> str:
-            key = key.strip().lower().casefold()
-            if key.endswith("."):
-                return key[:-1]
-            return key
+        def _clean(string: str) -> str:
+            return string.strip().lower().casefold()
 
         if isinstance(value, dict):
-            value = {_clean_key(key): val.lower()
-                     for key, val in value.items()}
+            value = {_clean(key): _clean(val) for key, val in value.items()}
             # Longer keys should come first, to prevent "hbf." to be changed
             #  to "hbahnhof", if both "hbf" and "bf" are given.
-            value = dict(sorted(value.items(),
-                                key=lambda item: len(item[0]),
-                                reverse=True))
+            value = dict(
+                sorted(value.items(), key=lambda x: len(x[0]), reverse=True))
 
         super().__set__(obj, value)
