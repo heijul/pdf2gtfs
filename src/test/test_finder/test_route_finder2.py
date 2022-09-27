@@ -7,7 +7,9 @@ import pandas as pd
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
 from datastructures.gtfs_output.stop_times import Time
-from finder.route_finder2 import Cost, Nodes, Stop, Stops
+from finder.cost import Cost
+from finder.location_nodes import Nodes
+from finder.stops import Stop, Stops
 
 
 DF: TypeAlias = pd.DataFrame
@@ -67,9 +69,6 @@ class TestStop(TestCase):
         self.assertFalse(self.stop_2.after(self.stop_2))
 
     def test_avg_time_to_next(self) -> None:
-        self.assertEqual(Time(), self.stop_1.avg_time_to_next)
-        # TODO: Test with actual data
-
         # TODO: Ignore for now cause we'd need a working handler + stop_times
         pass
 
@@ -117,7 +116,7 @@ class TestNode(TestCase):
     def setUp(self) -> None:
         Config.average_speed = 10
         stops_list, self.df = get_stops_and_dummy_df()
-        self.stops = get_stops_from_stops_list(stops_list, self.df)
+        self.stops = get_stops_from_stops_list(stops_list)
         self.nodes = Nodes(self.df, self.stops)
 
     def test_get_neighbors(self) -> None:
@@ -155,9 +154,8 @@ def get_stops_and_dummy_df(stop_count: int = 3) -> tuple[list, DF]:
     return stops, df
 
 
-def get_stops_from_stops_list(stops_list: list[tuple[str, str]],
-                              df: DF) -> Stops:
-    stops = Stops(GTFSHandler(), stops_list, df)
+def get_stops_from_stops_list(stops_list: list[tuple[str, str]]) -> Stops:
+    stops = Stops(GTFSHandler(), stops_list)
     for i, stop in enumerate(stops):
         stop._avg_time_to_next = Time(minutes=i + 3)
     return stops

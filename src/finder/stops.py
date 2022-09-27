@@ -15,7 +15,7 @@ class Stop:
     stops: Stops = None
 
     def __init__(self, idx: int, stop_id: str, name: str,
-                 next_: Stop, stop_cost: int) -> None:
+                 next_: Stop | None, stop_cost: int) -> None:
         self.idx = idx
         self.stop_id = stop_id
         self.name = name
