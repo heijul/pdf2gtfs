@@ -1,3 +1,4 @@
+from math import inf
 from typing import TypeAlias
 from unittest import TestCase
 
@@ -79,6 +80,8 @@ class TestCost(TestCase):
         self.cost_2 = Cost(5, 4, 3, 2, 1)
         self.cost_3 = Cost(1, 2, 3, 4, 5)
         self.cost_4 = Cost(4, 4, 4, 4, 4)
+        self.cost_5 = Cost(4, 4, 3, 5, 4)
+        self.cost_inf = Cost(1, inf, 1, 1, 1)
 
     def test_from_cost(self) -> None:
         self.assertNotEqual(id(self.cost_1), id(Cost.from_cost(self.cost_1)))
@@ -91,10 +94,15 @@ class TestCost(TestCase):
     def test_eq(self) -> None:
         self.assertEqual(self.cost_1, self.cost_1)
         self.assertEqual(self.cost_1, self.cost_3)
+        self.assertEqual(self.cost_4, self.cost_5)
         self.assertEqual(self.cost_3, self.cost_1)
+
         self.assertNotEqual(self.cost_1, self.cost_4)
 
-        self.assertEqual(self.cost_3, self.cost_2)
+        self.assertEqual(self.cost_inf, self.cost_inf)
+        self.assertNotEqual(self.cost_1, self.cost_inf)
+        # Stop ordering matters.
+        self.assertNotEqual(self.cost_3, self.cost_2)
         self.assertNotEqual(self.cost_3.costs, self.cost_2.costs)
 
     def test_lt(self) -> None:
@@ -102,7 +110,7 @@ class TestCost(TestCase):
         self.assertLess(self.cost_2, self.cost_4)
 
     def test_le(self) -> None:
-        self.assertLessEqual(self.cost_1, self.cost_2)
+        self.assertGreater(self.cost_1, self.cost_2)
         self.assertLessEqual(self.cost_2, self.cost_1)
         self.assertLessEqual(self.cost_2, self.cost_3)
         self.assertLessEqual(self.cost_3, self.cost_1)

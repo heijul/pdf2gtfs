@@ -48,8 +48,8 @@ class Cost:
         other_is_inf = other.as_float == inf
         # One is inf the other is not.
         if (self_is_inf + other_is_inf) % 2 == 1:
-            return False
-        if not self_is_inf or not other_is_inf:
+            return not other_is_inf
+        if not self_is_inf and not other_is_inf:
             return (self.stop_cost == other.stop_cost and
                     self.as_float == other.as_float)
         return self.as_float == other.as_float
@@ -62,11 +62,11 @@ class Cost:
         self_is_inf = self.as_float == inf
         other_is_inf = other.as_float == inf
         if not self_is_inf and not other_is_inf:
+            if self.as_float == other.as_float:
+                return self.stop_cost < other.stop_cost
             return self.as_float < other.as_float
-        if self_is_inf and not other_is_inf:
-            return False
-        if not self_is_inf and other_is_inf:
-            return True
+        if (self_is_inf + other_is_inf) % 2 == 1:
+            return not self_is_inf and other_is_inf
         return self.costs.count(inf) < other.costs.count(inf)
 
     def __le__(self, other: Cost) -> bool:
@@ -85,7 +85,8 @@ class Cost:
                 f"parent: {self.parent_cost:{fmt}}, "
                 f"node: {self.node_cost:{fmt}}, "
                 f"name: {self.name_cost:{fmt}}, "
-                f"travel: {self.travel_cost:{fmt}})")
+                f"travel: {self.travel_cost:{fmt}}, "
+                f"stop: {self.stop_cost:{fmt}})")
 
 
 class StartCost(Cost):
