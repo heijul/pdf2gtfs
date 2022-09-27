@@ -11,7 +11,7 @@ from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from time import time
-from typing import cast, Optional, TYPE_CHECKING, TypeAlias
+from typing import Optional, TYPE_CHECKING, TypeAlias
 from urllib import parse
 
 import numpy as np
@@ -22,8 +22,8 @@ from requests.exceptions import ConnectionError
 from config import Config
 from finder.location import Location
 from finder.osm_values import get_all_cat_scores
-from finder.location_finder import find_stop_nodes
-from finder.location_nodes import display_nodes, Node
+from finder.location_finder import find_stop_nodes, update_missing_locations
+from finder.location_nodes import display_nodes, MissingNode, Node
 from utils import (
     get_abbreviations_regex, get_edit_distance, replace_abbreviation,
     replace_abbreviations, SPECIAL_CHARS)
@@ -326,15 +326,20 @@ class Finder:
                     nodes.setdefault(stop_id, []).append(node)
             return nodes
 
+        def _select_best_node(stop_nodes: list[Node]) -> Node:
+            nodes = [n for n in stop_nodes if not isinstance(n, MissingNode)]
+            missing = [n for n in stop_nodes if isinstance(n, MissingNode)]
+            if not nodes:
+                return missing[0]
+            nodes_unique = set(nodes)
+            nodes_count = {n: nodes.count(n) for n in nodes_unique}
+            node_with_max_count = max(nodes, key=nodes_count.get)
+            return node_with_max_count
+
         def _select_best_nodes(stops_nodes: StopsNodes) -> StopsNode:
             nodes: dict[str: Node] = {}
             for stop_id, stop_nodes in stops_nodes.items():
-                stop_id: StopID
-                stop_nodes = cast(list[Node], stop_nodes)
-                nodes_unique = set(stop_nodes)
-                nodes_count = {n: stop_nodes.count(n) for n in nodes_unique}
-                node_with_max_count = max(stop_nodes, key=nodes_count.get)
-                nodes[stop_id] = node_with_max_count
+                nodes[stop_id] = _select_best_node(stop_nodes)
             return nodes
 
         df = get_df(self.handler.stops.entries, self.full_df)
@@ -347,6 +352,7 @@ class Finder:
         logger.info(f"Done. Took {time() - t:.2f}s")
 
         if Config.display_route in [1, 3, 5, 7]:
+            update_missing_locations(list(best_nodes.values()))
             display_nodes(list(best_nodes.values()))
         return best_nodes
 

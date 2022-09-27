@@ -53,9 +53,9 @@ class LocationFinder:
         return route
 
 
-def update_missing_locations(route) -> None:
+def update_missing_locations(nodes) -> None:
     def get_first_node() -> tuple[int, Node | None]:
-        for i, n in enumerate(route):
+        for i, n in enumerate(nodes):
             if isinstance(n, MissingNode):
                 continue
             return i + 1, n
@@ -66,7 +66,7 @@ def update_missing_locations(route) -> None:
         return
 
     missing_nodes = []
-    for node in route[start_id:]:
+    for node in nodes[start_id:]:
         if isinstance(node, MissingNode):
             missing_nodes.append(node)
             continue
@@ -92,18 +92,17 @@ def find_stop_nodes(handler: GTFSHandler,
     t = time()
     d = df.copy()
     location_finder = LocationFinder(handler, route, d.copy())
-    locations = location_finder.find_dijkstra()
-    update_missing_locations(locations)
+    nodes = location_finder.find_dijkstra()
+    update_missing_locations(nodes)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     if Config.display_route in [4, 5, 6, 7]:
-        nodes = [node for node in location_finder.nodes.node_map.values()
-                 if not isinstance(node, MissingNode)
-                 and node.cost.as_float != inf]
-        display_nodes(nodes)
+        all_nodes = [node for node in location_finder.nodes.node_map.values()
+                     if not isinstance(node, MissingNode)
+                     and node.cost.as_float != inf]
+        display_nodes(all_nodes)
 
     if Config.display_route in [2, 3, 6, 7]:
-        display_nodes(locations)
+        display_nodes(nodes)
 
-    return {node.stop.stop_id: node
-            for node in locations if not isinstance(node, MissingNode)}
+    return {node.stop.stop_id: node for node in nodes}
