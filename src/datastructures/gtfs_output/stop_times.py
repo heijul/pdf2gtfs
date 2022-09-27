@@ -90,17 +90,17 @@ class Time:
             hours -= minutes // 60
         return Time(hours, minutes, seconds)
 
-    # TODO NOW: This is ugly
-    def to_float_hours(self) -> float:
+    def to_hours(self) -> float:
         return self.hours + self.minutes / 60 + self.seconds / 3600
 
     @staticmethod
-    def from_float(*, hours: float = None, minutes: float = None) -> Time:
-        if hours is not None:
-            assert minutes is None
-            minutes = 60 * hours
-        hours = int(minutes) // 60
-        minutes = int(minutes % 60)
+    def from_hours(hours: float) -> Time:
+        return Time.from_minutes(60 * hours)
+
+    @staticmethod
+    def from_minutes(float_minutes: float) -> Time:
+        hours = int(float_minutes) // 60
+        minutes = int(float_minutes % 60)
         seconds = int(round((minutes - int(minutes)) * 60, 0))
         return Time(hours, minutes, seconds)
 
@@ -130,8 +130,8 @@ class StopTimesEntry(BaseDataClass):
 
 def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
     if Config.repeat_strategy == "mean":
-        return cycle([Time.from_float(minutes=mean(deltas))])
-    return cycle([Time.from_float(minutes=delta) for delta in deltas])
+        return cycle([Time.from_minutes(mean(deltas))])
+    return cycle([Time.from_minutes(delta) for delta in deltas])
 
 
 class StopTimes(BaseContainer):

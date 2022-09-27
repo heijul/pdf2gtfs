@@ -48,7 +48,7 @@ class Stop:
 
     @staticmethod
     def get_max_dist(avg_time: Time) -> Distance:
-        return Distance(km=avg_time.to_float_hours() * Config.average_speed)
+        return Distance(km=avg_time.to_hours() * Config.average_speed)
 
     def _set_distance_bounds(self) -> None:
         if self.avg_time_to_next is None:

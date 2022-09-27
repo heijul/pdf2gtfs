@@ -267,7 +267,7 @@ class GTFSHandler:
             t_diff = s2.arrival_time - s1.departure_time
             if not t_diff:
                 continue
-            times.append(t_diff.to_float_hours())
+            times.append(t_diff.to_hours())
         if not times:
             return Time()
-        return Time.from_float(hours=mean(times))
+        return Time.from_hours(mean(times))

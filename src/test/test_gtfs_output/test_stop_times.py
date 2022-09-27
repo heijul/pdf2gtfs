@@ -89,17 +89,17 @@ class TestStopTimes(TestCase):
                  self.stops[1]: "23.47",
                  self.stops[2]: "00.13"}
         self.assertEqual(0, len(self.stop_times.entries))
-        self.stop_times.add_multiple(0, self.gtfs_stops, 0, times)
+        self.stop_times.add_multiple("0", self.gtfs_stops, 0, times)
         self.assertEqual(3, len(self.stop_times.entries))
         times = {self.stops[0]: "23.42",
                  self.stops[1]: "00.00",
                  self.stops[2]: "00.26"}
-        self.stop_times.add_multiple(0, self.gtfs_stops, 0, times)
+        self.stop_times.add_multiple("0", self.gtfs_stops, 0, times)
         self.assertTrue(6, len(self.stop_times.entries))
         times = {self.stops[0]: "00.14",
                  self.stops[1]: "00.15",
                  self.stops[2]: "00.16"}
-        self.stop_times.add_multiple(0, self.gtfs_stops, 1, times)
+        self.stop_times.add_multiple("0", self.gtfs_stops, 1, times)
         self.assertTrue(9, len(self.stop_times.entries))
         self.assertTrue(self.stop_times.entries[0].arrival_time <
                         self.stop_times.entries[1].arrival_time)
