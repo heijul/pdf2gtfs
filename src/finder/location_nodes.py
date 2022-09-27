@@ -162,8 +162,6 @@ class Node:
 
 
 class MissingNode(Node):
-    default_travel_cost = 30
-
     def __init__(self, stop: Stop, index: int, names: str, loc: Location,
                  parent_cost: float) -> None:
         cost = Cost(parent_cost, MISSING_NODE_SCORE, 0, 0)
@@ -190,8 +188,7 @@ class MissingNode(Node):
 
     def cost_with_parent(self, parent_node: Node) -> Cost:
         parent_cost = parent_node.cost.as_float - parent_node.cost.stop_cost
-        cost = Cost(parent_cost, MISSING_NODE_SCORE, 0,
-                    MissingNode.default_travel_cost, self.stop.cost)
+        cost = Cost(parent_cost, MISSING_NODE_SCORE, 0, 0, self.stop.cost)
         return cost
 
     def __repr__(self) -> str:
@@ -345,16 +342,18 @@ class Nodes:
 
 
 def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
-    step_count = 5
     if isinstance(from_node, MissingNode) or isinstance(to_node, MissingNode):
-        return MissingNode.default_travel_cost
-
+        return 0
+    # TODO: Currently does not use lower/upper bounds,
+    #  other than getting expected distance.
     lower, upper = from_node.stop.distance_bounds
     actual_distance: Distance = from_node.dist_exact(to_node)
     # Too far away from either bound. Lower is >= 0
-    if actual_distance.m == 0 or False and not (lower < actual_distance <= upper):
+    if actual_distance.m == 0:
         return inf
-    # Discrete function.
+    step_count = 5
+    # Discrete function, to prevent values close to each other
+    # having vastly different scores.
     expected_distance = upper - lower
     distance_diff = (actual_distance - expected_distance).m
     step_distance = (expected_distance - lower).m / step_count
@@ -387,13 +386,16 @@ def display_nodes(nodes: list[Node]) -> None:
             icon = folium.Icon(color="red", icon="remove-circle")
         else:
             icon = folium.Icon(color="green", icon="map-marker")
-        popup = (f"Stop: '{node.stop.name}'<br>"
-                 f"Cost: {node.cost.as_float:>7.2f}<br>"
-                 f"Node: {node.cost.node_cost:>7.2f}<br>"
-                 f"Name: {node.cost.name_cost:>7.2f}<br>"
-                 f"Dist: {node.cost.travel_cost:>7.2f}<br>"
-                 f"Lat:  {loc[0]:>7.4f}<br>"
-                 f"Lon:  {loc[1]:>7.4f}")
+        text = (f"Stop: '{node.stop.name}'<br>"
+                f"Lat: {loc[0]:>7.4f}<br>"
+                f"Lon: {loc[1]:>7.4f}<br>"
+                f"Total cost : {node.cost.as_float:>7.2f}<br>"
+                f"Node cost  : {node.cost.node_cost:>7.2f}<br>"
+                f"Name cost  : {node.cost.name_cost:>7.2f}<br>"
+                f"Travel cost: {node.cost.travel_cost:>7.2f}<br>"
+                f"Stop cost  : {node.cost.stop_cost:>7.2f}<br>")
+        max_width = max(map(len, text.split("<br>"))) * 20
+        popup = folium.Popup(text, max_width=max_width)
         folium.Marker(loc, popup=popup, icon=icon).add_to(m)
 
     outfile = Config.output_dir.joinpath("routedisplay.html")
