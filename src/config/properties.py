@@ -394,10 +394,9 @@ class DateBoundsProperty(Property):
         super().__set__(obj, value)
 
 
-# TODO: Make NestedTypeProperty
-class AbbrevProperty(Property):
+class AbbrevProperty(NestedTypeProperty):
     def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, dict)
+        super().__init__(cls, attr, dict[str: str])
 
     def __set__(self, obj, value: Any):
         def _clean_key(key: str) -> str:
