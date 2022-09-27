@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import heapq
 import logging
+import webbrowser
 from functools import partial
 
 from math import inf, sqrt
-from statistics import mean
+from statistics import mean, StatisticsError
 from typing import Callable, Generator
 
 import numpy as np
 import pandas as pd
+import folium
 
+from config import Config
 from finder import Location
 from finder.cost import Cost, StartCost
 from finder.distance import Distance, DISTANCE_PER_LAT_DEG, get_distance_per_lon_deg
@@ -358,3 +361,41 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
     if step_distance < 1:
         return 1
     return (distance_diff // (step_distance + 1)) + 1
+
+
+def display_nodes(nodes: list[Node]) -> None:
+    def get_map_location() -> tuple[float, float]:
+        try:
+            valid_nodes = [n for n in nodes if not isinstance(n, MissingNode)]
+            return (mean([n.loc.lat for n in valid_nodes]),
+                    mean([n.loc.lon for n in valid_nodes]))
+        except StatisticsError:
+            return 0, 0
+
+    # FEATURE: Add info about missing nodes.
+    # FEATURE: Adjust zoom/location depending on lat-/lon-minimum
+    location = get_map_location()
+    if location == (0, 0):
+        logger.warning("Nothing to display, route is empty.")
+        return
+    m = folium.Map(location=location)
+    for i, node in enumerate(nodes):
+        loc = [node.loc.lat, node.loc.lon]
+        if loc[0] == 0 and loc[1] == 0:
+            continue
+        if isinstance(node, MissingNode):
+            icon = folium.Icon(color="red", icon="remove-circle")
+        else:
+            icon = folium.Icon(color="green", icon="map-marker")
+        popup = (f"Stop: '{node.stop.name}'<br>"
+                 f"Cost: {node.cost.as_float:>7.2f}<br>"
+                 f"Node: {node.cost.node_cost:>7.2f}<br>"
+                 f"Name: {node.cost.name_cost:>7.2f}<br>"
+                 f"Dist: {node.cost.travel_cost:>7.2f}<br>"
+                 f"Lat:  {loc[0]:>7.4f}<br>"
+                 f"Lon:  {loc[1]:>7.4f}")
+        folium.Marker(loc, popup=popup, icon=icon).add_to(m)
+
+    outfile = Config.output_dir.joinpath("routedisplay.html")
+    m.save(str(outfile))
+    webbrowser.open_new_tab(str(outfile))

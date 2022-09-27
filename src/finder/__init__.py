@@ -22,8 +22,8 @@ from requests.exceptions import ConnectionError
 from config import Config
 from finder.location import Location
 from finder.osm_values import get_all_cat_scores
-from finder.route_finder2 import display_route, find_stop_nodes
-from finder.location_nodes import Node
+from finder.route_finder2 import find_stop_nodes
+from finder.location_nodes import display_nodes, Node
 from utils import (
     get_abbreviations_regex, get_edit_distance, replace_abbreviation,
     replace_abbreviations, SPECIAL_CHARS)
@@ -347,7 +347,7 @@ class Finder:
         logger.info(f"Done. Took {time() - t:.2f}s")
 
         if Config.display_route in [1, 3, 5, 7]:
-            display_route(list(best_nodes.values()))
+            display_nodes(list(best_nodes.values()))
         return best_nodes
 
 
