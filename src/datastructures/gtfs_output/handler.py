@@ -262,7 +262,6 @@ class GTFSHandler:
         stop_times1 = self.stop_times.get_with_stop_id(stop_id1)
         stop_times2 = self.stop_times.get_with_stop_id(stop_id2)
 
-        # TODO NOW: This may fail if one stop_times is longer than the other
         times = []
         for s1, s2 in zip(stop_times1, stop_times2):
             t_diff = s2.arrival_time - s1.departure_time

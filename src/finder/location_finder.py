@@ -20,8 +20,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MISSING_NODE_SCORE = 1500
-
 
 class LocationFinder:
     def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]],
