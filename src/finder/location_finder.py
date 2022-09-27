@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 MISSING_NODE_SCORE = 1500
 
 
-class RouteFinder:
+class LocationFinder:
     def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]],
                  df: DF) -> None:
         self.handler = handler
@@ -73,9 +73,9 @@ def update_missing_locations(route) -> None:
         if not missing_nodes:
             prev = node
             continue
-
-        delta = Location((node.loc.lat - prev.loc.lat) / (len(missing_nodes) + 1),
-                         (node.loc.lon - prev.loc.lon) / (len(missing_nodes) + 1))
+        div = len(missing_nodes) + 1
+        delta = Location((node.loc.lat - prev.loc.lat) / div,
+                         (node.loc.lon - prev.loc.lon) / div)
         loc = prev.loc + delta
 
         for m in missing_nodes:
@@ -91,13 +91,13 @@ def find_stop_nodes(handler: GTFSHandler,
     logger.info("Starting location detection...")
     t = time()
     d = df.copy()
-    route_finder = RouteFinder(handler, route, d.copy())
-    locations = route_finder.find_dijkstra()
+    location_finder = LocationFinder(handler, route, d.copy())
+    locations = location_finder.find_dijkstra()
     update_missing_locations(locations)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     if Config.display_route in [4, 5, 6, 7]:
-        nodes = [node for node in route_finder.nodes.node_map.values()
+        nodes = [node for node in location_finder.nodes.node_map.values()
                  if not isinstance(node, MissingNode)
                  and node.cost.as_float != inf]
         display_nodes(nodes)
