@@ -387,6 +387,7 @@ def display_nodes(nodes: list[Node]) -> None:
         else:
             icon = folium.Icon(color="green", icon="map-marker")
         text = (f"Stop: '{node.stop.name}'<br>"
+                f"Names: '{node.names}'<br>"
                 f"Lat: {loc[0]:>7.4f}<br>"
                 f"Lon: {loc[1]:>7.4f}<br>"
                 f"Total cost : {node.cost.as_float:>7.2f}<br>"

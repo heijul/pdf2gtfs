@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import logging
+import operator
 import os.path
 import platform
 import re
@@ -24,9 +26,8 @@ from finder.location import Location
 from finder.osm_values import get_all_cat_scores
 from finder.location_finder import find_stop_nodes, update_missing_locations
 from finder.location_nodes import display_nodes, MissingNode, Node
-from utils import (
-    get_abbreviations_regex, get_edit_distance, replace_abbreviation,
-    replace_abbreviations, SPECIAL_CHARS)
+from utils import (get_abbreviations_regex, get_edit_distance,
+                   replace_abbreviation, SPECIAL_CHARS)
 
 
 if TYPE_CHECKING:
@@ -133,7 +134,7 @@ def get_osm_data_from_qlever(path: Path) -> bool:
     return True
 
 
-def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
+def _cleanup_name(raw_series: pd.Series) -> pd.Series:
     def _normalize(series: pd.Series) -> pd.Series:
         return series.str.lower().str.casefold().str.strip()
 
@@ -154,13 +155,14 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
         # Remove consecutive, as well as leading/trailing spaces.
         return series.str.replace(" +", " ", regex=True)
 
-    def _cleanup_name(series: pd.Series):
-        return (series
-                .pipe(_normalize)
-                .pipe(_replace_abbreviations)
-                .pipe(_remove_forbidden_chars)
-                .pipe(_cleanup_spaces))
+    return (raw_series
+            .pipe(_normalize)
+            .pipe(_replace_abbreviations)
+            .pipe(_remove_forbidden_chars)
+            .pipe(_cleanup_spaces))
 
+
+def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
     df = read_csv(BytesIO(raw_data))
     df["names"] = _cleanup_name(df["names"])
     # Remove entries with empty name.
@@ -324,6 +326,10 @@ class Finder:
                 stop_nodes = find_stop_nodes(self.handler, route, df)
                 for stop_id, node in stop_nodes.items():
                     nodes.setdefault(stop_id, []).append(node)
+                route = list(reversed(route))
+                stop_nodes = find_stop_nodes(self.handler, route, df)
+                for stop_id, node in stop_nodes.items():
+                    nodes.setdefault(stop_id, []).append(node)
             return nodes
 
         def _select_best_node(stop_nodes: list[Node]) -> Node:
@@ -438,25 +444,34 @@ def get_routes(handler: GTFSHandler) -> Routes:
 
 
 def _normalize_stop(stop: str) -> str:
-    return replace_abbreviations(stop).casefold().lower()
+    return _cleanup_name(pd.Series([stop])).iloc[0]
 
 
-def _create_stop_regex(stop: str) -> str:
-    def _remove_forbidden_chars(string: str) -> str:
-        # Match parentheses and all text enclosed by them.
-        parentheses_re = r"(\(.*\))"
-        allowed_chars = "".join(Config.allowed_stop_chars)
-        # Match all chars other than the allowed ones.
-        char_re = fr"([^a-zA-Z\d\|{SPECIAL_CHARS}{allowed_chars}])"
-        regex = "|".join([parentheses_re, char_re])
-        return re.sub(regex, " ", string, flags=re.I + re.U)
+def _create_stop_regex(stop: str, add_permutations: str) -> str:
+    def _get_permutations(string: str) -> list[str]:
+        if add_permutations == "none":
+            return [string]
 
-    def _cleanup_spaces(string: str) -> str:
-        # Remove consecutive, as well as leading/trailing spaces.
-        return re.sub(" +", " ", string, flags=re.I + re.U)
+        words = string.split(" ")
 
-    return "|".join([re.escape(_cleanup_spaces(_remove_forbidden_chars(s)))
-                     for s in stop.split("|")])
+        n = len(words)
+        range_args = (1, n + 1) if add_permutations == "all" else (n, n + 1)
+
+        perms_list: list[list[str]] = []
+        for i in range(*range_args):
+            perms_list.append(list(itertools.permutations(words, i)))
+        perm_str = [" ".join(perm) for perms in perms_list for perm in perms]
+        perm_str.sort(key=operator.methodcaller("count", " "), reverse=True)
+        return perm_str
+
+    assert add_permutations in ["all", "max", "none"]
+    permutations = _get_permutations(stop)
+    if add_permutations == "all":
+        regex_list = [rf"\b{re.escape(perm)}\b" for perm in permutations]
+    else:
+        regex_list = [re.escape(perm) for perm in _get_permutations(stop)]
+    regex = "|".join(regex_list)
+    return regex
 
 
 def _compile_regex(regex: str) -> re.Pattern[str]:
@@ -465,7 +480,7 @@ def _compile_regex(regex: str) -> re.Pattern[str]:
 
 
 def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
-    c_regex = _compile_regex(_create_stop_regex(_normalize_stop(stop)))
+    c_regex = _compile_regex(_create_stop_regex(_normalize_stop(stop), "none"))
     df = full_df[full_df["names"].str.contains(c_regex, regex=True)]
     return df.copy()
 
@@ -497,9 +512,14 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
 
 
 def prefilter_df(stops: list[str], full_df: DF) -> DF:
-    regexes = [_create_stop_regex(_normalize_stop(stop)) for stop in stops]
+    def remove_duplicates(duplicate_regex: str) -> str:
+        return "|".join(set(duplicate_regex.split("|")))
+
+    regexes = [_create_stop_regex(_normalize_stop(stop), "none")
+               for stop in stops]
+    unique_regex: str = remove_duplicates("|".join(regexes))
     df = full_df[full_df["names"].str.contains(
-        "|".join(regexes), regex=True, flags=re.IGNORECASE + re.UNICODE)]
+        unique_regex, regex=True, flags=re.IGNORECASE + re.UNICODE)]
     return df.copy()
 
 
