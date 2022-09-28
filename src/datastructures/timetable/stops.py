@@ -1,9 +1,6 @@
-from utils import normalize_name
-
-
 class Stop:
     def __init__(self, name: str, raw_row_id: int):
-        self.name = normalize_name(name)
+        self.name = name
         self.raw_row_id = raw_row_id
         self.annotation = ""
         self.is_connection = False

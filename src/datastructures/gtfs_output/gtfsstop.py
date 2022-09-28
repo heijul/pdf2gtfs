@@ -22,7 +22,7 @@ class GTFSStop(BaseDataClass):
     def __init__(self, name: str, *, stop_id: str = None) -> None:
         super().__init__(stop_id)
         self.stop_id = self.id
-        self.stop_name = name.strip()
+        self.stop_name = name
         self._stop_lat = None
         self._stop_lon = None
 
