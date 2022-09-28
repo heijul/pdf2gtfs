@@ -326,6 +326,7 @@ class Finder:
                 stop_nodes = find_stop_nodes(self.handler, route, df)
                 for stop_id, node in stop_nodes.items():
                     nodes.setdefault(stop_id, []).append(node)
+                # TODO NOW: Allow enable/disable.
                 route = list(reversed(route))
                 stop_nodes = find_stop_nodes(self.handler, route, df)
                 for stop_id, node in stop_nodes.items():
