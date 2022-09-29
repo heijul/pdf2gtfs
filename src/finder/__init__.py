@@ -390,16 +390,6 @@ def get_df(stop_entries: list, raw_df: DF) -> DF:
     return cost_df
 
 
-def get_df_with_min_cost(df: DF) -> DF:
-    # TODO NOW: Use to get the stop_costs?
-    min_costs = df.groupby("stop_id", sort=False)["node_cost"].agg("min")
-    cum_costs = min_costs.cumsum()
-    cum_costs.name = "min_cost"
-    df2 = pd.merge(df, cum_costs, left_on="stop_id", right_on="stop_id")
-    df2["min_cost"] = df2["min_cost"] + df2["node_cost"]
-    return df2
-
-
 def get_routes(handler: GTFSHandler) -> Routes:
     def get_stop_ids_from_gtfs_routes() -> RouteStopIDs:
         stop_ids: list[tuple[str]] = []
