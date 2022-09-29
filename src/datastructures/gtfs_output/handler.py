@@ -196,14 +196,14 @@ class GTFSHandler:
         self.calendar_dates.write()
         return True
 
-    def add_coordinates(self, route: list[Node]) -> None:
-        if not route:
-            logger.warning("No route was found. "
-                           "Can not add coordinates to stops.")
+    def add_coordinates(self, nodes: dict[str: Node]) -> None:
+        if not nodes:
+            logger.warning("Could not found any locations for the given "
+                           "stops. Cannot add coordinates to stops.")
             return
         logger.info("Adding coordinates to stops.")
-        for node in route:
-            stop = self.stops.get(node.stop)
+        for stop_id, node in nodes.items():
+            stop = self.stops.get_by_stop_id(stop_id)
             # No need to add the location to existing stops, as these will
             #  not be updated anyway
             if stop.valid:
