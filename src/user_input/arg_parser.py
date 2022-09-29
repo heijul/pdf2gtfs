@@ -1,6 +1,7 @@
 from argparse import ArgumentParser, Namespace
 
 from config import Config
+from datastructures.gtfs_output.route import RouteType
 
 
 def parse_args(args: list | None = None):
@@ -34,6 +35,11 @@ def _add_optional_arguments(parser: ArgumentParser):
     text = ("A strftime format string describing the format of the "
             "timestrings of the pdf table. ")
     parser.add_argument("--time_format", type=str, help=text)
+
+    text = "The GTFS routetype."
+    types = [typ.name for typ in RouteType]
+    parser.add_argument(
+        "--gtfs_routetype", type=str, choices=types, help=text)
 
     text = ("Only extract the tables of these pages. Either 'all' "
             "(default), or a list of ints separated by commas.")
