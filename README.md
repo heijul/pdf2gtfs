@@ -2,7 +2,7 @@
 pdf2gtfs can be used to extract schedule data from timetables
 and turn it into valid [gtfs](https://developers.google.com/transit/gtfs).
 
-It was created as a bachelor's pruject at the chair of 'Algorithms and Datastructures'
+It was created as a bachelor's project at the chair of 'Algorithms and Datastructures'
 of the Freiburg University.
 
 
