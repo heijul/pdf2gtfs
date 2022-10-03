@@ -1,3 +1,6 @@
+""" Containers i.e. Rows/Columns used by the PDFTable. """
+
+
 from __future__ import annotations
 
 import logging
@@ -42,10 +45,12 @@ class BaseContainerReference(Generic[ContainerT], ABC):
 
 
 class FieldRowReference(BaseContainerReference["Row"]):
+    """ Descriptor for the row reference of a field. """
     pass
 
 
 class FieldColumnReference(BaseContainerReference["Column"]):
+    """ Descriptor for the column reference of a field. """
     pass
 
 
@@ -61,6 +66,7 @@ class FieldContainer(BBoxObject):
 
     @property
     def fields(self) -> list[Field]:
+        """ The fields within the FieldContainer. """
         return self._fields
 
     @fields.setter
@@ -71,6 +77,7 @@ class FieldContainer(BBoxObject):
 
     @property
     def table(self) -> TableT:
+        """ The table the FieldContainer is part of. """
         return self._table
 
     @table.setter
@@ -78,12 +85,15 @@ class FieldContainer(BBoxObject):
         self._table = table
 
     def has_type(self) -> bool:
+        """ Whether the FieldContainer has any type. """
         return self._type is not None
 
     def add_reference_to_field(self, field: Field) -> None:
+        """ Sets the reference set by self.field_attr of the field to self. """
         setattr(field, self.field_attr, self)
 
     def add_field(self, new_field: Field):
+        """ Add new_field to our list of fields. """
         self._add_field_at_index(new_field, len(self.fields))
 
     def _add_field_at_index(self, new_field: Field, index: int):
@@ -103,6 +113,7 @@ class FieldContainer(BBoxObject):
                 "Tried to deregister a field, which is not in fields.")
 
     def set_bbox_from_fields(self) -> None:
+        """ Set the bbox such that it just contains all of our fields. """
         self._set_bbox_from_list(self.fields)
 
     def _add_field(self, new_field: Field, axis: str):
@@ -149,11 +160,13 @@ class FieldContainer(BBoxObject):
         return [self.from_fields(fields) for fields in fields_list]
 
     def has_field_of_type(self, typ: FieldType) -> bool:
+        """ Whether the FieldContainer contains a field with the given typ. """
         return any(map(lambda f: f.type == typ, self.fields))
 
     @staticmethod
     @abstractmethod
     def from_fields(fields: list[Field]) -> ContainerT:
+        """ Create a new FieldContainer containing all fields. """
         pass
 
     def __str__(self) -> str:
@@ -169,29 +182,36 @@ class FieldContainer(BBoxObject):
 
 
 class Row(FieldContainer):
+    """ A PDFTable row.
+    The bboxes of all fields are overlapping horizontally. """
     def __init__(self, table: PDFTable = None, bbox: BBox = None):
         super().__init__(table, bbox)
 
     @staticmethod
     def from_fields(fields: list[Field]) -> Row:
+        """ Creates a row containing all fields. """
         row = Row()
         row.fields = fields
         row.set_bbox_from_fields()
         return row
 
     def add_field(self, new_field: Field):
+        """ Add new_field to our fields, maintaining proper order. """
         self._add_field(new_field, "x")
 
     def y_distance(self, other: Row) -> float:
+        """ (y-) Distance between the two rows. """
         return self.bbox.y_distance(other.bbox)
 
     @property
     def type(self) -> RowType:
+        """ The type of the Row. If the type is not set yet, set it first. """
         if not self._type:
             self.update_type()
         return self._type
 
     def update_type(self) -> None:
+        """ Set the type. """
         self._type = self._detect_type()
 
     def _detect_type(self) -> RowType:
@@ -207,10 +227,10 @@ class Row(FieldContainer):
 
     def split_at(self, splitter: Cols) -> Rows:
         """ Splits the row, depending on the given columns. """
-        def next_idx(column: FieldContainer, field: Field) -> bool:
+        def _next_idx(column: FieldContainer, field: Field) -> bool:
             return column.bbox.x0 <= field.bbox.x0
 
-        return self._split_at(splitter, next_idx)
+        return self._split_at(splitter, _next_idx)
 
     def __repr__(self) -> str:
         fields_repr = ", ".join(repr(f) for f in self.fields)
@@ -219,6 +239,8 @@ class Row(FieldContainer):
 
 
 class Column(FieldContainer):
+    """ A PDFTable column.
+    The bboxes of all fields in the column are vertically overlapping. """
     def __init__(self, table: PDFTable = None,
                  fields: list[Field] = None,
                  bbox: BBox = None):
@@ -228,14 +250,17 @@ class Column(FieldContainer):
 
     @property
     def type(self) -> ColumnType:
+        """ The type of the column. If no type is set, it will be updated. """
         if not self._type:
             self.update_type()
         return self._type
 
     def set_to_stop(self) -> None:
+        """ Set the type to stop. Used, because type property has no setter. """
         self._type = ColumnType.STOP
 
     def update_type(self) -> None:
+        """ Detect and set the type. """
         self._type = self._detect_type()
 
     def _detect_type(self) -> ColumnType:
@@ -284,6 +309,8 @@ class Column(FieldContainer):
         return match.groups()[0]
 
     def get_repeat_intervals(self) -> str:
+        """ Try to find the start and end of the repeat_identifier in
+        self.fields. If both exist, try to get the repeat interval. """
         if self.intervals is not None:
             return self.intervals
         for start, end in Config.repeat_identifier:
@@ -301,6 +328,7 @@ class Column(FieldContainer):
             self.add_field(field)
 
     def add_field(self, new_field: Field):
+        """ Add new_field to fields, merging it with fields of the same row. """
         def _merge_into_fields() -> bool:
             """ If the field has the same row as an existing one merge them.
             :returns: True if the field was merged, False otherwise.
@@ -322,17 +350,21 @@ class Column(FieldContainer):
         return f"Column(bbox={self.bbox},\n\tfields=[{fields_repr}])"
 
     def split_at(self, splitter: Rows) -> Cols:
-        def next_idx(column: FieldContainer, field: Field) -> bool:
+        """ Split the column at the given rows. Will return a list of columns,
+        such that each column (except the first) starts with a row from splitter. """
+        def _next_idx(column: FieldContainer, field: Field) -> bool:
             return column.bbox.y0 <= field.bbox.y0
 
-        return self._split_at(splitter, next_idx)
+        return self._split_at(splitter, _next_idx)
 
     @staticmethod
     def from_field(table, field) -> Column:
+        """ Creates a column from a single field. """
         return Column(table, [field], field.bbox)
 
     @staticmethod
     def from_fields(fields: list[Field]) -> Column:
+        """ Creates a column from the given fields. """
         column = Column(fields=fields)
         column.set_bbox_from_fields()
         return column

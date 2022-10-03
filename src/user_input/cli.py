@@ -1,3 +1,5 @@
+""" Used to ask for userinput. """
+
 from __future__ import annotations
 
 import datetime
@@ -44,7 +46,7 @@ def _to_date(date_str: str) -> datetime.date | None:
 
 
 def _get_annotation_exceptions() -> list[datetime.date]:
-    def is_valid_date(date_str: str) -> bool:
+    def _is_valid_date(date_str: str) -> bool:
         return not date_str or _to_date(date_str) is not None
 
     msg = ("Enter a date (YYYYMMDD) where service is different than usual, "
@@ -52,7 +54,7 @@ def _get_annotation_exceptions() -> list[datetime.date]:
            "for this annotation:")
     err_msg = ("Invalid date. Make sure you use the "
                "right format, i.e. YYYYMMDD (e.g. 20220420)")
-    dates = _get_inputs(msg, is_valid_date, msg=err_msg)
+    dates = _get_inputs(msg, _is_valid_date, msg=err_msg)
     return list(map(_to_date, dates))
 
 
@@ -70,6 +72,9 @@ def _handle_annotation(annot: str) -> tuple[bool, bool]:
 
 
 def handle_annotations(annots: list[str]) -> AnnotException:
+    """ Ask the user whether each annotation in annots is used to define dates,
+     where service differs from the regular schedule. If yes, the user has to
+     provide the regular schedule and dates where it differs. """
     exceptions: AnnotException = {}
     for annot in annots:
         skip_this, skip_all = _handle_annotation(annot)
@@ -85,6 +90,8 @@ def handle_annotations(annots: list[str]) -> AnnotException:
 
 # Overwrite handling.
 def overwrite_existing_file(filename: str | Path):
+    """ Ask the user, if the given file should be overwritten. """
+
     msg = (f"The file '{filename}' already exists.\n"
            f"Do you want to overwrite it? [y]es [n]o")
     # FEATURE: Extend to overwrite all/none/overwrite/skip
@@ -142,6 +149,7 @@ def _get_agency_prompt(path: Path, agencies: list[AgencyEntry]):
 
 
 def select_agency(path: Path, agencies: list[AgencyEntry]) -> AgencyEntry:
+    """ Ask the user to select an agency from the given agencies. """
     prompt = _get_agency_prompt(path, agencies)
     answer = _get_input(prompt, list(map(str, range(len(agencies)))))
     return agencies[int(answer)]
@@ -149,9 +157,11 @@ def select_agency(path: Path, agencies: list[AgencyEntry]) -> AgencyEntry:
 
 # Existing outdir handling.
 def create_output_directory() -> bool:
+    """ Create the output directory. If an error occurs,
+    ask the user to resolve it. """
     from config import Config
 
-    def get_msg_from_error() -> str:
+    def _get_msg_from_error() -> str:
         msg = ("An error occurred, while trying "
                "to create the output directory:\n")
         if isinstance(e, PermissionError):
@@ -164,7 +174,7 @@ def create_output_directory() -> bool:
     try:
         path.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        logger.error(get_msg_from_error())
+        logger.error(_get_msg_from_error())
         if Config.non_interactive:
             return False
         prompt = ("You may resolve the issue now and press enter, to try to "

@@ -1,14 +1,18 @@
+""" Provides comparable objects for distances. """
+
 from __future__ import annotations
 
 from math import cos, radians
 
 
 class Distance:
+    """ Distance between two locations. """
     def __init__(self, *, m: float = None, km: float = None):
         self.distance = abs(m if m is not None else km * 1000)
 
     @property
     def distance(self) -> float:
+        """ The distance in meters. """
         return self._distance
 
     @distance.setter
@@ -17,10 +21,12 @@ class Distance:
 
     @property
     def m(self) -> float:
+        """ The distance in meters. """
         return self.distance
 
     @property
     def km(self) -> float:
+        """ The distance in kilometers. """
         return self.distance / 1000
 
     def __rmul__(self, other: object) -> Distance:
@@ -82,4 +88,5 @@ DISTANCE_PER_LAT_DEG = Distance(km=111.32)
 
 
 def get_distance_per_lon_deg(lat: float) -> Distance:
+    """ Return the distance of a one degree difference at the given latitude. """
     return DISTANCE_PER_LAT_DEG * abs(cos(radians(lat)))

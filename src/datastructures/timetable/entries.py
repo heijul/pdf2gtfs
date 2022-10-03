@@ -1,3 +1,5 @@
+""" Provide entries for the TimeTable. """
+
 import logging
 
 from config import Config
@@ -8,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Weekdays:
+    """ The days, where a TimeTableEntry is active. """
     days: list[str]
 
     def __init__(self, header_text: str):
@@ -19,6 +22,7 @@ class Weekdays:
 
 
 class TimeTableEntry:
+    """ A single entry (i.e. column containing timedata) in a TimeTable. """
     def __init__(self, raw_header_text: str = "") -> None:
         self._values: dict[Stop, str] = {}
         self._annotations: set[str] = set()
@@ -27,6 +31,7 @@ class TimeTableEntry:
 
     @property
     def annotations(self) -> set[str]:
+        """ The annotations of the entry. """
         return self._annotations
 
     @annotations.setter
@@ -35,16 +40,21 @@ class TimeTableEntry:
 
     @property
     def values(self) -> dict[Stop, str]:
+        """ The stops and their respective values. """
         return self._values
 
     def set_value(self, stop: Stop, value: str) -> None:
+        """ Set the value for a stop. """
         self._values[stop] = value
 
     def get_value(self, stop: Stop) -> str | None:
+        """ Return the value for stop. """
         return self._values.get(stop)
 
 
 class TimeTableRepeatEntry(TimeTableEntry):
+    """ A repeating entry in a TimeTable.
+    Does not contain time data (except the interval). """
     def __init__(self, header_text: str = "", interval_str: str = "") -> None:
         super().__init__(header_text)
         self.intervals = self.interval_str_to_int_list(interval_str)

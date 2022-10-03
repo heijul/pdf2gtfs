@@ -1,3 +1,5 @@
+""" Handles the command line arguments given to pdf2gtfs. """
+
 from argparse import ArgumentParser, Namespace
 
 from config import Config
@@ -5,12 +7,14 @@ from datastructures.gtfs_output.route import RouteType
 
 
 def parse_args(args: list | None = None):
+    """ Try to parse the given args and call update_config with the values. """
     parser = get_parser()
     args_ns = parser.parse_args(args)
     update_config(args_ns)
 
 
 def get_parser() -> ArgumentParser:
+    """ Return a parser with all required and optional arguments. """
     parser = ArgumentParser("pdf2gtfs")
     _add_required_arguments(parser)
     _add_optional_arguments(parser)
@@ -18,6 +22,7 @@ def get_parser() -> ArgumentParser:
 
 
 def update_config(args_ns: Namespace):
+    """ Update the config with all argument values. """
     args = {arg: getattr(args_ns, arg)
             for arg in dir(args_ns) if not arg.startswith("_")}
     Config.load_args(args)

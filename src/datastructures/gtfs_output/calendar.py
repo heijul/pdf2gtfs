@@ -1,3 +1,5 @@
+""" Used by the handler to create the file 'calendar.txt'. """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -10,12 +12,15 @@ from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass, st
 
 @dataclass
 class DayIsActive:
+    """ Simple dataclass used by calendar entries, to turn booleans
+    (i.e. service is active on day X) into numeric strings. """
     active: bool = True
 
     def __eq__(self, other: DayIsActive) -> bool:
         return self.active == other.active
 
     def to_output(self) -> str:
+        """ Returns '1' or '0' based on self.active """
         return str(int(self.active))
 
     def __repr__(self) -> str:
@@ -23,10 +28,12 @@ class DayIsActive:
 
 
 class ServiceDay:
+    """ Service day as defined by the gtfs (can have morethan 24 hours). """
     def __init__(self, date: dt.date):
         self.date = date
 
     def to_output(self) -> str:
+        """ ISO-8601 formatted date. """
         return str_wrap(self.date.strftime("%Y%m%d"))
 
     def __eq__(self, other: ServiceDay):
@@ -37,17 +44,22 @@ class ServiceDay:
 
 
 class StartDate(ServiceDay):
+    """ The start date. Will be set to the first of the current years,
+    if the configuration was not changed. """
     def __init__(self) -> None:
         super().__init__(Config.gtfs_date_bounds[0])
 
 
 class EndDate(ServiceDay):
+    """ The end date. Will be set to the last of the current years,
+    if the configuration was not changed. """
     def __init__(self) -> None:
         super().__init__(Config.gtfs_date_bounds[1])
 
 
 @dataclass(init=False)
 class CalendarEntry(BaseDataClass):
+    """ A single entry in the calendar file. """
     service_id: str
     monday: DayIsActive = DayIsActive(False)
     tuesday: DayIsActive = DayIsActive(False)
@@ -82,6 +94,7 @@ class CalendarEntry(BaseDataClass):
         self.annotations = annots or set()
 
     def same_days(self, other: CalendarEntry) -> bool:
+        """ Returns if the two CalendarEntry objects are active on the same days. """
         for name in WEEKDAY_NAMES + ["on_holidays"]:
             if getattr(self, name) == getattr(other, name):
                 continue
@@ -89,6 +102,7 @@ class CalendarEntry(BaseDataClass):
         return True
 
     def disable(self) -> None:
+        """ No service day will be active, after this is run. """
         for name in WEEKDAY_NAMES:
             setattr(self, name, DayIsActive(False))
 
@@ -97,16 +111,21 @@ class CalendarEntry(BaseDataClass):
 
 
 class Calendar(BaseContainer):
+    """ Used to create 'calendar.txt'. """
+
     entries: list[CalendarEntry]
 
     def __init__(self) -> None:
         super().__init__("calendar.txt", CalendarEntry)
 
     def add(self, days: list[str], annots: set[str]) -> CalendarEntry:
+        """ Add an entry, active on the given days with the given annots. """
         entry = CalendarEntry(days, annots)
         return self._add(entry)
 
     def get(self, entry: CalendarEntry) -> CalendarEntry:
+        """ Returns the given entry, if an equal entry does not exist yet,
+        otherwise returns the existing_entry. """
         existing_entry = self._get(entry)
         return existing_entry if existing_entry else entry
 

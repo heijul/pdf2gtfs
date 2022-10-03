@@ -1,3 +1,7 @@
+""" Subpackage containing all necessary functions/classes,
+to create a valid gtfs zip file. """
+
+
 from __future__ import annotations
 
 import logging
@@ -16,14 +20,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BaseDataClass:
+    """ Base class for a single entry in a gtfs file. """
     def __init__(self, existing_id: str | None = None) -> None:
         self.id: str = next_uid() if existing_id is None else existing_id
 
     @classmethod
     def get_field_names(cls: BaseDataClass) -> str:
+        """ Returns the field_names (headers) of the entry. """
+        # STYLE: move to BaseContainer, bc a file has headers not an entry?
         return ",".join([field.name for field in fields(cls)])
 
     def get_field_value(self, field: Field):
+        """ Returns the value of the given field. """
         return getattr(self, field.name)
 
     def _to_output(self, field: Field) -> str:
@@ -35,6 +43,7 @@ class BaseDataClass:
         return str(value)
 
     def to_output(self) -> str:
+        """ Returns a formatted line, as it would be found within a gtfs file. """
         return ",".join(map(self._to_output, fields(self)))
 
 
@@ -42,6 +51,8 @@ DCType = TypeVar("DCType", bound=BaseDataClass)
 
 
 class BaseContainer:
+    """ Base class for a gtfs file. """
+
     entries: list[DCType]
 
     def __init__(self, filename: str, entry_type: Type[DCType]):
@@ -51,7 +62,9 @@ class BaseContainer:
 
     @property
     def fp(self) -> Path:
+        """ Return the absolute filepath of the file. """
         from config import Config
+        # STYLE: Remove filename if not used elsewhere and override.
         return Path(Config.output_dir).joinpath(self.filename).resolve()
 
     def _add(self, entry: DCType) -> DCType:
@@ -72,12 +85,14 @@ class BaseContainer:
         return None
 
     def to_output(self) -> str:
+        """ Return the content of the gtfs file. """
         field_names = self.entry_type.get_field_names()
         entry_output = "\n".join(
             map(lambda entry: entry.to_output(), self.entries))
         return f"{field_names}\n{entry_output}\n"
 
     def write(self) -> None:
+        """ Write the file content to the output directory. """
         self._write(self.to_output())
 
     def _write(self, content: str) -> None:
@@ -104,12 +119,14 @@ class BaseContainer:
 
 
 class ExistingBaseContainer(BaseContainer):
+    """ Base class for gtfs files, which may be existing. """
     def __init__(self, filename: str, entry_type: Type[DCType]):
         super().__init__(filename, entry_type)
         self.overwrite = False
         self.initialize()
 
     def initialize(self) -> None:
+        """ Add all existing entries. """
         for entry in self.from_file():
             self._add(entry)
             UIDGenerator.skip(entry.id)
@@ -121,6 +138,9 @@ class ExistingBaseContainer(BaseContainer):
         super().write()
 
     def from_file(self, default=None) -> list[DCType]:
+        """ Read the existing file, returning a list of all entries.
+         If the file does not exist, return the default instead. """
+
         if default is None:
             default = []
         if not self.fp.exists():
@@ -140,6 +160,7 @@ class ExistingBaseContainer(BaseContainer):
         return entries
 
     def entries_from_df(self, df: pd.DataFrame) -> list[DCType]:
+        """ Turn the given dataframe into entries with the correct type. """
         entries = []
         for _, values in df.iterrows():
             entries.append(self.entry_type.from_series(values))
@@ -147,4 +168,5 @@ class ExistingBaseContainer(BaseContainer):
 
 
 def str_wrap(value) -> str:
+    """ Wrap a value in apostrophes. """
     return f"\"{str(value)}\""

@@ -1,3 +1,5 @@
+""" Subpackage, containing all methods/classes for the user configuration. """
+
 import logging
 import os.path
 import platform
@@ -92,12 +94,18 @@ class _Config(InstanceDescriptorMixin):
             self, "departure_identifier", list[str])
 
     def load_default_config(self) -> None:
+        """ Loads the default configuration.
+
+        Should be called before loading any other configuration. """
         if not self.load_config(self.default_config_path):
             logger.error("Errors occurred when reading the given configs. "
                          "Exiting...")
             quit(err.INVALID_CONFIG_EXIT_CODE)
 
     def load_configs(self, path: Path) -> None:
+        """ Tries to load the config file, if path is a file. If path is a
+        directory, try to load all config files contained. """
+
         configs = [path] if path.is_file() else _list_configs(path)
         if not configs:
             return
@@ -131,6 +139,7 @@ class _Config(InstanceDescriptorMixin):
         return False
 
     def load_args(self, args: dict[str, Any]):
+        """ Reads the program arguments in args. """
         for config_path in args.pop("config", []):
             path = Path(config_path).resolve()
             if path.is_dir():
@@ -187,6 +196,7 @@ class _Config(InstanceDescriptorMixin):
 
     @property
     def config_dir(self) -> Path:
+        """ Return the config directory, based on what system is running. """
         system = platform.system().lower()
         if system == "linux":
             return Path(os.path.expanduser("~/.config/pdf2gtfs/")).resolve()
@@ -199,6 +209,8 @@ class _Config(InstanceDescriptorMixin):
 
     @property
     def default_config_path(self) -> Path:
+        """ Return the path to the default configuration. Usually it is
+        contained in the base directory of the repository. """
         return self.p2g_dir.joinpath("config.template.yaml")
 
     def _create_config_dir(self) -> None:
@@ -209,7 +221,7 @@ class _Config(InstanceDescriptorMixin):
     def __str__(self) -> str:
         string_like = (str, Path)
 
-        def get_property_string(_name: str, _value: Any) -> str:
+        def _get_property_string(_name: str, _value: Any) -> str:
             wrapper = "'" if isinstance(_value, string_like) else ""
             return f"\t{_name:{max_name_len}}: {wrapper}{_value}{wrapper}"
 
@@ -220,7 +232,7 @@ class _Config(InstanceDescriptorMixin):
 
         # This can only fail if some properties are missing. However, in
         # that case we have already quit.
-        prop_strings = [get_property_string(name, getattr(self, name))
+        prop_strings = [_get_property_string(name, getattr(self, name))
                         for name in property_names]
 
         return base_string.format("\n".join(prop_strings))

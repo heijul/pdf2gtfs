@@ -1,3 +1,7 @@
+""" Subpackage to detect the locations of the stops. """
+# TODO NOW: Split into osm_fetcher, location_detector, etc.
+
+
 from __future__ import annotations
 
 import datetime as dt
@@ -13,7 +17,7 @@ from os import makedirs
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from time import time
-from typing import Optional, TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 from urllib import parse
 
 import numpy as np
@@ -53,7 +57,9 @@ NAME_KEYS = [
     "name", "alt_name", "ref_name", "short_name", "official_name", "loc_name"]
 
 
-def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
+# TODO NOW: Remove arguments, Rename to get_qlever_query
+def get_qlever_query(stop_positions=True, stations=True, platforms=True) -> str:
+    """ Return the full query, usable by QLever. """
     def _union(a: str, b: str) -> str:
         # Union two statements. Uses \t as delimiter after/before braces.
         if not a:
@@ -64,12 +70,14 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
         return f"?{key}"
 
     def get_selection() -> list[str]:
+        """ Return the select clause. """
         identifier = map(_to_identifier, KEYS + KEYS_OPTIONAL)
         group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\"|\") AS ?names)"
         variables = " ".join(identifier) + group_concat
         return ["SELECT {} WHERE {{".format(variables)]
 
     def get_transports() -> list[str]:
+        """ Return a union of all possible public_transport values. """
         fmt = "?stop osmkey:public_transport \"{}\" ."
         transport = ""
         if stations:
@@ -81,6 +89,7 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
         return transport.strip().split("\t")
 
     def get_names() -> list[str]:
+        """ Return a union of clauses, based on the different name keys. """
         name_fmt = "?stop osmkey:{} ?name ."
         names = ""
         for name_key in NAME_KEYS:
@@ -88,10 +97,12 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
         return names.strip().split("\t")
 
     def get_optionals() -> list[str]:
+        """ Get the clause for all optional keys. """
         fmt = "OPTIONAL {{ ?stop osmkey:{0} ?{0} . }}"
         return [fmt.format(key) for key in KEYS_OPTIONAL]
 
     def get_group_by() -> list[str]:
+        """ Group-by statement, grouping by optional and mandatory keys. """
         fmt = "GROUP BY {}"
         identifier = " ".join(map(_to_identifier, KEYS + KEYS_OPTIONAL))
         return [fmt.format(identifier)]
@@ -114,9 +125,13 @@ def get_osm_query(stop_positions=True, stations=True, platforms=True) -> str:
     return " \n".join(query_list)
 
 
-def get_osm_data_from_qlever(path: Path) -> bool:
+def get_osm_data_from_qlever(filepath: Path) -> bool:
+    """ Saves the osm data fetched using QLever in the given filepath.
+
+    :return: True, if fetching and writing was successful, False otherwise.
+    """
     base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
-    data = {"action": "tsv_export", "query": get_osm_query()}
+    data = {"action": "tsv_export", "query": get_qlever_query()}
     url = base_url + parse.urlencode(data)
 
     try:
@@ -129,7 +144,8 @@ def get_osm_data_from_qlever(path: Path) -> bool:
         logger.error(f"Could not get osm data: {r}\n{r.content}")
         return False
 
-    osm_data_to_file(r.content, path)
+    # TODO NOW: Try -> except
+    osm_data_to_file(r.content, filepath)
 
     return True
 
@@ -170,9 +186,12 @@ def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
 
 
 def get_osm_comments(include_date: bool = True) -> str:
+    """ Return the comment that would be written to the top of the cache,
+    if the cache would be created right now. Uses get_qlever_query. """
+
     join_str = "\n#   "
     date = dt.date.today().strftime("%Y%m%d")
-    query = join_str.join(get_osm_query().split("\n"))
+    query = join_str.join(get_qlever_query().split("\n"))
     abbrevs = join_str.join(
         [f"{key}: {value}"
          for key, value in sorted(Config.name_abbreviations.items())])
@@ -184,16 +203,20 @@ def get_osm_comments(include_date: bool = True) -> str:
     return "\n".join(comments) + "\n"
 
 
-def osm_data_to_file(raw_data: bytes, path: Path):
+def osm_data_to_file(raw_data: bytes, filepath: Path):
+    """ Writes the given raw_data to the given filepath,
+    overwriting existing files. """
     df = _clean_osm_data(raw_data)
 
-    with open(path, "w") as fil:
+    with open(filepath, "w") as fil:
         fil.write(get_osm_comments())
 
-    df.to_csv(path, sep="\t", header=False, index=False, mode="a")
+    df.to_csv(filepath, sep="\t", header=False, index=False, mode="a")
 
 
 def get_cache_dir_path() -> Path | None:
+    """ Return the system dependent path to the cache directory. """
+
     system = platform.system().lower()
     if system == "windows":
         return Path(os.path.expandvars("%LOCALAPPDATA%/pdf2gtfs/")).resolve()
@@ -227,7 +250,9 @@ def create_cache_dir() -> tuple[bool, Path | None]:
     return True, path
 
 
-def read_csv(file: Path | BytesIO) -> Optional[pd.DataFrame]:
+def read_csv(file: Path | BytesIO) -> pd.DataFrame:
+    """ Read the given file or stream and return a DataFrame with its content. """
+
     dtype = {"lat": float, "lon": float,
              "public_transport": str, "names": str}
     for key in KEYS_OPTIONAL:
@@ -244,6 +269,8 @@ def read_csv(file: Path | BytesIO) -> Optional[pd.DataFrame]:
 
 
 class Finder:
+    """ Handles the cache/dataframe creation. """
+
     def __init__(self, gtfs_handler: GTFSHandler):
         self.handler = gtfs_handler
         self.temp = None
@@ -286,16 +313,16 @@ class Finder:
         return (date - query_date).days > Config.stale_cache_days
 
     def _query_same_as_cache(self) -> bool:
-        def get_line() -> str:
+        def _get_line() -> str:
             return fil.readline().strip()
 
         lines = []
         with open(self.fp, "r") as fil:
-            line = get_line()
+            line = _get_line()
             while line.startswith("#"):
                 if line != "#":
                     lines.append(line)
-                line = get_line()
+                line = _get_line()
         cache_comments = lines[1:]
         current_comments = [
             line.strip()
@@ -319,6 +346,7 @@ class Finder:
         self.full_df: pd.DataFrame = df
 
     def find(self) -> dict[str: Location]:
+        """ Return a dictionary of all stops and their locations. """
         def _search_stop_nodes_of_all_routes() -> StopsNodes:
             routes: Routes = get_routes(self.handler)
             nodes: dict[str: list[Node]] = {}
@@ -365,6 +393,7 @@ class Finder:
 
 
 def get_df(stop_entries: list, raw_df: DF) -> DF:
+    """ Split the dataframe and add the calculated node costs. """
     def _split_df(df: DF) -> DF:
         logger.info("Splitting DataFrame based on stop names...")
         t = time()
@@ -374,11 +403,11 @@ def get_df(stop_entries: list, raw_df: DF) -> DF:
         logger.info(f"Done. Took {time() - t:.2f}s")
         return df
 
-    def _calculate_location_costs(df: DF) -> DF:
+    def _calculate_node_costs(df: DF) -> DF:
         logger.info(f"Calculating location costs based on the selected "
                     f"routetype '{Config.gtfs_routetype.name}'...")
         t = time()
-        full_df = fix_df(df)
+        full_df = node_score_strings_to_int(df)
         df.loc[:, "node_cost"] = get_node_cost(full_df)
         df = df.loc[:, ["lat", "lon", "names",
                         "node_cost", "stop_id", "idx", "name_cost"]]
@@ -386,18 +415,21 @@ def get_df(stop_entries: list, raw_df: DF) -> DF:
         return df
 
     split_df = _split_df(raw_df)
-    cost_df = _calculate_location_costs(split_df)
+    cost_df = _calculate_node_costs(split_df)
     return cost_df
 
 
 def get_routes(handler: GTFSHandler) -> Routes:
+    """ Return a list of unique combination of stops occuring in the tables. """
     def get_stop_ids_from_gtfs_routes() -> RouteStopIDs:
+        """ Return the stop_ids for each route. """
         stop_ids: list[tuple[str]] = []
         for route in handler.routes.entries:
             stop_ids += handler.get_stop_ids(route.route_id)
         return stop_ids
 
     def get_routes_from_stop_ids(stop_ids: RouteStopIDs) -> Routes:
+        """ Return all routes, which contain the given stop_ids. """
         def __get_route_from_stop_id(stop_id: StopID) -> StopIdent:
             return stop_id, handler.stops.get_by_stop_id(stop_id).stop_name
 
@@ -408,6 +440,7 @@ def get_routes(handler: GTFSHandler) -> Routes:
         return routes
 
     def remove_routes_contained_by_others(raw_routes: Routes) -> Routes:
+        """ Return only routes, which are not fully contained by another one. """
         def __route_is_contained(r1: Route, r2: Route) -> bool:
             start_idx = r1.index(r2[0]) if r2[0] in r1 else None
             if start_idx is None:
@@ -477,6 +510,7 @@ def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
 
 
 def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
+    """ Add extra columns (name_cost, stop_id, idx) to the df. """
     def name_distance(names: np.array) -> list[int]:
         """ Edit distance between name and stop after normalizing both. """
         distances = []
@@ -503,22 +537,27 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
 
 
 def prefilter_df(stops: list[str], full_df: DF) -> DF:
-    def remove_duplicates(duplicate_regex: str) -> str:
+    """ Filter the full_df, such that each entry contains a
+    normalized stop name. """
+    def _remove_duplicate_regexes(duplicate_regex: str) -> str:
         return "|".join(set(duplicate_regex.split("|")))
 
     regexes = [_create_stop_regex(_normalize_stop(stop), "none")
                for stop in stops]
-    unique_regex: str = remove_duplicates("|".join(regexes))
+    unique_regex: str = _remove_duplicate_regexes("|".join(regexes))
     df = full_df[full_df["names"].str.contains(
         unique_regex, regex=True, flags=re.IGNORECASE + re.UNICODE)]
     return df.copy()
 
 
-def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
-    def get_score(value: str) -> float:
+def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
+    """ Change the values of KEYS_OPTIONAL (i.e. the keys used to calculate
+    the node score) in df, with its integer value, depending on the routetype. """
+    def _get_score(value: str) -> float:
         if value in bad:
             return bad_value
         try:
+            # STYLE: Adjust osm scores instead of doing this?
             return good[value] * 5
         except KeyError:
             return 20
@@ -530,10 +569,11 @@ def fix_df(raw_df: pd.DataFrame) -> pd.DataFrame:
     for key in KEYS_OPTIONAL:
         good = goods.get(key, {})
         bad = bads.get(key, {})
-        df[key] = df[key].apply(get_score)
+        df[key] = df[key].apply(_get_score)
 
     return df
 
 
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
+    """ Calculate the integer score based on KEYS_OPTIONAL. """
     return full_df[KEYS_OPTIONAL].min(axis=1) ** 2 // 20

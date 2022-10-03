@@ -1,9 +1,13 @@
+""" Provide comparable Cost objects, without losing the context of
+each individual cost. """
+
 from __future__ import annotations
 
 from math import inf
 
 
 class Cost:
+    """ The cost of a Node. """
     def __init__(self, parent_cost: float = None, node_cost: float = None,
                  name_cost: float = None, travel_cost: float = None,
                  stop_cost: float = None) -> None:
@@ -18,10 +22,13 @@ class Cost:
 
     @property
     def as_float(self) -> float:
+        """ Returns the sum of all costs. """
         return sum(self.costs)
 
     @property
     def travel_cost(self) -> float:
+        """ Return the cost to travel to self.parent.
+        If self.parent is unset, return infinity. """
         return self._travel_cost
 
     @travel_cost.setter
@@ -32,11 +39,13 @@ class Cost:
 
     @property
     def costs(self) -> tuple[float, float, float, float, float]:
+        """ Return a tuple of all costs. """
         return (self.parent_cost, self.node_cost,
                 self.name_cost, self.travel_cost, self.stop_cost)
 
     @staticmethod
     def from_cost(cost: Cost) -> Cost:
+        """ Creates a new instance, with the same values as self. """
         return Cost(cost.parent_cost, cost.node_cost,
                     cost.name_cost, cost.travel_cost,
                     cost.stop_cost)
@@ -90,8 +99,11 @@ class Cost:
 
 
 class StartCost(Cost):
+    """ The cost for starting nodes. """
     @staticmethod
     def from_cost(cost: Cost) -> Cost:
+        """ Creates a new instance, with the same values as self, except
+        parent_cost and travel_cost, as starting nodes have neither. """
         s = Cost.from_cost(cost)
         s.parent_cost = 0
         s.travel_cost = 0
