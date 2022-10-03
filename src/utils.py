@@ -34,6 +34,7 @@ def next_uid() -> str:
 REGEX_FLAGS = re.I + re.U
 SPECIAL_CHARS = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
 
+
 def normalize_name(name: str) -> str:
     """ Return a str which only consists of letters and allowed chars. """
     from config import Config
