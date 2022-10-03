@@ -5,10 +5,10 @@ from unittest import TestCase
 from pdfminer.layout import LTPage
 
 from config import Config
-from datastructures.rawtable.bbox import BBox
-from datastructures.rawtable.container import Row
-from datastructures.rawtable.field import Field
-from datastructures.rawtable.table import split_rows_into_tables, Tables
+from datastructures.pdftable.bbox import BBox
+from datastructures.pdftable.container import Row
+from datastructures.pdftable.field import Field
+from datastructures.pdftable.pdftable import split_rows_into_tables, Tables
 from reader import dataframe_to_rows, get_chars_dataframe, Reader
 from test import get_data_gen, get_test_src_dir
 

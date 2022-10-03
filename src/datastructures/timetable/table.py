@@ -5,9 +5,9 @@ from typing import cast
 
 from tabulate import tabulate
 
-import datastructures.rawtable.table as raw
+import datastructures.pdftable.pdftable as raw
 from config import Config
-from datastructures.rawtable.enums import ColumnType
+from datastructures.pdftable.enums import ColumnType
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry, Weekdays
 from datastructures.timetable.stops import DummyAnnotationStop, Stop
 
@@ -82,7 +82,7 @@ class TimeTable:
                 stop.is_connection = True
 
     @staticmethod
-    def from_raw_table(raw_table: raw.Table) -> TimeTable:
+    def from_raw_table(raw_table: raw.PDFTable) -> TimeTable:
         def get_annotations(column: raw.Column):
             _annots = set()
             for field in column.fields:

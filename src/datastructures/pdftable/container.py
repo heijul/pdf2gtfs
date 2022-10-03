@@ -8,13 +8,13 @@ from statistics import mean
 from typing import Callable, Generic, Iterator, TYPE_CHECKING, TypeVar
 
 from config import Config
-from datastructures.rawtable.bbox import BBox, BBoxObject
-from datastructures.rawtable.enums import ColumnType, FieldType, RowType
+from datastructures.pdftable.bbox import BBox, BBoxObject
+from datastructures.pdftable.enums import ColumnType, FieldType, RowType
 
 
 if TYPE_CHECKING:
-    from datastructures.rawtable.table import Cols, Rows, Table
-    from datastructures.rawtable.field import Field
+    from datastructures.pdftable.pdftable import Cols, Rows, PDFTable
+    from datastructures.pdftable.field import Field
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class FieldColumnReference(BaseContainerReference["Column"]):
 
 class FieldContainer(BBoxObject):
     """ Base class for Row/Column. """
-    def __init__(self, table: Table = None, bbox: BBox = None):
+    def __init__(self, table: PDFTable = None, bbox: BBox = None):
         self._fields: list[Field] = []
         self.field_attr = self.__class__.__name__.lower()
         self._table = None
@@ -169,7 +169,7 @@ class FieldContainer(BBoxObject):
 
 
 class Row(FieldContainer):
-    def __init__(self, table: Table = None, bbox: BBox = None):
+    def __init__(self, table: PDFTable = None, bbox: BBox = None):
         super().__init__(table, bbox)
 
     @staticmethod
@@ -219,7 +219,7 @@ class Row(FieldContainer):
 
 
 class Column(FieldContainer):
-    def __init__(self, table: Table = None,
+    def __init__(self, table: PDFTable = None,
                  fields: list[Field] = None,
                  bbox: BBox = None):
         super().__init__(table, bbox)

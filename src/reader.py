@@ -15,9 +15,9 @@ from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
-from datastructures.rawtable.field import Field
-from datastructures.rawtable.table import (
-    cleanup_tables, Row, split_rows_into_tables, Table)
+from datastructures.pdftable.field import Field
+from datastructures.pdftable.pdftable import (
+    cleanup_tables, Row, split_rows_into_tables, PDFTable)
 from datastructures.timetable.table import TimeTable
 from p2g_types import Char
 
@@ -150,15 +150,17 @@ def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
     return rows
 
 
-def get_raw_tables_from_df(char_df: pd.DataFrame) -> list[Table]:
+def get_raw_tables_from_df(char_df: pd.DataFrame) -> list[PDFTable]:
     rows = dataframe_to_rows(char_df)
     raw_tables = cleanup_tables(split_rows_into_tables(rows))
     return raw_tables
 
 
-def raw_tables_to_timetables(raw_tables) -> list[TimeTable]:
+def raw_tables_to_timetables(raw_tables: list[PDFTable]) -> list[TimeTable]:
     timetables = []
     for table in raw_tables:
+        if not table.valid:
+            continue
         table.fix_split_stopnames()
         timetables.append(table.to_timetable())
     return timetables

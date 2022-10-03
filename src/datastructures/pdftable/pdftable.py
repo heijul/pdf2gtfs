@@ -5,20 +5,20 @@ from operator import attrgetter
 from typing import Callable, TypeAlias
 
 from config import Config
-from datastructures.rawtable.container import Column, FieldContainer, Row
-from datastructures.rawtable.enums import ColumnType, RowType
-from datastructures.rawtable.lists import ColumnList, RowList
+from datastructures.pdftable.container import Column, FieldContainer, Row
+from datastructures.pdftable.enums import ColumnType, RowType
+from datastructures.pdftable.lists import ColumnList, RowList
 from datastructures.timetable.table import TimeTable
 
 
 logger = logging.getLogger(__name__)
-Tables: TypeAlias = list["Table"]
+Tables: TypeAlias = list["PDFTable"]
 Rows: TypeAlias = list[Row]
 Cols: TypeAlias = list[Column]
 Splitter: TypeAlias = Callable[[Tables, list[FieldContainer]], None]
 
 
-class Table:
+class PDFTable:
     def __init__(self, rows: Rows = None, columns: Cols = None):
         self.rows = rows or []
         self.columns = columns or []
@@ -44,6 +44,10 @@ class Table:
             self._columns = columns
         else:
             self._columns = ColumnList.from_list(self, columns)
+
+    @property
+    def valid(self) -> bool:
+        return self.columns.valid and self.rows.valid
 
     def generate_data_columns_from_rows(self) -> None:
         def _generate_single_field_columns() -> Cols:
@@ -106,7 +110,7 @@ class Table:
 
     @staticmethod
     def _split_at(splitter: list, splitter_func: Splitter) -> Tables:
-        tables: Tables = [Table() for _ in splitter]
+        tables: Tables = [PDFTable() for _ in splitter]
 
         splitter_func(tables, splitter)
 
@@ -169,14 +173,14 @@ def split_rows_into_tables(rows: Rows) -> Tables:
                 current_rows = [row]
                 continue
             logger.info(f"Distance between rows: {y_distance}")
-            tables.append(Table(current_rows))
+            tables.append(PDFTable(current_rows))
             current_rows = []
         current_rows.append(row)
     else:
         if len(current_rows) < Config.min_row_count:
             log_skipped_rows()
             return tables
-        tables.append(Table(current_rows))
+        tables.append(PDFTable(current_rows))
     return tables
 
 

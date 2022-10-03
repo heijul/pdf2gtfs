@@ -4,9 +4,9 @@ from operator import attrgetter
 from statistics import mean
 from typing import Generic, Iterator, TypeVar
 
-import datastructures.rawtable.table as tbl
-from datastructures.rawtable.container import Row, Column
-from datastructures.rawtable.enums import FieldContainerType
+import datastructures.pdftable.pdftable as tbl
+from datastructures.pdftable.container import Row, Column
+from datastructures.pdftable.enums import FieldContainerType
 
 
 FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")
@@ -21,6 +21,10 @@ class FieldContainerList(Generic[TableT, FieldContainerT]):
     @property
     def objects(self) -> list[FieldContainerT]:
         return self._objects
+
+    @property
+    def valid(self) -> bool:
+        return len(self.objects) > 0
 
     def add(self, obj: FieldContainerT):
         self._objects.append(obj)
@@ -80,7 +84,7 @@ class ColumnList(FieldContainerList[TableT, Column]):
 
 
 class RowList(FieldContainerList[TableT, Row]):
-    def __init__(self, table: tbl.Table):
+    def __init__(self, table: tbl.PDFTable):
         super().__init__(table)
         self._objects: list[Row] = []
 

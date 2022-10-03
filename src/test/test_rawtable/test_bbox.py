@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from datastructures.rawtable.bbox import BBox, BBoxObject
+from datastructures.pdftable.bbox import BBox, BBoxObject
 
 
 class TestBBox(TestCase):
