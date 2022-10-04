@@ -1,3 +1,5 @@
+""" Contains the classes necessary to create the gtfs files. """
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +14,7 @@ from datastructures.gtfs_output.agency import Agency
 from datastructures.gtfs_output.calendar import Calendar, CalendarEntry
 from datastructures.gtfs_output.calendar_dates import CalendarDates
 from datastructures.gtfs_output.gtfsstop import GTFSStops
-from datastructures.gtfs_output.route import Routes
+from datastructures.gtfs_output.routes import Routes
 from datastructures.gtfs_output.stop_times import StopTimes, Time
 from datastructures.gtfs_output.trips import Trips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
@@ -29,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 class GTFSHandler:
+    """ Handles the creation of all gtfs files and provides
+    an interface to query them. """
     def __init__(self) -> None:
         self._agency = Agency()
         self._stops = GTFSStops()
@@ -39,6 +43,7 @@ class GTFSHandler:
         self._calendar_dates = CalendarDates()
 
     def timetable_to_gtfs(self, timetable: TimeTable):
+        """ Add the entries of the timetable. """
         timetable.clean_values()
         if not timetable.stops.stops:
             return
@@ -54,6 +59,7 @@ class GTFSHandler:
         self.generate_calendar_dates()
 
     def generate_routes(self, timetable: TimeTable) -> None:
+        """ Generate the routes for the given timetable. """
         for entry in timetable.entries:
             self.routes.add_from_entry(entry)
 
@@ -67,14 +73,17 @@ class GTFSHandler:
         """
 
         def create_calendar_entry() -> CalendarEntry:
+            """ Create a new CalendarEntry for the current TimeTableEntry. """
             return self.calendar.add(entry.days.days, entry.annotations)
 
         def new_entry_is_on_new_service_day() -> bool:
+            """ Checks if the new entry is on the next service day. """
             if not prev_calendar_entry:
                 return False
             return not calendar_entry.same_days(prev_calendar_entry)
 
         def create_stop_times() -> StopTimes:
+            """ Creates the StopTimes for the current entry. """
             trip = trip_factory()
             _stop_times = StopTimes()
             _stop_times.add_multiple(
@@ -82,6 +91,7 @@ class GTFSHandler:
             return _stop_times
 
         def end_of_day() -> bool:
+            """ Checks if the current entry happens before the previous one. """
             return prev and prev > times
 
         stop_times = []
@@ -129,6 +139,7 @@ class GTFSHandler:
         return stop_times
 
     def generate_calendar_dates(self) -> None:
+        """ Create a new CalendarDateEntry for each holiday. """
         # CHECK: Should not disable service for sundays on holidays which
         #  fall on sundays... Will only make a difference if there are
         #  different timetables for sundays/holidays... right?
@@ -148,16 +159,20 @@ class GTFSHandler:
                 self.calendar_dates.add(date.service_id, holiday, False)
 
     def add_annotation_dates(self) -> None:
+        """ Add a new CalendarDateEntry for every annotation,
+        based on the users input. """
         def get_annots() -> list[str]:
+            """ Return the all annotations. """
             annot_set = set()
             raw_annots = [e.annotations for e in self.calendar.entries]
             for _annot in raw_annots:
                 annot_set |= _annot
             return list(annot_set)
 
-        def get_services_with_annot(_annot) -> list[CalendarEntry]:
+        def get_services_with_annot(annotation) -> list[CalendarEntry]:
+            """ Returns all CalendarEntry objects with the given annotation. """
             return [e for e in self.calendar.entries
-                    if _annot in e.annotations]
+                    if annotation in e.annotations]
 
         if Config.non_interactive:
             return
@@ -185,6 +200,7 @@ class GTFSHandler:
             self.routes.entries.remove(route)
 
     def write_files(self) -> bool:
+        """ Write all gtfs files to the output directory. """
         self._remove_unused_routes()
         self.add_annotation_dates()
         self.agency.write()
@@ -194,9 +210,12 @@ class GTFSHandler:
         self.trips.write()
         self.stop_times.write()
         self.calendar_dates.write()
+        # TODO NOW: Zip all files.
+        # TODO NOW: Remove return value.
         return True
 
     def add_coordinates(self, nodes: dict[str: Node]) -> None:
+        """ Add locations to the stops using the given nodes. """
         if not nodes:
             logger.warning("Could not found any locations for the given "
                            "stops. Cannot add coordinates to stops.")
@@ -217,6 +236,7 @@ class GTFSHandler:
         logger.info("Done.")
 
     def get_stop_ids(self, route_id: str) -> list[tuple[str]]:
+        """ Return the stop_ids, used in the route with the given route_id. """
         trips = self.trips.get_with_route_id(route_id)
         trip_stop_times = [self.stop_times.get_with_trip_id(trip.trip_id)
                            for trip in trips]
@@ -232,33 +252,42 @@ class GTFSHandler:
 
     @property
     def agency(self) -> Agency:
+        """ The agency. """
         return self._agency
 
     @property
     def routes(self) -> Routes:
+        """ The routes. """
         return self._routes
 
     @property
     def stops(self) -> GTFSStops:
+        """ The stops. """
         return self._stops
 
     @property
     def calendar(self) -> Calendar:
+        """ The calendar. """
         return self._calendar
 
     @property
     def trips(self) -> Trips:
+        """ The trips. """
         return self._trips
 
     @property
     def stop_times(self) -> StopTimes:
+        """ The stop times. """
         return self._stop_times
 
     @property
     def calendar_dates(self) -> CalendarDates:
+        """ The calendar dates. """
         return self._calendar_dates
 
     def get_avg_time_between_stops(self, stop_id1: str, stop_id2: str) -> Time:
+        """ Given two consecutive stops, given by stop_id1 and stop_id2,
+        return the time it takes on average to get from one to the other. """
         stop_times1 = self.stop_times.get_with_stop_id(stop_id1)
         stop_times2 = self.stop_times.get_with_stop_id(stop_id2)
 

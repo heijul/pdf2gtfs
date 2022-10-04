@@ -1,3 +1,5 @@
+""" Used to read the pdf file. """
+
 import logging
 import os
 import sys
@@ -32,6 +34,7 @@ Lines: TypeAlias = list[Line]
 
 
 def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
+    """ Returns a dataframe consisting of Chars. """
     def _fix_text(text: str) -> str:
         # Fix chars which were turned into codes during preprocessing.
         if len(text) == 1:
@@ -44,6 +47,7 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
                          "{len(text)}, but could not convert it to char.")
 
     def cleanup_df(_df: pd.DataFrame) -> pd.DataFrame:
+        """ Rounds the coordinates and drops any entries outside of the page. """
         # Round to combat possible tolerances in the coordinates.
         _df = _df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
         # Skip objects which are not on the page.
@@ -94,6 +98,7 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
 
 
 def get_pages(file: str | Path) -> Iterator[LTPage]:
+    """ Return the lazy iterator over the selected pages. """
     # Disable advanced layout analysis.
     laparams = LAParams(boxes_flow=None)
     return extract_pages(
@@ -115,7 +120,7 @@ def split_line_into_fields(line: Line) -> list[Field]:
         if new_field:
             fields.append(char_field)
             continue
-        fields[-1].add_char(char)
+        fields[-1].append_char(char)
 
     return fields
 
@@ -138,6 +143,7 @@ def split_df_into_lines(df: pd.DataFrame) -> Lines:
 
 
 def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
+    """ Use the char_df to create rows. """
     rows = []
     start = time()
 
@@ -150,16 +156,18 @@ def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
     return rows
 
 
-def get_raw_tables_from_df(char_df: pd.DataFrame) -> list[PDFTable]:
+def get_pdf_tables_from_df(char_df: pd.DataFrame) -> list[PDFTable]:
+    """ Create PDFTables using the char_df. """
     rows = dataframe_to_rows(char_df)
-    raw_tables = cleanup_tables(split_rows_into_tables(rows))
-    return raw_tables
+    pdf_tables = cleanup_tables(split_rows_into_tables(rows))
+    return pdf_tables
 
 
-def raw_tables_to_timetables(raw_tables: list[PDFTable]) -> list[TimeTable]:
+def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
+    """ Create TimeTables using the PDFTables"""
     timetables = []
-    for table in raw_tables:
-        if not table.valid:
+    for table in pdf_tables:
+        if table.empty:
             continue
         table.fix_split_stopnames()
         timetables.append(table.to_timetable())
@@ -167,15 +175,18 @@ def raw_tables_to_timetables(raw_tables: list[PDFTable]) -> list[TimeTable]:
 
 
 def page_to_timetables(page: LTPage) -> list[TimeTable]:
+    """ Extract all timetables from the given page. """
     char_df = get_chars_dataframe(page)
-    raw_tables = get_raw_tables_from_df(char_df)
-    tables = raw_tables_to_timetables(raw_tables)
+    pdf_tables = get_pdf_tables_from_df(char_df)
+    tables = pdf_tables_to_timetables(pdf_tables)
 
     logger.info(f"Number of tables found: {len(tables)}")
     return tables
 
 
 class Reader:
+    """ Class which oversees the reading of the file and handles
+    e.g. the removal of any temporary files. """
     def __init__(self) -> None:
         self.tempfile = None
         self.filepath = Path(Config.filename).resolve()

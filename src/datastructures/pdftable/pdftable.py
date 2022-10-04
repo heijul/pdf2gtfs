@@ -1,3 +1,6 @@
+""" Provides an intermediate datastructure close to the PDF, which is used
+to transform the lines in the pdf into TimeTable objects. """
+
 from __future__ import annotations
 
 import logging
@@ -19,12 +22,14 @@ Splitter: TypeAlias = Callable[[Tables, list[FieldContainer]], None]
 
 
 class PDFTable:
+    """ Describes a table, using coordinates, rows and columns. """
     def __init__(self, rows: Rows = None, columns: Cols = None):
         self.rows = rows or []
         self.columns = columns or []
 
     @property
     def rows(self) -> RowList:
+        """ The rows of the table. """
         return self._rows
 
     @rows.setter
@@ -36,6 +41,7 @@ class PDFTable:
 
     @property
     def columns(self) -> ColumnList:
+        """ The columns of the table. """
         return self._columns
 
     @columns.setter
@@ -46,14 +52,16 @@ class PDFTable:
             self._columns = ColumnList.from_list(self, columns)
 
     @property
-    def valid(self) -> bool:
-        return self.columns.valid and self.rows.valid
+    def empty(self) -> bool:
+        """ Whether either columns or rows are empty. """
+        return self.columns.empty or self.rows.empty
 
-    def generate_data_columns_from_rows(self) -> None:
+    def generate_columns_from_rows(self) -> None:
+        """ Create columns from the given rows. """
         def _generate_single_field_columns() -> Cols:
             # Generate single-field columns from the rows.
             field_columns = [Column.from_field(self, field)
-                             for data_row in data_rows for field in data_row]
+                             for row in rows for field in row]
             return sorted(field_columns, key=attrgetter("bbox.x0"))
 
         def _merge_overlapping_columns(field_columns: Cols) -> Cols:
@@ -71,9 +79,9 @@ class PDFTable:
                 previous_column.add_field(column.fields[0])
             return cols
 
-        data_rows = self.rows.of_types(
+        rows = self.rows.of_types(
             [RowType.DATA, RowType.ANNOTATION, RowType.ROUTE_INFO])
-        if not data_rows:
+        if not rows:
             return
 
         columns = _merge_overlapping_columns(_generate_single_field_columns())
@@ -91,9 +99,11 @@ class PDFTable:
                 reference_field = field
 
     def to_timetable(self) -> TimeTable:
-        return TimeTable.from_raw_table(self)
+        """ Creates a TimeTable containing the values of this table. """
+        return TimeTable.from_pdf_table(self)
 
     def get_header_from_column(self, column: Column) -> str:
+        """ Returns the header text of the given column. """
         for row in self.rows.of_type(RowType.HEADER):
             for i, field in enumerate(row, 1):
                 next_field = row.fields[i] if i < len(row.fields) else None
@@ -103,6 +113,7 @@ class PDFTable:
         return ""
 
     def add_row_or_column(self, obj: Row | Column) -> None:
+        """ Add the object to either rows or columns, depending on its type. """
         if isinstance(obj, Row):
             self.rows.add(obj)
             return
@@ -117,13 +128,14 @@ class PDFTable:
         for table in tables:
             for row in table.rows:
                 row.update_type()
-            table.generate_data_columns_from_rows()
+            table.generate_columns_from_rows()
 
         return tables
 
     def split_at_stop_columns(self) -> Tables:
         """ Return a list of tables with each having a single stop column. """
         def splitter(tables: Tables, splitter_columns: list) -> None:
+            """ Method used to split the given tables at the given splitter_columns. """
             for row in self.rows:
                 splits = row.split_at(splitter_columns)
                 for table, split in zip(tables, splits):
@@ -154,7 +166,11 @@ class PDFTable:
 
 
 def split_rows_into_tables(rows: Rows) -> Tables:
+    """ Split raw rows into (multiple) PDFTable. A new table is created,
+    whenever the distance to the previous line is higher than the defined
+    max_row_distance. Tables with too few rows are dropped with an info. """
     def log_skipped_rows() -> None:
+        """ Log the rows that are dropped. """
         # FEATURE: Should not drop the table,
         #  but use it to enhance the others
         row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
@@ -192,7 +208,7 @@ def cleanup_tables(tables: Tables) -> Tables:
 
     tables = split_tables_with_multiple_header_rows(tables)
     for table in tables:
-        table.generate_data_columns_from_rows()
+        table.generate_columns_from_rows()
     # TODO NOW: Handle tables which have no header row; Ask user?
     return split_tables_with_multiple_stop_columns(tables)
 

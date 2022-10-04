@@ -1,3 +1,5 @@
+""" Contains types used by multiple subpackages. """
+
 from __future__ import annotations
 
 from typing import NamedTuple

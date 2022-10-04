@@ -1,3 +1,6 @@
+""" pdf2gtfs main. From here all methods are called to create a gtfs archive
+from the given pdf file. """
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -18,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_timetables() -> list["TimeTable"]:
+    """ Returns all timetables in the pdf within the given pages. """
     logger.info(f"Reading the following pages: {Config.pages.pages}.")
     reader = Reader()
     timetables = reader.read()
@@ -25,6 +29,7 @@ def get_timetables() -> list["TimeTable"]:
 
 
 def generate_gtfs(timetables) -> GTFSHandler:
+    """ Create the GTFSHandler and add each given timetable to it. """
     assert len(timetables) > 0
     gtfs_handler = GTFSHandler()
     for table in timetables:
@@ -33,12 +38,14 @@ def generate_gtfs(timetables) -> GTFSHandler:
 
 
 def match_coordinates(gtfs_handler: GTFSHandler):
+    """ Try to find the coordinates of the stops defined in the gtfs_handler. """
     finder: Finder = Finder(gtfs_handler)
     route = finder.find()
     return route if route else None
 
 
 def main() -> None:
+    """ Main function. """
     parse_args()
     initialize_logging(logging.DEBUG)
 

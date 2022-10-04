@@ -1,3 +1,5 @@
+""" Utils used across multiple files, to prevent circular imports. """
+
 from __future__ import annotations
 
 import re
@@ -10,6 +12,7 @@ class _UIDGenerator:
         self.skip_ids: set[str] = set()
 
     def skip(self, skipped_id: str) -> None:
+        """ Skip the specified id. The UIDGenerator never returns skipped ids. """
         self.skip_ids.add(str(skipped_id))
 
     def __get_next_id(self) -> int:
@@ -20,6 +23,7 @@ class _UIDGenerator:
         return i
 
     def next(self) -> str:
+        """ Return the next available id. """
         self.id = self.__get_next_id()
         return str(self.id)
 
@@ -28,6 +32,7 @@ UIDGenerator = _UIDGenerator()
 
 
 def next_uid() -> str:
+    """ Return the next available UID. """
     return UIDGenerator.next()
 
 
@@ -74,6 +79,8 @@ PaddedList: TypeAlias = list[T_ | None]
 
 
 def padded_list(objects: list[T_]) -> tuple[PaddedList, list[T_], PaddedList]:
+    """ Pad the list with None on either end and return all three. """
+    # TODO NOW: Use itertools.
     left_pad = [None] + objects[:-1]
     right_pad = objects[1:] + [None]
     return left_pad, objects, right_pad
@@ -103,11 +110,13 @@ def get_edit_distance(s1, s2) -> int:
 
 
 def replace_abbreviations(name: str) -> str:
+    """ Replace all abbreviations in name. """
     regex = get_abbreviations_regex()
     return re.sub(regex, replace_abbreviation, name, flags=REGEX_FLAGS)
 
 
 def get_abbreviations_regex() -> str:
+    """ Return a regex that matches any abbreviation. """
     def _to_regex(abbrev_key: str) -> str:
         ends_with_key_regex = ""
         if abbrev_key.endswith("."):
@@ -130,6 +139,7 @@ def get_abbreviations_regex() -> str:
 
 
 def replace_abbreviation(value: re.Match) -> str:
+    """ Replace the single abbreviation in the given match. """
     from config import Config
 
     start, end = value.span()

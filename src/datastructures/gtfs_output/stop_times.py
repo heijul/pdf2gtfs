@@ -1,3 +1,5 @@
+""" Used by the handler to create the file 'stop_times.txt'. """
+
 from __future__ import annotations
 
 import logging
@@ -18,15 +20,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Time:
+    """ Dataclass used to compare and convert times. """
     hours: int = 0
     minutes: int = 0
     seconds: int = 0
 
     @staticmethod
     def from_string(time_string: str) -> Time:
-        time_string = time_string.strip()
+        """ Return a new Time, by trying to transform it into a dt.time. """
+        time_string = time_string.replace(" ", "")
         try:
-            time_string = time_string.replace(" ", "")
             time = dt.strptime(time_string, Config.time_format)
         except ValueError:
             logger.warning(f"Value '{time_string}' does not seem to have the "
@@ -35,9 +38,11 @@ class Time:
         return Time(time.hour, time.minute, 0)
 
     def to_output(self) -> str:
+        """ Returns the time in ISO-8601 format. """
         return f"{self.hours:02}:{self.minutes:02}:{self.seconds:02}"
 
     def copy(self) -> Time:
+        """ Returns a new Time object with the same values. """
         return Time(self.hours, self.minutes, self.seconds)
 
     def __repr__(self) -> str:
@@ -91,14 +96,17 @@ class Time:
         return Time(hours, minutes, seconds)
 
     def to_hours(self) -> float:
+        """ Returns a float describing the time in hours. """
         return self.hours + self.minutes / 60 + self.seconds / 3600
 
     @staticmethod
     def from_hours(hours: float) -> Time:
+        """ Creates a new Time using hours. """
         return Time.from_minutes(60 * hours)
 
     @staticmethod
     def from_minutes(float_minutes: float) -> Time:
+        """ Creates a new time using minutes. """
         hours = int(float_minutes) // 60
         minutes = int(float_minutes % 60)
         seconds = int(round((minutes - int(minutes)) * 60, 0))
@@ -107,6 +115,7 @@ class Time:
 
 @dataclass(init=False)
 class StopTimesEntry(BaseDataClass):
+    """ A single 'stop_times.txt' entry. """
     trip_id: str
     arrival_time: Time
     departure_time: Time
@@ -135,6 +144,7 @@ def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
 
 
 class StopTimes(BaseContainer):
+    """ Used to create the 'stop_times.txt.'. """
     entries: list[StopTimesEntry]
 
     def __init__(self) -> None:
@@ -142,6 +152,8 @@ class StopTimes(BaseContainer):
 
     def add(self, trip_id: str, stop_id: str, sequence: int,
             arrival: Time, departure: Time = None) -> StopTimesEntry:
+        """ Add a new StopTimeEntry with the given values.
+        If departure is None, it will be set to arrival. """
         entry = StopTimesEntry(trip_id, stop_id, sequence, arrival, departure)
         return self._add(entry)
 
@@ -178,6 +190,7 @@ class StopTimes(BaseContainer):
         return entries
 
     def merge(self, other: StopTimes):
+        """ Merge two stop_times files. Used when creating repeating entries. """
         self.entries += other.entries
 
     def duplicate(self, trip_id) -> StopTimes:
@@ -232,6 +245,7 @@ class StopTimes(BaseContainer):
         return not self.__lt__(other)
 
     def get_with_stop_id(self, stop_id: str) -> list[StopTimesEntry]:
+        """ Return all StopTimesEntries using the given stop_id. """
         entries = []
         for entry in self.entries:
             if entry.stop_id == stop_id:
@@ -239,6 +253,7 @@ class StopTimes(BaseContainer):
         return entries
 
     def get_with_trip_id(self, trip_id: str) -> list[StopTimesEntry]:
+        """ Return all StopTimesEntries using the given trip_id. """
         stop_times = []
         for stop_time in self.entries:
             if stop_time.trip_id == trip_id:

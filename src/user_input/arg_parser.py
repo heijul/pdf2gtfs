@@ -3,7 +3,7 @@
 from argparse import ArgumentParser, Namespace
 
 from config import Config
-from datastructures.gtfs_output.route import RouteType
+from datastructures.gtfs_output.routes import RouteType
 
 
 def parse_args(args: list | None = None):

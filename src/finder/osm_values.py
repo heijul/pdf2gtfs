@@ -1,3 +1,7 @@
+""" Contains the methods to query the node costs depending on the routetype.
+The keys (e.g. "light_rail", "railway", etc.) are defined in OSM.
+See wiki.openstreetmap.org/wiki/key:KEYNAME"""
+
 from __future__ import annotations
 
 from typing import TypeAlias
@@ -11,11 +15,13 @@ BadValues: TypeAlias = dict[OSMKey: list[str]]
 
 
 def get_all_cat_scores() -> tuple[GoodValues, BadValues]:
+    """ Return all values, which make a node a good or bad match. """
     osm_value = get_osm_value()
     return osm_value.good_values, osm_value.bad_values
 
 
 def get_osm_values() -> dict[str: OSMValue]:
+    """ Return all OSMValues. """
     return {"Tram": Tram,
             "StreetCar": StreetCar,
             "LightRail": LightRail,
@@ -33,11 +39,12 @@ def get_osm_values() -> dict[str: OSMValue]:
 
 
 def get_osm_value() -> OSMValue:
+    """ Get the values for the current routetype. """
     return get_osm_values()[Config.gtfs_routetype.name]()
 
 
 class OSMValue:
-    key: str
+    """ Base class to enable querying for good/bad values of a specific key. """
     bad_values: BadValues
 
     def __init__(self) -> None:
@@ -52,6 +59,7 @@ class OSMValue:
 
 
 class Tram(OSMValue):
+    """ Trams are rail-based, so train specific values should be considered as well. """
     def _get_good_values(self) -> GoodValues:
         return {"tram": {"yes": 0},
                 "light_rail": {"yes": 1},
@@ -63,16 +71,16 @@ class Tram(OSMValue):
     def _get_bad_values(self) -> BadValues:
         return {"tram": ["no"]}
 
-    @property
-    def key(self) -> str:
-        return "tram"
-
 
 class StreetCar(Tram):
+    """ StreetCars are very closely related to trams. """
+    # TODO: Add both Tram and LightRail?
     pass
 
 
 class LightRail(OSMValue):
+    """ Light rail vehicles are rail based like trams,
+    but have their own specific values. """
     def _get_good_values(self) -> GoodValues:
         return {
             "light_rail": {"yes": 0},
@@ -87,6 +95,7 @@ class LightRail(OSMValue):
 
 
 class Subway(OSMValue):
+    """ Subways have their own set of keys, but are rail based as well. """
     def _get_good_values(self) -> GoodValues:
         return {"subway": {"yes": 0},
                 "train": {"yes": 1},
@@ -98,10 +107,12 @@ class Subway(OSMValue):
 
 
 class Metro(Subway):
+    """ Metros do not have their own set of keys, but are essentially subways. """
     pass
 
 
 class Rail(OSMValue):
+    """ Any rail based keys/values. """
     def _get_good_values(self) -> GoodValues:
         return {"train": {"yes": 0},
                 "station": {"train": 0},
@@ -112,6 +123,7 @@ class Rail(OSMValue):
 
 
 class Bus(OSMValue):
+    """ Busses are street-based, but may use trolleybus stations as well. """
     def _get_good_values(self) -> GoodValues:
         return {"bus": {"yes": 0},
                 "amenity": {"bus_station": 0},
@@ -123,6 +135,7 @@ class Bus(OSMValue):
 
 
 class Ferry(OSMValue):
+    """ Ferry is the only water-based transport vehicle. """
     def _get_good_values(self) -> GoodValues:
         return {"ferry": {"yes": 0},
                 "amenity": {"ferry_terminal": 0}}
@@ -132,6 +145,7 @@ class Ferry(OSMValue):
 
 
 class CableTram(OSMValue):
+    """ Cabletram is rail-based. """
     def _get_good_values(self) -> GoodValues:
         return {"tram": {"yes": 1},
                 "light_rail": {"yes": 1},
@@ -142,14 +156,20 @@ class CableTram(OSMValue):
 
 
 class AerialLift(OSMValue):
+    """ AerialLift has no specific keys/values. """
+    # TODO: Not correct. Uses key 'aerialway'
     pass
 
 
 class SuspendedCableCar(AerialLift):
+    """ SuspendedCableCar has no specific keys/values,
+    but is similar to an AerialLift. """
+    # TODO: Not correct. Uses key 'aerialway'
     pass
 
 
 class Funicular(OSMValue):
+    """ Funicular is rail-based. """
     def _get_good_values(self) -> GoodValues:
         return {"railway": {"funicular": 0, "light_rail": 1},
                 "station": {"funicular": 0},
@@ -157,6 +177,7 @@ class Funicular(OSMValue):
 
 
 class Trolleybus(OSMValue):
+    """ Trolleybus is both highway-based and has its own keys/values. """
     def _get_good_values(self) -> GoodValues:
         return {"trolleybus": {"yes", 0},
                 "bus": {"yes": 1},
@@ -168,6 +189,7 @@ class Trolleybus(OSMValue):
 
 
 class Monorail(OSMValue):
+    """ Monorail is both rail-based and has its own keys/values. """
     def _get_good_values(self) -> GoodValues:
         return {"monorail": {"yes": 0},
                 "station": {"monorail": 1},

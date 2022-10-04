@@ -132,7 +132,8 @@ class ExistingBaseContainer(BaseContainer):
             UIDGenerator.skip(entry.id)
 
     def write(self) -> None:
-        """ Never overwrite existing files by default. """
+        """ Write the file content to the output directory, without
+        overwriting existing files, unless it is forced (see self.overwrite). """
         if self.fp.exists() and not self.overwrite:
             return
         super().write()

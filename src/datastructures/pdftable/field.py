@@ -1,3 +1,5 @@
+""" Contains the Field. """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -13,6 +15,7 @@ from p2g_types import Char
 
 
 class Field(BBoxObject):
+    """ A single field in a PDFTable. """
     row: Row = FieldRowReference()
     column: Column = FieldColumnReference()
 
@@ -24,6 +27,7 @@ class Field(BBoxObject):
 
     @property
     def type(self) -> FieldType:
+        """ The type of the field. """
         # Can not check for type directly as that may try to update it first.
         has_stop_column = (self.column and self.column.has_type()
                            and self.column.type == ColumnType.STOP)
@@ -48,13 +52,18 @@ class Field(BBoxObject):
 
     @staticmethod
     def from_char(char: Char) -> Field:
+        """ Creates a new field using a single char. """
         return Field(BBox.from_char(char), char.text)
 
-    def add_char(self, char: Char) -> None:
+    def append_char(self, char: Char) -> None:
+        """ Add the char to the field. No effort is spent to put the char at
+        the correct position (bbox-wise), it is simply appended. """
         super().merge(BBox.from_char(char))
         self.text += char.text
 
     def merge(self, other: Field):
+        """ Merge the two fields, merging their bbox and
+        appending other's text to self. """
         super().merge(other)
         self.text += other.text
 

@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from config import Config
-from datastructures.gtfs_output.route import Route, Routes, RouteType
+from datastructures.gtfs_output.routes import Route, Routes, RouteType
 from datastructures.timetable.entries import TimeTableEntry
 from test_timetable import create_stops
 
@@ -61,11 +61,11 @@ class TestRoutes(TestCase):
     def test_add(self) -> None:
         routes = Routes("agency_0")
         self.assertEqual(0, len(routes.entries))
-        route1 = routes.add(short_name="short1", long_name="long1")
+        route1 = routes.add("short1", "long1")
         self.assertEqual(1, len(routes.entries))
-        route2 = routes.add(short_name="short1", long_name="long2")
+        route2 = routes.add("short1", "long2")
         self.assertEqual(2, len(routes.entries))
-        route3 = routes.add(short_name="short1", long_name="long2")
+        route3 = routes.add("short1", "long2")
         self.assertEqual(2, len(routes.entries))
         self.assertNotEqual(id(route1), id(route2))
         self.assertEqual(route2, route3)

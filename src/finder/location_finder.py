@@ -1,3 +1,5 @@
+""" Provides functions and classes to detect the location of stops. """
+
 from __future__ import annotations
 
 import heapq
@@ -22,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 class LocationFinder:
+    """ Tries to find the locations of the given stop_names for all routes
+    described in the given handler. """
     def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]],
                  df: DF) -> None:
         self.handler = handler
@@ -29,7 +33,9 @@ class LocationFinder:
         self.nodes = Nodes(df, self.stops)
 
     def find_dijkstra(self) -> list[Node]:
+        """ Uses Dijkstra's algorithm to find the shortest route. """
         while True:
+            # TODO NOW: This should be done another way. Takes O(n) I guess?
             heapq.heapify(self.nodes.node_heap)
             node: Node = self.nodes.get_min()
             if node.stop.is_last:
@@ -52,13 +58,22 @@ class LocationFinder:
 
 
 def update_missing_locations(nodes) -> None:
+    """ Change the location of missing nodes to be closer to the actual location.
+
+    Given that at least one MissingNode is in nodes, change the location
+    of the missing nodes, such that it is between the previous and next Node's
+    location. If consecutive nodes are missing they will all have equal
+    distance to each other and the wrapping nodes.
+    Will not update locations of MissingNodes at the start. """
     def get_first_node() -> tuple[int, Node | None]:
+        """ Return the first node that is not a MissingNode. """
         for i, n in enumerate(nodes):
             if isinstance(n, MissingNode):
                 continue
             return i + 1, n
         return 0, None
-
+    # TODO NOW: Use the distance/vector of the first actual node to the second
+    #  (missing or) actual node.
     start_id, prev = get_first_node()
     if prev is None:
         return
@@ -86,6 +101,7 @@ def update_missing_locations(nodes) -> None:
 def find_stop_nodes(handler: GTFSHandler,
                     route: list[tuple[str, str]], df: DF
                     ) -> dict[str: Node]:
+    """ Return the Nodes mapped to the stop ids for a list of routes. """
     logger.info("Starting location detection...")
     t = time()
     d = df.copy()

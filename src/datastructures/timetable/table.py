@@ -1,3 +1,5 @@
+""" TimeTable, provides methods used by the GTFSHandler to create the gtfs files. """
+
 from __future__ import annotations
 
 import logging
@@ -5,7 +7,7 @@ from typing import cast
 
 from tabulate import tabulate
 
-import datastructures.pdftable.pdftable as raw
+import datastructures.pdftable.pdftable as pdftable
 from config import Config
 from datastructures.pdftable.enums import ColumnType
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry, Weekdays
@@ -16,37 +18,47 @@ logger = logging.getLogger(__name__)
 
 
 class StopList:
+    """ TimeTable stops, used to select which stops are actual stops
+    and which are only connections from the previous stop. """
     def __init__(self) -> None:
         self._stops: list[Stop] = []
 
     @property
     def all_stops(self) -> list[Stop]:
+        """ Returns both connections as well as normal stops. """
         return self._stops
 
     @property
     def stops(self) -> list[Stop]:
+        """ Only return stops that are not connections. """
         return [stop for stop in self._stops if not stop.is_connection]
 
     def add_stop(self, stop: Stop) -> None:
+        """ Add the given stop. """
         self._stops.append(stop)
 
-    def get_from_id(self, row_id: int):
+    def get_from_id(self, row_id: int) -> Stop:
+        """ Return the stop with the given row_id. """
         for stop in self.stops:
             if stop.raw_row_id == row_id:
                 return stop
 
     def add_annotation(self, text: str,
                        *, stop: Stop = None, stop_id: int = None) -> None:
+        """ Add the text to the stop with the given stop_id, or stop. """
         if stop_id is not None:
             stop = self.get_from_id(stop_id)
         stop.annotation = text
 
     def clean(self) -> None:
+        """ Clean all stops. """
         for stop in self._stops:
             stop.clean()
 
 
 class TimeTable:
+    """ The TimeTable. Provides methods used directly by the GTFSHandler.
+     Higher level of abstraction, compared to the PDFTable. """
     def __init__(self) -> None:
         self.stops = StopList()
         self.entries: list[TimeTableEntry] = []
@@ -82,27 +94,30 @@ class TimeTable:
                 stop.is_connection = True
 
     @staticmethod
-    def from_raw_table(raw_table: raw.PDFTable) -> TimeTable:
-        def get_annotations(column: raw.Column):
+    def from_pdf_table(pdf_table: pdftable.PDFTable) -> TimeTable:
+        """ Creates a new TimeTale, given the pdttable"""
+        def get_annotations(column: pdftable.Column):
+            """ Return all annotations of the given columns. """
             _annots = set()
             for field in column.fields:
-                if field.row.type != raw.RowType.ANNOTATION:
+                if field.row.type != pdftable.RowType.ANNOTATION:
                     continue
                 # Splitting in case field has multiple annotations
                 _annots |= set(field.text.strip().split(" "))
             return {a for a in _annots if a}
 
-        def get_route_name(column: raw.Column):
+        def get_route_name(column: pdftable.Column):
+            """ Return the route_name of the given column. """
             for field in column.fields:
-                if field.row.type != raw.RowType.ROUTE_INFO:
+                if field.row.type != pdftable.RowType.ROUTE_INFO:
                     continue
                 return field.text
             return ""
 
         table = TimeTable()
 
-        for raw_column in list(raw_table.columns):
-            raw_header_text = raw_table.get_header_from_column(raw_column)
+        for raw_column in list(pdf_table.columns):
+            raw_header_text = pdf_table.get_header_from_column(raw_column)
             if raw_column.type == ColumnType.REPEAT:
                 entry = TimeTableRepeatEntry(
                     raw_header_text, raw_column.get_repeat_intervals())
@@ -113,19 +128,19 @@ class TimeTable:
             table.entries.append(entry)
 
             for raw_field in raw_column:
-                row_id = raw_table.rows.index(raw_field.row)
+                row_id = pdf_table.rows.index(raw_field.row)
                 if raw_field.column.type == ColumnType.STOP:
-                    if raw_field.row.type == raw.RowType.DATA:
+                    if raw_field.row.type == pdftable.RowType.DATA:
                         stop = Stop(raw_field.text, row_id)
                         table.stops.add_stop(stop)
                     continue
-                if raw_field.row.type == raw.RowType.ROUTE_INFO:
+                if raw_field.row.type == pdftable.RowType.ROUTE_INFO:
                     continue
-                if raw_field.row.type == raw.RowType.ANNOTATION:
+                if raw_field.row.type == pdftable.RowType.ANNOTATION:
                     continue
                 if raw_field.column.type == ColumnType.STOP_ANNOTATION:
                     table.stops.add_annotation(raw_field.text, stop_id=row_id)
-                elif raw_field.row.type == raw.RowType.DATA:
+                elif raw_field.row.type == pdftable.RowType.DATA:
                     stop = table.stops.get_from_id(row_id)
                     table.entries[-1].set_value(stop, raw_field.text)
             # Remove entries, in case raw_column is empty.
@@ -139,13 +154,16 @@ class TimeTable:
         return table
 
     def print(self) -> None:
+        """ Pretty print the table."""
         def days_to_header_values(days: Weekdays) -> str:
+            """ Turn the Weekdays to their human-readable form. """
             for key in Config.header_values:
                 if str(Weekdays(key)) == str(days):
                     return key
             return ""
 
         def get_headers() -> list[str]:
+            """ Return the headers of the table. """
             headers = ["Days\nRoute\nRoute information"]
             for e in self.entries:
                 header = days_to_header_values(e.days).capitalize()
@@ -166,6 +184,7 @@ class TimeTable:
         logger.info("\n" + str(tabulated_table))
 
     def clean_values(self) -> None:
+        """ Clean all stops. """
         self.stops.clean()
 
     def __str__(self) -> str:

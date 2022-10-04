@@ -1,3 +1,5 @@
+""" Stops used by the finder. """
+
 from __future__ import annotations
 
 from typing import Generator, TYPE_CHECKING
@@ -12,6 +14,7 @@ if TYPE_CHECKING:
 
 
 class Stop:
+    """ A unique stop defined by its gtfs stop_id, name and its route index. """
     stops: Stops = None
 
     def __init__(self, idx: int, stop_id: str, name: str,
@@ -27,10 +30,12 @@ class Stop:
 
     @property
     def is_last(self) -> bool:
+        """ Whether the stop is the last stop of the route. """
         return self is self.stops.last
 
     @property
     def next(self) -> Stop | None:
+        """ The next stop in the route, or None if the current stop is the last. """
         return self._next
 
     @next.setter
@@ -39,6 +44,8 @@ class Stop:
 
     @property
     def avg_time_to_next(self) -> Time:
+        """ The average (as written in the pdf timetable) time it takes to
+        get to the next stop of the route. """
         def _calculate_avg_time_to_next() -> Time:
             return Stop.stops.get_avg_time_between(self, self.next)
 
@@ -48,6 +55,8 @@ class Stop:
 
     @staticmethod
     def get_max_dist(avg_time: Time) -> Distance:
+        """ Uses the average time to the next stop and the average speed
+        to calculate the maximal distance. """
         return Distance(km=avg_time.to_hours() * Config.average_speed)
 
     def _set_distance_bounds(self) -> None:
@@ -61,6 +70,7 @@ class Stop:
 
     @property
     def max_dist_to_next(self) -> Distance:
+        """ The approximate maximal distance the next stop is away. """
         if not self._max_dist_to_next:
             self._max_dist_to_next = self.get_max_dist(self.avg_time_to_next)
         return self._max_dist_to_next
@@ -81,6 +91,7 @@ class Stop:
 
 
 class Stops:
+    """ The stops of a route. Implemented as singly-linked-list. """
     def __init__(self, handler: GTFSHandler,
                  stop_names: list[tuple[str, str]]) -> None:
         self.handler = handler
@@ -89,6 +100,7 @@ class Stops:
 
     @property
     def stops(self) -> list[Stop]:
+        """ The specific Stop objects the route consists of. """
         stops = []
         current = self.first
         while current is not None:
@@ -112,6 +124,8 @@ class Stops:
         return stop, last
 
     def get_avg_time_between(self, stop1: Stop, stop2: Stop) -> Time:
+        """ Return the average time it takes to get from stop1 to stop2. """
+        # TODO NOW: Uses all routes. Should instead use the current route.
         return self.handler.get_avg_time_between_stops(stop1.stop_id, stop2.stop_id)
 
     def __iter__(self) -> Generator[Stop, None, None]:

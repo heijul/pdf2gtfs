@@ -1,3 +1,6 @@
+""" Types used by the finder. """
+# TODO NOW: Merge with p2g_types?
+
 from typing import NamedTuple, TYPE_CHECKING, TypeAlias
 
 import pandas as pd

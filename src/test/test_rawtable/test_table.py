@@ -88,7 +88,7 @@ class TestTable(TestCase):
     def test_generate_data_columns_from_rows(self) -> None:
         rows = dataframe_to_rows(self.char_df)
         table = split_rows_into_tables(rows)[1]
-        table.generate_data_columns_from_rows()
+        table.generate_columns_from_rows()
         for col in table.columns:
             col.update_type()
         data = self.get_data_func("test_generate_data_columns_from_rows")
@@ -104,7 +104,7 @@ class TestTable(TestCase):
         Config.min_row_count = 3
         data = self.get_data_func("test_fix_split_stop_names")
         table = create_table_from_data(data["texts"], data["bboxes"])[0]
-        table.generate_data_columns_from_rows()
+        table.generate_columns_from_rows()
         table.fix_split_stopnames()
 
         fields = table.columns[0].fields
@@ -115,7 +115,7 @@ class TestTable(TestCase):
         Config.min_row_count = 3
         data = self.get_data_func("test_fix_split_stop_names_indented")
         table = create_table_from_data(data["texts"], data["bboxes"])[0]
-        table.generate_data_columns_from_rows()
+        table.generate_columns_from_rows()
         table.fix_split_stopnames()
 
         fields = table.columns[0].fields
@@ -130,7 +130,7 @@ class TestTable(TestCase):
         rows = [Row.from_fields(r1.fields + r2.fields)
                 for r1, r2 in zip(left_rows, right_rows)]
         table = split_rows_into_tables(rows)[0]
-        table.generate_data_columns_from_rows()
+        table.generate_columns_from_rows()
         tables = table.split_at_stop_columns()
         self.assertEqual(left_row_texts, [str(r) for r in tables[0].rows])
         self.assertEqual(right_row_texts, [str(r) for r in tables[1].rows])
@@ -146,7 +146,7 @@ class TestTable(TestCase):
         bot_rows_texts = [str(r) for r in rows[5:]]
 
         table = split_rows_into_tables(rows)[0]
-        table.generate_data_columns_from_rows()
+        table.generate_columns_from_rows()
         tables = table.split_at_header_rows()
         self.assertEqual(top_rows_texts, [str(r) for r in tables[0].rows])
         self.assertEqual(bot_rows_texts, [str(r) for r in tables[1].rows])

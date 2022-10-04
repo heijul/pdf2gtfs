@@ -1,3 +1,5 @@
+""" Functions to setup logging. """
+
 import logging
 from logging import LogRecord
 
@@ -6,6 +8,7 @@ def disable_pdfminer_logger() -> None:
     """ Disables all pdfminer log output, that is not a warning or worse. """
 
     def pdfminer_filter(record: LogRecord) -> int:
+        """ Checks if the severity of the record is more severe than a warning. """
         return 0 if record.levelno < logging.WARNING else 1
 
     for name in logging.root.manager.loggerDict:
@@ -15,6 +18,7 @@ def disable_pdfminer_logger() -> None:
 
 
 def initialize_logging(level: int):
+    """ Reduce the pdfminer output and setup basic logging. """
     disable_pdfminer_logger()
     logging.basicConfig(level=level)
     # FEATURE: Style the log output

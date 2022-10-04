@@ -1,4 +1,8 @@
+""" Used by the TimeTable to obtain unique stops, even if their names do not differ. """
+
+
 class Stop:
+    """ The stop of a TimeTableEntry. """
     def __init__(self, name: str, raw_row_id: int):
         self.name = name
         self.raw_row_id = raw_row_id
@@ -6,6 +10,9 @@ class Stop:
         self.is_connection = False
 
     def clean(self) -> None:
+        """ Removes surrounding whitespace. """
+        # TODO NOW: Remove all parentheses and double spaces,
+        #  and all chars except ',.-+/&'
         self.name = self.name.strip()
 
     def __eq__(self, other) -> bool:
@@ -24,7 +31,7 @@ class Stop:
 
 
 class DummyAnnotationStop(Stop):
-    # Used only in the timetable.table.Table.__str__ method
+    """ Dummy used to properly print the TimeTable. """
     def __init__(self) -> None:
         super(DummyAnnotationStop, self).__init__("", 0)
 

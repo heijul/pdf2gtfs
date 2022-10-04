@@ -1,3 +1,5 @@
+""" Provides Location, which is used as a wrapper for latitude/longitude tuples. """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,6 +8,7 @@ from typing import Iterator
 
 @dataclass(frozen=True)
 class Location:
+    """ The coordinates in degrees latitude/longitude. """
     lat: float
     lon: float
 

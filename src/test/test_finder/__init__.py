@@ -18,7 +18,7 @@ def add_calendar_to_handler(handler: GTFSHandler) -> None:
 def add_routes_to_handler(handler: GTFSHandler, n: int = 2) -> None:
     """ Add n unique routes to the given handler. """
     for i in range(n):
-        handler.routes.add(short_name=str(i), long_name=f"route_{i}")
+        handler.routes.add(str(i), f"route_{i}")
 
 
 def add_stop_times_to_handler(handler: GTFSHandler, time_to_next: Time = None
