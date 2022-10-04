@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from operator import attrgetter
+from pathlib import Path
 from statistics import mean
+from time import sleep
 from typing import cast, TYPE_CHECKING
+from zipfile import ZipFile
 
 from holidays.utils import country_holidays
 
@@ -28,6 +32,22 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_gtfs_archive_path() -> Path:
+    """ Returns the absolute path to the output archive. """
+    date_and_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+    in_filename = Path(Config.filename).stem
+    outname = f"pdf2gtfs_{in_filename}_{date_and_time}.zip"
+    return Config.output_dir.joinpath(outname)
+
+
+def get_gtfs_filepaths() -> list[Path]:
+    """ Return all gtfs files. """
+    filenames = ["agency.txt", "calendar.txt", "calendar_dates.txt",
+                 "routes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
+    paths = [Config.output_dir.joinpath(name) for name in filenames]
+    return paths
 
 
 class GTFSHandler:
@@ -199,7 +219,7 @@ class GTFSHandler:
                 continue
             self.routes.entries.remove(route)
 
-    def write_files(self) -> bool:
+    def write_files(self) -> None:
         """ Write all gtfs files to the output directory. """
         self._remove_unused_routes()
         self.add_annotation_dates()
@@ -210,9 +230,21 @@ class GTFSHandler:
         self.trips.write()
         self.stop_times.write()
         self.calendar_dates.write()
-        # TODO NOW: Zip all files.
-        # TODO NOW: Remove return value.
-        return True
+        self.create_zip_archive()
+
+    def create_zip_archive(self) -> None:
+        """ Creates the final gtfs zip archive. """
+        archive_path = get_gtfs_archive_path()
+        # TODO: Needs check, once output_archive_path is added as cli arg.
+        # If the output archive already exist, simply try to create it again.
+        if archive_path.exists():
+            # This will ensure a different filepath.
+            sleep(1)
+            return self.create_zip_archive()
+
+        with ZipFile(archive_path, mode="w") as zip_file:
+            for path in get_gtfs_filepaths():
+                zip_file.write(path)
 
     def add_coordinates(self, nodes: dict[str: Node]) -> None:
         """ Add locations to the stops using the given nodes. """
