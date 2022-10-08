@@ -9,39 +9,41 @@ image: ""
 draft: true
 ---
 
+In this project, we create a tool to extract timetables from public transport
+agencies and export the contained data in the GTFS format.
+
 # Content
 
-1. [Introduction](#intro)
-    1. [GTFS](#intro_1)
+1. [Introduction](#introduction-intro)
+    1. [GTFS](#gtfs-intro_1)
+    2. [BBox and coordinates](#bbox-and-coordinates-intro_2)
 2. [Implementation](#impl)
     1. [Getting timetable data](#impl_1)
     2. [Creating GTFS](#impl_2)
     3. [Finding stop locations](#impl_3)
 3. [BBB](#bbb)
 
-# Introduction {#introduction}
-
-First of all, there is
+# Introduction {#intro}
 
 ## GTFS {#intro_1}
 
 [GTFS](https://developers.google.com/transit/gtfs/reference)
-is the de-facto standard format for public transit data.
-It consists of different files, which are usually packed into an archive.
+is the de-facto standard format for public transit information.
+It consists of different files, which are packed into an archive.
 
-Most notably (you can find the detailed description
+Most notably (you can find the full list of files
 [here](https://developers.google.com/transit/gtfs/reference#dataset_files)):
 
 * `agency.txt` contains information to identify the [agencies)] that perform the transportation
 * `stops.txt` contains stop identifier/names and their locations
-* `routes.txt` [information about the route, esp. route_type]
-* `calendar.txt` [different entry for different days]
-* `trips.txt` [basically maps routes to calendar]
+* `routes.txt` [æinformation about the route, esp. route_type]
+* `calendar.txt` [ædifferent entry for different days]
+* `trips.txt` [æbasically maps routes to calendar]
 * `stop_times.txt`
 
 ---
 
-## BBox and coordinates
+## BBox and coordinates {#intro_2}
 
 The coordinates of the different datastructures we create, use the top left
 corner as origin. The [BBox](https://en.wikipedia.org/wiki/Minimum_bounding_box).........
@@ -187,7 +189,7 @@ should not be considered as possible stop location at all.
 
 If we tried to calculate the distance (and therefore the travel costs) between every two
 consecutive stops for the whole route of length `n`, we would need `n * |A| * |B|` comparisons
-where `|A|, |B|` would be the number of possible locations for stop `A` and `B` respectively.
+where `|A|` and `|B|` are be the number of possible locations for stop `A` and `B` respectively.
 Given that we also need to calculate the distance to even be able to compare them,
 it would take even longer. EW.
 
@@ -212,6 +214,50 @@ Now we have a DataFrame, which contains all the costs we need to use Dijkstra's 
 except the actual travel costs. We also know how much distance a vehicle can cover between
 two stops `A` and `B`, based on the time it takes to get from `A` to `B` and the average
 speed of the vehicle.
+
+# Future plans
+
+### Multi-line stopnames
+
+Currently the tables are read line for line, and every line of a single table has unique
+y-coordinates. To properly detect and support stops spanning multiple lines,
+one possible implementation would be to simply merge stop columns, such that each field
+in the column is merged with the next one, iff the fields row does not contain any data fields.
+However this approach does come at the cost of only supporting those multi-line-stops,
+where the first row of each stop contains data fields. If the data is centered vertically
+instead, this implementation would result in incorrect stop names.
+
+æ Possible implementation. + image?
+
+### Integrity checks
+
+The time data from the tables is checked for neither continuity nor monotony.
+This may result in
+
+æ this would help how? What do we do with tables where this happens?
+æ also: how does this even happen?
+
+### Transposed timetables (stops as columns)
+
+Timetables using columns to display the stops, i.e. the stops are on the top of the table
+and the routes are written left to right, are unsupported. This style is widely used in
+in north america. One possible approach to this style would be to simply transpose
+the PDFTable.
+
+æ does this truly work?
+
+### Vertical characters.
+
+Another problem that often occurs with transposed timetables, is the existence
+of vertical characters. While in the normal/(every line is a stop and
+columns are routes)-style the number of stops can be onsiderably high, for
+the transposed style the number of stops is limited by the length of the stop names.
+To mitigate this and allow for longer routes, the stops are typically written at
+an angle (usually between 30 and 90 degrees).
+
+ææ Possible implementation?
+
+### Time
 
 # BBB {#bbb}
 
