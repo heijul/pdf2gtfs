@@ -25,11 +25,19 @@ agencies and export the contained data in the GTFS format.
 
 # Introduction {#intro}
 
+## PDF layout
+
+PDF files do not contain their text in human readable form, instead they use a
+layout system, where each character has coordinates, to define its position.
+
+æ some more text or image?
+
 ## GTFS {#intro_1}
 
 [GTFS](https://developers.google.com/transit/gtfs/reference)
 is the de-facto standard format for public transit information.
-It consists of different files, which are packed into an archive.
+It defines the necessary content for different comma separated files.
+These files are packed into a gtfs feed, which is simply a zip-archive.
 
 Most notably (you can find the full list of files
 [here](https://developers.google.com/transit/gtfs/reference#dataset_files)):
@@ -45,30 +53,33 @@ Most notably (you can find the full list of files
 
 ## BBox and coordinates {#intro_2}
 
+æ necessary?!
 The coordinates of the different datastructures we create, use the top left
-corner as origin. The [BBox](https://en.wikipedia.org/wiki/Minimum_bounding_box).........
+corner as origin. The [BBox](https://en.wikipedia.org/wiki/Minimum_bounding_box)
 
 ---
 
-# Implementation ??? not really implementation? {#impl}
+# Implementation {#impl}
 
-The problem of getting from a timetable in a pdf to a valid gtfs archive, can roughly be
+The problem of getting from a timetable in a pdf to a valid gtfs feed, can roughly be
 split into three sub-problems.
 
 ## 1. Getting timetable data {#impl_1}
 
-In the first step we read the pdf file and create our own datastructure
-`TimeTable`, which will need to hold all necessary information to perform the other steps.
+In the first step we read the pdf file and create one `TimeTable` object for
+each timetable in the pdf. Each `TimeTable` will contain the necessary information
+to perform the other steps for the specific timetable it was created from.
 
 ```mermaid
 flowchart LR
-id01[Input PDF] 
---> id02[group chars \nby y coordinate\n into lines ]
---> id03[create fields from lines as \ncontinuous streams of chars ]
---> id04[create columns by\nsplitting rows at fields,\nmerging overlapping fields ]
---> id05[create tables based on\n distance between lines ]
+id01[Input PDF]
+--> id02[group chars \nby y coordinate\n into lines]
+--> id03[create fields from lines as \ncontinuous streams of chars]
+--> id04[create columns by\nsplitting rows at fields,\nmerging overlapping fields]
+--> id05[create tables based on\n distance between lines]
 ```
 
+The above flowchart shows the general steps taken, to create the `TimeTable`. æææ
 To create a `TimeTable`, all characters in the pdf are grouped by their y-coordinate
 to discern different lines. They are further grouped into `Field` objects based on their
 x-coordinates.
