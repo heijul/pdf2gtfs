@@ -12,17 +12,17 @@ draft: true
 Extracting the timetable data from pdf timetables is a problem
 which prevents the easy use of otherwise available data.
 Though some transit agencies (esp. in Germany) provide GTFS feeds on their websites,
-this project aims to prove as tool to extract this data,
-where no such feeds are made available.
-It further uses data taken from
-[openstreetmap.org](https://www.openstreetmap.org/),
+this project, namely pdf2gtfs, aims to prove as tool to extract this data.
+It further uses information taken from
+[openstreetmap.org](https://www.openstreetmap.org/) using
+[QLever](https://github.com/ad-freiburg/qlever)
 to find the necessary coordinates of each stop.
 
 # Contents
 
 1. [Introduction](#introduction)
     1. [GTFS](#gtfs)
-    2. [BBox and coordinates](#bbox-and-coordinates)
+    2. [BBox and coordinates](#character-char-and-bbox)
 2. [Implementation](#implementation)
     1. [Extracting timetable data](#1-extracting-timetable-data)
     2. [Creating GTFS](#2-creating-gtfs)
@@ -31,7 +31,11 @@ to find the necessary coordinates of each stop.
 4. [Validation](#validation-and-testing)
 5. [Conclusion](#conclusion)
 6. [Future plans](#future-plans)
-7. [BBB](#bbb-bbb)
+    1. [Multi-line stopnames](#multi-line-stopnames)
+    2. [Integrity checks](#integrity-checks)
+    3. [Vertical characters](#vertical-characters)
+    4. [Font-based context](#font-based-context)
+    5. [Increase usage of QLever](#increase-usage-of-qlever)
 
 # Introduction
 
@@ -126,9 +130,9 @@ shown in €FIGURE vag_1€ as input, and output the contained data as a valid g
 It should also be easily reproducable, thoroughly tested and, as additional personal
 requirements, be highly configurable and be as independent from online services as possible.
 
-![VAG Linie 1](/img/project-transform-timetables-into-gtfs/vag_1_table_1.png)
+![VAG Linie 1][vag_linie_1]
 
-####  
+#### aa
 
 As every transit agency has their own timetable format, the main difficulty, DURING
 THE READ STEP, is to create a extraction function, which is able to read a
@@ -451,22 +455,45 @@ Validation of the GTFS feed has been done using
 
 # Conclusion
 
-The program fulfills the project requirements. However, there could always be more
-and more thorough tests, especially in a case like this, where the input (both
-pdf file and OSM data), is highly diverse. At the same time, the average distance
-between the locations, that were found, and the true location is less than 1km
-That is for the, admittedly small, number of input pdfs used during development.\
+The program fulfills the project requirements. However, more work needs to be done,
+especially to improve the support for different timetable formats.
+
+æææ
+At the same time, the average distance between the locations, that were found,
+and the actual location is less than 100m. That holds true at least for the,
+admittedly small, number of input pdfs used during development (CoNFIrmatION BiAS?!?!).
+æææ
 
 Some input pdfs could not be read properly, for example this
 [SEE FIGURE](figure badexample).
-This occurs, when the input pdf uses a format, which is not recognized, or if the
-current settings do not match the requirements of the format.
+This occurs, when the input pdf uses a format, which is not recognized
+(see [future plans](#supporting-differently-styled-timetables)), or if the
+chosen options do not adhere to the (observed) requirements of the format.
+For example, setting `min_row_count = 10`, if the timetables only contain 8 rows.
 
-Some locations were not found by pdf2gtfs, even if they exist on OSM. This is due both
-to the manner the dataset is filtered (i.e. using the stop name), and the fact that
-some of the transit agency names differ from the names used in OSM.
-\
-A full evaluation and testing will be the topic of my bachelor's thesis.
+Some locations were not found by pdf2gtfs, even if they actually exist on OSM.
+This is due both to the manner the dataset is filtered (i.e. using the stop name),
+and the fact that some of the transit agency names differ from the names used in OSM.
+
+Due to the fact that during development, focus laid on german transit agencies,
+the location detection (obviously) used the OSM data for Germany. However, as seen in
+the [heatmap](#figure_osm_heatmap), the density of available, useful data in Germany (and europe in
+general)
+is a lot higher than in most other countries. This means, that depending on country
+(and probably population density, as well), the results may be worse than displayed here.
+
+<figure id="figure_osm_heatmap">
+    <img src="/img/project-transform-timetables-into-gtfs/osm_comparison.png"
+     alt="Heatmap of the whole world showing possible stop locations" style="width:100%">
+    <figcaption style="font-size: 12px">
+    Figure x: Heatmap of OSM nodes, that have the key public_transport set to one of
+    "stop_position", "platform" or "station"<sup>[1]</sup>
+    </figcaption>
+</figure>
+
+The number of locations without a
+
+The full evaluation of pdf2gtfs will be the topic of my bachelor's thesis.
 
 # Future plans
 
@@ -490,7 +517,7 @@ This may result in
 æ this would help how? What do we do with tables where this happens?
 æ also: how does this even happen?
 
-### Supportung differently styled timetables
+### Supporting differently styled timetables
 
 Timetables using columns to display the stops, i.e. the stops are on the top of the table
 and the stop times are written left to right, are unsupported. This style is widely used in
@@ -533,6 +560,21 @@ However, considering the cache will not be usable, because the first filter step
 depends on the given stops, more testing is required to determine if,
 and how much the performance is expected to increase, if this was implemented.
 
+### Look for and allow other services
+
+As mentioned before, one caveat is that OSM contains exceptional amounts of information,
+when it comes to Germany. In other countries, the number of different stop locations
+may be a lot æ@æ@æ lower. In such cases, usage of other services which provide some
+interface to retrieve the stop locations as well as the necessary metadata, could prove
+essential to further improve the performance of the location detection.
+
 TODO: Stop cost
 
 TODO: Why use df to check for locations if we already have created all nodes?!
+
+[vag_linie_1]: /img/project-transform-timetables-into-gtfs/vag_1_table_1.png
+
+[osm_comparison]: /img/project-transform-timetables-into-gtfs/osm_comparison.png
+
+\[1\]: Displayed using QLever's map view++ on this
+[query](https://qlever.cs.uni-freiburg.de/osm-planet/?query=PREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E%0ASELECT+%3Fstop+%3Fstop_loc+WHERE+%7B%0A++%7B+%3Fstop+osmkey%3Apublic_transport+%22stop_position%22+.+%7D+UNION+%7B+%7B+%3Fstop+osmkey%3Apublic_transport+%22platform%22+.+%7D+UNION+%7B+%3Fstop+osmkey%3Apublic_transport+%22station%22+.+%7D%0A+%7D%0A++%3Fstop+rdf%3Atype+osm%3Anode+.%0A++%3Fstop+geo%3AhasGeometry+%3Fstop_loc%0A%7D)
