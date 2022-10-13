@@ -9,66 +9,183 @@ image: ""
 draft: true
 ---
 
-In this project, we create a tool to extract timetables from public transport
-agencies and export the contained data in the GTFS format.
+Extracting the timetable data from pdf timetables is a problem
+which prevents the easy use of otherwise available data.
+Though some transit agencies (esp. in Germany) provide GTFS feeds on their websites,
+this project aims to prove as tool to extract this data,
+where no such feeds are made available.
+It further uses data taken from
+[openstreetmap.org](https://www.openstreetmap.org/),
+to find the necessary coordinates of each stop.
 
-# Content
+# Contents
 
-1. [Introduction](#introduction-intro)
-    1. [GTFS](#gtfs-intro_1)
-    2. [BBox and coordinates](#bbox-and-coordinates-intro_2)
-2. [Implementation](#impl)
-    1. [Getting timetable data](#impl_1)
-    2. [Creating GTFS](#impl_2)
-    3. [Finding stop locations](#impl_3)
-3. [BBB](#bbb)
+1. [Introduction](#introduction)
+    1. [GTFS](#gtfs)
+    2. [BBox and coordinates](#bbox-and-coordinates)
+2. [Implementation](#implementation)
+    1. [Extracting timetable data](#1-extracting-timetable-data)
+    2. [Creating GTFS](#2-creating-gtfs)
+    3. [Finding stop locations](#3-finding-stop-locations)
+3. [Configuration](#configuration)
+4. [Validation](#validation-and-testing)
+5. [Conclusion](#conclusion)
+6. [Future plans](#future-plans)
+7. [BBB](#bbb-bbb)
 
-# Introduction {#intro}
+# Introduction
 
-## PDF layout
+## EEEE NEED PROPER introduction
 
-PDF files do not contain their text in human readable form, instead they use a
-layout system, where each character has coordinates, to define its position.
+æ Preprocess where?!
 
-æ some more text or image?
+### PDF
 
-## GTFS {#intro_1}
+PDF files usually do not contain their text in human readable form. Instead they use a
+layout-based system, where each character's position is defined using a bounding box.
+This results in some difficulty in extracting text, especially, if the context of the
+texts position matters.
+
+### GTFS
 
 [GTFS](https://developers.google.com/transit/gtfs/reference)
 is the de-facto standard format for public transit information.
-It defines the necessary content for different comma separated files.
+It defines the necessary content and format of different CSV-style textfiles.
 These files are packed into a gtfs feed, which is simply a zip-archive.
 
-Most notably (you can find the full list of files
-[here](https://developers.google.com/transit/gtfs/reference#dataset_files)):
+[//]: # (Just using shell here, to add some highlighting)
 
-* `agency.txt` contains information to identify the [agencies)] that perform the transportation
-* `stops.txt` contains stop identifier/names and their locations
-* `routes.txt` [æinformation about the route, esp. route_type]
-* `calendar.txt` [ædifferent entry for different days]
-* `trips.txt` [æbasically maps routes to calendar]
-* `stop_times.txt`
+```shell
+$ cat stops.txt
+stop_id,stop_name,stop_lat,stop_lon
+"1","Laßbergstraße",47.98458,7.89367
+"2","Römerhof",47.98618,7.88849
+...
+"23","Moosweiher",48.02875,7.80893
 
----
+$ cat routes.txt
+route_id,agency_id,route_short_name,route_long_name,route_type
+"24","0",,"Laßbergstraße-Moosweiher",1
 
-## BBox and coordinates {#intro_2}
+$ cat calendar.txt
+service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+"25",1,1,1,1,1,0,0,"20220101","20221231"
 
-æ necessary?!
-The coordinates of the different datastructures we create, use the top left
-corner as origin. The [BBox](https://en.wikipedia.org/wiki/Minimum_bounding_box)
+$ cat trips.txt
+trip_id,route_id,service_id
+"26","24","25"
 
----
+$ head -3 stop_times.txt
+trip_id,arrival_time,departure_time,stop_id,stop_sequence
+"26",05:17:00,05:17:00,"1",0
+"26",05:18:00,05:18:00,"2",1
+...
+"26",05:48:00,05:48:00,"3",22
+```
 
-# Implementation {#impl}
+> This example shows a small (and truncated) excerpt of some GTFS files.
+> The exact format for each file can be found
+[here](https://developers.google.com/transit/gtfs/reference#dataset_files).
+>
+> - `stops.txt` contains all information about the stops, including their location
+> - `routes.txt` contains the name and type (here: Tram) for a route
+> - `calendar.txt` contains between which start-/end-date and at which days service is active
+> - `trips.txt` maps routes to service days. Here, the trip with id "26" occurs on weekdays
+    > with route described in `routes.txt`
+> - `stop_times.txt` contains the exact times, at which the trip is supposed to
+    > arrive from and depart to each stop
+
+### Character, Char and BBox
+
+A character is a single letter and a `Char` is an object, which describes the
+position, character and orientation of a single character in the pdf.
+
+The `BBox` contains the coordinates of the top-left and bottom-right corners of the
+rectangle, that fully encloses an object, such as a `Char`, `Field`, `Row` or `Column`
+(see [Implementation](#implementation)).\
+It also provides different methods, most notably the `is_close()` method, which
+is used to determine whether two bounding boxes have negliable distance between
+them (or touch).
+> Note: The origin of the coordinates differs from the one used in the pdf.
+> While the origin in pdfs is the bottom-left corner, our
+> datastructures use the top-left corner.
+
+# Introduction 2
+
+As the name implies, the general transit feed specification (GTFS) specifies a general
+format, in which transit information can be encoded in so called feeds.
+Given a GTFS-feed, i.e. a zip-archive of the specified csv-files, one can use the
+contained data, to , and which can be used . Multiple services exist, such as
+the [Mobility Database](https://database.mobilitydata.org/), which provide
+a wide range of datasets for different countries and transportation methodsææ.
+
+### Requirements for the project
+
+The goal of this project is to take a pdf file containing timetables such as the one
+shown in €FIGURE vag_1€ as input, and output the contained data as a valid gtfs feed.
+It should also be easily reproducable, thoroughly tested and, as additional personal
+requirements, be highly configurable and be as independent from online services as possible.
+
+![VAG Linie 1](/img/project-transform-timetables-into-gtfs/vag_1_table_1.png)
+
+####  
+
+As every transit agency has their own timetable format, the main difficulty, DURING
+THE READ STEP, is to create a extraction function, which is able to read a
+wide variety of timetable formats. Due to this difficulty, and as a personal
+requirement as well, the whole project is highly configurable.
+
+# Implementation
 
 The problem of getting from a timetable in a pdf to a valid gtfs feed, can roughly be
-split into three sub-problems.
+split into three sub-problems.\æææ@@@æææ
 
-## 1. Getting timetable data {#impl_1}
+## 1. Extracting timetable data
 
 In the first step we read the pdf file and create one `TimeTable` object for
 each timetable in the pdf. Each `TimeTable` will contain the necessary information
 to perform the other steps for the specific timetable it was created from.
+
+#### Removing unneccessary information
+
+Before we extract anything, we first preprocess the input file using the
+[ghostscript](https://www.ghostscript.com/). The important options used are
+`-dFILTERIMAGE` and `-dFILTERVECTOR`, which remove all images and vector graphics
+from the pdf respectively. Without the preprocessing, the next step of extracting
+the text from the pdf, would take considerably longer.
+æ How much is considerably?
+@@
+Another welcome side-effect is the removal of "invisible text", that was
+contained within some of the pdfs, that were used during development.
+@@
+
+#### Extracting the chars
+
+To extract all text characters, we use
+[pdfminer.six](https://pdfminersix.readthedocs.io/en/latest/)
+and store them in a [pandas](https://pandas.pydata.org/) `DataFrame`.
+The advanced layout analysis of pdfminer, i.e. the detection of words and textlines,
+has been disabled, because it would sometimes resultæææ.
+
+#### From `DataFrame` to `TimeTable`
+
+The dataframe contains the text, the bounding box as well as whether the char
+is upright or rotated.
+To do that, we read the pdf Char by Char and sort them (stable) by their
+`x0` and `y0` coordinates (in that order). æ add why we do that.
+Then, we create a `Field` for each continuous stream of chars on the same line.
+That is, we start with the first char in the list of chars and do the following:
+
+1. Create a `Field` from the current char and go to the next char in the list
+2. If the current char is on the same line and the current char's BBox
+   is close to the fields BBox, add the char to the field. If not, go to 1.
+
+Next, the fields are added to rows, depending on which line they are on. The
+columns are then created using the coordinates and types of both rows and fields.
+Finally, the types of columns and rows is determined using their respective fields,
+and the rows/columns are split into PDFTables.
+
+The PDFTables are then
 
 ```mermaid
 flowchart LR
@@ -132,11 +249,11 @@ each entry maps information about the arrival/departure of a single
 
 ---
 
-## 2. Creating GTFS {#impl_2}
+## 2. Creating GTFS
 
 Before trying to find the stop locations, we first consolidate all data
-we have accumulated so far into different datastructures, each of which mirrors a specific GTFS
-file.\
+we have accumulated so far into different datastructures, each of which mirrors
+a specific GTFS file.\æ@æ@æ@æ@æ
 For example, the datastructure `Routes` contains all the necessary information
 to create a valid [routes.txt](https://developers.google.com/transit/gtfs/reference#routestxt).
 `StopTimes` on the other hand, contains all necessary information to create a valid
@@ -144,9 +261,9 @@ to create a valid [routes.txt](https://developers.google.com/transit/gtfs/refere
 and so on and so forth.
 The only exception to this is `Stops`, which does not contain valid locations, yet.
 
-### Repeating stop times
+#### Repeating stop times
 
-If a trip is repeated using the same interval the transit agency oftentimes
+If a trip is repeated every X minutes, the transit agency oftentimes
 uses what we call repeated columns. In FIGURE X is an example of such a column (Column 2).
 
 When transforming a `TimeTable` into GTFS files, these columns are expanded,
@@ -162,9 +279,24 @@ the actual repeat entry. The fourth entry marks the upper bound.\
 After creating the stop times for the second and fourth entry,
 we iteratively create new stop times, each being shifted by the number of minutes.
 
----
+#### Existing GTFS-files
 
-## 3. Finding stop locations {#impl_3}
+Before creating either the `agency.txt` or the `stops.txt`, the output directory
+is checked for those those files. If either exists, it will be used to
+select an agency or to provide the stops, respectively. In case only some stops can be
+found in the `stops.txt`, they will be used as fix points for the location
+detection. This means even if another possible combination of locations would be better,
+it will not be used if it does not use the existing stops.\
+All other GTFS-files are overwritten, should they exist.
+
+#### ID generation
+
+The ID's used in some GTFS-files (e.g. `agency_id` in `agency.txt`) are generated
+to be globally (in this GTFS-feed) unique. For simplicity, they were chosen
+to be integers (casted to string, as required by the specification). If an ID is
+already used by some existing GTFS-file, it will not be used.
+
+## 3. Finding stop locations
 
 The final step consists of getting publicly available location data and using this data along
 with the information about the routes we have from the pdf, most notably the duration it
@@ -219,12 +351,122 @@ If instead each location in `A` is close to only ten locations in `B`
 (which in reality is closer to 0 most of the time),
 we only need to calculate distances 100 times.
 
-#### Using Dijkstra's algorithm
+#### Adding node-/name-cost
 
-Now we have a DataFrame, which contains all the costs we need to use Dijkstra's algorithm
-except the actual travel costs. We also know how much distance a vehicle can cover between
-two stops `A` and `B`, based on the time it takes to get from `A` to `B` and the average
-speed of the vehicle.
+Each node on openstreetmap, may contain one or multiple "key: value"-pairs,
+which specify its function or give some additional information.
+The cost of a specific node is calculated using a simple map for the specified
+`routetype`.
+For example, the
+`railway`-key can be set to, among others, `station`, `halt` and `tram_stop`.
+If the routetype is 'Tram', the cost of a node with the value `halt` will be higher
+than the cost of a node with the value `tram_stop`, for the `railway` key. A node without
+any matching key-value-pairs will have even higher cost, while a node with value
+`no` for the `tram` key will not be considered at all.
+
+To get the name cost, we simply need calculate the edit-distance between
+the stop name and the name for the node, and apply some function which punishes lower
+edit-distances significantly less than larger ones. ææ why ææ
+
+#### Basic graph
+
+The detection of the best combination of locations can be æspecifiedæ as a
+æ"shortest route in graph"æ problem.
+For this, every possible location is a node and each node `N1` is connected with
+an edge, with weight `T`, to another node `N2`, iff `N1` is a node for the preceeding
+stop of `N2` and `T` is not too high. `T` is too high,
+Because we have multiple start and end nodes, we define a start.
+
+#### Finding the best route
+
+Now we have a DataFrame, which contains all the costs we except the actual travel cost,
+we can use Dijkstra's algorithm to find the combination of nodes with the lowest cost.
+We also know the estimated distance a vehicle can cover between two stops `A` and `B`,
+based on the time it takes to get from `A` to `B` and the (in the configuration specified)
+average speed of the vehicle.
+
+#### Handling missing locations
+
+Because we only filter the locations based on the stop names, it may sometimes happen,
+that the location of a stop could not be found. In such a case a `MissingNode` is
+used, to still enable the location detection for the other stops. Missing nodes have
+a very high node cost, to ensure that existing nodes with high travel cost are
+preferred. During display of the nodes (and if `--include-missing` is given), the
+location of the missing nodes is interpolated€, using the surrounding existing nodes.
+If the start/end stop was not found, æææ
+...
+
+### Other features
+
+Here are some features, which æææ, but æææ
+
+#### Holidays and other special dates
+
+Using the `holidays` library, we can specify both a country and state/canton/etc.
+to detect the dates of country-/statewide holidays and adjust the stop times on these
+dates.
+
+Also, the user is able to define dates at which service differs from the usual schedule,
+which applies to all columns with a specific annotation (e.g. @`*` in FIGURE * @).
+
+#### Repeat columns
+
+Some columns (see @FIGURE repeat_columns@) contain only an offset (here @X minutes)
+where æææ NEeeded? + add repeat_strategy?
+
+#### Routes
+
+Routes are detected using the `route_identifier` option, along with the weekdays
+where service should occur, and the columns' annotations.
+Each route gets their own entry in the `routes.txt`æææ
+
+# Configuration
+
+Most of the program is configurable by creating configuration files or, for frequently
+used options, using the available command line arguments.
+This includes (a full list/description can be found in the README):
+
+- `max_row_distance`: The maximum distance between two rows, for them to be considered part
+  of the same table.
+- `time_format`: The format used by the given times. Can be any string supported by
+  [strftime()](https://docs.python.org/3/library/datetime.html#datetime.datetime.strftime).
+- `average_speed`: The average speed of the transportation vehicle
+- `arrival_identifier/departure_identifier`: Text used in the column following the
+  stops, to identify if the vehicle arrives or departs at the specified times.
+
+If a timetable was not read properly, or the detected locations contain many
+missing nodes, adjusting these options may help.
+
+# Validation and testing
+
+### Validation of the GTFS output
+
+Validation of the GTFS feed has been done using
+[gtfs-validator](https://github.com/MobilityData/gtfs-validator).
+...
+
+### Testing
+
+...
+
+# Conclusion
+
+The program fulfills the project requirements. However, there could always be more
+and more thorough tests, especially in a case like this, where the input (both
+pdf file and OSM data), is highly diverse. At the same time, the average distance
+between the locations, that were found, and the true location is less than 1km
+That is for the, admittedly small, number of input pdfs used during development.\
+
+Some input pdfs could not be read properly, for example this
+[SEE FIGURE](figure badexample).
+This occurs, when the input pdf uses a format, which is not recognized, or if the
+current settings do not match the requirements of the format.
+
+Some locations were not found by pdf2gtfs, even if they exist on OSM. This is due both
+to the manner the dataset is filtered (i.e. using the stop name), and the fact that
+some of the transit agency names differ from the names used in OSM.
+\
+A full evaluation and testing will be the topic of my bachelor's thesis.
 
 # Future plans
 
@@ -242,20 +484,18 @@ instead, this implementation would result in incorrect stop names.
 
 ### Integrity checks
 
-The time data from the tables is checked for neither continuity nor monotony.
+The time data from the tables is checked for neither continuity nor monotony æcheckæ.
 This may result in
 
 æ this would help how? What do we do with tables where this happens?
 æ also: how does this even happen?
 
-### Transposed timetables (stops as columns)
+### Supportung differently styled timetables
 
 Timetables using columns to display the stops, i.e. the stops are on the top of the table
-and the routes are written left to right, are unsupported. This style is widely used in
-in north america. One possible approach to this style would be to simply transpose
-the PDFTable.
-
-æ does this truly work?
+and the stop times are written left to right, are unsupported. This style is widely used in
+in North America. One possible approach to support this style would be to simply transpose
+either the `DataFrame` or the `PDFTable`.
 
 ### Vertical characters.
 
@@ -268,83 +508,31 @@ an angle (usually between 30 and 90 degrees).
 
 ææ Possible implementation?
 
-### Time
+### Font-based context
 
-# BBB {#bbb}
+Currently all characters in the pdf are treated the same way, regardless of their
+font-properties (e.g. size, bold, italic, ...). To support timetables such as these,
+more work needs to be done in regards to properly detecting the properties, and
+giving the user some (simple) way of applying meaning to each property.
 
-TODO: Stop cost\
+For example, some timetables in the USA use bold stop times, to indicate PM times.
+However, we first need to check if there is actually a wide range of
+varying usage of these properties. Otherwise, adding more config-options
+(e.g. `bold_times_indicate_pm`/etc.), each handling a single context usage,
+would probably be the simplest solution to support this type of timetable.
+
+### Increase usage of QLever
+
+We can probably improve the query to QLever, to get more key:value-pairs
+in order to improve the node cost function. For example, OSM has multiple GTFS-related
+keys, which would not only improve the stop-to-location-matching, but could provide
+additional information like the official stop_id as well.\
+Alternatively we could use QLever to perform the first, rough filter-step,
+leveraging its speed.
+However, considering the cache will not be usable, because the first filter step
+depends on the given stops, more testing is required to determine if,
+and how much the performance is expected to increase, if this was implemented.
+
+TODO: Stop cost
+
 TODO: Why use df to check for locations if we already have created all nodes?!
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
-
-# BBB {#bbb}
