@@ -1,5 +1,5 @@
 ---
-title: "Transform pdf timetables into gtfs"
+title: "Transform PDF timetables into GTFS"
 date: 2022-09-29T13:13:22+02:00
 author: "Julius Heinzinger"
 authorAvatar: "img/ada.jpg"
@@ -9,14 +9,14 @@ image: ""
 draft: true
 ---
 
-Extracting the timetable data from pdf timetables is a problem
-which prevents the easy use of otherwise available data.
-Though some transit agencies (esp. in Germany) provide GTFS feeds on their websites,
-this project, namely pdf2gtfs, aims to prove as tool to extract this data.
-It further uses information taken from
-[openstreetmap.org](https://www.openstreetmap.org/) using
-[QLever](https://github.com/ad-freiburg/qlever)
-to find the necessary coordinates of each stop.
+Extracting the schedule data from PDF timetables is a problem,
+which prevents the easy use of otherwise available schedule data.\
+Though many GTFS feeds already exist, either on their transit agencies
+website or in some database, this python project aims to enable the
+extraction of this data, when such feeds are not available.\
+It also uses [QLever](https://github.com/ad-freiburg/qlever)
+to query [OpenStreetMap](https://www.openstreetmap.org/), in order
+to find the coordinates of each stop.
 
 # Contents
 
@@ -33,31 +33,67 @@ to find the necessary coordinates of each stop.
 6. [Future plans](#future-plans)
     1. [Multi-line stopnames](#multi-line-stopnames)
     2. [Integrity checks](#integrity-checks)
-    3. [Vertical characters](#vertical-characters)
+    3. [Rotated stopnames](#rotated-stopnames)
     4. [Font-based context](#font-based-context)
     5. [Increase usage of QLever](#increase-usage-of-qlever)
+    6. [Allow other services than QLever + OSM](#allow-other-services-than-qlever--osm)
+    7. [Allow multiple input files](#allow-multiple-input-files)
 
 # Introduction
 
-## EEEE NEED PROPER introduction
+The goal of this project is to create a tool which takes a PDF file containing
+timetables such as the one shown in the image below and output the schedule data
+as a valid GTFS feed. As is required by the GTFS, it has to be able to locate the
+coordinates of the stops used in the input file.\
+It should also be easily reproducable, thoroughly tested and, as additional personal
+requirements, highly configurable and as independent from online services as possible.
 
-æ Preprocess where?!
+<div id="vag_linie_1">
+![VAG Linie 1][vag_linie_1]
+</div>
+
+> Note: Boxes like this one are used to offer some useful tips or implementation details.
 
 ### PDF
 
-PDF files usually do not contain their text in human readable form. Instead they use a
+PDF files generally do not contain their text in human readable form. Instead they use a
 layout-based system, where each character's position is defined using a bounding box.
 This results in some difficulty in extracting text, especially, if the context of the
 texts position matters.
 
 ### GTFS
 
-[GTFS](https://developers.google.com/transit/gtfs/reference)
-is the de-facto standard format for public transit information.
-It defines the necessary content and format of different CSV-style textfiles.
-These files are packed into a gtfs feed, which is simply a zip-archive.
+As the name implies, the general transit feed specification
+([GTFS](https://developers.google.com/transit/gtfs/reference)) specifies a general
+format, in which transit information can be stored in a so called 'feed'. A feed
+is simply a zip-archive of csv-files (with .txt extension). The format of each
+csv-file is defined by the specification.\
+Given a GTFS feed, one can for example display the routes of the feed in a map or
+create a trip planner.\
+Multiple services, such as the
+[Mobility Database](https://database.mobilitydata.org/) exist, which already provide
+a large number of feeds for different countries and transportation methods.
+As stated above, the goal of this project is to fill the gap of timetables, which are
+not published in a GTFS feed, but in a PDF (usually used for print) and considering
+the ever-changing nature of these timetables, manual extraction is not feasible.\
+GTFS is the de-facto standard for transit data, so exporting it in this format
+makes sense.
 
 [//]: # (Just using shell here, to add some highlighting)
+
+#### GTFS example
+
+This example shows a small (and truncated) excerpt of some GTFS files.
+The exact format for each file can be found
+[here](https://developers.google.com/transit/gtfs/reference#dataset_files).
+
+- `stops.txt` contains all information about the stops, including their location
+- `routes.txt` contains the name and type (here: Tram) for a route
+- `calendar.txt` contains between which start-/end-date and at which days service is active
+- `trips.txt` maps routes to service days. Here, the trip with id "26" occurs on weekdays
+  with route described in `routes.txt`
+- `stop_times.txt` contains the exact times, at which the trip is supposed to
+  arrive from and depart to each stop
 
 ```shell
 $ cat stops.txt
@@ -84,174 +120,217 @@ trip_id,arrival_time,departure_time,stop_id,stop_sequence
 "26",05:17:00,05:17:00,"1",0
 "26",05:18:00,05:18:00,"2",1
 ...
-"26",05:48:00,05:48:00,"3",22
+"26",05:48:00,05:48:00,"23",22
 ```
 
-> This example shows a small (and truncated) excerpt of some GTFS files.
-> The exact format for each file can be found
-[here](https://developers.google.com/transit/gtfs/reference#dataset_files).
->
-> - `stops.txt` contains all information about the stops, including their location
-> - `routes.txt` contains the name and type (here: Tram) for a route
-> - `calendar.txt` contains between which start-/end-date and at which days service is active
-> - `trips.txt` maps routes to service days. Here, the trip with id "26" occurs on weekdays
-    > with route described in `routes.txt`
-> - `stop_times.txt` contains the exact times, at which the trip is supposed to
-    > arrive from and depart to each stop
+### OpenStreetMap and QLever
 
-### Character, Char and BBox
+wääää
+[OpenStreetMap](https://www.openstreetmap.org/) provides map data, including information
+about public transport, from all over the world and is maintained by an active community.
 
-A character is a single letter and a `Char` is an object, which describes the
-position, character and orientation of a single character in the pdf.
-
-The `BBox` contains the coordinates of the top-left and bottom-right corners of the
-rectangle, that fully encloses an object, such as a `Char`, `Field`, `Row` or `Column`
-(see [Implementation](#implementation)).\
-It also provides different methods, most notably the `is_close()` method, which
-is used to determine whether two bounding boxes have negliable distance between
-them (or touch).
-> Note: The origin of the coordinates differs from the one used in the pdf.
-> While the origin in pdfs is the bottom-left corner, our
-> datastructures use the top-left corner.
-
-# Introduction 2
-
-As the name implies, the general transit feed specification (GTFS) specifies a general
-format, in which transit information can be encoded in so called feeds.
-Given a GTFS-feed, i.e. a zip-archive of the specified csv-files, one can use the
-contained data, to , and which can be used . Multiple services exist, such as
-the [Mobility Database](https://database.mobilitydata.org/), which provide
-a wide range of datasets for different countries and transportation methodsææ.
-
-### Requirements for the project
-
-The goal of this project is to take a pdf file containing timetables such as the one
-shown in €FIGURE vag_1€ as input, and output the contained data as a valid gtfs feed.
-It should also be easily reproducable, thoroughly tested and, as additional personal
-requirements, be highly configurable and be as independent from online services as possible.
-
-![VAG Linie 1][vag_linie_1]
-
-#### aa
-
-As every transit agency has their own timetable format, the main difficulty, DURING
-THE READ STEP, is to create a extraction function, which is able to read a
-wide variety of timetable formats. Due to this difficulty, and as a personal
-requirement as well, the whole project is highly configurable.
+[QLever](https://github.com/ad-freiburg/qlever) is a SPARQL engine created by the
+[Chair for Algorithms and Data Structures](https://ad.cs.uni-freiburg.de/), which can be
+used to query OpenStreetMap.
 
 # Implementation
 
-The problem of getting from a timetable in a pdf to a valid gtfs feed, can roughly be
-split into three sub-problems.\æææ@@@æææ
+The problem of getting from a timetable in a PDF to a valid GTFS feed, can roughly be
+split into three sub-problems. First, we extract the data from the input file.
+Then, we create the GTFS files using the schedule data, in memory(?).
+Lastly, we search for the stop locations and, after adding the stop locations to the stops file,
+we create a the zip-archive and write it to disk.
 
 ## 1. Extracting timetable data
 
-In the first step we read the pdf file and create one `TimeTable` object for
-each timetable in the pdf. Each `TimeTable` will contain the necessary information
-to perform the other steps for the specific timetable it was created from.
+In the first step we read the PDF file and create one TimeTable object for
+each timetable in the pdf. Each TimeTable will contain all necessary information
+to perform the remaining steps for the specific timetable it was created from.
 
-#### Removing unneccessary information
+### Remove unneccessary information
 
-Before we extract anything, we first preprocess the input file using the
+Before we extract anything however, we first preprocess the input file using
 [ghostscript](https://www.ghostscript.com/). The important options used are
 `-dFILTERIMAGE` and `-dFILTERVECTOR`, which remove all images and vector graphics
-from the pdf respectively. Without the preprocessing, the next step of extracting
-the text from the pdf, would take considerably longer.
-æ How much is considerably?
-@@
-Another welcome side-effect is the removal of "invisible text", that was
-contained within some of the pdfs, that were used during development.
-@@
+from the PDF respectively. Without the preprocessing, the actual extraction
+of the text, would take considerably longer.
 
-#### Extracting the chars
+Another, in our case welcome, side-effect of the preprocessing is the removal of
+artifacts, i.e. invisible timetables. Essentially, some PDFs used during
+development have the issue, that most pages also contain tables of other pages.
+These are not visible in a PDF viewer, but would overlap with the visible tables
+and were readable by the libraries we used.
+This invisible text is removed during preprocessing, though it's unclear why
+it is removed, i.e. which option of ghostscript is causing it.\
+As a side-note, even simply using
+`gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -sOutputFile=output.pdf input.pdf`
+would result in the removal of these artifacts, so we assume it is either a
+bug in ghostscript
+(like [this similar bug](https://bugs.ghostscript.com/show_bug.cgi?id=705187))
+or (more likely) some of the default options of ghostscript's `pdfwrite` have this effect.
+> As this may cause some, possibly good, data to be removed,
+> preprocessing can be disabled with `--no-preprocess`.
+
+### Extract the characters
 
 To extract all text characters, we use
 [pdfminer.six](https://pdfminersix.readthedocs.io/en/latest/)
 and store them in a [pandas](https://pandas.pydata.org/) `DataFrame`.
-The advanced layout analysis of pdfminer, i.e. the detection of words and textlines,
-has been disabled, because it would sometimes resultæææ.
+The [advanced layout analysis][la_params] of pdfminer,
+i.e. the detection of words and textlines, has been disabled, because it
+would sometimes result in some of the necessary context being lost.
+In particular, given the example timetable below, the annotation row would
+loose the vertical coordinate context of the annotations.
+The line would simply read "VERKEHRSHINWEIS V s". Later assignment
+of the "V" and "s" to a specific column would not be possible.\
+At this point, the DataFrame contains the text, coordinates and rotation of each
+character of the PDF.
 
-#### From `DataFrame` to `TimeTable`
+![Advanced layout analysis example][ala_linie_1]
 
-The dataframe contains the text, the bounding box as well as whether the char
-is upright or rotated.
-To do that, we read the pdf Char by Char and sort them (stable) by their
-`x0` and `y0` coordinates (in that order). æ add why we do that.
-Then, we create a `Field` for each continuous stream of chars on the same line.
-That is, we start with the first char in the list of chars and do the following:
+### Datastructure layout
 
-1. Create a `Field` from the current char and go to the next char in the list
-2. If the current char is on the same line and the current char's BBox
-   is close to the fields BBox, add the char to the field. If not, go to 1.
+The basic layout of the created datastructures looks like this:
+![Datastructure layout][datastructure_layout]
+In the upper part, the creation order is shown, i.e. first the Chars are created,
+then the Fields
 
-Next, the fields are added to rows, depending on which line they are on. The
-columns are then created using the coordinates and types of both rows and fields.
-Finally, the types of columns and rows is determined using their respective fields,
-and the rows/columns are split into PDFTables.
+Each TimeTableEntry maps Stops to the time strings of the
 
-The PDFTables are then
+### Character, Char and BBox
 
-```mermaid
-flowchart LR
-id01[Input PDF]
---> id02[group chars \nby y coordinate\n into lines]
---> id03[create fields from lines as \ncontinuous streams of chars]
---> id04[create columns by\nsplitting rows at fields,\nmerging overlapping fields]
---> id05[create tables based on\n distance between lines]
-```
+wäää
+A character is a single letter and a `Char` is an object, which describes
+the position, character and orientation of a single character in the pdf.
 
-The above flowchart shows the general steps taken, to create the `TimeTable`. æææ
-To create a `TimeTable`, all characters in the pdf are grouped by their y-coordinate
-to discern different lines. They are further grouped into `Field` objects based on their
-x-coordinates.
-Finally the `Field` objects are used to create intermediate objects `PDFTable`,
-which are then used to create the `TimeTable`. [[Maybe add a goddamn diagram]]
+The `BBox` contains the coordinates of the top-left and bottom-right corners of the
+rectangle, that fully encloses an object, such as a `Char`, `Field`, `Row` or `Column`.\
+It also provides different methods, most notably the `is_close()` method, which
+is used to determine whether two bounding boxes have negliable distance between
+them (or touch). The BBoxObject is a simple wrapper, subclassed by all objects,
+that have a BBox.
+> The origin of the coordinates, used in the BBox, differs from the ones
+> used in the PDF. While the origin in PDFs is the bottom-left corner, our
+> datastructures use the top-left corner.
 
-### Fields, Rows and Columns
+### DataFrame to TimeTable
 
-Each `Field f`  contains chars, such that `char1.x1 - char2.x0 <= some_tolerance`
-and `char1.y0 == char2.y0` for all pairwise different chars in `f`,
-i.e. the chars are all in the same line, and each char is "close" to the previous one.
-At the same time `f` keeps references (and vice-versa) to its `Row` and `Column`,
-to determine its exact position in the `PDFTable`.
+@@@
+Turning the DataFrame into TimeTables works in two stages:\
+In the first stage, we create PDFTables. Their purpose is essentially,
+to divide each page of the PDF into its respective tables.\
+In the second stage, each PDFTable is transformed into a TimeTable. TimeTables
+are "farther away" from the input, i.e. they have no knowledge about the particular
+positions of each character, but instead contain a list of Stops and TimeTableEntrys.
 
-Each `Row` contains all fields of a single line, i.e. no two rows contain fields
-with the same y-coordinates and all fields in a row have the same y-coordinates.
-The `Column` objects are built in the same way, except that we compare the x-coordinates.
+This diagram, shows roughly the relationship between the main datastructures we created:
 
-Each of the objects `Row`, `Column` and `Field` have their own type, which is later used,
-e.g. to detect which columns contain information about stops or whether a stop describes a
-vehicles arrival or its departure.
-For example `Field` objects are of type `DataField`, if they contain data that can be parsed
+![Datastructure layout][datastructure_layout]
+
+To put simply, a PDFTable has both Rows and Columns, which both consist of Fields
+and Fields are a combination of Chars. Finally, all Rows, Columns, Fields
+and PDFTables are BBoxObjects. The TimeTable consists of a single StopList,
+containing all Stops of the TimeTable, and at least one TimeTableEntry.
+
+#### Types of Fields, Rows and Columns
+
+Each of the objects Row, Column and Field have their own type, which is
+later used, e.g. to detect which columns contain information about stops or
+whether a stop describes a vehicles arrival or its departure.
+For example Field objects are of type `DataField`, if they contain data that can be parsed
 by `strftime()` using the given time_format. A Row/Column on the other hand is of type
 `DataRow`/`DataColumn` respectively, if any of its fields is of type `DataField`.
 
-### PDFTable
+#### PDFTable
 
-The `PDFTable` is an intermediate datastructure, used only to group rows and columns in a
-sensible manner and to fix problems, such as two tables in the pdf being detected as a
-single table. [æ]
+As stated above, the purpose of PDFTables is to split the PDF into its tables.
+This includes splitting *and* merging tables, depending on the number of
+Rows/Columns with a specific type.\
+For example, each PDFTable should have only a single HeaderRow
+and a single StopColumn. If not, it will be split into multiple PDFTables.
+In the same way, if there are two PDFTable `P1` and `P2`, and `P2` does not
+have a HeaderRow, then the `P2` is merged into `P1`.
 
-#### Merging and splitting PDFTables
+To create the PDFTables, we first need to create the Fields, Rows and Columns.
+A Field is a continuous stream of characters, on the same line.
+That means that each characters `x0` coordinate is close to the previous ones `x1`
+coordinate (continuous) and each character of the Field has the same `y0/y1`
+coordinates (same line).
+So, in order to create the Fields, we basically need to (stably) sort the DataFrame
+first by the `x0` coordinate, to ensure the correct horizontal order of characters,
+and then by the `y0` coordinate, to easily iterate over all characters of a single line.
 
-Given two consecutive (i.r.t. their y-coordinate) `PDFTable` objects `T1` and `T2`,
-if `T2` does not have a `Row` of type `HeaderRow`, then the rows of `T2` are added to `T1`.
-In the same way, if `T1` and `T2` are next to each other, and `T2` does not have
-a `Column` of type `StopColumn`, then the columns of `T2` are added to `T1`.
+Now we can create the Fields like this:
 
-On the other hand, if a `PDFTable` contains multiple rows of type `HeaderRow` or multiple columns
-of type `StopColumn`, it is split into multiple `PDFTable` horizontally or vertically respectively.
+1. Create a Field from the current char.
+2. Select the next char in the DataFrame if it exists, otherwise we are done.
+3. If the current char is on the same line and the current char's BBox
+   is close to the fields BBox, add the char to the Field and go to step 2.
+   Otherwise, go to step 1.
 
-### TimeTable
+Next, the Fields are grouped into Rows depending on which line they are on.
+After determining the type of Fields and Rows based on their respective contents,
+the Columns are created using the coordinates and types of both Rows and Fields.
+One important thing to note is, that Columns do not contain Fields from Rows
+of type HeaderRow or Other. The reasoning for this is, that Rows of type Other,
+do not contain any information, that we can process (currently) and each Field
+in a HeaderRow usually spans multiple columns in a table. Therefore only Rows
+containing data, annotations or route information are put into Columns.
 
-The difference between `TimeTable` and `PDFTable` is the (abstract) distance to the actual pdf.
-While a `PDFTable` holds all coordinate and bbox information about every `Field`,
-`Row` and `Column`, a `TimeTable` consists of stops and entries. Here stops basically
-contains information about the fields of a `PDFTable` with type `StopField` and
-each entry maps information about the arrival/departure of a single
-`DataColumn` to the respective stops.
+As the final step, the above mentioned splitting and merging takes place, until
+each PDFTable contains only a single HeaderRow and a single StopRow. This also
+includes, that the type of both Rows and Columns is reevaluated, in case the
+process altered their contents in a way that would affect their types.
 
----
+Now we have extracted all data from the PDF and turned it into PDFTables.
+
+### PDFTable to TimeTable
+
+The difference between TimeTable and PDFTable is the (abstract) distance to
+the actual pdf.
+While a PDFTable holds all coordinate information about every Field,
+Row and Column, a TimeTable consists of multiple TimeTableEntry and a
+single StopList. The StopList basically contains information about the
+StopFields of the corresponding PDFTable and
+each TimeTableEntry maps information about the arrival/departure of a single
+DataColumn to the respective Stops.
+
+#### StopList
+
+As the name implies, a StopList is a list of Stops. As a PDFTable may have the
+same stop occurring multiple times, each Stop can also have an annotation,
+showing whether this stop describes the arrival or departure of the transport vehicle.
+Further, each stop has a property `is_connection` which will be explained later.
+
+#### Stops as connections
+
+Sometimes, some Stops in the PDFTable are not actual stops, that will be served, but
+instead show frequently used connections from the previous Stop. For example in
+the figure below, the italized Stops show a different trip to the airport in Frankfurt.
+These connections exist for convenience of the user of the PDF timetable,
+but for us this is more of an inconvenience, because we need to detect and ignore them.
+
+![Example of a connection in a PDF timetable][connection_example]
+
+The detection of these connections works by simply checking for reoccurring Stops
+with alternating arrival/departure identifier. In the example above this would
+detect the two italized Stops as connections, simply because before and after them
+the same Stop occurrs. Using the config files, you can decide, how many connection
+Stops are necessary for them to be ignored, or disable the detection completely.
+
+#### TimeTableEntry
+
+Each TimeTableEntry contains the information of a single trip. This includes the
+days the trip occurs, any annotations and route information of this trip,
+and a map between Stops and the time strings (e.g. "12:30").
+
+#### TimeTable
+
+Turning a PDFTable into a TimeTable is pretty straight-forward. First, the
+Column with type StopColumn is used to create the StopList. Then, the Columns
+of the PDFTable are iterated over, creating a TimeTableEntry for each of them.
+Finally the Stops that are connections are determined and the TimeTable is
+ready to use for next step.
 
 ## 2. Creating GTFS
 
@@ -456,7 +535,7 @@ Validation of the GTFS feed has been done using
 # Conclusion
 
 The program fulfills the project requirements. However, more work needs to be done,
-especially to improve the support for different timetable formats.
+in particular to improve the support for different timetable formats.
 
 æææ
 At the same time, the average distance between the locations, that were found,
@@ -464,8 +543,8 @@ and the actual location is less than 100m. That holds true at least for the,
 admittedly small, number of input pdfs used during development (CoNFIrmatION BiAS?!?!).
 æææ
 
-Some input pdfs could not be read properly, for example this
-[SEE FIGURE](figure badexample).
+Some input pdfs could not be read properly, æææ for example this
+[SEE FIGURE](figure badexample). The problem æææ
 This occurs, when the input pdf uses a format, which is not recognized
 (see [future plans](#supporting-differently-styled-timetables)), or if the
 chosen options do not adhere to the (observed) requirements of the format.
@@ -474,13 +553,6 @@ For example, setting `min_row_count = 10`, if the timetables only contain 8 rows
 Some locations were not found by pdf2gtfs, even if they actually exist on OSM.
 This is due both to the manner the dataset is filtered (i.e. using the stop name),
 and the fact that some of the transit agency names differ from the names used in OSM.
-
-Due to the fact that during development, focus laid on german transit agencies,
-the location detection (obviously) used the OSM data for Germany. However, as seen in
-the [heatmap](#figure_osm_heatmap), the density of available, useful data in Germany (and europe in
-general)
-is a lot higher than in most other countries. This means, that depending on country
-(and probably population density, as well), the results may be worse than displayed here.
 
 <figure id="figure_osm_heatmap">
     <img src="/img/project-transform-timetables-into-gtfs/osm_comparison.png"
@@ -491,7 +563,12 @@ is a lot higher than in most other countries. This means, that depending on coun
     </figcaption>
 </figure>
 
-The number of locations without a
+During development, focus laid on german transit agencies, meaning the location
+detection (obviously) used the OSM data for Germany.
+However, as seen in the [heatmap](#figure_osm_heatmap), the density of available,
+useful data in Germany (and europe in general) is a lot higher than in most other countries.
+In other words, depending on country
+(and probably population density, as well), the results may be worse than displayed here.
 
 The full evaluation of pdf2gtfs will be the topic of my bachelor's thesis.
 
@@ -524,16 +601,18 @@ and the stop times are written left to right, are unsupported. This style is wid
 in North America. One possible approach to support this style would be to simply transpose
 either the `DataFrame` or the `PDFTable`.
 
-### Vertical characters.
+### Rotated stopnames
 
 Another problem that often occurs with transposed timetables, is the existence
-of vertical characters. While in the normal/(every line is a stop and
-columns are routes)-style the number of stops can be onsiderably high, for
-the transposed style the number of stops is limited by the length of the stop names.
-To mitigate this and allow for longer routes, the stops are typically written at
-an angle (usually between 30 and 90 degrees).
-
-ææ Possible implementation?
+of rotated characters. While in the normal style, where every line is a stop and
+columns are routes, the number of stops can be onsiderably high, for
+the transposed style the number of stops is limited by the length of the stop names
+and width of the page.\
+To mitigate this and allow for longer routes, the characters/stops are typically
+written at an angle (usually between 30 and 90 degrees).
+To enable extraction of tables with rotated stopnames, we need to first detect their
+position. Afterwards, given the rotated characters and the calculated angle,
+we can reconstruct the actual stop name.
 
 ### Font-based context
 
@@ -560,7 +639,7 @@ However, considering the cache will not be usable, because the first filter step
 depends on the given stops, more testing is required to determine if,
 and how much the performance is expected to increase, if this was implemented.
 
-### Look for and allow other services
+### Allow other services than QLever + OSM
 
 As mentioned before, one caveat is that OSM contains exceptional amounts of information,
 when it comes to Germany. In other countries, the number of different stop locations
@@ -568,13 +647,40 @@ may be a lot æ@æ@æ lower. In such cases, usage of other services which provid
 interface to retrieve the stop locations as well as the necessary metadata, could prove
 essential to further improve the performance of the location detection.
 
+### Allow multiple input files
+
+In case the user has a lot of pdfs, for example for every bus route of a single agency,
+it makes sense to output all information in a single GTFS feed. Currently this is not
+possible. Before implementing, further testing needs to be done, to ensure
+that the program state after processing one pdf does not alter the output of processing another.
+
 TODO: Stop cost
 
 TODO: Why use df to check for locations if we already have created all nodes?!
+
+images:
 
 [vag_linie_1]: /img/project-transform-timetables-into-gtfs/vag_1_table_1.png
 
 [osm_comparison]: /img/project-transform-timetables-into-gtfs/osm_comparison.png
 
+[datastructure_layout]: /img/project-transform-timetables-into-gtfs/layout_datastructures.png
+
+[ala_linie_1]: /img/project-transform-timetables-into-gtfs/ala_linie_1.png
+
+[connection_example]: /img/project-transform-timetables-into-gtfs/connection_example.png
+
+links:
+
+[la_params]: https://pdfminersix.readthedocs.io/en/latest/reference/composable.html#api-laparams
+
+Sources:\
 \[1\]: Displayed using QLever's map view++ on this
 [query](https://qlever.cs.uni-freiburg.de/osm-planet/?query=PREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E%0ASELECT+%3Fstop+%3Fstop_loc+WHERE+%7B%0A++%7B+%3Fstop+osmkey%3Apublic_transport+%22stop_position%22+.+%7D+UNION+%7B+%7B+%3Fstop+osmkey%3Apublic_transport+%22platform%22+.+%7D+UNION+%7B+%3Fstop+osmkey%3Apublic_transport+%22station%22+.+%7D%0A+%7D%0A++%3Fstop+rdf%3Atype+osm%3Anode+.%0A++%3Fstop+geo%3AhasGeometry+%3Fstop_loc%0A%7D)
+
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+As every transit agency has their own timetable format, the main difficulty,
+during extraction, is to create a extraction function, which is able to read a
+wide variety of timetable formats.\
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
