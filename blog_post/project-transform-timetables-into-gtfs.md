@@ -306,7 +306,7 @@ Further, each stop has a property `is_connection` which will be explained later.
 
 #### Stops as connections
 
-Sometimes, some Stops in the PDFTable are not actual stops, that will be served, but
+Sometimes, some Stops in the PDFTable are not actual stops that will be served, but
 instead show frequently used connections from the previous Stop. For example in
 the figure below, the italized Stops show a different trip to the airport in Frankfurt.
 These connections exist for convenience of the user of the PDF timetable,
@@ -348,19 +348,19 @@ The only exception to this is `Stops`, which does not contain valid locations, y
 Roughly that is already all there is to this step, there are some caveats and
 special cases however, showcased here.
 
-#### ID generation
+### ID generation
 
 The ID's used in some GTFS-files (e.g. `agency_id` in `agency.txt`) are generated
 to be globally (i.e. in this GTFS-feed) unique. For simplicity, they were chosen
 to be integers (casted to string, as required by the specification). If an ID is
 already used by some existing GTFS-file, it will not be used.
 
-#### Repeating stop times
+### Repeating stop times
 
 If a trip is repeated every X minutes, the transit agency oftentimes
 uses what we call repeated columns. In the figure below is an example of such a column.
 
-![Example of a repeated column][repeat_column]
+<img src="/img/project-transform-timetables-into-gtfs/repeat_column.png" height="300" />
 
 When transforming a `TimeTable` into GTFS files, these columns are expanded,
 i.e. when encountering a stop_times entry, which contains a (user-specified) repeat-identifier,
@@ -369,13 +369,14 @@ by the given amount.
 
 For example, given a `TimeTable` like the one above, the important entries
 for adding all repeated stop times are the first, second and third entries.
-The second one marks the lower bound, from which to add the repeating stop times.
-The amount that each new entry will need to be shifted by is taken from the third entry,
-the actual repeat entry. The fourth entry marks the upper bound.\
+The first one marks the lower bound, from which to add the repeating stop times.
+The amount that each new entry will need to be shifted by is taken from the second entry,
+the actual repeat entry. The third entry marks the upper bound.\
 After creating the stop times for the second and fourth entry,
-we iteratively create new stop times, each being shifted by the number of minutes.
+we iteratively create new stop times, each being shifted by the number of minutes,
+until we reach the upper bound, at which point we stop and go to the next entry.
 
-#### Existing GTFS-files
+### Existing GTFS-files
 
 Before creating either the `agency.txt` or the `stops.txt`, the output directory
 is checked for those those files. If either exists, it will be used to
@@ -384,6 +385,18 @@ found in the `stops.txt`, they will be used as fix points for the location
 detection. This means even if another possible combination of locations would be better,
 it will not be used if it does not use the existing stops.\
 All other GTFS-files are overwritten (based on the configuration), should they exist.
+
+### Holidays and other special dates
+
+Using the [holidays](https://pypi.org/project/holidays/)
+library, we can specify both a country and state/canton/etc., to detect the
+dates of country-/statewide holidays and adjust the stop times on these dates.
+
+Also, using the command line interface, the user is able to define dates, at which
+service differs from the usual schedule, which applies to all columns with a
+specific annotation (e.g. `s` or `V` in the figure below).
+
+![Figure showing route annotations][annotations]
 
 ## 2.3. Finding stop locations
 
@@ -410,7 +423,9 @@ For example, the `name`-key provides the primary name used for a particular node
 However, there exist keys, like `alt_name` or `ref_name`, which can be used to provide
 alternative names, as well. The key `ref_name` in particular is used to "specify the
 unique human-readable name used in an external data management system
-(e.g. timetables/schedules)"<sup>\[2\]</sup>.
+(e.g. timetables/schedules)"<sup>\[2\]</sup>. There are a lot more osmkeys, that
+are used to describe the node in more detail. The ones used during the location detection
+are described in the next subsection.
 
 #### The DataFrame
 
@@ -419,15 +434,14 @@ After executing the query on QLever, we have a DataFrame, with the following col
 - lat/lon: The latitude and longitude of the node
 - names - A "|" separated list of different names,
   in particular `name`, `alt_name` and `ref_name`
-- A collection of different osmkeys (like "railway", "bus", "tram", etc.),
-  which specify the type of the node
+- A collection of different osmkeys (like "railway", "bus", "tram", etc.)
 
 ### Normalizing names
 
 After the data has been fetched, it will be normalized and,
 if the caching is enabled, cached on the local filesystem afterwards.
 
-#### Fixing abbreviations
+###### Fixing abbreviations
 
 Because some stop names can be quite long, they are often abbreviated in the PDF
 in some way.
@@ -436,20 +450,20 @@ expanded to their full form (e.g. "Frankfurt Hbf" for "Frankfurt Hauptbahnhof").
 There are some caveats, to when abbreviations are extended.
 See the [default configuration]() for more info.
 
-#### Removal of parentheses and symbols
+###### Removal of parentheses and symbols
 
 Any parentheses, as well as their contents are removed from each name,
 Any character of the stop names, that is not a normal (i.e. latin) letter, number
 or the pipe symbol ("|") is removed from the name.
 
-#### Casefolding and lowering
+###### Casefolding and lowering
 
 Some letters can be written in different ways,
 e.g. "Laßbergstraße" and "Lassbergstrasse", even though they describe the same stop.
 the names are casefolded, resulting in the latter version of the example.\
 All names are also converted to lower case, for the exact same reason.
 
-#### Cache
+###### Cache
 
 After the normalization, the DataFrame will be saved to the cache directory
 (`~/.cache/pdf2gtfs/` or `%LOCALAPPDATA%/pdf2gtfs/` under Linux
@@ -474,117 +488,83 @@ The DF also gets new columns:
   (and sanitized) stop name
 
 These are not added to the cache, because they depend solely on the
-stops of the current PDF.
+stops of the current input file.
 
-The `node_cost` is calculated using the additional node information.
-For example if the selected route type is 'Tram', a node with the
-key-value-pair `'railway': 'tram_stop'` would have lower cost,
-than a node with `'railway': 'station'`.
-At the same time, a node with the value `'tram': 'no'`
-should not be considered as possible stop location at all.
+###### Calculating the node cost
+
+As stated above, each node on OpenStreetMap, contains one or more
+key-value-pairs, which specify its function or give some additional information.
+The cost of a specific node is calculated for the specified `routetype` using a simple map.
+For example, the `railway`-key can be set to, among others, `station`, `halt`
+and `tram_stop`. The `tram`-key can be set to `yes` and `no`.\
+If the routetype is 'Tram', the cost of a node with
+`railway=halt` will be higher than the cost of a node with the `railway=tram_stop`
+or `tram=yes`. A node without any matching key-value-pairs will have even
+higher cost, while a node with `tram=no` will not be considered at all.
+
+###### Calculating the name cost
+
+To get the name cost, we simply need calculate the edit-distance between
+the stop name and the name for the node, and apply a function, which punishes lower
+edit-distances significantly less than larger ones. We do this, to ensure that two nodes
+`N1` and `N2`, with similar edit-distance to the stop name, have the same name cost.
+Thus, only node cost and travel cost influence the decision which node is better.
 
 ### Finding the best locations
 
-If we tried to calculate the distance (and therefore the travel costs) between every two
-consecutive stops for the whole route of length `n`, we would need `n * |A| * |B|` comparisons
-where `|A|` and `|B|` are be the number of possible locations for stop `A` and `B` respectively.
-Given that we also need to calculate the distance to even be able to compare them,
-it would take even longer. EW.
-
-wHy DoNT We JUsT Do THat
-
-In order to reduce the number of comparisons, we use the `expected_maximum_travel_distance`.
-In particular, we check for each node `a` in `A` if the difference in latitude and longitude
-is less than the maximum travel distance.
-That way we can reduce the number of times we need to calculate the actual distance
-between two locations (i.e. the part of the travel cost calculation, that is expensive)
-by several orders of magnitude.
-
-For example imagine we have ten locations in `A` and 1000 locations in `B`,
-we would usually need to calculate distances 10 000 times.
-If instead each location in `A` is close to only ten locations in `B`
-(which in reality is closer to 0 most of the time),
-we only need to calculate distances 100 times.
-
-### Adding node-/name-cost
-
-Each node on openstreetmap, may contain one or multiple "key: value"-pairs,
-which specify its function or give some additional information.
-The cost of a specific node is calculated using a simple map for the specified
-`routetype`.
-For example, the
-`railway`-key can be set to, among others, `station`, `halt` and `tram_stop`.
-If the routetype is 'Tram', the cost of a node with the value `halt` will be higher
-than the cost of a node with the value `tram_stop`, for the `railway` key. A node without
-any matching key-value-pairs will have even higher cost, while a node with value
-`no` for the `tram` key will not be considered at all.
-
-To get the name cost, we simply need calculate the edit-distance between
-the stop name and the name for the node, and apply some function which punishes lower
-edit-distances significantly less than larger ones. ææ why ææ
-
-### Basic graph
-
 The detection of the best combination of locations can be specified as a
-"shortest path problem" problem.
+shortest path problem in a directed graph.
 For this, every possible location is a node and each node `N1` is connected with
-an edge, with weight `T`, to another node `N2`, iff `N1` is a node for the preceeding
-stop of `N2` and `T` is not too high. `T` is too high,
-Because we have multiple start and end nodes, we define a start.
+a directed edge, with weight `T`, to another node `N2`, iff `N1` is a node
+for the preceeding stop of `N2`. `T` is defined as the sum of the
+node-, name- and travel cost of the target node `N2`.
+We use Dijkstra's algorithm to find the shortest path.
 
-### Finding the best route
+###### Impossible neighbors
 
-Now we have a DataFrame, which contains all the costs we except the actual travel cost,
-we can use Dijkstra's algorithm to find the combination of nodes with the lowest cost.
-We also know the estimated distance a vehicle can cover between two stops `A` and `B`,
-based on the time it takes to get from `A` to `B` and the (in the configuration specified)
-average speed of the vehicle.
+To reduce the number of exact distance calculations, which are expensive
+computatiponally, when updating the neighbors of a node `N`, we first filter the
+neighbors by their rough distance. For example, it makes no sense, that a bus
+travels 100km in 3 minutes. Therefore, given the time it takes to travel from
+one stop to the next and the user-specified average speed of the vehicle,
+we only pay attention to neighboring nodes, that are closer than the
+maximum expected distance.\
+To put simply, we draw a square of size `s` with `N` at its center, and only
+calculate the distance to neighbors within that square. The size `s` is
+defined as `2 * max_expected_distance`.
 
-### Handling missing locations
+For that, we use the following two formulas to calculate the approximate distance
+depending on the difference in latitude and longitude:
+$$\text{lat distance} = 111.34 * \delta lat_d$$
+$$\text{lon distance} = 111.34 * |\cos{\delta lat_m}| * \delta lon_d$$
+where lat<sub>d</sub> and lon<sub>d</sub> are the difference in latitude/longitude
+respectively and lat<sub>m</sub> is the latitude of the midpoint.
+The reason we need the cosine of the latitude, is that the longitude distance
+changes, depending on the latitude.\
+The above formulas are approximations, but are good enough, to determine if two
+locations are somewhere close to each other. Most importantly, they are a lot faster
+than calculating the exact distance (which is done using
+[geopy](https://geopy.readthedocs.io/en/stable/)).
 
-Because we only filter the locations based on the stop names, it may sometimes happen,
+###### Handling missing locations
+
+Because we only filter the locations based on the stop names, it can happen,
 that the location of a stop could not be found. In such a case a `MissingNode` is
 used, to still enable the location detection for the other stops. Missing nodes have
 a very high node cost, to ensure that existing nodes with high travel cost are
 preferred. During display of the nodes (and if `--include-missing` is given), the
-location of the missing nodes is interpolated€, using the surrounding existing nodes.
-If the start/end stop was not found, æææ
-...
-
-### Other features
-
-Here are some features, which æææ, but æææ
-
-#### Holidays and other special dates
-
-Using the `holidays` library, we can specify both a country and state/canton/etc.
-to detect the dates of country-/statewide holidays and adjust the stop times on these
-dates.
-
-Also, the user is able to define dates at which service differs from the usual schedule,
-which applies to all columns with a specific annotation (e.g. @`*` in FIGURE * @).
-
-#### Repeat columns
-
-Some columns (see @FIGURE repeat_columns@) contain only an offset (here @X minutes)
-where æææ NEeeded? + add repeat_strategy?
-
-#### Routes
-
-Routes are detected using the `route_identifier` option, along with the weekdays
-where service should occur, and the columns' annotations.
-Each route gets their own entry in the `routes.txt`æææ
+location of the missing nodes is interpolated, using the surrounding existing nodes.
 
 # 3. Configuration
 
 Most of the program is configurable by creating configuration files or, for frequently
 used options, using the available command line arguments.
-This includes (a full list/description can be found in the README):
+This includes (a full list/description can be found in the default configuration):
 
 - `max_row_distance`: The maximum distance between two rows, for them to be considered part
   of the same table.
 - `time_format`: The format used by the given times. Can be any string supported by
-  [strftime()](https://docs.python.org/3/library/datetime.html#datetime.datetime.strftime).
+  [strftime](https://docs.python.org/3/library/datetime.html#datetime.datetime.strftime).
 - `average_speed`: The average speed of the transportation vehicle
 - `arrival_identifier/departure_identifier`: Text used in the column following the
   stops, to identify if the vehicle arrives or departs at the specified times.
@@ -598,7 +578,7 @@ missing nodes, adjusting these options may help.
 
 Validation of the GTFS feed has been done using
 [gtfs-validator](https://github.com/MobilityData/gtfs-validator).
-...
+Apart from
 
 ### Testing
 
@@ -743,9 +723,11 @@ images:
 
 [ala_linie_1]: /img/project-transform-timetables-into-gtfs/ala_linie_1.png
 
-[connection_example]: /img/project-transform-timetables-into-gtfs/connection_example.png
+[connection_example]: /img/project-transform-timetables-into-gtfs/connection.png
 
 [repeat_column]: /img/project-transform-timetables-into-gtfs/repeat_column.png
+
+[annotations]: /img/project-transform-timetables-into-gtfs/annotations.png
 
 links:
 
