@@ -2,8 +2,8 @@
 title: "Transform PDF timetables into GTFS"
 date: 2022-09-29T13:13:22+02:00
 author: "Julius Heinzinger"
-authorAvatar: "img/ada.jpg"
-tags: []
+authorAvatar: ""
+tags: [python, GTFS, pdf, timetable]
 categories: [project]
 image: ""
 draft: true
@@ -14,6 +14,8 @@ prevents the easy use of this otherwise available data.\
 Though many GTFS feeds already exist, either on their transit agencies
 website or in some database, this python project aims to enable the
 extraction of this data, when such feeds are not available.
+
+<!--more-->
 
 # Contents
 
