@@ -5,7 +5,7 @@ author: "Julius Heinzinger"
 authorAvatar: ""
 tags: [python, GTFS, pdf, timetable]
 categories: [project]
-image: ""
+image: "/img/project-transform-timetables-into-gtfs/title.png"
 draft: true
 ---
 
@@ -668,8 +668,7 @@ changing the code (only changing configuration), which lead to similar results.
 
 Some input PDFs could not be read properly, for example the one below.
 This may occur, when the PDF uses a format for the timetables, which is not
-recognized, or is the case here
-(See [#Future plans](#62-supporting-differently-styled-timetables)).\
+recognized, or is the case here.\
 This may also happen, if the chosen options do not adhere to the (observed)
 requirements of the timetable format.
 For example, setting `min_row_count = 10`, if the timetables only contain 8 rows.
