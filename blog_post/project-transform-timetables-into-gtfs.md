@@ -3,7 +3,7 @@ title: "Transform PDF timetables into GTFS"
 date: 2022-09-29T13:13:22+02:00
 author: "Julius Heinzinger"
 authorAvatar: "img/ada.jpg"
-tags: [QLever]
+tags: []
 categories: [project]
 image: ""
 draft: true
@@ -13,16 +13,11 @@ Extracting the schedule data from PDF timetables is a problem,
 which prevents the easy use of otherwise available schedule data.\
 Though many GTFS feeds already exist, either on their transit agencies
 website or in some database, this python project aims to enable the
-extraction of this data, when such feeds are not available.\
-It also uses [QLever](https://github.com/ad-freiburg/qlever)
-to query [OpenStreetMap](https://www.openstreetmap.org/), in order
-to find the coordinates of each stop.
+extraction of this data, when such feeds are not available.
 
 # Contents
 
 1. [Introduction](#1-introduction)
-    1. [GTFS](#11-gtfs)
-    2. [OpenStreetMap and QLever](#12-openstreetmap-and-qlever)
 2. [Implementation](#2-implementation)
     1. [Extracting timetable data](#21-extracting-timetable-data)
     2. [Creating GTFS](#22-creating-the-gtfs-files-in-memory)
@@ -41,23 +36,23 @@ to find the coordinates of each stop.
 
 # 1. Introduction
 
-The goal of this project is to create a tool which takes a PDF file containing
-timetables such as the one shown in the figure below and output the schedule data
-as a valid GTFS feed. As is required by the GTFS, it has to be able to locate the
-coordinates of the stops used in the input file.\
+The goal of this project is to create a tool, namely pdf2gtfs, which takes a
+PDF file containing timetables such as the one shown in the figure below and
+output the schedule data as a valid GTFS feed. As is required by the GTFS,
+it has to be able to locate the coordinates of the stops used in the input file.\
 It should also be easily reproducable, thoroughly tested and, as additional personal
 requirements, highly configurable and as independent from online services as possible.
 
 ![VAG Linie 1][vag_linie_1]
 
-### PDF
+## PDF
 
 PDF files generally do not contain their text in human readable form. Instead they use a
 layout-based system, where each character's position is defined using a bounding box.
 This results in some difficulty in extracting text, especially, if the context of the
 texts position matters.
 
-### 1.1. GTFS
+## GTFS
 
 As the name implies, the general transit feed specification
 ([GTFS](https://developers.google.com/transit/gtfs/reference)) specifies a general
@@ -68,25 +63,26 @@ Given a GTFS feed, one can for example display the routes of the feed in a map o
 create a trip planner. Multiple services, such as the
 [Mobility Database](https://database.mobilitydata.org/) exist, which already provide
 a large number of feeds for different countries and transportation methods.
-As stated above, the goal of this project is to fill the gap of timetables, which are
-not published in a GTFS feed, but in a PDF (usually used for print) and considering
-the ever-changing nature of these timetables, manual extraction is not feasible.\
-GTFS is the de-facto standard for transit data, so exporting it in this format
-makes sense.
-
-[//]: # (Just using shell here, to add some highlighting)
+As stated above, the goal of this project is to fill the gap of timetables,
+which are not published in a GTFS feed, but in a PDF (usually used for print)
+and considering the ever-changing nature of these timetables,
+manual extraction is not feasible, either.\
+GTFS is the de-facto standard for transit data, so exporting
+it in this format makes sense.
 
 ###### GTFS example
 
-This example shows a small (and truncated) excerpt of some GTFS files.
+This example shows a small (and truncated) excerpt of a very simple GTFS feed.
 The exact format for each file can be found
 [here](https://developers.google.com/transit/gtfs/reference#dataset_files).
 
 - `stops.txt` contains all information about the stops, including their location
 - `routes.txt` contains the name and type (here: 1 for 'Tram') for a route
-- `calendar.txt` contains between which start-/end-date and at which days service is active
-- `trips.txt` maps routes to service days. Here, the trip with id "26" occurs on weekdays
-  with the route 'Laßbergstraße-Moosweiher' described in `routes.txt`
+- `calendar.txt` defines, between which start-/end-date and at which days
+  service is active
+- `trips.txt` maps routes to service days. Here, the trip with id "26"
+  occurs on all weekdays with the route 'Laßbergstraße-Moosweiher'
+  described in `routes.txt`
 - `stop_times.txt` contains the exact times, at which the trip is supposed to
   arrive from and depart to each stop
 
@@ -110,7 +106,7 @@ $ cat trips.txt
 trip_id,route_id,service_id
 "26","24","25"
 
-$ head -3 stop_times.txt
+$ cat stop_times.txt
 trip_id,arrival_time,departure_time,stop_id,stop_sequence
 "26",05:17:00,05:17:00,"1",0
 "26",05:18:00,05:18:00,"2",1
@@ -118,30 +114,41 @@ trip_id,arrival_time,departure_time,stop_id,stop_sequence
 "26",05:48:00,05:48:00,"23",22
 ```
 
-### 1.2. OpenStreetMap and QLever
+### OpenStreetMap
 
-wääää
-[OpenStreetMap](https://www.openstreetmap.org/) provides map data, including information
-about public transport, from all over the world and is maintained by an active community.
+We use data from
+[OpenStreetMap](https://www.openstreetmap.org/) (OSM), to search for the locations of
+the stops and to decide, which location fits best.\
+We query OSM using [QLever](https://github.com/ad-freiburg/qlever), a super-fast SPARQL
+engine, which was developed at the
+[Chair for Algorithms and Data Structures](https://ad.cs.uni-freiburg.de/).
 
-[QLever](https://github.com/ad-freiburg/qlever) is a SPARQL engine created by the
-[Chair for Algorithms and Data Structures](https://ad.cs.uni-freiburg.de/), which can be
-used to query OpenStreetMap.
-
-@@@@@ OSMKEY section
+OpenStreetMap consists of nodes (and some other types, we don't use), which
+describe an object or a point of interest at a specific location.
+Each node (i.e. point) can have different key-value pairs, which further
+describe the node.
+For example, the `name` key provides the primary name used for a particular node.
+At the same time, there exist keys like `alt_name` or `ref_name`,
+which can be used to provide alternative names.
+The key `ref_name` in particular, is used to "specify the
+unique human-readable name used in an external data management system
+(e.g. timetables/schedules)"<sup>\[2\]</sup>.\
+For public transport there exist for example the `railway`, `tram` or `bus` keys,
+each used to describe (using the value) how the node is related to the given key.\
+There are a lot more OSM-keys, that are used to describe the node in more detail.
 
 # 2. Implementation
 
 The problem of getting from a timetable in a PDF to a valid GTFS feed, can roughly be
 split into three sub-problems. First, we extract the data from the input file.
-Then, we create the GTFS files using the schedule data, in memory(?).
-Lastly, we search for the stop locations and, after adding the stop locations to the stops file,
-we create the zip-archive and write it to disk.
+Next, using the schedule data, we create the GTFS files in memory.
+Lastly, we search for the stop locations and, after adding the stop
+locations to the stops file, we create the zip-archive and write it to disk.
 
 ## 2.1 Extracting timetable data
 
 In the first step we read the PDF file and create one TimeTable object for
-each timetable in the pdf. Each TimeTable will contain all necessary information
+each timetable in the PDF. Each TimeTable will contain all necessary information
 to perform the remaining steps for the specific timetable it was created from.
 
 ### Remove unneccessary information
@@ -150,29 +157,29 @@ Before we extract anything however, we first preprocess the input file using
 [ghostscript](https://www.ghostscript.com/). The important options used are
 `-dFILTERIMAGE` and `-dFILTERVECTOR`, which remove all images and vector graphics
 from the PDF respectively. Without the preprocessing, the actual extraction
-of the text, would take considerably longer.
+of the text, would take considerably (minutes vs. less than a second) longer.
 
 Another, in our case welcome, side-effect of the preprocessing is the removal of
 artifacts, i.e. invisible timetables. Essentially, some PDFs used during
 development have the issue, that most pages also contain tables of other pages.
 These are not visible in a PDF viewer, but would overlap with the visible tables
 and were readable by the libraries we used.
-This invisible text is removed during preprocessing, though it's unclear why
-it is removed, i.e. which option of ghostscript is causing it.\
-As a side-note, even simply using
-`gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -sOutputFile=output.pdf input.pdf`
-would result in the removal of these artifacts, so we assume it is either a
+This invisible text is removed during preprocessing, though it's unclear,
+which option of ghostscript is causing it.\
+In particular, even simply using
+`gs -sDEVICE=pdfwrite -sOutputFile=output.pdf input.pdf`
+would result in the removal of these artifacts. So, we assume it is either a
 bug in ghostscript
 (like [this similar bug](https://bugs.ghostscript.com/show_bug.cgi?id=705187))
-or (more likely) some of the default options of ghostscript's `pdfwrite` have this effect.
+or (more likely) some of the default options of ghostscript's `pdfwrite`
+have this effect.
 > As this may cause some, possibly good, data to be removed,
-> preprocessing can be disabled with `--no-preprocess`.
+> preprocessing can be disabled using `--no-preprocess`.
 
 ### Extract the characters
 
 To extract all text characters, we use
-[pdfminer.six](https://pdfminersix.readthedocs.io/en/latest/)
-and store them in a [pandas](https://pandas.pydata.org/) DataFrame.
+[pdfminer.six](https://pdfminersix.readthedocs.io/en/latest/).
 The [advanced layout analysis][la_params] of pdfminer,
 i.e. the detection of words and textlines, has been disabled, because it
 would sometimes result in some of the necessary context being lost.\
@@ -181,69 +188,53 @@ row would loose the vertical coordinate context of the annotations.
 The line would simply read "VERKEHRSHINWEIS V s". Later assignment
 of the "V" and "s" to a specific column would not be possible.
 
-![Advanced layout analysis example][ala_linie_1]
+![Advanced layout analysis example][vag_linie_1]
 
-After reading the PDF using pdfminer.six we create the DataFrame.
+After reading the PDF using pdfminer.six we store them in a
+[pandas](https://pandas.pydata.org/) DataFrame.
 It contains the text, coordinates and rotation of each character of the PDF.
-
-### Datastructure layout
-
-The basic layout of the created datastructures looks like this:
-
-![Datastructure layout][datastructure_layout]
-
-In the upper part, the creation order is shown, i.e. first the Chars are created,
-then the Fields
-
-Each TimeTableEntry maps Stops to the time strings of the
-
-### Character, Char and BBox
-
-wäää
-A character is a single letter and a Char is an object, which describes
-the position, character and orientation of a single character in the pdf.
-
-The BBox contains the coordinates of the top-left and bottom-right corners of the
-rectangle, that fully encloses an object, such as a Char, Field, Row or Column.\
-It also provides different methods, most notably the `is_close()` method, which
-is used to determine whether two bounding boxes have negliable distance between
-them (or touch). The BBoxObject is a simple wrapper, subclassed by all objects,
-that have a BBox.
-> The origin of the coordinates, used in the BBox, differs from the ones
-> used in the PDF. While the origin in PDFs is the bottom-left corner, our
-> datastructures use the top-left corner.
 
 ### DataFrame to TimeTable
 
-@@@\
 Turning the characters stored in the DataFrame into TimeTables works in two stages:\
 In the first stage, we create PDFTables. Their purpose is essentially
-to divide each page of the PDF into its respective tables.\
-In the second stage, each PDFTable is transformed into a TimeTable. TimeTables
-are "farther away" from the input. For example, they have no knowledge about
-the particular positions of each character, but instead contain a list of
-Stops and TimeTableEntrys (more on those later).
+to divide each page of the PDF into its respective timetables.\
+In the second stage, each PDFTable is transformed into a TimeTable.
 
 This diagram, roughly shows the relationship between the main datastructures we use:
 
 ![Datastructure layout][datastructure_layout]
 
-To put simply, a PDFTable has both Rows and Columns, which both consist of Fields,
-and Fields are a combination of Chars. Finally, all Rows, Columns, Fields
-and PDFTables are BBoxObjects. This makes it easy, to merge them and to check if
-they are overlapping or close. The TimeTable consists of a single StopList,
+To put simply, a PDFTable has Rows and Columns, which both consist of Fields,
+and Fields are a combination of Chars. Additionally, all Rows, Columns, Fields
+and PDFTables are BBoxObjects. This makes it easy to merge them and to check if
+they are overlapping or close.\
+The TimeTable consists of a single StopList,
 containing all Stops of the TimeTable, and at least one TimeTableEntry, which
 holds the information of a single trip (i.e. column).
+
+###### BBox and BBoxObject
+
+The BBox contains the coordinates of the top-left (`x0`, `y0`)
+and bottom-right (`x1`, `y1`) corners of the
+rectangle, that fully encloses an object, such as a Field, Row or Column.\
+It also provides different methods, most notably the `is_close()` method, which
+is used to determine whether two bounding boxes have negliable distance between
+them (or touch). The BBoxObject is a simple wrapper, subclassed by all objects,
+that have a BBox, to make for example merging of two BBoxObjects easier.
+> The origin of the coordinates, used in the BBox, differs from the ones
+> used in the PDF. While the origin in PDFs is the bottom-left corner, our
+> datastructures use the top-left corner.
 
 ###### Types of Fields, Rows and Columns
 
 Each of the objects Row, Column and Field have their own type, which is
 later used, e.g. to detect which columns contain information about stops or
-whether a stop describes a vehicles arrival or its departure.
-For example, Field objects are of type `DataField`, if they contain data that can be parsed
-by `strftime()` using the given time_format. A Row or Column, on the other hand,
-is of type `DataRow` or `DataColumn` respectively, if any of its fields is
-of type `DataField`.
+whether a stop describes a vehicles arrival or its departure.\
+For example, Field objects are of type DataField, if they contain data that can be parsed
+by `strftime()` using the specified time format. A Row or Column, on the other hand,
+is of type DataRow or DataColumn respectively, if any of its fields is
+of type DataField.
 
 ###### PDFTable
 
@@ -255,12 +246,11 @@ and a single StopColumn. If not, it will be split into multiple PDFTables.
 In the same way, if there are two PDFTable `P1` and `P2`, and `P2` does not
 have a HeaderRow, then the `P2` is merged into `P1`.
 
-@ADD INFO ABOUT x0x1y0y1\
 To create the PDFTables, we first need to create the Fields, Rows and Columns.
 A Field is a continuous stream of characters on the same line.
-What we mean by this is, that each characters `x0` coordinate is close to the
-previous ones `x1` coordinate (continuous) and each character of the
-Field has the same `y0` and `y1` coordinates (same line).\
+What we mean by this is, that each characters `x0` coordinate (left side)
+is close to the previous one's `x1` (right side) coordinate (continuous) and
+each character of the Field has the same `y0` coordinates (same line).\
 So, in order to create the Fields, we need to sort the DataFrame
 first by the `x0` coordinate, to ensure the correct horizontal order of characters,
 and then (stably) sort by the `y0` coordinate, to easily iterate over all
@@ -268,11 +258,11 @@ characters of a single line.
 
 Now we can create the Fields like this:
 
-1. Create a Field from the current char.
-2. Select the next char in the DataFrame if it exists, otherwise we are done.
-3. If the current char is on the same line as the Field and the current char's
-   BBox is close to the Fields BBox, add the char to the Field and go to step 2.
-   Otherwise, go to step 1.
+1. Create a Field from the current character.
+2. Select the next character in the DataFrame if it exists, otherwise we are done.
+3. If the current character is on the same line as the Field and the current
+   character's BBox is close to the Fields BBox, add the char to the Field
+   and go to step 2. Otherwise, go to step 1.
 
 Next, the Fields are grouped into Rows depending on which line they are on.
 After determining the type of Fields and Rows based on their respective contents,
@@ -296,21 +286,22 @@ Now we have extracted all data from the PDF and turned it into PDFTables.
 
 ### PDFTable to TimeTable
 
-æDUPLICATE OF DATAFRAME TO PDFTABLE\
 The difference between TimeTable and PDFTable is the (abstract) distance to
-the actual pdf.
+the actual PDF.
 While a PDFTable holds all coordinate information about every Field,
-Row and Column, a TimeTable consists of multiple TimeTableEntry and a
-single StopList. The StopList basically contains information about the
-StopFields of the corresponding PDFTable and
-each TimeTableEntry maps information about the arrival/departure of a single
-DataColumn to the respective Stops.
-
-###### StopList
+Row and Column, a TimeTable only consists of multiple TimeTableEntry and a
+single StopList.
 
 As the name implies, a StopList is a list of Stops. As a PDFTable may have the
 same stop occurring multiple times, each Stop can also have an annotation,
-showing whether this stop describes the arrival or departure of the transport vehicle.
+showing whether this stop describes the arrival or departure of the transport
+vehicle.\
+Each TimeTableEntry maps information about the arrival/departure of a single
+DataColumn to the respective Stops. This includes the
+days the trip occurs (taken from the HeaderRow),
+any annotations and route information of this trip,
+and a map between each Stop and the time strings (e.g. "12:30")
+of the stop's Row.
 
 ###### Stops as connections
 
@@ -319,8 +310,7 @@ instead show frequently used connections from the previous Stop. For example in
 the figure below, the italized Stops show a different trip to the airport in Frankfurt.
 These connections exist for convenience of the user of the PDF timetable,
 but for us this is more of an inconvenience, because we need to detect and ignore
-them.\
-@ CHECK IF WE CAN USE THEM INSTEAD
+them.
 
 ![Example of a connection in a PDF timetable][connection_example]
 
@@ -329,12 +319,6 @@ with alternating arrival/departure identifier. In the example above this would
 detect the two italized Stops as connections, simply because before and after them
 the same Stop occurs, the one before having the arrival annotation and the one
 after having the departure annotation.
-
-###### TimeTableEntry
-
-Each TimeTableEntry contains the information of a single trip. This includes the
-days the trip occurs, any annotations and route information of this trip,
-and a map between Stops and the time strings (e.g. "12:30").
 
 ###### TimeTable
 
@@ -349,31 +333,31 @@ ready to use in the next step.
 Before trying to find the stop locations, we first combine all information
 we have accumulated so far into different datastructures, each of which mirrors
 a specific GTFS file.\
-For example, the datastructure `Routes` contains all the necessary information
+For example, the datastructure GTFSRoutes contains all the necessary information
 to create a valid [routes.txt](https://developers.google.com/transit/gtfs/reference#routestxt).
-`StopTimes` on the other hand, contains all necessary information to create a valid
+GTFSStopTimes on the other hand, contains all necessary information to create a valid
 [stop_times.txt](https://developers.google.com/transit/gtfs/reference#stop_timestxt),
 and so on and so forth.
-The only exception to this is `Stops`, which does not contain valid locations, yet.
+The only exception to this is GTFSStops, which does not contain any locations, yet.\
 Roughly that is already all there is to this step, there are some caveats and
 special cases however, which are showcased here.
 
 ### Existing GTFS-files
 
-@ RENAME Agency -> GTFSAgency for all GTFS datastructures
-When creating either the Agency or the Stops, the output directory
-is checked for the corresponding `agency.txt` or `stops.txt` files.
-If one of the files exists, it will be used to either select an agency
-or to provide the stops, respectively. In case only some stops can be
+When creating either the GTFSAgency or the GTFSStops, the output directory
+is checked for the corresponding `agency.txt` or `stops.txt` file.
+If it exists, it will be used either to select an agency
+or to provide the stops, respectively.\
+In case only some stops can be
 found in the `stops.txt`, they will be used as fix points for the location
 detection. This means, even if another possible combination of locations would
-be better, it will not be used if it does not use the existing stops.\
+appear to be better, it will not be used if it does not use the existing stops.\
 All other GTFS-files are overwritten (based on the configuration), should they exist.
 
 ### ID generation
 
-The ID's used in some GTFS-files (e.g. `agency_id` in `agency.txt`) are generated
-to be globally (i.e. in this GTFS-feed) unique. For simplicity, they were chosen
+The ID's used in some GTFS files (e.g. `agency_id` in `agency.txt`) are generated
+to be globally (i.e. in this GTFS feed) unique. For simplicity, they were chosen
 to be integers (casted to string, as required by the specification). If an ID is
 already used by some existing GTFS-file, it will not be used.
 
@@ -384,19 +368,19 @@ uses what we call repeated columns. In the figure below is an example of such a 
 
 <img src="/img/project-transform-timetables-into-gtfs/repeat_column.png" height="300" />
 
-When transforming a `TimeTable` into GTFS files, these columns are expanded,
-i.e. when encountering a stop_times entry, which contains a (user-specified) repeat-identifier,
-we first create the next entry and afterwards fill in the remaining values shifted
-by the given amount.
+When transforming a TimeTable into GTFS files, these columns are expanded,
+i.e. when encountering a TimeTableEntry, which contains a (user-specified)
+repeat identifier, we fill in the gap between the previous and next TimeTableEntry
+with values shifted by the given amount.
 
-For example, given a `TimeTable` like the one above, the entries required
+For example, given a TimeTable like the one above, the entries required
 for adding all repeated stop times are the first, second and third entries.
 The first one marks the lower bound, from which to add the repeating stop times.
 The amount that each new entry will need to be shifted by is taken from the second entry,
 the actual repeat entry. The third entry marks the upper bound.\
 We iteratively create new stop times, starting at the lower bound,
 where each new entry is being shifted by the number of minutes,
-until we reach the upper bound, at which point we stop and go to the next entry.
+until we reach the upper bound, at which point we are done.
 
 ### Holidays and other special dates
 
@@ -428,69 +412,62 @@ When first running pdf2gtfs or when the local cache is not used, the OSM data
 is fetched using QLever.
 An excerpt of the raw data we get when running our
 [query](https://qlever.cs.uni-freiburg.de/osm-germany/?query=PREFIX+osmrel%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Frelation%2F%3E+%0APREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E+%0APREFIX+geof%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Fdef%2Ffunction%2Fgeosparql%2F%3E+%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E+%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E+%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E+%0ASELECT+%3Flat+%3Flon+%3Fpublic_transport+%3Frailway+%3Fbus+%3Ftram+%3Ftrain+%3Fsubway+%3Fmonorail+%3Flight_rail+%28GROUP_CONCAT%28%3Fname%3BSEPARATOR%3D%22%7C%22%29+AS+%3Fnames%29+WHERE+%7B+%0A%7B%0AVALUES+%3Ftransport_type+%7B+%22station%22+%22stop_position%22+%22platform%22+%7D%0A%3Fstop+osmkey%3Apublic_transport+%3Ftransport_type+.%0A%3Fstop+osmkey%3Apublic_transport+%3Fpublic_transport+.+%0A%3Fstop+rdf%3Atype+osm%3Anode+.+%0A%3Fstop+geo%3AhasGeometry+%3Flocation+.+%0A%7B+%7B+%7B+%7B+%7B+%3Fstop+osmkey%3Aname+%3Fname+.+%0A%09%09+%7D+UNION+%7B+%3Fstop+osmkey%3Aalt_name+%3Fname+.+%0A%09%09+%7D+%0A%09+%7D+UNION+%7B+%3Fstop+osmkey%3Aref_name+%3Fname+.+%0A%09+%7D+%0A%09+%7D+UNION+%7B+%3Fstop+osmkey%3Ashort_name+%3Fname+.+%0A+%7D+%0A+%7D+UNION+%7B+%3Fstop+osmkey%3Aofficial_name+%3Fname+.%0A+%7D+%0A+%7D+UNION+%7B+%3Fstop+osmkey%3Aloc_name+%3Fname+.+%0A+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Arailway+%3Frailway+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Abus+%3Fbus+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Atram+%3Ftram+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Atrain+%3Ftrain+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Asubway+%3Fsubway+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Amonorail+%3Fmonorail+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Alight_rail+%3Flight_rail+.+%7D+%0ABIND+%28geof%3Alatitude%28%3Flocation%29+AS+%3Flat%29+%0ABIND+%28geof%3Alongitude%28%3Flocation%29+AS+%3Flon%29+%0A%7D+%7D%0AGROUP+BY+%3Flat+%3Flon+%3Fpublic_transport+%3Frailway+%3Fbus+%3Ftram+%3Ftrain+%3Fsubway+%3Fmonorail+%3Flight_rail%0AORDER+BY+DESC%28%3Frailway%29+DESC%28%3Fbus%29+DESC%28%3Ftram%29)
-,
-can be seen below (it is only sorted to show some of the osmkey-values).
+, can be seen below (it is only sorted to show some of the OSM-key values).
 
 ![QLever query result][qlever_query_result]
 
-#### OSMKeys
-
-@@@ maybe move to introduction
-Each node (i.e. point) in OpenStreetMap can have different osmkey:value pairs,
-which describe the node.
-For example, the `name`-key provides the primary name used for a particular node.
-At the same time, there exist keys, like `alt_name` or `ref_name`,
-which can be used to provide alternative names, as well.
-The key `ref_name` in particular is used to "specify the
-unique human-readable name used in an external data management system
-(e.g. timetables/schedules)"<sup>\[2\]</sup>. There are a lot more osmkeys,
-that are used to describe the node in more detail.
-
-#### The DataFrame
+### The DataFrame
 
 After executing the query on QLever, we have a DataFrame, with the following columns:
 
 - lat/lon: The latitude and longitude of the node
-- names - A "|" separated list of different names,
+- names: A "|" separated list of different names,
   in particular `name`, `alt_name` and `ref_name`
-- A collection of different osmkeys (like "railway", "bus", "tram", etc.)
+- A collection of different OSM-keys (like "railway", "bus", "tram", etc.)
 
 ### Normalizing names
 
-After the data has been fetched, it will be normalized and,
-if the caching is enabled, cached on the local filesystem afterwards.
+Before the data is cached, the names will be normalized.
+This normalization step is important, because it improves the results of the
+search for locations.\
+For example, "Frankfurt am Main Hauptbahnhof" and "Frankfurt a. M. hbf" describe
+the same location, using different words.
+Through normalization, both names will be turned into "frankfurt am main hauptbahnhof",
+which makes the equality obvious and "understandable" for the program.
 
 ###### Fixing abbreviations
 
 Because some stop names can be quite long, they are often abbreviated in the PDF
 in some way.
 Using the user-configured abbreviations dictionary, all abbreviations are
-expanded to their full form (e.g. "Frankfurt Hbf" for "Frankfurt Hauptbahnhof").\
+expanded to their full form (e.g. "Frankfurt Hbf" is turned into
+"Frankfurt Hauptbahnhof").\
 There are some caveats, to when abbreviations are extended.
 See the [default configuration]() for more info.
 
 ###### Removal of parentheses and symbols
 
-Any parentheses, as well as their contents are removed from each name,
-Any character of the stop names, that is not a normal (i.e. latin) letter, number
-or the pipe symbol ("|") is removed from the name.
+Any character of the stop names, that is not a "normal" (i.e. latin) letter,
+number or the pipe symbol ("|") is removed.
+Any parentheses, as well as their contents are removed from each name, as well.
 
 ###### Casefolding and lowering
 
 Some letters can be written in different ways,
 e.g. "Laßbergstraße" and "Lassbergstrasse", even though they describe the same stop.
-the names are casefolded, resulting in the latter version of the example.\
+The names are [casefolded](https://docs.python.org/3/library/stdtypes.html#str.casefold),
+resulting in the latter version of the example.\
 All names are also converted to lower case, for the exact same reason.
 
 ###### Cache
 
 After the normalization, the DataFrame will be saved to the cache directory
-(`~/.cache/pdf2gtfs/` or `%LOCALAPPDATA%/pdf2gtfs/` under Linux
-and Windows respectively). The cache not only includes the data, but the date of
+(`~/.cache/pdf2gtfs/` for Linux, `%LOCALAPPDATA%/pdf2gtfs/` for Windows).\
+The cache not only includes the data, but the date of
 fetching, the query and the used abbreviations dictionary, as well.
 This is to ensure, that the data is fetched again, if either the query or
-the abbreviations dictionary are changed.
-> The data is fetched again as well, if the cache is too old (default: 7 days).
+the abbreviations dictionary are changed. The data is fetched again as well,
+if the cache is too old (default: 7 days).
 
 ### Preparing the DataFrame
 
@@ -500,8 +477,10 @@ At this point, the DataFrame looks like this:
 
 What we need however, is a DataFrame, that makes it easy to decide which of
 two locations is better for a specific stop.\
-For this we change the DataFrame, to contain additional information:
+For this, we create a new DataFrame with these columns:
 
+* `lat/lon`: The latitude/longitude of the location
+* `names`: The normalized names
 * `stop_id`: identifier for the stop, which is contained in the names column.
   This is the same identifier as the one used in `stops.txt`.
 * `node_cost`: the raw costs of the node based only on the selected route type
@@ -510,16 +489,13 @@ For this we change the DataFrame, to contain additional information:
   (and sanitized) stop name
   (See [#Calculating the name cost](#calculating-the-name-cost)).
 
-At the same time, the specific OSM-key columns are removed.
-
 We do so, in multiple steps:
 
-1. Filter the DataFrame `df1`, such that it only contains locations with names,
-   which contain *any* of the stop names.
-2. Create an new DataFrame `df2` with the only the columns for
-   latitude, longitude, names, stop_id, node_cost and name_cost.
+1. Filter the current DataFrame `df1`, such that it only contains
+   locations with names, which contain *any* of the stop names.
+2. Create an new DataFrame `df2` with the above columns.
 3. For every stop, filter `df1` by the stops normalized name. Add the result to `df2`
-   and calculate the name_cost. Add the stops' stop_id as well.
+   and calculate the name_cost. Add the stop's stop_id as well.
 4. Calculate the node cost for every location in `df2`
 
 The reason we first filter by all stop names, is to make the subsequent filtering
@@ -531,7 +507,7 @@ For example, if there is a location with the name "Freiburg Bahnhof" and we
 have two stops `S1` and `S2` with names "Bahnhof" and "Freiburg Bahnhof",
 respectively. The DataFrame will then contain the location twice,
 once with the stop_id and name_cost for `S1` and once with the stop_id and
-name_cost of `S2`.
+name_cost for `S2`.
 
 Now, `df2` looks like this:
 
@@ -540,27 +516,27 @@ Now, `df2` looks like this:
 ###### Calculating the node cost
 
 As stated above, each node on OpenStreetMap, contains one or more
-key-value-pairs, which specify its function or give some additional information.
+key-value pairs, which specify its function or give some additional information.
 The cost of a specific node is calculated for the specified `routetype` using a simple map.
 For example, the `railway`-key can be set to, among others, `station`, `halt`
 and `tram_stop`. The `tram`-key can be set to `yes` and `no`.\
-If the routetype is 'Tram', the cost of a node with
+If the routetype is "Tram", the cost of a node with
 `railway=halt` will be higher than the cost of a node with the `railway=tram_stop`
-or `tram=yes`. A node without any matching key-value-pairs will have even
+or `tram=yes`. A node without any matching key-value pair will have even
 higher cost, while a node with `tram=no` will not be considered at all.
 
 ###### Calculating the name cost
 
-To get the name cost, we simply need calculate the edit-distance between
-the stop name and the name for the node, and apply a function, which punishes lower
-edit-distances significantly less than larger ones. We do this, to ensure that two nodes
-`N1` and `N2`, with similar edit-distance to the stop name, have the same name cost.
-Thus, only node cost and travel cost influence the decision which node is better.
+To get the name cost, we simply calculate the edit-distance between
+the stop name and the name for the node, and apply a scoring function,
+which punishes lower edit-distances less than larger ones.\
+We do this, to prevent minor differences from having too much influence
+to the node cost.
 
 ### Finding the best locations
 
 The detection of the best combination of locations can be specified as a
-shortest path problem in a directed graph.
+shortest path problem in a directed, weighted graph.
 For this, every possible location is a node and each node `N1` is connected with
 a directed edge, with weight `T`, to another node `N2`, iff `N1` is a node
 for the preceeding stop of `N2`. `T` is defined as the sum of the
@@ -568,10 +544,11 @@ node-, name- and travel cost of the target node `N2`.
 We use Dijkstra's algorithm to find the shortest path.
 
 We start, by creating a Node object for each location and assigning each Node
-for the start Stop a travel cost of 0. All nodes are stored in a min heap.\
+for the first Stop a travel cost of 0. All nodes are stored in a min heap,
+to easily get the Node with the lowest cost.\
 Then we simply apply Dijkstra's algorithm:
 
-1. Select the Node with the smallest cost, which is not a visited Node
+1. Select the Node with the smallest cost, that is not a visited Node
 2. For every neighbor `N` of the current Node `C` set the parent of `N` to `C` if
     * `N` has no parent,
     * `C` is not a MissingNode and `N`'s current parent is a MissingNode
@@ -583,10 +560,11 @@ If `C` is a Node with the last stop as its stop, we are done.
 
 ###### Impossible neighbors
 
-To reduce the number of exact distance calculations, which are expensive
-computationally, when updating the neighbors of a node `N`, we first filter the
+To reduce the number of exact distance calculations (which are slow),
+when updating the neighbors of a node `N`, we first filter the
 neighbors by their rough distance. For example, it makes no sense, that a bus
-travels 100km in 3 minutes. Therefore, given the time it takes to travel from
+travels 100km in 3 minutes.
+Therefore, given the time it takes to travel from
 one stop to the next and the user-specified average speed of the vehicle,
 we only pay attention to neighboring nodes, that are closer than the
 maximum expected distance.\
@@ -596,30 +574,63 @@ twice the maximum expected distance.
 
 For that, we use the following two formulas to calculate the approximate distance
 depending on the difference in latitude and longitude:
-$$\text{lat distance} = 111.34 * \delta lat_d$$
-$$\text{lon distance} = 111.34 * |\cos{\delta lat_m}| * \delta lon_d$$
+$$\text{lat distance} = | 111.34 * lat_d | $$
+$$\text{lon distance} = | 111.34 * \cos{(lat_m)} * lon_d | $$
 where lat<sub>d</sub> and lon<sub>d</sub> are the difference in latitude/longitude
 respectively and lat<sub>m</sub> is the latitude of the midpoint.
 The reason we need the cosine of the latitude for the longitude distance,
-is that the longitude distance changes depending on the latitude.\
+is that the longitude distance changes, depending on the latitude.\
 The above formulas are approximations, but are good enough, to determine if two
 locations are somewhere close to each other. Most importantly, they are a lot faster
-than calculating the exact distance (which is done using
-[geopy](https://geopy.readthedocs.io/en/stable/)).
+than calculating the exact distance.
 
 ###### Handling missing locations
 
 Because we only filter the locations based on the stop names, it can happen,
-that the location of a stop could not be found. In such a case a `MissingNode` is
+that the location of a stop could not be found. In such a case a MissingNode is
 used, to still enable the location detection for the other stops. Missing nodes have
 a very high node cost, to ensure that existing nodes with high travel cost are
-preferred. After all locations have been detected, the
-location of the missing nodes is interpolated using the surrounding existing nodes.
+still preferred.
+
+###### Routes
+
+The algortihm described above will be used on every distinct
+(in terms of stops served) route in the PDF.\
+For example, given the timetable below, there are routes that start either in
+"Bad Herrenalb" (`R1`), "Ittersbach Rathaus" (`R2`) or "Ettlingen Albgaubad" (`R3`).
+Because the routes starting in "Bad Herrenalb" never serve some of the stops
+of the timetable, the location of these stops will not be calculated using those
+routes.
+
+![routes_example][routes_example]
+
+Once the locations for all routes have been detected, we select the location
+for a single stop, based on all routes serving that stop. E.g. if the location
+we found for the stop "Ettlingen Stadt" is the same for the routes `R1` and `R2`,
+then it will be used in the GTFS feed, even if `R3` found a different location.
+
+###### Displaying the locations
+
+Mainly for debugging purposes or for a quick visual verification,
+the locations of the Nodes can be displayed using
+[folium](https://python-visualization.github.io/folium/).
+
+![routedisplay][routedisplay]
+
+### Writing the GTFS feed to disk
+
+Once the shortest path has been found, we add the locations to the respective
+stops in the GTFSStops.
+For this, the location for any MissingNode is interpolated using the
+surrounding existing nodes and a note will be added to the stop's description,
+in order to make clear that the location is only approximate.\
+Afterwards all GTFS files are written to the output
+directory, zipped into a GTFS feed and the program closes.
 
 # 3. Configuration
 
-Most of the program is configurable by creating configuration files or, for frequently
-used options, using the available command line arguments.
+Most of the program is configurable by creating configuration files or,
+for frequently used options, using the available command line arguments.
 This includes (a full list/description can be found in the default configuration):
 
 - `max_row_distance`: The maximum distance in pts, between two rows,
@@ -635,7 +646,7 @@ missing nodes, adjusting these options may help.
 
 # 4. Evaluation
 
-Some rough evaluation of the GTFS-feed has been done, to ensure the program
+Some rough evaluation of the GTFS feed has been done, to ensure the program
 works properly. The full evaluation of pdf2gtfs will be the topic of my
 Bachelor's thesis.
 
@@ -643,11 +654,14 @@ Bachelor's thesis.
 
 Validation of the GTFS feed has been done using
 [gtfs-validator](https://github.com/MobilityData/gtfs-validator), which
-showed neither warnings, nor errors.
+showed neither warnings, nor errors. This tool checks, if all required
+files and values exist and have the correct format and type respectively,
+and that all values are valid.
 
 ###### Location matching
 
-However, some locations were not found by pdf2gtfs, even if they actually exist on OSM.
+However, some locations were not found by pdf2gtfs, even if they actually
+exist on OSM.
 This is due both to the manner the dataset is filtered (i.e. using the stop name),
 and the fact that some of the transit agency names differ from the names used in OSM.\
 At the same time, the average distance between the locations, that *were* found,
@@ -658,9 +672,9 @@ changing the code (only changing configuration), which lead to similar results.
 
 ###### Transposed tables
 
-Some input pdfs could not be read properly, for example the one below.
-This occurs, when the input pdf uses a format, which is not recognized
-(see our [#Future plans](#62-supporting-differently-styled-timetables)).
+Some input PDFs could not be read properly, for example the one below.
+This may occur, when the PDF uses a format for the timetables, which is not
+recognized (see our [#Future plans](#62-supporting-differently-styled-timetables)).
 This may also happen, if the chosen options do not adhere to the (observed)
 requirements of the timetable format.
 For example, setting `min_row_count = 10`, if the timetables only contain 8 rows.
@@ -708,9 +722,6 @@ multi-line-stops, where the first row of each stop contains data fields.
 If the data is centered vertically instead, this implementation would result
 in incorrect stop names.
 
-æ Possible implementation. + image? +
-@@@ Add new config key `multiline_stop_strategy=None|center|top|bot`
-
 ## 6.2 Supporting differently styled timetables
 
 Timetables using columns to display the stops, i.e. the stops are on the
@@ -733,7 +744,7 @@ we can reconstruct the actual stop name.
 
 ## 6.4 Font-based context
 
-Currently all characters in the pdf are treated the same way, regardless of their
+Currently all characters in the PDF are treated the same way, regardless of their
 font-properties (e.g. size, bold, italic, ...). To support timetables such as these,
 more work needs to be done in regards to properly detecting the properties, and
 giving the user some (simple) way of applying meaning to each property.
@@ -769,19 +780,20 @@ other parts of the world.
 
 ## 6.7 Allow multiple input files
 
-In case the user has a lot of pdfs, for example for every bus route of a
+In case the user has a lot of PDFs, for example for every bus route of a
 single agency, it makes sense to output all information in a single GTFS feed.
 Currently reading multiple PDF files is not possible.
 Before implementing, further testing needs to be done, to ensure that the program
-state after processing one pdf does not alter the output of processing another.
+state after processing one PDF does not alter the output of processing another.
 
-# A
+## 6.8 Performance improvements
 
-TODO: Stop cost
+Location detection is the computationally most expensive part.
+Once we have created the GTFS datastructures, we can parallelize the location
+detection. This would involve, creating multiple worker threads, which find
+the locations of the stops for all routes.
 
-TODO: Why use df to check for locations if we already have created all nodes?!
-
-images:
+[//]: # (images)
 
 [vag_linie_1]: /img/project-transform-timetables-into-gtfs/vag_1_table_1.png
 
@@ -805,18 +817,16 @@ images:
 
 [transposed_table]: /img/project-transform-timetables-into-gtfs/transposed_table.png
 
-links:
+[routes_example]: /img/project-transform-timetables-into-gtfs/routes_example.png
+
+[routedisplay]: /img/project-transform-timetables-into-gtfs/routedisplay.png
+
+[//]: # (links)
 
 [la_params]: https://wiki.openstreetmap.org/wiki/Key:ref_namettps://pdfminersix.readthedocs.io/en/latest/reference/composable.html#api-laparams
 
-Sources:\
-\[1\]: Displayed using QLever's map view++ on this
+# Sources:
+\[1\]: Displayed using QLever's Map View++ on this
 [query](https://qlever.cs.uni-freiburg.de/osm-planet/?query=PREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E%0ASELECT+%3Fstop+%3Fstop_loc+WHERE+%7B%0A++%7B+%3Fstop+osmkey%3Apublic_transport+%22stop_position%22+.+%7D+UNION+%7B+%7B+%3Fstop+osmkey%3Apublic_transport+%22platform%22+.+%7D+UNION+%7B+%3Fstop+osmkey%3Apublic_transport+%22station%22+.+%7D%0A+%7D%0A++%3Fstop+rdf%3Atype+osm%3Anode+.%0A++%3Fstop+geo%3AhasGeometry+%3Fstop_loc%0A%7D)
+
 \[2\]: https://wiki.openstreetmap.org/wiki/Key:ref_name
-
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-As every transit agency has their own timetable format, the main difficulty,
-during extraction, is to create a extraction function, which is able to read a
-wide variety of timetable formats.\
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-
