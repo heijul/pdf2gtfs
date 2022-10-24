@@ -1,7 +1,7 @@
 import os
 
 from config import Config
-from datastructures.gtfs_output.agency import Agency, DummyAgencyEntry
+from datastructures.gtfs_output.agency import GTFSAgency, DummyGTFSAgencyEntry
 from test_gtfs_output import GTFSOutputBaseClass
 
 
@@ -28,16 +28,16 @@ class TestAgency(GTFSOutputBaseClass):
             fil.write(lines)
 
     def test_create_dummy_agency(self) -> None:
-        agency = Agency()
+        agency = GTFSAgency()
         self.assertEqual(1, len(agency.entries))
-        self.assertTrue(isinstance(agency.entries[0], DummyAgencyEntry))
+        self.assertTrue(isinstance(agency.entries[0], DummyGTFSAgencyEntry))
 
     def test_read_agency(self) -> None:
         self._create_agency(1)
-        agency = Agency()
+        agency = GTFSAgency()
         self.assertEqual(1, len(agency.entries))
         entry = agency.entries[0]
-        self.assertFalse(isinstance(entry, DummyAgencyEntry))
+        self.assertFalse(isinstance(entry, DummyGTFSAgencyEntry))
         self.assertEqual(entry.agency_id, "0")
         self.assertEqual(entry.agency_name, "agency_0")
         self.assertEqual(entry.agency_url, "https://www.pdf2gtfs.com/0")

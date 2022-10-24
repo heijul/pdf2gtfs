@@ -10,7 +10,7 @@ from statistics import mean
 
 from config import Config
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
-from datastructures.gtfs_output.gtfsstop import GTFSStops
+from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.trips import Trip_Factory
 from datastructures.timetable.stops import Stop
 
@@ -114,7 +114,7 @@ class Time:
 
 
 @dataclass(init=False)
-class StopTimesEntry(BaseDataClass):
+class GTFSStopTimesEntry(BaseDataClass):
     """ A single 'stop_times.txt' entry. """
     trip_id: str
     arrival_time: Time
@@ -131,10 +131,10 @@ class StopTimesEntry(BaseDataClass):
         self.arrival_time = arrival_time
         self.departure_time = departure_time or arrival_time.copy()
 
-    def duplicate(self, trip_id: str) -> StopTimesEntry:
+    def duplicate(self, trip_id: str) -> GTFSStopTimesEntry:
         """ Return a new instance of this entry with the given trip_id. """
-        return StopTimesEntry(trip_id, self.stop_id, self.stop_sequence,
-                              self.arrival_time, self.departure_time)
+        return GTFSStopTimesEntry(trip_id, self.stop_id, self.stop_sequence,
+                                  self.arrival_time, self.departure_time)
 
 
 def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
@@ -143,23 +143,23 @@ def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
     return cycle([Time.from_minutes(delta) for delta in deltas])
 
 
-class StopTimes(BaseContainer):
+class GTFSStopTimes(BaseContainer):
     """ Used to create the 'stop_times.txt.'. """
-    entries: list[StopTimesEntry]
+    entries: list[GTFSStopTimesEntry]
 
     def __init__(self) -> None:
-        super().__init__("stop_times.txt", StopTimesEntry)
+        super().__init__("stop_times.txt", GTFSStopTimesEntry)
 
     def add(self, trip_id: str, stop_id: str, sequence: int,
-            arrival: Time, departure: Time = None) -> StopTimesEntry:
+            arrival: Time, departure: Time = None) -> GTFSStopTimesEntry:
         """ Add a new StopTimeEntry with the given values.
         If departure is None, it will be set to arrival. """
-        entry = StopTimesEntry(trip_id, stop_id, sequence, arrival, departure)
+        entry = GTFSStopTimesEntry(trip_id, stop_id, sequence, arrival, departure)
         return self._add(entry)
 
     def add_multiple(self, trip_id: str, stops: GTFSStops,
                      offset: int, time_strings: dict[Stop: str]
-                     ) -> list[StopTimesEntry]:
+                     ) -> list[GTFSStopTimesEntry]:
         """ Creates a new entry for each time_string. """
 
         entries = []
@@ -189,13 +189,13 @@ class StopTimes(BaseContainer):
 
         return entries
 
-    def merge(self, other: StopTimes):
+    def merge(self, other: GTFSStopTimes):
         """ Merge two stop_times files. Used when creating repeating entries. """
         self.entries += other.entries
 
-    def duplicate(self, trip_id) -> StopTimes:
+    def duplicate(self, trip_id) -> GTFSStopTimes:
         """ Creates a new instance with updated copies of the entries. """
-        new = StopTimes()
+        new = GTFSStopTimes()
 
         for entry in self.entries:
             new._add(entry.duplicate(trip_id))
@@ -208,7 +208,7 @@ class StopTimes(BaseContainer):
             entry.departure_time += amount
 
     @staticmethod
-    def add_repeat(previous: StopTimes, next_: StopTimes,
+    def add_repeat(previous: GTFSStopTimes, next_: GTFSStopTimes,
                    deltas: list[int], trip_factory: Trip_Factory):
         """ Create new stop_times for all times between previous and next. """
         assert previous < next_
@@ -226,13 +226,13 @@ class StopTimes(BaseContainer):
 
         return new_stop_times
 
-    def __get_entry_from_stop_id(self, stop_id: str) -> StopTimesEntry | None:
+    def __get_entry_from_stop_id(self, stop_id: str) -> GTFSStopTimesEntry | None:
         for i, entry in enumerate(self.entries):
             if entry.stop_id == stop_id:
                 return entry
         return None
 
-    def __lt__(self, other: StopTimes):
+    def __lt__(self, other: GTFSStopTimes):
         for entry in self.entries:
             other_entry = other.__get_entry_from_stop_id(entry.stop_id)
             if not other_entry:
@@ -241,10 +241,10 @@ class StopTimes(BaseContainer):
 
         return False
 
-    def __gt__(self, other: StopTimes):
+    def __gt__(self, other: GTFSStopTimes):
         return not self.__lt__(other)
 
-    def get_with_stop_id(self, stop_id: str) -> list[StopTimesEntry]:
+    def get_with_stop_id(self, stop_id: str) -> list[GTFSStopTimesEntry]:
         """ Return all StopTimesEntries using the given stop_id. """
         entries = []
         for entry in self.entries:
@@ -252,7 +252,7 @@ class StopTimes(BaseContainer):
                 entries.append(entry)
         return entries
 
-    def get_with_trip_id(self, trip_id: str) -> list[StopTimesEntry]:
+    def get_with_trip_id(self, trip_id: str) -> list[GTFSStopTimesEntry]:
         """ Return all StopTimesEntries using the given trip_id. """
         stop_times = []
         for stop_time in self.entries:

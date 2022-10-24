@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(init=False)
-class GTFSStop(BaseDataClass):
+class GTFSStopEntry(BaseDataClass):
     """ A single stop. """
     stop_id: str
     stop_name: str
@@ -61,19 +61,19 @@ class GTFSStop(BaseDataClass):
         return super()._to_output(field)
 
     @staticmethod
-    def from_series(series: pd.Series) -> GTFSStop:
+    def from_series(series: pd.Series) -> GTFSStopEntry:
         """ Creates a new GTFSStop from the given series. """
-        stop = GTFSStop(series["stop_name"], stop_id=series["stop_id"])
+        stop = GTFSStopEntry(series["stop_name"], stop_id=series["stop_id"])
         stop.set_location(series.get("stop_lat"), series.get("stop_lon"))
         return stop
 
 
 class GTFSStops(ExistingBaseContainer):
     """ Used to create the 'stops.txt'. """
-    entries: list[GTFSStop]
+    entries: list[GTFSStopEntry]
 
     def __init__(self) -> None:
-        super().__init__("stops.txt", GTFSStop)
+        super().__init__("stops.txt", GTFSStopEntry)
         self.append = False
         self.new_entries = []
 
@@ -102,13 +102,13 @@ class GTFSStops(ExistingBaseContainer):
         """ Add a GTFSStop with the given stop_name. """
         if self.get(stop_name):
             return
-        entry = GTFSStop(stop_name)
+        entry = GTFSStopEntry(stop_name)
         if self.fp.exists() and not self.overwrite:
             self.append = True
             self.new_entries.append(entry)
         super()._add(entry)
 
-    def get(self, stop_name: str) -> GTFSStop:
+    def get(self, stop_name: str) -> GTFSStopEntry:
         """ Return the GTFSStop with the given stop_name. """
         for entry in self.entries:
             # TODO: Normalize both names.
@@ -116,7 +116,7 @@ class GTFSStops(ExistingBaseContainer):
                 continue
             return entry
 
-    def get_by_stop_id(self, stop_id: str) -> GTFSStop:
+    def get_by_stop_id(self, stop_id: str) -> GTFSStopEntry:
         """ Return the GTFSStop with the given stop_id.
         Raises a KeyError if no such GTFSStop exists. """
         for entry in self.entries:

@@ -12,7 +12,7 @@ from user_input.cli import select_agency
 
 
 @dataclass
-class AgencyEntry(BaseDataClass):
+class GTFSAgencyEntry(BaseDataClass):
     """ A single agency. """
     agency_id: str
     agency_name: str
@@ -28,12 +28,12 @@ class AgencyEntry(BaseDataClass):
         self.agency_timezone = timezone
 
     @staticmethod
-    def from_series(series: pd.Series) -> AgencyEntry:
+    def from_series(series: pd.Series) -> GTFSAgencyEntry:
         """ Return an entry, using the series' values. """
-        return AgencyEntry(series["agency_name"],
-                           series["agency_url"],
-                           series["agency_timezone"],
-                           agency_id=series["agency_id"])
+        return GTFSAgencyEntry(series["agency_name"],
+                               series["agency_url"],
+                               series["agency_timezone"],
+                               agency_id=series["agency_id"])
 
     @property
     def values(self) -> list[str]:
@@ -42,26 +42,26 @@ class AgencyEntry(BaseDataClass):
                 self.agency_url, self.agency_timezone]
 
 
-class DummyAgencyEntry(AgencyEntry):
+class DummyGTFSAgencyEntry(GTFSAgencyEntry):
     """ Dummy agency, which will be used, if no agency is given. """
-    entries: list[AgencyEntry]
+    entries: list[GTFSAgencyEntry]
 
     def __init__(self) -> None:
         super().__init__("pdf2gtfs", "", "Europe/Berlin")
         self.name = "pdf2gtfs"
 
 
-class Agency(ExistingBaseContainer):
+class GTFSAgency(ExistingBaseContainer):
     """ Used to create 'agency.txt'. """
     def __init__(self) -> None:
-        super().__init__("agency.txt", AgencyEntry)
+        super().__init__("agency.txt", GTFSAgencyEntry)
 
-    def from_file(self, default=None) -> list[AgencyEntry]:
+    def from_file(self, default=None) -> list[GTFSAgencyEntry]:
         """ Return the entries, of the existing file if it exists, otherwise
         return a dummy. """
-        return super().from_file([DummyAgencyEntry()])
+        return super().from_file([DummyGTFSAgencyEntry()])
 
-    def get_default(self) -> AgencyEntry:
+    def get_default(self) -> GTFSAgencyEntry:
         """ Return the first agency, if only a single one exists.
         Otherwise, let the user select the correct agency. """
         if len(self.entries) == 1:

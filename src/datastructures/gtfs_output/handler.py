@@ -14,13 +14,13 @@ from zipfile import ZipFile
 from holidays.utils import country_holidays
 
 from config import Config
-from datastructures.gtfs_output.agency import Agency
-from datastructures.gtfs_output.calendar import Calendar, CalendarEntry
-from datastructures.gtfs_output.calendar_dates import CalendarDates
-from datastructures.gtfs_output.gtfsstop import GTFSStops
+from datastructures.gtfs_output.agency import GTFSAgency
+from datastructures.gtfs_output.calendar import GTFSCalendar, GTFSCalendarEntry
+from datastructures.gtfs_output.calendar_dates import GTFSCalendarDates
+from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.routes import Routes
-from datastructures.gtfs_output.stop_times import StopTimes, Time
-from datastructures.gtfs_output.trips import Trips
+from datastructures.gtfs_output.stop_times import GTFSStopTimes, Time
+from datastructures.gtfs_output.trips import GTFSTrips
 from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
 from finder.location_nodes import MissingNode
 from finder import Node
@@ -54,13 +54,13 @@ class GTFSHandler:
     """ Handles the creation of all gtfs files and provides
     an interface to query them. """
     def __init__(self) -> None:
-        self._agency = Agency()
+        self._agency = GTFSAgency()
         self._stops = GTFSStops()
         self._routes = Routes(self.agency.get_default().agency_id)
-        self._calendar = Calendar()
-        self._trips = Trips()
-        self._stop_times = StopTimes()
-        self._calendar_dates = CalendarDates()
+        self._calendar = GTFSCalendar()
+        self._trips = GTFSTrips()
+        self._stop_times = GTFSStopTimes()
+        self._calendar_dates = GTFSCalendarDates()
 
     def timetable_to_gtfs(self, timetable: TimeTable):
         """ Add the entries of the timetable. """
@@ -84,7 +84,7 @@ class GTFSHandler:
             self.routes.add_from_entry(entry)
 
     def generate_stop_times(self, entries: list[TimeTableEntry]
-                            ) -> list[StopTimes]:
+                            ) -> list[GTFSStopTimes]:
         """ Generate the full stoptimes of the given entries.
 
         Will remember the previous stoptimes created and use the previous and
@@ -92,7 +92,7 @@ class GTFSHandler:
         generate the stoptimes for the repeat column.
         """
 
-        def create_calendar_entry() -> CalendarEntry:
+        def create_calendar_entry() -> GTFSCalendarEntry:
             """ Create a new CalendarEntry for the current TimeTableEntry. """
             return self.calendar.add(entry.days.days, entry.annotations)
 
@@ -102,10 +102,10 @@ class GTFSHandler:
                 return False
             return not calendar_entry.same_days(prev_calendar_entry)
 
-        def create_stop_times() -> StopTimes:
+        def create_stop_times() -> GTFSStopTimes:
             """ Creates the StopTimes for the current entry. """
             trip = trip_factory()
-            _stop_times = StopTimes()
+            _stop_times = GTFSStopTimes()
             _stop_times.add_multiple(
                 trip.trip_id, self.stops, service_day_offset, entry.values)
             return _stop_times
@@ -152,7 +152,7 @@ class GTFSHandler:
                 continue
 
             # Create stoptimes between prev and times.
-            stop_times += StopTimes.add_repeat(
+            stop_times += GTFSStopTimes.add_repeat(
                 prev, times, repeat.intervals, trip_factory)
             repeat = None
 
@@ -189,7 +189,7 @@ class GTFSHandler:
                 annot_set |= _annot
             return list(annot_set)
 
-        def get_services_with_annot(annotation) -> list[CalendarEntry]:
+        def get_services_with_annot(annotation) -> list[GTFSCalendarEntry]:
             """ Returns all CalendarEntry objects with the given annotation. """
             return [e for e in self.calendar.entries
                     if annotation in e.annotations]
@@ -283,7 +283,7 @@ class GTFSHandler:
         return stops_ids
 
     @property
-    def agency(self) -> Agency:
+    def agency(self) -> GTFSAgency:
         """ The agency. """
         return self._agency
 
@@ -298,22 +298,22 @@ class GTFSHandler:
         return self._stops
 
     @property
-    def calendar(self) -> Calendar:
+    def calendar(self) -> GTFSCalendar:
         """ The calendar. """
         return self._calendar
 
     @property
-    def trips(self) -> Trips:
+    def trips(self) -> GTFSTrips:
         """ The trips. """
         return self._trips
 
     @property
-    def stop_times(self) -> StopTimes:
+    def stop_times(self) -> GTFSStopTimes:
         """ The stop times. """
         return self._stop_times
 
     @property
-    def calendar_dates(self) -> CalendarDates:
+    def calendar_dates(self) -> GTFSCalendarDates:
         """ The calendar dates. """
         return self._calendar_dates
 

@@ -9,7 +9,7 @@ from typing import Callable, TYPE_CHECKING, TypeAlias
 
 
 if TYPE_CHECKING:
-    from datastructures.gtfs_output.agency import AgencyEntry
+    from datastructures.gtfs_output.agency import GTFSAgencyEntry
 
 
 logger = logging.getLogger(__name__)
@@ -113,11 +113,11 @@ def _get_agency_string(
     return idx_str + " | ".join(agency_list)
 
 
-def _get_agency_header(agency: AgencyEntry) -> list[str]:
+def _get_agency_header(agency: GTFSAgencyEntry) -> list[str]:
     return agency.get_field_names().split(",")
 
 
-def _get_agency_column_widths(agencies: list[AgencyEntry]) -> list[int]:
+def _get_agency_column_widths(agencies: list[GTFSAgencyEntry]) -> list[int]:
     widths = [5] + [len(col) for col in list(_get_agency_header(agencies[0]))]
     # Index column length.
     widths[0] = max(widths[0], len(str(len(agencies))))
@@ -129,7 +129,7 @@ def _get_agency_column_widths(agencies: list[AgencyEntry]) -> list[int]:
     return [size for size in widths]
 
 
-def _get_agency_prompt(path: Path, agencies: list[AgencyEntry]):
+def _get_agency_prompt(path: Path, agencies: list[GTFSAgencyEntry]):
     agency_strings = []
     widths = _get_agency_column_widths(agencies)
 
@@ -148,7 +148,7 @@ def _get_agency_prompt(path: Path, agencies: list[AgencyEntry]):
     return prompt
 
 
-def select_agency(path: Path, agencies: list[AgencyEntry]) -> AgencyEntry:
+def select_agency(path: Path, agencies: list[GTFSAgencyEntry]) -> GTFSAgencyEntry:
     """ Ask the user to select an agency from the given agencies. """
     prompt = _get_agency_prompt(path, agencies)
     answer = _get_input(prompt, list(map(str, range(len(agencies)))))

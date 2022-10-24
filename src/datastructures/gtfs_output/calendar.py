@@ -58,7 +58,7 @@ class EndDate(ServiceDay):
 
 
 @dataclass(init=False)
-class CalendarEntry(BaseDataClass):
+class GTFSCalendarEntry(BaseDataClass):
     """ A single entry in the calendar file. """
     service_id: str
     monday: DayIsActive = DayIsActive(False)
@@ -93,7 +93,7 @@ class CalendarEntry(BaseDataClass):
     def _set_annotations(self, annots: Optional[set[str]]) -> None:
         self.annotations = annots or set()
 
-    def same_days(self, other: CalendarEntry) -> bool:
+    def same_days(self, other: GTFSCalendarEntry) -> bool:
         """ Returns if the two CalendarEntry objects are active on the same days. """
         for name in WEEKDAY_NAMES + ["on_holidays"]:
             if getattr(self, name) == getattr(other, name):
@@ -106,24 +106,24 @@ class CalendarEntry(BaseDataClass):
         for name in WEEKDAY_NAMES:
             setattr(self, name, DayIsActive(False))
 
-    def __eq__(self, other: CalendarEntry):
+    def __eq__(self, other: GTFSCalendarEntry):
         return self.same_days(other) and self.annotations == other.annotations
 
 
-class Calendar(BaseContainer):
+class GTFSCalendar(BaseContainer):
     """ Used to create 'calendar.txt'. """
 
-    entries: list[CalendarEntry]
+    entries: list[GTFSCalendarEntry]
 
     def __init__(self) -> None:
-        super().__init__("calendar.txt", CalendarEntry)
+        super().__init__("calendar.txt", GTFSCalendarEntry)
 
-    def add(self, days: list[str], annots: set[str]) -> CalendarEntry:
+    def add(self, days: list[str], annots: set[str]) -> GTFSCalendarEntry:
         """ Add an entry, active on the given days with the given annots. """
-        entry = CalendarEntry(days, annots)
+        entry = GTFSCalendarEntry(days, annots)
         return self._add(entry)
 
-    def get(self, entry: CalendarEntry) -> CalendarEntry:
+    def get(self, entry: GTFSCalendarEntry) -> GTFSCalendarEntry:
         """ Returns the given entry, if an equal entry does not exist yet,
         otherwise returns the existing_entry. """
         existing_entry = self._get(entry)
@@ -138,7 +138,7 @@ class Calendar(BaseContainer):
         """ Returns two lists, where the first one only contains entries that
         make filter_func True and the second one contains all other entries.
         """
-        def non_filter_func(entry: CalendarEntry):
+        def non_filter_func(entry: GTFSCalendarEntry):
             """ Negates the filter_func. """
             return not filter_func(entry)
 
@@ -146,8 +146,8 @@ class Calendar(BaseContainer):
                 list(filter(non_filter_func, self.entries)))
 
 
-WEEKDAY_NAMES = [field.name for field in fields(CalendarEntry)
+WEEKDAY_NAMES = [field.name for field in fields(GTFSCalendarEntry)
                  if field.type == "DayIsActive"]
 
-GroupedEntryTuple: TypeAlias = tuple[list[CalendarEntry], list[CalendarEntry]]
-FilterFunction: TypeAlias = Callable[[CalendarEntry], bool]
+GroupedEntryTuple: TypeAlias = tuple[list[GTFSCalendarEntry], list[GTFSCalendarEntry]]
+FilterFunction: TypeAlias = Callable[[GTFSCalendarEntry], bool]

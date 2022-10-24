@@ -1,33 +1,33 @@
 from unittest import TestCase
 
 from datastructures.gtfs_output.calendar import (
-    Calendar, CalendarEntry, DayIsActive, WEEKDAY_NAMES)
+    GTFSCalendar, GTFSCalendarEntry, DayIsActive, WEEKDAY_NAMES)
 from test_gtfs_output import GTFSOutputBaseClass
 
 
 class TestCalendarEntry(TestCase):
     def setUp(self) -> None:
         days = ["0", "1", "2", "3", "4"]
-        self.weekdays_1 = CalendarEntry(days)
-        self.weekdays_2 = CalendarEntry(days, {"test_annotation"})
-        self.weekdays_h = CalendarEntry(days + ["h"])
-        self.weekends_h = CalendarEntry(["5", "6", "h"])
+        self.weekdays_1 = GTFSCalendarEntry(days)
+        self.weekdays_2 = GTFSCalendarEntry(days, {"test_annotation"})
+        self.weekdays_h = GTFSCalendarEntry(days + ["h"])
+        self.weekends_h = GTFSCalendarEntry(["5", "6", "h"])
 
     def test_set_annotations(self) -> None:
-        entry = CalendarEntry()
+        entry = GTFSCalendarEntry()
         self.assertEqual(entry.annotations, set())
         annots = {"test_annotation"}
         entry._set_annotations(annots)
         self.assertEqual(entry.annotations, annots)
 
     def test_set_days(self) -> None:
-        entry = CalendarEntry()
+        entry = GTFSCalendarEntry()
         days = ["0", "1", "2", "3", "4", "5", "6", "h"]
         entry._set_days(days)
         for weekday in WEEKDAY_NAMES:
             self.assertTrue(getattr(entry, weekday), DayIsActive(True))
         self.assertTrue(entry.on_holidays)
-        entry = CalendarEntry()
+        entry = GTFSCalendarEntry()
         days = ["3", "1", "2"]
         entry._set_days(days)
         for weekday in WEEKDAY_NAMES:
@@ -58,7 +58,7 @@ class TestCalendar(GTFSOutputBaseClass):
     def test_try_add(self) -> None:
         days = ["0", "1", "2"]
         annots = set()
-        c = Calendar()
+        c = GTFSCalendar()
         self.assertEqual(0, len(c.entries))
         c.add(days, annots)
         self.assertEqual(1, len(c.entries))
@@ -70,16 +70,16 @@ class TestCalendar(GTFSOutputBaseClass):
         self.assertEqual(3, len(c.entries))
 
     def test_get(self) -> None:
-        c = Calendar()
+        c = GTFSCalendar()
         days = ["0", "5", "3"]
-        e = CalendarEntry(days, None)
+        e = GTFSCalendarEntry(days, None)
         c.add(days, set())
         self.assertEqual(e, c.get(e))
         self.assertEqual(e, c.entries[0])
         self.assertNotEqual(id(e), id(c.get(e)))
 
     def test_group_by_holiday(self) -> None:
-        c = Calendar()
+        c = GTFSCalendar()
         for i in range(7):
             if i % 2:
                 c.add(["h"], {"holiday", str(i)})
