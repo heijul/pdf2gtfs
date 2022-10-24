@@ -3,8 +3,8 @@ title: "Transform PDF timetables into GTFS"
 date: 2022-09-29T13:13:22+02:00
 author: "Julius Heinzinger"
 authorAvatar: ""
-tags: [python, GTFS, pdf, timetable]
-categories: [project]
+tags: ["python", "GTFS", "PDF timetable"]
+categories: ["project"]
 image: "/img/project-transform-timetables-into-gtfs/title.png"
 draft: true
 ---
@@ -27,19 +27,25 @@ extraction of this data, when such feeds are not available.
 3. [Configuration](#3-configuration)
 4. [Evaluation](#4-evaluation)
 5. [Conclusion and future plans](#5-conclusion-and-future-plans)
+6. [References](#6-references)
 
 # 1. Introduction
 
 The goal of this project is to create a tool, namely pdf2gtfs, which takes a
 PDF file containing timetables such as the one shown in the figure below
-([complete file](https://www.vag-freiburg.de/fileadmin/vag_freiburg_media/downloads/linienplaene/Linie_01.pdf))
-and
-output the schedule data as a valid GTFS feed. As is required by the GTFS,
+and output the schedule data as a valid GTFS feed. As is required by the GTFS,
 it has to be able to locate the coordinates of the stops used in the input file.\
 It should also be easily reproducable, thoroughly tested and, as additional personal
 requirements, highly configurable and as independent from online services as possible.
 
-![VAG Linie 1][vag_linie_1]
+<figure id="timetable_example">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/vag_1_table_1.png"
+     alt="Example showing a table with column annotations">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 1: PDF timetable <a href=#ref1><sup>[1]</sup></a>
+    </figcaption>
+</figure><br>
 
 ### GTFS
 
@@ -170,15 +176,23 @@ is defined using a bounding box.
 
 To extract all text characters, along with their bounding boxes and rotation,
 we use [pdfminer.six](https://pdfminersix.readthedocs.io/en/latest/).
-The [advanced layout analysis][la_params] of pdfminer,
-i.e. the detection of words and textlines, has been disabled, because it
-would sometimes result in some of the necessary context being lost.\
+The
+[advanced layout analysis](https://wiki.openstreetmap.org/wiki/Key:ref_namettps://pdfminersix.readthedocs.io/en/latest/reference/composable.html#api-laparams)
+of pdfminer, i.e. the detection of words and textlines, has been disabled,
+because it would sometimes result in some of the necessary context being lost.\
 In particular, given the example timetable below, the annotation (the second)
 row would loose the vertical coordinate context of the annotations.
 The line would simply read "VERKEHRSHINWEIS V s". Later assignment
 of the "V" and "s" to a specific column would not be possible.
 
-![Advanced layout analysis example][vag_linie_1]
+<figure id="advanced_layout_analysis_example">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/vag_1_table_1.png"
+     alt="Example showing a table with column annotations">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 2: Timetable with route annotations <a href=#ref1><sup>[1]</sup></a>
+    </figcaption>
+</figure><br>
 
 After reading the PDF using pdfminer.six we store them in a
 [pandas](https://pandas.pydata.org/) DataFrame.
@@ -193,7 +207,14 @@ In the second stage, each PDFTable is transformed into a TimeTable.
 
 This diagram roughly shows the relationship between the main datastructures we use:
 
-![Datastructure layout][datastructure_layout]
+<figure id="datastructure_layout">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/layout_datastructures.png"
+     alt="Basic datastructure layout">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 3: Basic layout of our datastructures
+    </figcaption>
+</figure><br>
 
 To put simply, a PDFTable has Rows and Columns, which both consist of Fields,
 and Fields are a combination of Chars. Additionally, all Rows, Columns, Fields
@@ -266,7 +287,14 @@ Therefore, only Rows containing time data, annotations or route information
 are put into Columns. In the following figure, you can see the Fields (green),
 Columns (red) and Rows (blue) visualized.
 
-![field_col_row_visual][field_col_row_visual]
+<figure id="field_col_row_visual">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/field_col_row_visual.png"
+     alt="Rough BBox visualization">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 4: Rough BBox visualization of Fields (green), Columns (red) and Rows (blue)
+    </figcaption>
+</figure><br>
 
 As the final step, the above mentioned splitting and merging takes place, until
 each PDFTable contains only a single HeaderRow and a single StopColumn. This also
@@ -303,7 +331,14 @@ These connections exist for convenience of the user of the PDF timetable,
 but for us this is more of an inconvenience, because we need to detect and ignore
 them.
 
-![Example of a connection in a PDF timetable][connection_example]
+<figure id="advanced_layout_analysis_example">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/connection.png"
+     alt="Timetable showing connections">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 5: Timetable showing connections (row 3 and 4)<a href=#ref2><sup>[2]</sup></a>
+    </figcaption>
+</figure><br>
 
 The detection of these connections works by simply checking for reoccurring Stops
 with alternating arrival/departure identifier. In the example above this would
@@ -357,7 +392,16 @@ If a trip is repeated every X minutes, the transit agency oftentimes
 uses what we call repeated columns. In the figure below is an example of such
 a column ("alle 6 Min.").
 
-<img src="/img/project-transform-timetables-into-gtfs/repeat_column.png" height="300" />
+<figure id="repeated_columns">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/repeat_column.png"
+     alt="Timetable showing repeated columns"
+     height="400">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 6: Timetable showing repeated columns<a href=#ref1><sup>[1]</sup></a>
+    </figcaption>
+</figure><br>
+
 
 When transforming a TimeTable into GTFS files, these columns are expanded,
 i.e. when encountering a TimeTableEntry, which contains a (user-specified)
@@ -384,7 +428,14 @@ Also, using the command line interface, the user is able to define dates, at whi
 service differs from the usual schedule, which applies to all columns with a
 specific annotation (e.g. `s` or `V` in the figure below).
 
-![Figure showing route annotations][annotations]
+<figure id="route_annotations">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/annotations.png"
+     alt="Timetable showing route annotations">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 7: Timetable showing route annotations<a href=#ref1><sup>[1]</sup></a>
+    </figcaption>
+</figure><br>
 
 ## 2.3. Finding stop locations
 
@@ -402,11 +453,18 @@ As stated above, we use
 [OpenStreetMap](https://www.openstreetmap.org/).\
 When first running pdf2gtfs or when the local cache is not used, the OSM data
 is fetched using QLever.
-An excerpt of the raw data we get when running our
-[query](https://qlever.cs.uni-freiburg.de/osm-germany/?query=PREFIX+osmrel%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Frelation%2F%3E+%0APREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E+%0APREFIX+geof%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Fdef%2Ffunction%2Fgeosparql%2F%3E+%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E+%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E+%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E+%0ASELECT+%3Flat+%3Flon+%3Fpublic_transport+%3Frailway+%3Fbus+%3Ftram+%3Ftrain+%3Fsubway+%3Fmonorail+%3Flight_rail+%28GROUP_CONCAT%28%3Fname%3BSEPARATOR%3D%22%7C%22%29+AS+%3Fnames%29+WHERE+%7B+%0A%7B%0AVALUES+%3Ftransport_type+%7B+%22station%22+%22stop_position%22+%22platform%22+%7D%0A%3Fstop+osmkey%3Apublic_transport+%3Ftransport_type+.%0A%3Fstop+osmkey%3Apublic_transport+%3Fpublic_transport+.+%0A%3Fstop+rdf%3Atype+osm%3Anode+.+%0A%3Fstop+geo%3AhasGeometry+%3Flocation+.+%0A%7B+%7B+%7B+%7B+%7B+%3Fstop+osmkey%3Aname+%3Fname+.+%0A%09%09+%7D+UNION+%7B+%3Fstop+osmkey%3Aalt_name+%3Fname+.+%0A%09%09+%7D+%0A%09+%7D+UNION+%7B+%3Fstop+osmkey%3Aref_name+%3Fname+.+%0A%09+%7D+%0A%09+%7D+UNION+%7B+%3Fstop+osmkey%3Ashort_name+%3Fname+.+%0A+%7D+%0A+%7D+UNION+%7B+%3Fstop+osmkey%3Aofficial_name+%3Fname+.%0A+%7D+%0A+%7D+UNION+%7B+%3Fstop+osmkey%3Aloc_name+%3Fname+.+%0A+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Arailway+%3Frailway+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Abus+%3Fbus+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Atram+%3Ftram+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Atrain+%3Ftrain+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Asubway+%3Fsubway+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Amonorail+%3Fmonorail+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Alight_rail+%3Flight_rail+.+%7D+%0ABIND+%28geof%3Alatitude%28%3Flocation%29+AS+%3Flat%29+%0ABIND+%28geof%3Alongitude%28%3Flocation%29+AS+%3Flon%29+%0A%7D+%7D%0AGROUP+BY+%3Flat+%3Flon+%3Fpublic_transport+%3Frailway+%3Fbus+%3Ftram+%3Ftrain+%3Fsubway+%3Fmonorail+%3Flight_rail%0AORDER+BY+DESC%28%3Frailway%29+DESC%28%3Fbus%29+DESC%28%3Ftram%29)
-, can be seen below (it is only sorted to show some of the OSM-key values).
+An excerpt of the raw data we get when running our query
+<a href=#ref3><sup>[3]</sup></a>, can be seen below (it is only sorted to
+show some of the OSM-key values).
 
-![QLever query result][qlever_query_result]
+<figure id="qlever_query_results">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/qlever_query_result.png"
+     alt="Table of QLever query results">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 8: Table of some QLever query results<a href=#ref3><sup>[3]</sup></a>
+    </figcaption>
+</figure><br>
 
 ### The DataFrame
 
@@ -465,7 +523,15 @@ if the cache is too old (default: 7 days).
 
 At this point, the DataFrame looks like this:
 
-![Cleaned DataFrame][clean_osm_dataframe]
+<figure id="clean_osm_dataframe">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/clean_osm_dataframe.png"
+     alt="DataFrame containing normalized names">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 9: DataFrame with OSM-keys and normalized names
+    </figcaption>
+</figure><br>
+
 
 What we need however, is a DataFrame, that makes it easy to decide which of
 two locations is better for a specific stop.\
@@ -595,7 +661,14 @@ Because the routes starting in "Bad Herrenalb" never serve some of the stops
 of the timetable, the location of these stops will not be calculated using those
 routes.
 
-![routes_example][routes_example]
+<figure id="routes_example">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/routes_example.png"
+     alt="Timetable with different routes">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 10: Timetable with different routes<a href=#ref4><sup>[4]</sup></a>
+    </figcaption>
+</figure><br>
 
 Once the locations for all routes have been detected, we select the location
 for a single stop, based on all routes serving that stop. E.g. if the location
@@ -609,7 +682,14 @@ Mainly for debugging purposes or for a quick visual verification,
 the locations of the Nodes can be displayed using
 [folium](https://python-visualization.github.io/folium/).
 
-![routedisplay][routedisplay]
+<figure id="routedisplay">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/routedisplay.png"
+     alt="Map showing markers, where the detected stop locations are">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 11: Map with markers at the detected stop locations
+    </figcaption>
+</figure><br>
 
 ### Writing the GTFS feed to disk
 
@@ -677,18 +757,25 @@ This may also happen, if the chosen options do not adhere to the (observed)
 requirements of the timetable format.
 For example, setting `min_row_count = 10`, if the timetables only contain 8 rows.
 
-![transposed_table][transposed_table]
+<figure id="transposed_table">
+    <img
+     src="/img/project-transform-timetables-into-gtfs/transposed_table.png"
+     alt="Timetable where the stops are at the top">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 12: Transposed timetable<a href=#ref5><sup>[5]</sup></a>
+    </figcaption>
+</figure><br>
 
 ###### OpenStreetMap data density
 
 <figure id="figure_osm_heatmap">
-    <img src="/img/project-transform-timetables-into-gtfs/osm_comparison.png"
-     alt="Heatmap of the whole world showing possible stop locations" style="width:100%">
-    <figcaption style="font-size: 13px">
-    Heatmap of OSM nodes, that have the key public_transport set to one of
-    "stop_position", "platform" or "station"<sup>[1]</sup>
+    <img
+     src="/img/project-transform-timetables-into-gtfs/osm_comparison.png"
+     alt="Heatmap of the whole world showing possible stop locations">
+    <figcaption style="font-size: 14pt;text-align: center">
+     Figure 13: Heatmap of public transport OSM nodes<a href=#ref6><sup>[6]</sup></a>
     </figcaption>
-</figure>
+</figure><br>
 
 During development, focus laid on german transit agencies, meaning the location
 detection (obviously) used the OSM data for Germany.
@@ -796,41 +883,25 @@ Once we have created the GTFS datastructures, we could parallelize the location
 detection. This would involve creating multiple worker threads, which find
 the locations of the stops for all routes.
 
-[//]: # (images)
+# 6. References
 
-[vag_linie_1]: /img/project-transform-timetables-into-gtfs/vag_1_table_1.png
-
-[osm_comparison]: /img/project-transform-timetables-into-gtfs/osm_comparison.png
-
-[datastructure_layout]: /img/project-transform-timetables-into-gtfs/layout_datastructures.png
-
-[ala_linie_1]: /img/project-transform-timetables-into-gtfs/ala_linie_1.png
-
-[connection_example]: /img/project-transform-timetables-into-gtfs/connection.png
-
-[repeat_column]: /img/project-transform-timetables-into-gtfs/repeat_column.png
-
-[annotations]: /img/project-transform-timetables-into-gtfs/annotations.png
-
-[field_col_row_visual]: /img/project-transform-timetables-into-gtfs/field_col_row_visual.png
-
-[qlever_query_result]: /img/project-transform-timetables-into-gtfs/qlever_query_result.png
-
-[clean_osm_dataframe]: /img/project-transform-timetables-into-gtfs/clean_osm_dataframe.png
-
-[transposed_table]: /img/project-transform-timetables-into-gtfs/transposed_table.png
-
-[routes_example]: /img/project-transform-timetables-into-gtfs/routes_example.png
-
-[routedisplay]: /img/project-transform-timetables-into-gtfs/routedisplay.png
-
-[//]: # (links)
-
-[la_params]: https://wiki.openstreetmap.org/wiki/Key:ref_namettps://pdfminersix.readthedocs.io/en/latest/reference/composable.html#api-laparams
-
-# Sources:
-
-\[1\]: Displayed using QLever's Map View++ on this
-[query](https://qlever.cs.uni-freiburg.de/osm-planet/?query=PREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E%0ASELECT+%3Fstop+%3Fstop_loc+WHERE+%7B%0A++%7B+%3Fstop+osmkey%3Apublic_transport+%22stop_position%22+.+%7D+UNION+%7B+%7B+%3Fstop+osmkey%3Apublic_transport+%22platform%22+.+%7D+UNION+%7B+%3Fstop+osmkey%3Apublic_transport+%22station%22+.+%7D%0A+%7D%0A++%3Fstop+rdf%3Atype+osm%3Anode+.%0A++%3Fstop+geo%3AhasGeometry+%3Fstop_loc%0A%7D)
-
-\[2\]: https://wiki.openstreetmap.org/wiki/Key:ref_name
+<ol>
+    <li id="ref1">
+        <a href="https://www.vag-freiburg.de/fileadmin/vag_freiburg_media/downloads/linienplaene/Linie_01.pdf">
+        Timetable for VAG Linie 1 in Freiburg, Germany</a></li>
+    <li id="ref2">
+        <a href="https://www.rmv.de/c/fileadmin/import/timetable/RMV_Linienfahrplan_G_10_ab_12.12.21_bis_10.12.22.pdf">
+        Timetable for RMV G10 in Frankfurt, Germany</a></li>
+    <li id="ref3">
+        <a href="https://qlever.cs.uni-freiburg.de/osm-germany/?query=PREFIX+osmrel%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Frelation%2F%3E+%0APREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E+%0APREFIX+geof%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Fdef%2Ffunction%2Fgeosparql%2F%3E+%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E+%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E+%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E+%0ASELECT+%3Flat+%3Flon+%3Fpublic_transport+%3Frailway+%3Fbus+%3Ftram+%3Ftrain+%3Fsubway+%3Fmonorail+%3Flight_rail+%28GROUP_CONCAT%28%3Fname%3BSEPARATOR%3D%22%7C%22%29+AS+%3Fnames%29+WHERE+%7B+%0A%7B%0AVALUES+%3Ftransport_type+%7B+%22station%22+%22stop_position%22+%22platform%22+%7D%0A%3Fstop+osmkey%3Apublic_transport+%3Ftransport_type+.%0A%3Fstop+osmkey%3Apublic_transport+%3Fpublic_transport+.+%0A%3Fstop+rdf%3Atype+osm%3Anode+.+%0A%3Fstop+geo%3AhasGeometry+%3Flocation+.+%0A%7B+%7B+%7B+%7B+%7B+%3Fstop+osmkey%3Aname+%3Fname+.+%0A%09%09+%7D+UNION+%7B+%3Fstop+osmkey%3Aalt_name+%3Fname+.+%0A%09%09+%7D+%0A%09+%7D+UNION+%7B+%3Fstop+osmkey%3Aref_name+%3Fname+.+%0A%09+%7D+%0A%09+%7D+UNION+%7B+%3Fstop+osmkey%3Ashort_name+%3Fname+.+%0A+%7D+%0A+%7D+UNION+%7B+%3Fstop+osmkey%3Aofficial_name+%3Fname+.%0A+%7D+%0A+%7D+UNION+%7B+%3Fstop+osmkey%3Aloc_name+%3Fname+.+%0A+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Arailway+%3Frailway+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Abus+%3Fbus+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Atram+%3Ftram+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Atrain+%3Ftrain+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Asubway+%3Fsubway+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Amonorail+%3Fmonorail+.+%7D+%0AOPTIONAL+%7B+%3Fstop+osmkey%3Alight_rail+%3Flight_rail+.+%7D+%0ABIND+%28geof%3Alatitude%28%3Flocation%29+AS+%3Flat%29+%0ABIND+%28geof%3Alongitude%28%3Flocation%29+AS+%3Flon%29+%0A%7D+%7D%0AGROUP+BY+%3Flat+%3Flon+%3Fpublic_transport+%3Frailway+%3Fbus+%3Ftram+%3Ftrain+%3Fsubway+%3Fmonorail+%3Flight_rail%0AORDER+BY+DESC%28%3Frailway%29+DESC%28%3Fbus%29+DESC%28%3Ftram%29">
+        QLever result using this query</a></li>
+    <li id="ref4">
+        <a href="https://www.kvv.de/tunnelEfaDirect.php?action=TTB/20221021-183020/kvv/22010Bs221_TP.pdf">
+        Timetable for KVV S1 in Karlsruhe, Germany</a></li>
+    <li id="ref5">
+        <a href="https://cdn.beta.metro.net/wp-content/uploads/2022/02/07163008/801_TT_09-06-22.pdf">
+        Timetable for A Line (Blue) in Los Angeles, USA</a></li>
+    <li id="ref6">
+        <a href="https://qlever.cs.uni-freiburg.de/osm-planet/?query=PREFIX+geo%3A+%3Chttp%3A%2F%2Fwww.opengis.net%2Font%2Fgeosparql%23%3E%0APREFIX+osm%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2F%3E%0APREFIX+rdf%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E%0APREFIX+osmkey%3A+%3Chttps%3A%2F%2Fwww.openstreetmap.org%2Fwiki%2FKey%3A%3E%0ASELECT+%3Fstop+%3Fstop_loc+WHERE+%7B%0A++%7B+%3Fstop+osmkey%3Apublic_transport+%22stop_position%22+.+%7D+UNION+%7B+%7B+%3Fstop+osmkey%3Apublic_transport+%22platform%22+.+%7D+UNION+%7B+%3Fstop+osmkey%3Apublic_transport+%22station%22+.+%7D%0A+%7D%0A++%3Fstop+rdf%3Atype+osm%3Anode+.%0A++%3Fstop+geo%3AhasGeometry+%3Fstop_loc%0A%7D">
+        Displayed using QLever's Map View++ with this query</a></li>
+</ol>
