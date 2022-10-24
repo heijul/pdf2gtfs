@@ -724,35 +724,11 @@ Some rough evaluation of the GTFS feed has been done, to ensure the program
 works properly. The full evaluation of pdf2gtfs will be the topic of my
 Bachelor's thesis.
 
-###### GTFS feed
+### Timetable extraction
 
-Validation of the GTFS feed has been done using
-[gtfs-validator](https://github.com/MobilityData/gtfs-validator), which
-showed neither warnings, nor errors. This tool checks, if all required
-files and values exist and have the correct format/type respectively,
-and that all values are valid. It also checks if two stops are too far away,
-given their locations and the time it takes to get from one to the other.
-
-###### Location matching
-
-Some locations were not found by pdf2gtfs, even if they actually exist on OSM.
-This is due both to the manner the dataset is filtered (i.e. using the stop name),
-and the fact that some of the transit agency names differ from the names used in OSM.\
-At the same time, the average distance between the locations, that *were* found,
-and the actual stop's location is roughly within 100m.
-To ensure this is not simply due to a selection bias, other PDF files
-from different (previously unseen) agencies were used, without further
-changing the code (only changing configuration), which lead to similar results.
-
-Also, sometimes the name of a stop is a single, really broad term, like
-"Bahnhof" for example. This results in a huge performance drop in the location
-detection, because of the number of locations with "Bahnhof" in their name.
-
-###### Transposed tables
-
-Some input PDFs could not be read properly, for example the one below.
-This may occur, when the PDF uses a format for the timetables, which is not
-recognized, or is the case here.\
+Many input PDFs, that were not used during development, can not be read properly.
+This usually occurs, when the PDF uses a format for the timetables, which is not
+recognized, as is the case in the figure below.
 This may also happen, if the chosen options do not adhere to the (observed)
 requirements of the timetable format.
 For example, setting `min_row_count = 10`, if the timetables only contain 8 rows.
@@ -765,6 +741,19 @@ For example, setting `min_row_count = 10`, if the timetables only contain 8 rows
      Figure 12: Transposed timetable<a href=#ref5><sup>[5]</sup></a>
     </figcaption>
 </figure><br>
+
+### Location detection
+
+Some locations were not found by pdf2gtfs, even if they actually exist on OSM.
+This is due both to the manner the dataset is filtered (i.e. using the stop name),
+and the fact that some of the transit agency names differ from the names used in OSM.\
+At the same time, the average distance between the locations, that *were* found,
+and the actual stop's location is roughly within 100m. This is at least true,
+for the, admittedly small number of agencies and timetables used during development.
+
+Also, sometimes the name of a stop is a single, really broad term, like
+"Bahnhof" for example. This results in a huge performance drop in the location
+detection, because of the number of locations with "Bahnhof" in their name.
 
 ###### OpenStreetMap data density
 
@@ -784,13 +773,22 @@ in Germany (and Europe in general) is a lot higher than in most other countries.
 In other words, depending on country and probably population density as well,
 the results may be a lot worse than displayed here.
 
+### GTFS feed validity
+
+Validation of the GTFS feed has been done using
+[gtfs-validator](https://github.com/MobilityData/gtfs-validator), which
+showed neither warnings, nor errors. This tool checks, if all required
+files and values exist and have the correct format/type respectively,
+and that all values are valid. It also checks if two stops are too far away,
+given their locations and the time it takes to get from one to the other.
+
 # 5. Conclusion and future plans
 
 The program fulfills the project requirements.\
-However, more work can be done,
-in particular to widen the support for different timetable formats and to
-improve the location detection if the names in OpenStreetMap and the input PDF
-differ.
+However, more work needs to be done, in particular to widen the support for
+different timetable formats and to improve the location detection if the
+names in OpenStreetMap and the input PDF differ.
+The program also needs to be more tolerant to minor deviations in the timetable format.
 
 ## Future plans
 
