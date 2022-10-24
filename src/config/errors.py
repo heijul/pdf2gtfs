@@ -35,7 +35,7 @@ class InvalidRouteTypeValueError(PropertyError):
 
 
 class InvalidOutputDirectoryError(PropertyError):
-    """ Raised, if the given output directory exists and is not a directory. """
+    """ Raised, if the output directory exists and is not a directory. """
     pass
 
 

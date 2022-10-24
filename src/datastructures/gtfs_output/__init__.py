@@ -43,7 +43,7 @@ class BaseDataClass:
         return str(value)
 
     def to_output(self) -> str:
-        """ Returns a formatted line, as it would be found within a gtfs file. """
+        """ Returns this object, as it would be found within a GTFS file. """
         return ",".join(map(self._to_output, fields(self)))
 
 
@@ -51,7 +51,7 @@ DCType = TypeVar("DCType", bound=BaseDataClass)
 
 
 class BaseContainer:
-    """ Base class for a gtfs file. """
+    """ Base class for a GTFS file. """
 
     entries: list[DCType]
 
@@ -132,8 +132,11 @@ class ExistingBaseContainer(BaseContainer):
             UIDGenerator.skip(entry.id)
 
     def write(self) -> None:
-        """ Write the file content to the output directory, without
-        overwriting existing files, unless it is forced (see self.overwrite). """
+        """ Write the file content to the output directory.
+
+        Does not overwrite existing files,
+        unless it is forced, by self.overwrite.
+        """
         if self.fp.exists() and not self.overwrite:
             return
         super().write()

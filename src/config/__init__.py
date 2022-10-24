@@ -71,7 +71,8 @@ class _Config(InstanceDescriptorMixin):
         self.annot_identifier = p.Property(self, "annot_identifier", list)
         self.route_identifier = p.Property(self, "route_identifier", list)
         self.gtfs_routetype = p.RouteTypeProperty(self, "gtfs_routetype")
-        self.average_speed = p.IntBoundsProperty(self, "average_speed", 0, 400)
+        self.average_speed = p.IntBoundsProperty(
+            self, "average_speed", 0, 400)
         self.allowed_stop_chars = p.Property(self, "allowed_stop_chars", list)
         self.max_stop_distance = p.IntBoundsProperty(
             self, "max_stop_distance", 0)
@@ -82,7 +83,8 @@ class _Config(InstanceDescriptorMixin):
         self.non_interactive = p.Property(self, "non_interactive", bool)
         self.gtfs_date_bounds = p.DateBoundsProperty(self, "gtfs_date_bounds")
         self.display_route = p.IntBoundsProperty(self, "display_route", 0, 7)
-        self.stale_cache_days = p.IntBoundsProperty(self, "stale_cache_days", 0)
+        self.stale_cache_days = p.IntBoundsProperty(
+            self, "stale_cache_days", 0)
         self.name_abbreviations = p.AbbrevProperty(self, "name_abbreviations")
         self.disable_location_detection = p.Property(
             self, "disable_location_detection", bool)

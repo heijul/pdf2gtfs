@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class Stop:
-    """ A unique stop defined by its gtfs stop_id, name and its route index. """
+    """ A stop, uniquely defined by its GTFS stop_id, name and route index. """
     stops: Stops = None
 
     def __init__(self, idx: int, stop_id: str, name: str,
@@ -35,7 +35,10 @@ class Stop:
 
     @property
     def next(self) -> Stop | None:
-        """ The next stop in the route, or None if the current stop is the last. """
+        """ The next stop in the route.
+
+        If the current stop is the last stop, return None instead.
+        """
         return self._next
 
     @next.setter
@@ -126,7 +129,8 @@ class Stops:
     def get_avg_time_between(self, stop1: Stop, stop2: Stop) -> Time:
         """ Return the average time it takes to get from stop1 to stop2. """
         # TODO NOW: Uses all routes. Should instead use the current route.
-        return self.handler.get_avg_time_between_stops(stop1.stop_id, stop2.stop_id)
+        return self.handler.get_avg_time_between_stops(
+            stop1.stop_id, stop2.stop_id)
 
     def __iter__(self) -> Generator[Stop, None, None]:
         current = self.first

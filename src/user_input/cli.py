@@ -148,7 +148,8 @@ def _get_agency_prompt(path: Path, agencies: list[GTFSAgencyEntry]):
     return prompt
 
 
-def select_agency(path: Path, agencies: list[GTFSAgencyEntry]) -> GTFSAgencyEntry:
+def select_agency(path: Path, agencies: list[GTFSAgencyEntry]
+                  ) -> GTFSAgencyEntry:
     """ Ask the user to select an agency from the given agencies. """
     prompt = _get_agency_prompt(path, agencies)
     answer = _get_input(prompt, list(map(str, range(len(agencies)))))
@@ -161,7 +162,7 @@ def create_output_directory() -> bool:
     ask the user to resolve it. """
     from config import Config
 
-    def _get_msg_from_error() -> str:
+    def _get_msg_from_error(e: OSError) -> str:
         msg = ("An error occurred, while trying "
                "to create the output directory:\n")
         if isinstance(e, PermissionError):
@@ -173,8 +174,8 @@ def create_output_directory() -> bool:
     path = Config.output_dir
     try:
         path.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        logger.error(_get_msg_from_error())
+    except OSError as error:
+        logger.error(_get_msg_from_error(error))
         if Config.non_interactive:
             return False
         prompt = ("You may resolve the issue now and press enter, to try to "

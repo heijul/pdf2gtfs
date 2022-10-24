@@ -3,11 +3,15 @@
 This is to enable a 'Config.some_property'-lookup, without the
 need to hard-code each property.
 """
+
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from pathlib import Path
 from types import UnionType
-from typing import Any, get_args, get_origin, Iterable, TypeVar, Union
+from typing import (
+    Any, get_args, get_origin, Iterable, TYPE_CHECKING, TypeVar, Union)
 
 from holidays.utils import list_supported_countries
 
@@ -15,12 +19,16 @@ import config.errors as err
 from datastructures.gtfs_output.routes import RouteType
 
 
+if TYPE_CHECKING:
+    from config import InstanceDescriptorMixin  # noqa: F401
+
 logger = logging.getLogger(__name__)
 CType = TypeVar("CType", bound="InstanceDescriptorMixin")
 
 
 class Property:
     """ Base class for config properties. """
+
     def __init__(self, cls: CType, attr: str, attr_type: type) -> None:
         self._register(cls, attr)
         self.attr = "__" + attr
@@ -60,6 +68,7 @@ class Property:
 # TODO: Needs proper errors, if oob.
 class IntBoundsProperty(Property):
     """ Property of type 'int', which has a lower and/or upper bound. """
+
     def __init__(self, cls, attr, lower: int = None, upper: int = None
                  ) -> None:
         super().__init__(cls, attr, int)
@@ -80,6 +89,7 @@ class IntBoundsProperty(Property):
 
 def value_to_generic(base_value: Any) -> type:
     """ Returns the generic type of a given value. """
+
     def get_dict_item_types() -> tuple[slice]:
         """ Return the types of the base_value, if base_value is a dict. """
         item_types: dict[type: type] = {}
@@ -114,6 +124,7 @@ def value_to_generic(base_value: Any) -> type:
 class NestedTypeProperty(Property):
     """ Base class used by properties, which have a nested or generic type.
     This is necessary, because isinstance does not work with Generics. """
+
     def _validate_type(self, value: Any) -> None:
         try:
             self._validate_generic_type(value, self.type)
@@ -191,6 +202,7 @@ class NestedTypeProperty(Property):
 
 class RepeatIdentifierProperty(NestedTypeProperty):
     """ Property for the repeat_identifier. """
+
     def __init__(self, cls: CType, attr: str) -> None:
         super().__init__(cls, attr, list[list[str]])
 
@@ -214,11 +226,17 @@ class RepeatIdentifierProperty(NestedTypeProperty):
 
 class HeaderValuesProperty(NestedTypeProperty):
     """ Property for the header_values. """
+
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict[str: str | list[str]])
 
     def validate(self, value: dict):
-        """ Checks if all values of the dict are within the known header values. """
+        """ Validates the given value.
+
+        Checks if all values of the dict are within the known header values,
+        i.e. number strings 0 to 6 and character 'h'.
+        """
+
         def _raise_invalid_header_error() -> None:
             logger.error(
                 f"Invalid value for '{self.attr}': {{'{ident}': '{day}'}}")
@@ -247,6 +265,7 @@ class HeaderValuesProperty(NestedTypeProperty):
 # TODO NOW: Nested
 class HolidayCodeProperty(Property):
     """ Property for the holiday code. """
+
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict)
 
@@ -275,6 +294,7 @@ class HolidayCodeProperty(Property):
 
 class Pages:
     """ Type of the value of the PagesProperty. """
+
     def __init__(self, pages_string: str = "all"):
         self.pages = []
         self._set_value(pages_string)
@@ -343,6 +363,7 @@ class Pages:
 
 class PagesProperty(Property):
     """ Property used to define the pages, that should be read. """
+
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, Pages)
 
@@ -355,6 +376,7 @@ class PagesProperty(Property):
 
 class FilenameProperty(Property):
     """ Property defining a filename. """
+
     def __get__(self, obj, objtype=None) -> str:
         try:
             return getattr(obj, self.attr)
@@ -364,6 +386,7 @@ class FilenameProperty(Property):
 
 class RouteTypeProperty(Property):
     """ Property for the gtfs_routetype. """
+
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, RouteType)
 
@@ -379,6 +402,7 @@ class RouteTypeProperty(Property):
 
 class OutputDirectoryProperty(Property):
     """ Property for the output directory. """
+
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, Path)
 
@@ -397,6 +421,7 @@ class OutputDirectoryProperty(Property):
 
 class DateBoundsProperty(Property):
     """ Property for the start-/end dates of the gtfs calendar. """
+
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, list)
 
@@ -421,6 +446,7 @@ class DateBoundsProperty(Property):
 
 class AbbrevProperty(NestedTypeProperty):
     """ Property used by the abbreviations. """
+
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict[str: str])
 

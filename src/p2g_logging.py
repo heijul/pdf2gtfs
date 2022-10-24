@@ -5,10 +5,14 @@ from logging import LogRecord
 
 
 def disable_pdfminer_logger() -> None:
-    """ Disables all pdfminer log output, that is not a warning or worse. """
+    """ Disables all pdfminer log output, that is not a Warning or worse. """
 
     def pdfminer_filter(record: LogRecord) -> int:
-        """ Checks if the severity of the record is more severe than a warning. """
+        """ Filter too verbose pdfminer messages.
+
+        Checks if the level of severity of the record is more severe
+        than a warning. If not, the message will not be logged.
+        """
         return 0 if record.levelno < logging.WARNING else 1
 
     for name in logging.root.manager.loggerDict:

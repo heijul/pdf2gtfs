@@ -1,4 +1,4 @@
-""" TimeTable, provides methods used by the GTFSHandler to create the gtfs files. """
+""" TimeTable, created using PDFTable and used to create the GTFS files. """
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from tabulate import tabulate
 import datastructures.pdftable.pdftable as pdftable
 from config import Config
 from datastructures.pdftable.enums import ColumnType
-from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry, Weekdays
+from datastructures.timetable.entries import (
+    TimeTableEntry, TimeTableRepeatEntry, Weekdays)
 from datastructures.timetable.stops import DummyAnnotationStop, Stop
 
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 class StopList:
     """ TimeTable stops, used to select which stops are actual stops
     and which are only connections from the previous stop. """
+
     def __init__(self) -> None:
         self._stops: list[Stop] = []
 
@@ -59,6 +61,7 @@ class StopList:
 class TimeTable:
     """ The TimeTable. Provides methods used directly by the GTFSHandler.
      Higher level of abstraction, compared to the PDFTable. """
+
     def __init__(self) -> None:
         self.stops = StopList()
         self.entries: list[TimeTableEntry] = []
@@ -96,6 +99,7 @@ class TimeTable:
     @staticmethod
     def from_pdf_table(pdf_table: pdftable.PDFTable) -> TimeTable:
         """ Creates a new TimeTale, given the pdttable"""
+
         def get_annotations(column: pdftable.Column):
             """ Return all annotations of the given columns. """
             _annots = set()
@@ -155,6 +159,7 @@ class TimeTable:
 
     def print(self) -> None:
         """ Pretty print the table."""
+
         def days_to_header_values(days: Weekdays) -> str:
             """ Turn the Weekdays to their human-readable form. """
             for key in Config.header_values:

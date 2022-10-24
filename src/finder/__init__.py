@@ -51,14 +51,13 @@ StopsNodes: TypeAlias = dict[StopID, list[Node]]
 
 
 KEYS = ["lat", "lon", "public_transport"]
-KEYS_OPTIONAL = [
-    "railway", "bus", "tram", "train", "subway", "monorail", "light_rail"]
-NAME_KEYS = [
-    "name", "alt_name", "ref_name", "short_name", "official_name", "loc_name"]
+KEYS_OPTIONAL = ["railway", "bus", "tram",
+                 "train", "subway", "monorail", "light_rail"]
+NAME_KEYS = ["name", "alt_name", "ref_name",
+             "short_name", "official_name", "loc_name"]
 
 
-# TODO NOW: Remove arguments, Rename to get_qlever_query
-def get_qlever_query(stop_positions=True, stations=True, platforms=True) -> str:
+def get_qlever_query() -> str:
     """ Return the full query, usable by QLever. """
     def _union(a: str, b: str) -> str:
         # Union two statements. Uses \t as delimiter after/before braces.
@@ -80,12 +79,9 @@ def get_qlever_query(stop_positions=True, stations=True, platforms=True) -> str:
         """ Return a union of all possible public_transport values. """
         fmt = "?stop osmkey:public_transport \"{}\" ."
         transport = ""
-        if stations:
-            transport = _union(transport, fmt.format("station"))
-        if stop_positions:
-            transport = _union(transport, fmt.format("stop_position"))
-        if platforms:
-            transport = _union(transport, fmt.format("platform"))
+        transport = _union(transport, fmt.format("station"))
+        transport = _union(transport, fmt.format("stop_position"))
+        transport = _union(transport, fmt.format("platform"))
         return transport.strip().split("\t")
 
     def get_names() -> list[str]:
@@ -251,7 +247,11 @@ def create_cache_dir() -> tuple[bool, Path | None]:
 
 
 def read_csv(file: Path | BytesIO) -> pd.DataFrame:
-    """ Read the given file or stream and return a DataFrame with its content. """
+    """ Read the given file or stream with pandas' read_csv.
+
+    The file/stream must be CSV structured.
+    Return a DataFrame with the content.
+    """
 
     dtype = {"lat": float, "lon": float,
              "public_transport": str, "names": str}
@@ -345,7 +345,7 @@ class Finder:
             df = None
         self.full_df: pd.DataFrame = df
 
-    def find(self) -> dict[str: Location]:
+    def find_location_nodes(self) -> dict[str: Location]:
         """ Return a dictionary of all stops and their locations. """
         def _search_stop_nodes_of_all_routes() -> StopsNodes:
             routes: Routes = get_routes(self.handler)
@@ -420,7 +420,11 @@ def get_df(stop_entries: list, raw_df: DF) -> DF:
 
 
 def get_routes(handler: GTFSHandler) -> Routes:
-    """ Return a list of unique combination of stops occuring in the tables. """
+    """ Return a list of unique routes.
+
+    The list contains unique combinations of stops occuring in the tables.
+    If one combination is contained by another, only return the containing one.
+    """
     def get_stop_ids_from_gtfs_routes() -> RouteStopIDs:
         """ Return the stop_ids for each route. """
         stop_ids: list[tuple[str]] = []
@@ -440,7 +444,7 @@ def get_routes(handler: GTFSHandler) -> Routes:
         return routes
 
     def remove_routes_contained_by_others(raw_routes: Routes) -> Routes:
-        """ Return only routes, which are not fully contained by another one. """
+        """ Return routes, which are not fully contained by another one. """
         def __route_is_contained(r1: Route, r2: Route) -> bool:
             start_idx = r1.index(r2[0]) if r2[0] in r1 else None
             if start_idx is None:
@@ -551,8 +555,11 @@ def prefilter_df(stops: list[str], full_df: DF) -> DF:
 
 
 def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
-    """ Change the values of KEYS_OPTIONAL (i.e. the keys used to calculate
-    the node score) in df, with its integer value, depending on the routetype. """
+    """ Translate the OSM-key columns to int.
+
+    Change the values of KEYS_OPTIONAL (i.e. the keys used to calculate
+    the node score) in df, with its integer value, depending on the routetype.
+    """
     def _get_score(value: str) -> float:
         if value in bad:
             return bad_value

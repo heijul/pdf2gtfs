@@ -47,7 +47,10 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
                          "{len(text)}, but could not convert it to char.")
 
     def cleanup_df(_df: pd.DataFrame) -> pd.DataFrame:
-        """ Rounds the coordinates and drops any entries outside of the page. """
+        """ Cleanup the given dataframe.
+
+        Rounds the coordinates and drops any entries outside of the page.
+        """
         # Round to combat possible tolerances in the coordinates.
         _df = _df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
         # Skip objects which are not on the page.
@@ -203,8 +206,11 @@ class Reader:
             pass
 
     def preprocess(self) -> None:
-        """ Remove invisible text (most likely used for OCR/etc.), while also
-        significantly improving performance, cause only text is preserved. """
+        """ Preprocess the PDF, if ghostscript is installed.
+
+        Remove invisible text (most likely used for OCR/etc.), as well as
+        images and vector graphics, to improve the performance.
+        """
         if not _preprocess_check():
             return
 
@@ -268,7 +274,7 @@ def _preprocess_check() -> bool:
                     "Continuing with raw pdf file...")
         return False
     try:
-        from ghostscript import Ghostscript
+        from ghostscript import Ghostscript  # noqa: F401
         return True
     except RuntimeError:
         logger.warning("Ghostscript library does not seem to be "

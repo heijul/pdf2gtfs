@@ -88,5 +88,8 @@ DISTANCE_PER_LAT_DEG = Distance(km=111.32)
 
 
 def get_distance_per_lon_deg(lat: float) -> Distance:
-    """ Return the distance of a one degree difference at the given latitude. """
+    """ Return the distance a one degree difference in longitude makes.
+
+    The distance per degree depends on the latitude.
+    """
     return DISTANCE_PER_LAT_DEG * abs(cos(radians(lat)))

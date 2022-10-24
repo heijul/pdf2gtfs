@@ -18,7 +18,8 @@ import folium
 from config import Config
 from finder import Location
 from finder.cost import Cost, StartCost
-from finder.distance import Distance, DISTANCE_PER_LAT_DEG, get_distance_per_lon_deg
+from finder.distance import (
+    Distance, DISTANCE_PER_LAT_DEG, get_distance_per_lon_deg)
 from finder.stops import Stop, Stops
 from finder.types import DF, Heap, StopPosition
 
@@ -54,7 +55,8 @@ class Node:
         return Node.nodes.node_factory(df, self.stop.next)
 
     def dist_exact(self, node: Node) -> Distance:
-        """ Return the exact distance (up to a few m) between the two nodes. """
+        """ Return our exact distance (up to a few m) to the given node. """
+        # TODO NOW: Use geopy.
         lat_mid = mean((self.loc.lat, node.loc.lat))
         distance_per_lon_deg = get_distance_per_lon_deg(lat_mid)
         lat_dist = abs(self.loc.lat - node.loc.lat) * DISTANCE_PER_LAT_DEG
@@ -97,7 +99,10 @@ class Node:
         return cost
 
     def construct_route(self) -> list[Node]:
-        """ The full route, where each entry is the parent of the next entry. """
+        """ Construct the full route.
+
+        In the full route, each entry is the parent of the next entry.
+        """
         if not self.parent:
             return [self]
         return self.parent.construct_route() + [self]
@@ -213,7 +218,7 @@ class MissingNode(Node):
         return self.parent.is_close(array, max_dist, add_self)
 
     def cost_with_parent(self, parent_node: Node) -> Cost:
-        """ Return the cost the Node would have, if parent_node was its parent. """
+        """ Calculate the cost the Node would have to the given node. """
         parent_cost = parent_node.cost.as_float - parent_node.cost.stop_cost
         cost = Cost(parent_cost, MISSING_NODE_SCORE, 0, 0, self.stop.cost)
         return cost
@@ -293,7 +298,8 @@ class Nodes:
     def create_missing_neighbor_for_node(self, parent_node: Node) -> None:
         """ Create a MissingNode with parent_node as its parent. """
         stop: Stop = parent_node.stop.next
-        node_cost: float = parent_node.cost.as_float - parent_node.cost.stop_cost
+        node_cost: float = (parent_node.cost.as_float
+                            - parent_node.cost.stop_cost)
         values = StopPosition(self.next_missing_node_idx, stop.name,
                               stop.name, 0, 0, node_cost, 0)
         neighbor = self._create_missing_node(stop, values)
@@ -416,7 +422,10 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
 def display_nodes(nodes: list[Node]) -> None:
     """ Display the given nodes in the default webbrowser. """
     def get_map_location() -> tuple[float, float]:
-        """ Returns the average location of all Nodes, which are not Missing. """
+        """ Calculate the location of the map upon opening it.
+
+        Returns the average location of all Nodes, which are not Missing.
+        """
         try:
             valid_nodes = [n for n in nodes if not isinstance(n, MissingNode)]
             return (mean([n.loc.lat for n in valid_nodes]),

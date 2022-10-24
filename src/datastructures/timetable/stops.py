@@ -1,4 +1,4 @@
-""" Used by the TimeTable to obtain unique stops, even if their names do not differ. """
+""" Used to obtain unique stops, even if their names do not differ. """
 
 
 class Stop:

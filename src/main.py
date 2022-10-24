@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
-from finder import Finder
+from finder import Finder, Node
 from p2g_logging import initialize_logging
 from reader import Reader
 from user_input.arg_parser import parse_args
@@ -37,11 +37,11 @@ def generate_gtfs(timetables) -> GTFSHandler:
     return gtfs_handler
 
 
-def match_coordinates(gtfs_handler: GTFSHandler):
-    """ Try to find the coordinates of the stops defined in the gtfs_handler. """
+def match_coordinates(gtfs_handler: GTFSHandler) -> list[Node]:
+    """ Find the locations of the stops defined in the gtfs_handler. """
     finder: Finder = Finder(gtfs_handler)
-    route = finder.find()
-    return route if route else None
+    locations = finder.find_location_nodes()
+    return locations if locations else None
 
 
 def main() -> None:

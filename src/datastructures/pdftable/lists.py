@@ -7,12 +7,12 @@ from statistics import mean
 from typing import Generic, Iterator, TypeVar
 
 import datastructures.pdftable.pdftable as tbl
-from datastructures.pdftable.container import Row, Column
+from datastructures.pdftable.container import Row, Column, FieldContainer
 from datastructures.pdftable.enums import FieldContainerType
 
 
-PDFTableT = TypeVar("PDFTableT", bound="PDFTable")
-FieldContainerT = TypeVar("FieldContainerT", bound="FieldContainer")
+PDFTableT = TypeVar("PDFTableT", bound="tbl.PDFTable")
+FieldContainerT = TypeVar("FieldContainerT", bound=FieldContainer)
 
 
 class FieldContainerList(Generic[FieldContainerT]):
@@ -112,6 +112,6 @@ class RowList(FieldContainerList[Row]):
         return mean([len(row.fields) for row in self._objects])
 
     def merge(self, other: RowList):
-        """ Merge the two row lists, sorting the rows by their y0 coordinate. """
+        """ Merge the two RowList, sorting the rows by their y0 coordinate. """
         self._objects += other.objects
         self._objects.sort(key=attrgetter("bbox.y0"))

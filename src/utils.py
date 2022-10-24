@@ -12,7 +12,10 @@ class _UIDGenerator:
         self.skip_ids: set[str] = set()
 
     def skip(self, skipped_id: str) -> None:
-        """ Skip the specified id. The UIDGenerator never returns skipped ids. """
+        """ Skip the specified ID.
+
+        The UIDGenerator never returns skipped IDs.
+        """
         self.skip_ids.add(str(skipped_id))
 
     def __get_next_id(self) -> int:
@@ -41,7 +44,11 @@ SPECIAL_CHARS = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
 
 
 def normalize_name(name: str) -> str:
-    """ Return a str which only consists of letters and allowed chars. """
+    """ Normalize the given name.
+
+    Return a str which only consists of letters and allowed chars.
+    Will also remove any parentheses and their contents.
+    """
     from config import Config
 
     def _remove_parentheses(string: str) -> str:

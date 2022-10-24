@@ -87,7 +87,9 @@ class GTFSStops(ExistingBaseContainer):
         return f"{old_entries}\n{new_entries}\n"
 
     def write(self) -> None:
-        """ Writes the file to the disk, appending new entries if necessary. """
+        """ Write the file to the disk.
+
+        New entries will be appended, if necessary. """
         if self.new_entries:
             stops = "', '".join([e.stop_name for e in self.new_entries])
             stops = f"['{stops}']"

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ContainerT = TypeVar("ContainerT", bound="FieldContainer")
-TableT = TypeVar("TableT", bound="Table")
+TableT = TypeVar("TableT", bound="PDFTable")
 
 
 class BaseContainerReference(Generic[ContainerT], ABC):
@@ -256,7 +256,8 @@ class Column(FieldContainer):
         return self._type
 
     def set_to_stop(self) -> None:
-        """ Set the type to stop. Used, because type property has no setter. """
+        """ Set the type to stop. """
+        # TODO NOW: Remove in favor of type setter. Add log message to setter.
         self._type = ColumnType.STOP
 
     def update_type(self) -> None:
@@ -265,19 +266,22 @@ class Column(FieldContainer):
 
     def _detect_type(self) -> ColumnType:
         def _constains_long_strings() -> bool:
-            """ Returns whether the average length of text is higher than 6. """
+            """ Returns if the column contains long strings. """
             return mean(map(lambda f: len(f.text), self.fields)) > 6
 
-        def _is_not_sparse() -> bool:
-            """ Returns whether the percentage of empty fields is less than 50%. """
+        def _is_sparse() -> bool:
+            """ Returns if the column is sparse.
+
+            Checks if more than 50% of fields of the column are empty.
+            """
             empty_field_count = sum(map(lambda f: f.text == "", self.fields))
-            # Adding one to prevent ZeroDivisionError without changing result
-            return ((1 + len(self.fields)) / (1 + empty_field_count)) > 0.5
+            # Use max() to prevent ZeroDivisionError.
+            return (len(self.fields) / max(1, empty_field_count)) <= 0.5
 
         has_repeat_identifier = self.get_repeat_intervals() != ""
         has_data_field = self.has_field_of_type(FieldType.DATA)
 
-        if _is_not_sparse() and _constains_long_strings():
+        if not _is_sparse() and _constains_long_strings():
             return ColumnType.STOP
         if has_repeat_identifier:
             return ColumnType.REPEAT
@@ -328,7 +332,7 @@ class Column(FieldContainer):
             self.add_field(field)
 
     def add_field(self, new_field: Field):
-        """ Add new_field to fields, merging it with fields of the same row. """
+        """ Add new_field, merging it with fields of the same row. """
         def _merge_into_fields() -> bool:
             """ If the field has the same row as an existing one merge them.
             :returns: True if the field was merged, False otherwise.
@@ -350,8 +354,11 @@ class Column(FieldContainer):
         return f"Column(bbox={self.bbox},\n\tfields=[{fields_repr}])"
 
     def split_at(self, splitter: Rows) -> Cols:
-        """ Split the column at the given rows. Will return a list of columns,
-        such that each column (except the first) starts with a row from splitter. """
+        """ Split the column at the given rows.
+
+        Will return a list of columns, such that each column
+        ,except the first, starts with a row from the given splitter.
+        """
         def _next_idx(column: FieldContainer, field: Field) -> bool:
             return column.bbox.y0 <= field.bbox.y0
 

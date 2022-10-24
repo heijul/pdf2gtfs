@@ -74,7 +74,7 @@ class Routes(BaseContainer):
         self.agency_id: str = agency_id
 
     def add(self, short_name: str = "", long_name: str = "") -> Route:
-        """ Create a new route entry with the given short_name and long_name. """
+        """ Create a new entry with the given short_name and long_name. """
         route = Route(self.agency_id, short_name, long_name)
         return super()._add(route)
 

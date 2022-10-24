@@ -154,7 +154,8 @@ class GTFSStopTimes(BaseContainer):
             arrival: Time, departure: Time = None) -> GTFSStopTimesEntry:
         """ Add a new StopTimeEntry with the given values.
         If departure is None, it will be set to arrival. """
-        entry = GTFSStopTimesEntry(trip_id, stop_id, sequence, arrival, departure)
+        entry = GTFSStopTimesEntry(
+            trip_id, stop_id, sequence, arrival, departure)
         return self._add(entry)
 
     def add_multiple(self, trip_id: str, stops: GTFSStops,
@@ -190,7 +191,7 @@ class GTFSStopTimes(BaseContainer):
         return entries
 
     def merge(self, other: GTFSStopTimes):
-        """ Merge two stop_times files. Used when creating repeating entries. """
+        """ Merge two stop_times files. """
         self.entries += other.entries
 
     def duplicate(self, trip_id) -> GTFSStopTimes:
@@ -226,7 +227,8 @@ class GTFSStopTimes(BaseContainer):
 
         return new_stop_times
 
-    def __get_entry_from_stop_id(self, stop_id: str) -> GTFSStopTimesEntry | None:
+    def __get_entry_from_stop_id(self, stop_id: str
+                                 ) -> GTFSStopTimesEntry | None:
         for i, entry in enumerate(self.entries):
             if entry.stop_id == stop_id:
                 return entry

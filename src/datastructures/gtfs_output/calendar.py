@@ -7,7 +7,7 @@ from dataclasses import dataclass, fields
 from typing import Callable, Optional, TypeAlias
 
 from config import Config
-from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass, str_wrap
+from datastructures.gtfs_output import BaseContainer, BaseDataClass, str_wrap
 
 
 @dataclass
@@ -94,7 +94,7 @@ class GTFSCalendarEntry(BaseDataClass):
         self.annotations = annots or set()
 
     def same_days(self, other: GTFSCalendarEntry) -> bool:
-        """ Returns if the two CalendarEntry objects are active on the same days. """
+        """ Check if other and self are active on the same days. """
         for name in WEEKDAY_NAMES + ["on_holidays"]:
             if getattr(self, name) == getattr(other, name):
                 continue
@@ -149,5 +149,6 @@ class GTFSCalendar(BaseContainer):
 WEEKDAY_NAMES = [field.name for field in fields(GTFSCalendarEntry)
                  if field.type == "DayIsActive"]
 
-GroupedEntryTuple: TypeAlias = tuple[list[GTFSCalendarEntry], list[GTFSCalendarEntry]]
+GroupedEntryTuple: TypeAlias = (
+    tuple[list[GTFSCalendarEntry], list[GTFSCalendarEntry]])
 FilterFunction: TypeAlias = Callable[[GTFSCalendarEntry], bool]

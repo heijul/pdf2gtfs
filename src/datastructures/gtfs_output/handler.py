@@ -21,7 +21,8 @@ from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.routes import Routes
 from datastructures.gtfs_output.stop_times import GTFSStopTimes, Time
 from datastructures.gtfs_output.trips import GTFSTrips
-from datastructures.timetable.entries import TimeTableEntry, TimeTableRepeatEntry
+from datastructures.timetable.entries import (
+    TimeTableEntry, TimeTableRepeatEntry)
 from finder.location_nodes import MissingNode
 from finder import Node
 from user_input.cli import handle_annotations
@@ -111,7 +112,7 @@ class GTFSHandler:
             return _stop_times
 
         def end_of_day() -> bool:
-            """ Checks if the current entry happens before the previous one. """
+            """ Check if the current entry occurs before the previous one. """
             return prev and prev > times
 
         stop_times = []
@@ -190,7 +191,8 @@ class GTFSHandler:
             return list(annot_set)
 
         def get_services_with_annot(annotation) -> list[GTFSCalendarEntry]:
-            """ Returns all CalendarEntry objects with the given annotation. """
+            """ Returns al
+            l CalendarEntry with the given annotation. """
             return [e for e in self.calendar.entries
                     if annotation in e.annotations]
 

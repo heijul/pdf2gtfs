@@ -113,7 +113,7 @@ class PDFTable:
         return ""
 
     def add_row_or_column(self, obj: Row | Column) -> None:
-        """ Add the object to either rows or columns, depending on its type. """
+        """ Add the object to either rows or columns, based on its type. """
         if isinstance(obj, Row):
             self.rows.add(obj)
             return
@@ -135,7 +135,7 @@ class PDFTable:
     def split_at_stop_columns(self) -> Tables:
         """ Return a list of tables with each having a single stop column. """
         def splitter(tables: Tables, splitter_columns: list) -> None:
-            """ Method used to split the given tables at the given splitter_columns. """
+            """ Split the given tables at the given splitter_columns. """
             for row in self.rows:
                 splits = row.split_at(splitter_columns)
                 for table, split in zip(tables, splits):

@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, TYPE_CHECKING, TypeAlias
 
-from datastructures.gtfs_output.__init__ import (BaseContainer,
-                                                 BaseDataClass)
+from datastructures.gtfs_output import BaseContainer, BaseDataClass
 
 
 if TYPE_CHECKING:

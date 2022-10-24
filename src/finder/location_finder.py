@@ -58,7 +58,7 @@ class LocationFinder:
 
 
 def update_missing_locations(nodes) -> None:
-    """ Change the location of missing nodes to be closer to the actual location.
+    """ Interpoplate the location of missing nodes using their neighbors.
 
     Given that at least one MissingNode is in nodes, change the location
     of the missing nodes, such that it is between the previous and next Node's

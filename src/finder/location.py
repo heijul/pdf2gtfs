@@ -1,4 +1,4 @@
-""" Provides Location, which is used as a wrapper for latitude/longitude tuples. """
+""" Provides Location, a wrapper for latitude/longitude. """
 
 from __future__ import annotations
 

@@ -44,7 +44,7 @@ def get_osm_value() -> OSMValue:
 
 
 class OSMValue:
-    """ Base class to enable querying for good/bad values of a specific key. """
+    """ Base class to enable querying for the values of a specific key. """
     bad_values: BadValues
 
     def __init__(self) -> None:
@@ -59,7 +59,7 @@ class OSMValue:
 
 
 class Tram(OSMValue):
-    """ Trams are rail-based, so train specific values should be considered as well. """
+    """ Trams are rail-based, so rail-specific keys are considered as well. """
     def _get_good_values(self) -> GoodValues:
         return {"tram": {"yes": 0},
                 "light_rail": {"yes": 1},
@@ -107,7 +107,7 @@ class Subway(OSMValue):
 
 
 class Metro(Subway):
-    """ Metros do not have their own set of keys, but are essentially subways. """
+    """ Metros are essentially subways. """
     pass
 
 
