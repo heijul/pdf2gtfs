@@ -107,6 +107,7 @@ class Field(BBoxObject):
         E.g. given a row with stop A with text "Frankfurt - Hauptbahnhof",
          followed by a stop B with text "- Friedhof", then the text of B
          will be changed to "Frankfurt - Friedhof". """
+
         def get_base_name(ref_text: str) -> str:
             """ Find the most likely base_text ('Frankfurt' in the example)
             of a given text, by splitting the text at common delimiters. """

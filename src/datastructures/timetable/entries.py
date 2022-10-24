@@ -23,6 +23,7 @@ class Weekdays:
 
 class TimeTableEntry:
     """ A single entry (i.e. column containing timedata) in a TimeTable. """
+
     def __init__(self, raw_header_text: str = "") -> None:
         self._values: dict[Stop, str] = {}
         self._annotations: set[str] = set()
@@ -55,6 +56,7 @@ class TimeTableEntry:
 class TimeTableRepeatEntry(TimeTableEntry):
     """ A repeating entry in a TimeTable.
     Does not contain time data (except the interval). """
+
     def __init__(self, header_text: str = "", interval_str: str = "") -> None:
         super().__init__(header_text)
         self.intervals = self.interval_str_to_int_list(interval_str)

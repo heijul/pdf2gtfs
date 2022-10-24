@@ -1,6 +1,5 @@
 """ Used by the handler to create the file 'calendar_dates.txt'. """
 
-
 from dataclasses import dataclass
 from datetime import datetime as dt
 

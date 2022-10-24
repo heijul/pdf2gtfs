@@ -19,13 +19,13 @@ if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
     from finder import Node
 
-
 logger = logging.getLogger(__name__)
 
 
 class LocationFinder:
     """ Tries to find the locations of the given stop_names for all routes
     described in the given handler. """
+
     def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]],
                  df: DF) -> None:
         self.handler = handler
@@ -65,6 +65,7 @@ def update_missing_locations(nodes) -> None:
     location. If consecutive nodes are missing they will all have equal
     distance to each other and the wrapping nodes.
     Will not update locations of MissingNodes at the start. """
+
     def get_first_node() -> tuple[int, Node | None]:
         """ Return the first node that is not a MissingNode. """
         for i, n in enumerate(nodes):
@@ -72,6 +73,7 @@ def update_missing_locations(nodes) -> None:
                 continue
             return i + 1, n
         return 0, None
+
     # TODO NOW: Use the distance/vector of the first actual node to the second
     #  (missing or) actual node.
     start_id, prev = get_first_node()

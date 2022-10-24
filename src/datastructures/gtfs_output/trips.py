@@ -11,7 +11,6 @@ from datastructures.gtfs_output import BaseContainer, BaseDataClass
 if TYPE_CHECKING:
     from datastructures.gtfs_output.stop_times import GTFSStopTimes
 
-
 Trip_Factory: TypeAlias = Callable[[], "GTFSTripEntry"]
 
 

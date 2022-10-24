@@ -124,6 +124,7 @@ def replace_abbreviations(name: str) -> str:
 
 def get_abbreviations_regex() -> str:
     """ Return a regex that matches any abbreviation. """
+
     def _to_regex(abbrev_key: str) -> str:
         ends_with_key_regex = ""
         if abbrev_key.endswith("."):

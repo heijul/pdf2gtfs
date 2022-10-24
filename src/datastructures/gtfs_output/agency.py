@@ -53,6 +53,7 @@ class DummyGTFSAgencyEntry(GTFSAgencyEntry):
 
 class GTFSAgency(ExistingBaseContainer):
     """ Used to create 'agency.txt'. """
+
     def __init__(self) -> None:
         super().__init__("agency.txt", GTFSAgencyEntry)
 

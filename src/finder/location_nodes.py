@@ -6,14 +6,13 @@ import heapq
 import logging
 import webbrowser
 from functools import partial
-
 from math import inf, sqrt
 from statistics import mean, StatisticsError
 from typing import Callable, Generator
 
+import folium
 import numpy as np
 import pandas as pd
-import folium
 
 from config import Config
 from finder import Location
@@ -188,6 +187,7 @@ class MissingNode(Node):
     """ Describes a node, we know exists, but do not have the location for.
     It has a high node_score, to prevent MissingNodes to be better than
     normal ones. """
+
     def __init__(self, stop: Stop, index: int, names: str, loc: Location,
                  parent_cost: float) -> None:
         cost = Cost(parent_cost, MISSING_NODE_SCORE, 0, 0)
@@ -230,6 +230,7 @@ class MissingNode(Node):
 class Nodes:
     """ Container for Nodes/MissingNodes.
     Provides methods to query and create nodes. """
+
     def __init__(self, df: DF, stops: Stops) -> None:
         self.df = df
         self.node_map: dict[tuple[Stop, int]: Node] = {}
@@ -421,6 +422,7 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
 
 def display_nodes(nodes: list[Node]) -> None:
     """ Display the given nodes in the default webbrowser. """
+
     def get_map_location() -> tuple[float, float]:
         """ Calculate the location of the map upon opening it.
 

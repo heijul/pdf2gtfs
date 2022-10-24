@@ -11,7 +11,6 @@ from typing import Callable, TYPE_CHECKING, TypeAlias
 if TYPE_CHECKING:
     from datastructures.gtfs_output.agency import GTFSAgencyEntry
 
-
 logger = logging.getLogger(__name__)
 CheckType: TypeAlias = list[str] | Callable[[str], bool]
 AnnotException: TypeAlias = dict[str: tuple[bool, list[datetime.date]]]

@@ -29,6 +29,7 @@ class DayIsActive:
 
 class ServiceDay:
     """ Service day as defined by the gtfs (can have morethan 24 hours). """
+
     def __init__(self, date: dt.date):
         self.date = date
 
@@ -46,6 +47,7 @@ class ServiceDay:
 class StartDate(ServiceDay):
     """ The start date. Will be set to the first of the current years,
     if the configuration was not changed. """
+
     def __init__(self) -> None:
         super().__init__(Config.gtfs_date_bounds[0])
 
@@ -53,6 +55,7 @@ class StartDate(ServiceDay):
 class EndDate(ServiceDay):
     """ The end date. Will be set to the last of the current years,
     if the configuration was not changed. """
+
     def __init__(self) -> None:
         super().__init__(Config.gtfs_date_bounds[1])
 
@@ -138,6 +141,7 @@ class GTFSCalendar(BaseContainer):
         """ Returns two lists, where the first one only contains entries that
         make filter_func True and the second one contains all other entries.
         """
+
         def non_filter_func(entry: GTFSCalendarEntry):
             """ Negates the filter_func. """
             return not filter_func(entry)

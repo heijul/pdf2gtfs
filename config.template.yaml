@@ -47,7 +47,7 @@ holiday_code:
 # Identifies rows, which add special meaning to some columns.
 #
 # Type: List of strings
-annot_identifier: ["Verkehrshinweis", "Verkehrsbeschränkung"]
+annot_identifier: [ "Verkehrshinweis", "Verkehrsbeschränkung" ]
 
 # Identifies rows, which hold information about the specific route the
 #   column is part of.
@@ -55,7 +55,7 @@ annot_identifier: ["Verkehrshinweis", "Verkehrsbeschränkung"]
 #   data columns with the entries of that row.
 #
 # Type: List of strings
-route_identifier: ["Linie", "Zugnummer"]
+route_identifier: [ "Linie", "Zugnummer" ]
 
 # If a column does not hold any time data and contains the given identifier,
 #   try to expand the repeat interval.
@@ -74,7 +74,7 @@ route_identifier: ["Linie", "Zugnummer"]
 #
 # Type: List of strings
 repeat_identifier: [
-  ["alle", "min"],
+  [ "alle", "min" ],
 ]
 
 
@@ -83,8 +83,8 @@ repeat_identifier: [
 #   identify these columns.
 #
 # Type: List of strings
-arrival_identifier: ["an"]
-departure_identifier: ["ab"]
+arrival_identifier: [ "an" ]
+departure_identifier: [ "ab" ]
 
 # How to expand the repeating column, if the repeating times occur in a range.
 # Example: Given a repeat column with the content "Alle 7-8 min." and strategy
@@ -128,7 +128,7 @@ average_speed: 20
 # Stop names are stripped of all characters which are not letters or whitelisted.
 #
 # Type: list of str
-allowed_stop_chars: [" "]  # ["-", "/", ".", " "]
+allowed_stop_chars: [ " " ]  # ["-", "/", ".", " "]
 
 # The maximum distance between stops in km. Can be set to a higher value,
 #   but will slow down coordinate matching.

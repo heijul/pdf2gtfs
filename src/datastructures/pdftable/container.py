@@ -1,6 +1,5 @@
 """ Containers i.e. Rows/Columns used by the PDFTable. """
 
-
 from __future__ import annotations
 
 import logging
@@ -56,6 +55,7 @@ class FieldColumnReference(BaseContainerReference["Column"]):
 
 class FieldContainer(BBoxObject):
     """ Base class for Row/Column. """
+
     def __init__(self, table: PDFTable = None, bbox: BBox = None):
         self._fields: list[Field] = []
         self.field_attr = self.__class__.__name__.lower()
@@ -184,6 +184,7 @@ class FieldContainer(BBoxObject):
 class Row(FieldContainer):
     """ A PDFTable row.
     The bboxes of all fields are overlapping horizontally. """
+
     def __init__(self, table: PDFTable = None, bbox: BBox = None):
         super().__init__(table, bbox)
 
@@ -227,6 +228,7 @@ class Row(FieldContainer):
 
     def split_at(self, splitter: Cols) -> Rows:
         """ Splits the row, depending on the given columns. """
+
         def _next_idx(column: FieldContainer, field: Field) -> bool:
             return column.bbox.x0 <= field.bbox.x0
 
@@ -241,6 +243,7 @@ class Row(FieldContainer):
 class Column(FieldContainer):
     """ A PDFTable column.
     The bboxes of all fields in the column are vertically overlapping. """
+
     def __init__(self, table: PDFTable = None,
                  fields: list[Field] = None,
                  bbox: BBox = None):
@@ -333,6 +336,7 @@ class Column(FieldContainer):
 
     def add_field(self, new_field: Field):
         """ Add new_field, merging it with fields of the same row. """
+
         def _merge_into_fields() -> bool:
             """ If the field has the same row as an existing one merge them.
             :returns: True if the field was merged, False otherwise.
@@ -359,6 +363,7 @@ class Column(FieldContainer):
         Will return a list of columns, such that each column
         ,except the first, starts with a row from the given splitter.
         """
+
         def _next_idx(column: FieldContainer, field: Field) -> bool:
             return column.bbox.y0 <= field.bbox.y0
 

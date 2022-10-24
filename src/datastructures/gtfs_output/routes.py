@@ -69,6 +69,7 @@ class Route(BaseDataClass):
 
 class Routes(BaseContainer):
     """ Used to create 'routes.txt'. """
+
     def __init__(self, agency_id: str) -> None:
         super().__init__("routes.txt", Route)
         self.agency_id: str = agency_id

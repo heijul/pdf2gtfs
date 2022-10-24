@@ -16,7 +16,6 @@ from user_input.cli import create_output_directory
 if TYPE_CHECKING:
     from datastructures.timetable.table import TimeTable
 
-
 logger = logging.getLogger(__name__)
 
 

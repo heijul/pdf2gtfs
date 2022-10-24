@@ -1,7 +1,6 @@
 """ Subpackage containing all necessary functions/classes,
 to create a valid gtfs zip file. """
 
-
 from __future__ import annotations
 
 import logging
@@ -21,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BaseDataClass:
     """ Base class for a single entry in a gtfs file. """
+
     def __init__(self, existing_id: str | None = None) -> None:
         self.id: str = next_uid() if existing_id is None else existing_id
 
@@ -64,6 +64,7 @@ class BaseContainer:
     def fp(self) -> Path:
         """ Return the absolute filepath of the file. """
         from config import Config
+
         # STYLE: Remove filename if not used elsewhere and override.
         return Path(Config.output_dir).joinpath(self.filename).resolve()
 
@@ -120,6 +121,7 @@ class BaseContainer:
 
 class ExistingBaseContainer(BaseContainer):
     """ Base class for gtfs files, which may be existing. """
+
     def __init__(self, filename: str, entry_type: Type[DCType]):
         super().__init__(filename, entry_type)
         self.overwrite = False

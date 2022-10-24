@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from operator import attrgetter
 from pathlib import Path
 from statistics import mean
@@ -17,20 +17,19 @@ from config import Config
 from datastructures.gtfs_output.agency import GTFSAgency
 from datastructures.gtfs_output.calendar import GTFSCalendar, GTFSCalendarEntry
 from datastructures.gtfs_output.calendar_dates import GTFSCalendarDates
-from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.routes import Routes
+from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.stop_times import GTFSStopTimes, Time
 from datastructures.gtfs_output.trips import GTFSTrips
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
-from finder.location_nodes import MissingNode
 from finder import Node
+from finder.location_nodes import MissingNode
 from user_input.cli import handle_annotations
 
 
 if TYPE_CHECKING:
     from datastructures.timetable.table import TimeTable
-
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +53,7 @@ def get_gtfs_filepaths() -> list[Path]:
 class GTFSHandler:
     """ Handles the creation of all gtfs files and provides
     an interface to query them. """
+
     def __init__(self) -> None:
         self._agency = GTFSAgency()
         self._stops = GTFSStops()
@@ -182,6 +182,7 @@ class GTFSHandler:
     def add_annotation_dates(self) -> None:
         """ Add a new CalendarDateEntry for every annotation,
         based on the users input. """
+
         def get_annots() -> list[str]:
             """ Return the all annotations. """
             annot_set = set()

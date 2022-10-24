@@ -15,6 +15,7 @@ class BBox:
     Origin is the upper left corner. First two coordinates represent the
     top-left corner of the bbox, the last two the bottom-right corner.
     """
+
     def __init__(
             self, x0: float = 0, y0: float = 0, x1: float = 1, y1: float = 1):
         self.x0 = x0

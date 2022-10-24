@@ -7,7 +7,7 @@ from statistics import mean
 from typing import Generic, Iterator, TypeVar
 
 import datastructures.pdftable.pdftable as tbl
-from datastructures.pdftable.container import Row, Column, FieldContainer
+from datastructures.pdftable.container import Column, FieldContainer, Row
 from datastructures.pdftable.enums import FieldContainerType
 
 
@@ -18,6 +18,7 @@ FieldContainerT = TypeVar("FieldContainerT", bound=FieldContainer)
 class FieldContainerList(Generic[FieldContainerT]):
     """ Base class for lists of a single FieldContainerT,
     all being part of the same PDFTable. """
+
     def __init__(self, table: tbl.PDFTable):
         self._objects: list[FieldContainerT] = []
         self.table = table
@@ -100,6 +101,7 @@ class ColumnList(FieldContainerList[Column]):
 
 class RowList(FieldContainerList[Row]):
     """ List of rows. """
+
     def __init__(self, table: tbl.PDFTable):
         super().__init__(table)
         self._objects: list[Row] = []

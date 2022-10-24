@@ -27,11 +27,12 @@ from requests.exceptions import ConnectionError
 
 from config import Config
 from finder.location import Location
-from finder.osm_values import get_all_cat_scores
 from finder.location_finder import find_stop_nodes, update_missing_locations
 from finder.location_nodes import display_nodes, MissingNode, Node
-from utils import (get_abbreviations_regex, get_edit_distance,
-                   replace_abbreviation, SPECIAL_CHARS)
+from finder.osm_values import get_all_cat_scores
+from utils import (
+    get_abbreviations_regex, get_edit_distance,
+    replace_abbreviation, SPECIAL_CHARS)
 
 
 if TYPE_CHECKING:
@@ -49,7 +50,6 @@ RouteStopIDs: TypeAlias = list[tuple[StopID]]
 StopsNode: TypeAlias = dict[StopID, Node]
 StopsNodes: TypeAlias = dict[StopID, list[Node]]
 
-
 KEYS = ["lat", "lon", "public_transport"]
 KEYS_OPTIONAL = ["railway", "bus", "tram",
                  "train", "subway", "monorail", "light_rail"]
@@ -59,6 +59,7 @@ NAME_KEYS = ["name", "alt_name", "ref_name",
 
 def get_qlever_query() -> str:
     """ Return the full query, usable by QLever. """
+
     def _union(a: str, b: str) -> str:
         # Union two statements. Uses \t as delimiter after/before braces.
         if not a:
@@ -347,6 +348,7 @@ class Finder:
 
     def find_location_nodes(self) -> dict[str: Location]:
         """ Return a dictionary of all stops and their locations. """
+
         def _search_stop_nodes_of_all_routes() -> StopsNodes:
             routes: Routes = get_routes(self.handler)
             nodes: dict[str: list[Node]] = {}
@@ -394,6 +396,7 @@ class Finder:
 
 def get_df(stop_entries: list, raw_df: DF) -> DF:
     """ Split the dataframe and add the calculated node costs. """
+
     def _split_df(df: DF) -> DF:
         logger.info("Splitting DataFrame based on stop names...")
         t = time()
@@ -425,6 +428,7 @@ def get_routes(handler: GTFSHandler) -> Routes:
     The list contains unique combinations of stops occuring in the tables.
     If one combination is contained by another, only return the containing one.
     """
+
     def get_stop_ids_from_gtfs_routes() -> RouteStopIDs:
         """ Return the stop_ids for each route. """
         stop_ids: list[tuple[str]] = []
@@ -434,6 +438,7 @@ def get_routes(handler: GTFSHandler) -> Routes:
 
     def get_routes_from_stop_ids(stop_ids: RouteStopIDs) -> Routes:
         """ Return all routes, which contain the given stop_ids. """
+
         def __get_route_from_stop_id(stop_id: StopID) -> StopIdent:
             return stop_id, handler.stops.get_by_stop_id(stop_id).stop_name
 
@@ -445,6 +450,7 @@ def get_routes(handler: GTFSHandler) -> Routes:
 
     def remove_routes_contained_by_others(raw_routes: Routes) -> Routes:
         """ Return routes, which are not fully contained by another one. """
+
         def __route_is_contained(r1: Route, r2: Route) -> bool:
             start_idx = r1.index(r2[0]) if r2[0] in r1 else None
             if start_idx is None:
@@ -515,6 +521,7 @@ def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
 
 def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
     """ Add extra columns (name_cost, stop_id, idx) to the df. """
+
     def name_distance(names: np.array) -> list[int]:
         """ Edit distance between name and stop after normalizing both. """
         distances = []
@@ -543,6 +550,7 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
 def prefilter_df(stops: list[str], full_df: DF) -> DF:
     """ Filter the full_df, such that each entry contains a
     normalized stop name. """
+
     def _remove_duplicate_regexes(duplicate_regex: str) -> str:
         return "|".join(set(duplicate_regex.split("|")))
 
@@ -560,6 +568,7 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     Change the values of KEYS_OPTIONAL (i.e. the keys used to calculate
     the node score) in df, with its integer value, depending on the routetype.
     """
+
     def _get_score(value: str) -> float:
         if value in bad:
             return bad_value

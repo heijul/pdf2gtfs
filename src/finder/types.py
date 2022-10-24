@@ -5,9 +5,9 @@ from typing import NamedTuple, TYPE_CHECKING, TypeAlias
 
 import pandas as pd
 
+
 if TYPE_CHECKING:
     from finder.location_nodes import Node
-
 
 Heap: TypeAlias = list["Node"]
 DF: TypeAlias = pd.DataFrame

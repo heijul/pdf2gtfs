@@ -49,6 +49,7 @@ class Stop:
     def avg_time_to_next(self) -> Time:
         """ The average (as written in the pdf timetable) time it takes to
         get to the next stop of the route. """
+
         def _calculate_avg_time_to_next() -> Time:
             return Stop.stops.get_avg_time_between(self, self.next)
 
@@ -95,6 +96,7 @@ class Stop:
 
 class Stops:
     """ The stops of a route. Implemented as singly-linked-list. """
+
     def __init__(self, handler: GTFSHandler,
                  stop_names: list[tuple[str, str]]) -> None:
         self.handler = handler

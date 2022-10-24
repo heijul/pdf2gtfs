@@ -23,6 +23,7 @@ Splitter: TypeAlias = Callable[[Tables, list[FieldContainer]], None]
 
 class PDFTable:
     """ Describes a table, using coordinates, rows and columns. """
+
     def __init__(self, rows: Rows = None, columns: Cols = None):
         self.rows = rows or []
         self.columns = columns or []
@@ -58,6 +59,7 @@ class PDFTable:
 
     def generate_columns_from_rows(self) -> None:
         """ Create columns from the given rows. """
+
         def _generate_single_field_columns() -> Cols:
             # Generate single-field columns from the rows.
             field_columns = [Column.from_field(self, field)
@@ -134,6 +136,7 @@ class PDFTable:
 
     def split_at_stop_columns(self) -> Tables:
         """ Return a list of tables with each having a single stop column. """
+
         def splitter(tables: Tables, splitter_columns: list) -> None:
             """ Split the given tables at the given splitter_columns. """
             for row in self.rows:
@@ -147,6 +150,7 @@ class PDFTable:
 
     def split_at_header_rows(self) -> Tables:
         """ Return a list of tables with each having a single header row. """
+
         def splitter(tables: Tables, splitter_rows: list) -> None:
             """ Splits the current tables' rows such that each split starts
             with a splitter_row and assigns each split to a table. """
@@ -169,6 +173,7 @@ def split_rows_into_tables(rows: Rows) -> Tables:
     """ Split raw rows into (multiple) PDFTable. A new table is created,
     whenever the distance to the previous line is higher than the defined
     max_row_distance. Tables with too few rows are dropped with an info. """
+
     def log_skipped_rows() -> None:
         """ Log the rows that are dropped. """
         # FEATURE: Should not drop the table,

@@ -19,7 +19,7 @@ from pdfminer.pdfparser import PDFSyntaxError
 from config import Config
 from datastructures.pdftable.field import Field
 from datastructures.pdftable.pdftable import (
-    cleanup_tables, Row, split_rows_into_tables, PDFTable)
+    cleanup_tables, PDFTable, Row, split_rows_into_tables)
 from datastructures.timetable.table import TimeTable
 from p2g_types import Char
 
@@ -28,13 +28,13 @@ PDF_READ_ERROR_CODE = 2
 
 logger = logging.getLogger(__name__)
 
-
 Line: TypeAlias = list[Char]
 Lines: TypeAlias = list[Line]
 
 
 def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     """ Returns a dataframe consisting of Chars. """
+
     def _fix_text(text: str) -> str:
         # Fix chars which were turned into codes during preprocessing.
         if len(text) == 1:
@@ -190,6 +190,7 @@ def page_to_timetables(page: LTPage) -> list[TimeTable]:
 class Reader:
     """ Class which oversees the reading of the file and handles
     e.g. the removal of any temporary files. """
+
     def __init__(self) -> None:
         self.tempfile = None
         self.filepath = Path(Config.filename).resolve()
@@ -275,6 +276,7 @@ def _preprocess_check() -> bool:
         return False
     try:
         from ghostscript import Ghostscript  # noqa: F401
+
         return True
     except RuntimeError:
         logger.warning("Ghostscript library does not seem to be "

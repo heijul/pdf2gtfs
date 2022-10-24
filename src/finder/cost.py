@@ -8,6 +8,7 @@ from math import inf
 
 class Cost:
     """ The cost of a Node. """
+
     def __init__(self, parent_cost: float = None, node_cost: float = None,
                  name_cost: float = None, travel_cost: float = None,
                  stop_cost: float = None) -> None:
@@ -100,6 +101,7 @@ class Cost:
 
 class StartCost(Cost):
     """ The cost for starting nodes. """
+
     @staticmethod
     def from_cost(cost: Cost) -> Cost:
         """ Creates a new instance, with the same values as self, except

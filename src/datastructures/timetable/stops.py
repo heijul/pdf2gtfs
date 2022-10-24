@@ -3,6 +3,7 @@
 
 class Stop:
     """ The stop of a TimeTableEntry. """
+
     def __init__(self, name: str, raw_row_id: int):
         self.name = name
         self.raw_row_id = raw_row_id
@@ -32,6 +33,7 @@ class Stop:
 
 class DummyAnnotationStop(Stop):
     """ Dummy used to properly print the TimeTable. """
+
     def __init__(self) -> None:
         super(DummyAnnotationStop, self).__init__("", 0)
 

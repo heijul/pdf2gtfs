@@ -7,6 +7,7 @@ from math import cos, radians
 
 class Distance:
     """ Distance between two locations. """
+
     def __init__(self, *, m: float = None, km: float = None):
         self.distance = abs(m if m is not None else km * 1000)
 
