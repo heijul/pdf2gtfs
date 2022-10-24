@@ -664,6 +664,10 @@ To ensure this is not simply due to a selection bias, other PDF files
 from different (previously unseen) agencies were used, without further
 changing the code (only changing configuration), which lead to similar results.
 
+Also, sometimes the name of a stop is a single, really broad term, like
+"Bahnhof" for example. This results in a huge performance drop in the location
+detection, because of the number of locations with "Bahnhof" in their name.
+
 ###### Transposed tables
 
 Some input PDFs could not be read properly, for example the one below.
@@ -701,7 +705,7 @@ in particular to widen the support for different timetable formats and to
 improve the location detection if the names in OpenStreetMap and the input PDF
 differ.
 
-##  Future plans
+## Future plans
 
 In the following are some features, which may be implemented in the future,
 along with some possible implementations.
