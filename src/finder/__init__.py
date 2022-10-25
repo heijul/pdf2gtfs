@@ -522,17 +522,20 @@ def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
 def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
     """ Add extra columns (name_cost, stop_id, idx) to the df. """
 
-    def name_distance(names: np.array) -> list[int]:
+    def name_distance(names_array: np.array) -> list[int]:
         """ Edit distance between name and stop after normalizing both. """
         distances = []
         normal_stop = _normalize_stop(stop)
-        for name in names:
-            normal_name = _normalize_stop(name[0])
-            if normal_name == normal_stop:
-                dist = 0
-            else:
+        for names in names_array:
+            dists = []
+            for name in names.split("|"):
+                normal_name = _normalize_stop(name)
                 dist = get_edit_distance(normal_name, normal_stop)
-            distances.append(dist)
+                dists.append(dist)
+                # If we found a name equal to the stop name we are done.
+                if dist == 0:
+                    break
+            distances.append(min(dists))
         return distances
 
     dfs = []
