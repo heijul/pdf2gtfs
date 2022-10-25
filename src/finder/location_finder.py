@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import heapq
 import logging
 from math import inf
 from time import time
@@ -35,8 +34,6 @@ class LocationFinder:
     def find_dijkstra(self) -> list[Node]:
         """ Uses Dijkstra's algorithm to find the shortest route. """
         while True:
-            # TODO NOW: This should be done another way. Takes O(n) I guess?
-            heapq.heapify(self.nodes.node_heap)
             node: Node = self.nodes.get_min()
             if node.stop.is_last:
                 if not node.parent:

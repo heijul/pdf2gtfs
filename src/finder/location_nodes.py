@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import heapq
 import logging
 import webbrowser
 from functools import partial
@@ -20,7 +19,7 @@ from finder.cost import Cost, StartCost
 from finder.distance import (
     Distance, DISTANCE_PER_LAT_DEG, get_distance_per_lon_deg)
 from finder.stops import Stop, Stops
-from finder.types import DF, Heap, StopPosition
+from finder.types import DF, StopPosition
 
 
 logger = logging.getLogger(__name__)
@@ -228,13 +227,12 @@ class MissingNode(Node):
 
 
 class Nodes:
-    """ Container for Nodes/MissingNodes.
-    Provides methods to query and create nodes. """
+    """ Container for Nodes. Provides methods to query and create nodes. """
 
     def __init__(self, df: DF, stops: Stops) -> None:
         self.df = df
         self.node_map: dict[tuple[Stop, int]: Node] = {}
-        self.node_heap: Heap[Node] = []
+        self.node_heap: NodeHeap = NodeHeap()
         self.next_missing_node_idx = -1
         self.higher_cost_dfs: dict[Stop: df] = {}
         Node.nodes = self
@@ -261,7 +259,7 @@ class Nodes:
                 node = self.get_or_create(stop, values)
                 if stop == stops.first:
                     node.cost = StartCost.from_cost(node.cost)
-                    heapq.heappush(self.node_heap, node)
+                    self.node_heap.add_node(node)
             if stop.is_last:
                 break
             stop = stop.next
@@ -270,7 +268,7 @@ class Nodes:
         self.node_map[(node.stop, node.index)] = node
         if node.cost.as_float == inf:
             return
-        heapq.heappush(self.node_heap, node)
+        self.node_heap.add_node(node)
 
     def _create_node(self, stop: Stop, values: StopPosition) -> Node:
         loc = Location(values.lat, values.lon)
@@ -366,7 +364,7 @@ class Nodes:
     def get_min(self) -> Node:
         """ Return the node with the lowest Cost.
         Will only return unvisited nodes. """
-        node = heapq.heappop(self.node_heap)
+        node = self.node_heap.pop()
         # Check is needed, because we do not remove the existing node
         # from the heap, when updating its parent.
         if node.visited:
@@ -374,14 +372,11 @@ class Nodes:
         return node
 
     def update_parent(self, parent: Node, node: Node, cost: Cost) -> None:
-        """ Update the parent and cost of the node and add it to the heap
-        again. This will result in duplicate entries in the heap, however as
-        we only update the parent if the cost are lower,
-        the heap invariant is still maintained. """
+        """ Update the parent and cost of the node. """
         node.parent = parent
         node.cost = cost
         parent.has_children = True
-        heapq.heappush(self.node_heap, node)
+        self.node_heap.add_node(node)
 
     def duplicate_missing_node(self, node: MissingNode) -> None:
         """ Creates a new MissingNode, with the same values of node,
@@ -395,7 +390,7 @@ class Nodes:
         num_stops = len(set([nodes for nodes, _ in self.node_map]))
         return (f"Nodes(# stops: {num_stops}, "
                 f"# nodes: {len(self.node_map)}, "
-                f"# unvisited nodes: {len(self.node_heap)})")
+                f"# unvisited nodes: {self.node_heap.count})")
 
 
 def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
@@ -466,3 +461,120 @@ def display_nodes(nodes: list[Node]) -> None:
     outfile = Config.output_dir.joinpath("routedisplay.html")
     m.save(str(outfile))
     webbrowser.open_new_tab(str(outfile))
+
+
+class NodeHeap:
+    """ Min heap. """
+
+    def __init__(self) -> None:
+        self.first: HeapNode | None = None
+        self.node_map: dict[Node: HeapNode] = {}
+        self.count = 0
+
+    def add_node(self, node: Node) -> None:
+        """ Add the node to the heap, based on its cost.
+
+        If the cost is equal to another node's cost in the heap, insert at the
+        last position, such that the previous node's cost are equal and the
+        next (it it exists) are higher.
+        """
+        if node in self.node_map:
+            self.update(node)
+            return
+
+        self.count += 1
+        heapnode = HeapNode(node)
+        self.node_map[node] = heapnode
+        # Heap is empty.
+        if self.first is None:
+            self.first = heapnode
+            return
+
+        # Find current, such that node has higher cost than current,
+        #  but lower cost than current.next, if it exists. Also ensure
+        #  that current is the last heap node with current's node cost.
+        current = None
+        node_cost = node.cost.as_float
+        if node_cost >= self.first.node_cost:
+            current = self.first
+            while True:
+                if current.next is None or node_cost < current.node_cost:
+                    break
+                if node_cost > current.node_cost:
+                    current = current.next
+                    continue
+                # Only break, if current's cost are equal to node's cost and
+                #  the next node has higher cost.
+                if current.next.node_cost > current.node_cost:
+                    break
+                current = current.next
+
+        self.insert_after(current, heapnode)
+
+    def insert_after(
+            self, prev: HeapNode | None, heap_node: HeapNode) -> None:
+        """ Insert the given heap_node after prev.
+
+        If prev is None, heap_node will be set to first.
+        """
+        if prev is None:
+            self.first.prev = heap_node
+            heap_node.next = self.first
+            self.first = heap_node
+            return
+
+        if prev.next:
+            prev.next.prev = heap_node
+        prev.next = heap_node
+        heap_node.prev = prev
+
+    def pop(self) -> Node:
+        """ Return the current min node and remove it from the heap. """
+        # TODO NOW: Error handling
+        min_node = self.first.node
+        self.remove(self.first)
+        return min_node
+
+    def update(self, node: Node) -> None:
+        """ Removes and re-adds the node, if its cost has changed. """
+        heap_node: HeapNode = self.node_map[node]
+        if heap_node.valid_position:
+            return
+        self.remove(heap_node)
+        self.add_node(node)
+
+    def remove(self, heap_node: HeapNode) -> None:
+        """ Remove the given node from the heap, updating its neighbors. """
+        self.count -= 1
+        if self.first == heap_node:
+            self.first = heap_node.next
+        if heap_node.next:
+            heap_node.next.prev = heap_node.prev
+        if heap_node.prev:
+            heap_node.prev.next = heap_node.next
+        # TODO NOW: Check why we even have to check this
+        if heap_node.node in self.node_map:
+            del self.node_map[heap_node.node]
+
+
+class HeapNode:
+    """ Linked list node for the NodeHeap. """
+
+    def __init__(self, node: Node) -> None:
+        self.node: Node = node
+        self.prev: HeapNode | None = None
+        self.next: HeapNode | None = None
+
+    @property
+    def node_cost(self) -> float:
+        """ Return the node's cost. """
+        return self.node.cost.as_float
+
+    @property
+    def valid_position(self) -> bool:
+        """ Check if our node's cost are between prev's and next's costs. """
+        if self.prev and self.prev.node_cost > self.node_cost:
+            return False
+        if self.next and self.next.node_cost < self.node_cost:
+            return False
+        return True
