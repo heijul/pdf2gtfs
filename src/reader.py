@@ -14,7 +14,8 @@ import pandas as pd
 from ghostscript import GhostscriptError
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
-from pdfminer.pdfparser import PDFSyntaxError
+from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 
 from config import Config
 from datastructures.pdftable.field import Field
@@ -25,6 +26,7 @@ from p2g_types import Char
 
 
 PDF_READ_ERROR_CODE = 2
+INVALID_PAGES_QUIT_CODE = 3
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,18 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     df["text"] = df["text"].astype(text_dtype)
 
     return df
+
+
+def sniff_page_count(file: str | Path) -> int:
+    """ Return the number of pages in the given PDF. """
+
+    # TODO: Add error handling, though if this one fails, the whole reading
+    #  will probably fail as well.
+    with open(file, "rb") as file:
+        parser = PDFParser(file)
+        document = PDFDocument(parser)
+        page_count = document.catalog["Pages"].resolve()["Count"]
+    return page_count
 
 
 def get_pages(file: str | Path) -> Iterator[LTPage]:
@@ -252,8 +266,37 @@ class Reader:
             logger.error(e)
             sys.exit(PDF_READ_ERROR_CODE)
 
+    def assert_valid_pages(self) -> None:
+        """ Checks that the given pages exist in the PDF, exits if not. """
+
+        page_ids = Config.pages.page_ids
+        # All pages.
+        if page_ids is None:
+            return
+
+        pages = Config.pages.pages
+        count = sniff_page_count(self.filepath)
+        oob_page_ids = [page_id for page_id in page_ids if page_id > count]
+        # No pages are out of bounds.
+        if not oob_page_ids:
+            return
+
+        oob_pages_string = ", ".join([str(page_id) for page_id in pages])
+        msg = (f"The PDF only has {count} {{}}, but the following {{}} "
+               f"requested: {oob_pages_string}\n"
+               f"Please ensure the pages given exist in the PDF or use "
+               f"'all', to read all pages.\nQuitting...")
+
+        given_pages = "page was" if len(oob_page_ids) == 1 else "pages were"
+        pdf_pages = "page" if count == 1 else "pages"
+
+        logger.error(msg.format(pdf_pages, given_pages))
+        sys.exit(INVALID_PAGES_QUIT_CODE)
+
     def read(self) -> list[TimeTable]:
         """ Return the timetables from all given pages. """
+
+        self.assert_valid_pages()
         self.preprocess()
 
         timetables = []
