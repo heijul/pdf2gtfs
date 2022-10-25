@@ -61,7 +61,7 @@ class PDFTable:
         """ Create columns from the given rows. """
 
         def _generate_single_field_columns() -> Cols:
-            # Generate single-field columns from the rows.
+            """ Generate single-field columns from the rows. """
             field_columns = [Column.from_field(self, field)
                              for row in rows for field in row]
             return sorted(field_columns, key=attrgetter("bbox.x0"))
