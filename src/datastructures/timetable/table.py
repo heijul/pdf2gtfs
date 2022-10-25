@@ -98,7 +98,7 @@ class TimeTable:
 
     @staticmethod
     def from_pdf_table(pdf_table: pdftable.PDFTable) -> TimeTable:
-        """ Creates a new TimeTale, given the pdttable"""
+        """ Creates a new TimeTable, given the pdttable. """
 
         def get_annotations(column: pdftable.Column):
             """ Return all annotations of the given columns. """
@@ -121,6 +121,8 @@ class TimeTable:
         table = TimeTable()
 
         for raw_column in list(pdf_table.columns):
+            if raw_column.type == ColumnType.OTHER:
+                continue
             raw_header_text = pdf_table.get_header_from_column(raw_column)
             if raw_column.type == ColumnType.REPEAT:
                 entry = TimeTableRepeatEntry(
