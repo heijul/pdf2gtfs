@@ -247,7 +247,7 @@ class GTFSHandler:
 
         with ZipFile(archive_path, mode="w") as zip_file:
             for path in get_gtfs_filepaths():
-                zip_file.write(path)
+                zip_file.write(path, arcname=path.name)
 
     def add_coordinates(self, nodes: dict[str: Node]) -> None:
         """ Add locations to the stops using the given nodes. """
