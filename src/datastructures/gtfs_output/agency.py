@@ -47,7 +47,8 @@ class DummyGTFSAgencyEntry(GTFSAgencyEntry):
     entries: list[GTFSAgencyEntry]
 
     def __init__(self) -> None:
-        super().__init__("pdf2gtfs", "", "Europe/Berlin")
+        super().__init__(
+            "pdf2gtfs", "https://www.example.com", "Europe/Berlin")
         self.name = "pdf2gtfs"
 
 
