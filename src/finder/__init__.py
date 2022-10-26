@@ -18,7 +18,6 @@ from time import time
 from typing import TYPE_CHECKING, TypeAlias
 from urllib import parse
 
-import numpy as np
 import pandas as pd
 import requests
 from requests.exceptions import ConnectionError
@@ -28,9 +27,7 @@ from finder.location import Location
 from finder.location_finder import find_stop_nodes, update_missing_locations
 from finder.location_nodes import display_nodes, MissingNode, Node
 from finder.osm_values import get_all_cat_scores
-from utils import (
-    get_abbreviations_regex, get_edit_distance,
-    replace_abbreviation, SPECIAL_CHARS)
+from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
 
 
 if TYPE_CHECKING:
@@ -517,28 +514,23 @@ def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
 def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
     """ Add extra columns (name_cost, stop_id, idx) to the df. """
 
-    def name_distance(names_array: np.array) -> list[int]:
-        """ Edit distance between name and stop after normalizing both. """
-        distances = []
-        normal_stop = _normalize_stop(stop)
-        for names in names_array:
-            dists = []
-            for name in names.split("|"):
-                normal_name = _normalize_stop(name)
-                dist = get_edit_distance(normal_name, normal_stop)
-                dists.append(dist)
-                # If we found a name equal to the stop name we are done.
-                if dist == 0:
-                    break
-            distances.append(min(dists))
-        return distances
+    def calculate_name_cost(names: list[str]) -> int:
+        """ Calculate the minimum approximate edit distance to the stop.
+
+        Because we know all names contain the stop's words, we simply
+        calculate the difference in length, ignoring spaces.
+        """
+        name_lengths = [len(name.replace(" ", "")) for name in names]
+        return min([abs(stop_length - length) for length in name_lengths])
 
     dfs = []
     for stop_id, stop in stops:
         df = _filter_df_by_stop(stop, full_df)
+        stop_length = len(_normalize_stop(stop).replace(" ", ""))
         if df.empty:
             continue
-        df.loc[:, "name_cost"] = df[["names"]].apply(name_distance, raw=True)
+        name_df = df["names"].str.split("|", regex=False)
+        df.loc[:, "name_cost"] = name_df.map(calculate_name_cost)
         df.loc[:, "stop_id"] = stop_id
         df.loc[:, "idx"] = df.index
         dfs.append(df)

@@ -1,16 +1,10 @@
 from unittest import TestCase
 
 from config import Config
-from utils import get_edit_distance, replace_abbreviations
+from utils import replace_abbreviations
 
 
 class TestUtils(TestCase):
-    def test_get_edit_distance(self) -> None:
-        self.assertEqual(3, get_edit_distance("sitting", "kitten"))
-        self.assertEqual(3, get_edit_distance("kitten", "sitting"))
-        self.assertEqual(3, get_edit_distance("sunday", "saturday"))
-        self.assertEqual(3, get_edit_distance("saturday", "sunday"))
-
     def test_replace_abbreviations__no_dot(self) -> None:
         Config.name_abbreviations = {"str": "strasse"}
         names = {"hauptstr.": "hauptstr.",
