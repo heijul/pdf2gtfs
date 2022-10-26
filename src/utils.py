@@ -39,7 +39,6 @@ def next_uid() -> str:
     return UIDGenerator.next()
 
 
-REGEX_FLAGS = re.I + re.U
 SPECIAL_CHARS = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
 
 
@@ -119,7 +118,7 @@ def get_edit_distance(s1, s2) -> int:
 def replace_abbreviations(name: str) -> str:
     """ Replace all abbreviations in name. """
     regex = get_abbreviations_regex()
-    return re.sub(regex, replace_abbreviation, name, flags=REGEX_FLAGS)
+    return re.sub(regex, replace_abbreviation, name)
 
 
 def get_abbreviations_regex() -> str:

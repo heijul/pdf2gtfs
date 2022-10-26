@@ -508,14 +508,9 @@ def _create_stop_regex(stop: str) -> str:
     return regex
 
 
-def _compile_regex(regex: str) -> re.Pattern[str]:
-    flags = re.IGNORECASE + re.UNICODE
-    return re.compile(regex, flags=flags)
-
-
 def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
-    c_regex = _compile_regex(_create_stop_regex(stop))
-    df = full_df[full_df["names"].str.contains(c_regex, regex=True)]
+    regex = _create_stop_regex(stop)
+    df = full_df[full_df["names"].str.contains(regex, regex=True)]
     return df.copy()
 
 
@@ -559,8 +554,7 @@ def prefilter_df(stops: list[str], full_df: DF) -> DF:
 
     regexes = [_create_stop_regex(stop) for stop in stops]
     unique_regex: str = _remove_duplicate_regexes("|".join(regexes))
-    df = full_df[full_df["names"].str.contains(
-        unique_regex, regex=True, flags=re.IGNORECASE + re.UNICODE)]
+    df = full_df[full_df["names"].str.contains(unique_regex, regex=True)]
     return df.copy()
 
 
