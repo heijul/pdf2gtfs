@@ -149,13 +149,16 @@ def get_osm_data_from_qlever(filepath: Path) -> bool:
 
 def _cleanup_name(raw_series: pd.Series) -> pd.Series:
     def _normalize(series: pd.Series) -> pd.Series:
-        return series.str.lower().str.casefold().str.strip()
+        """ Lower and casefold the series. """
+        return series.str.lower().str.casefold()
 
     def _replace_abbreviations(series: pd.Series) -> pd.Series:
+        """ Replace the abbreviations by their full version. """
         return series.str.replace(
             get_abbreviations_regex(), replace_abbreviation, regex=True)
 
     def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
+        """ Remove parentheses and their content and special chars. """
         # Match parentheses and all text enclosed by them.
         parentheses_re = r"(\(.*\))"
         allowed_chars = "".join(Config.allowed_stop_chars)
@@ -164,15 +167,35 @@ def _cleanup_name(raw_series: pd.Series) -> pd.Series:
         regex = "|".join([parentheses_re, char_re])
         return series.str.replace(regex, " ", regex=True)
 
-    def _cleanup_spaces(series: pd.Series) -> pd.Series:
-        # Remove consecutive, as well as leading/trailing spaces.
-        return series.str.replace(" +", " ", regex=True)
+    def _cleanup_words(series: pd.Series) -> pd.Series:
+        """ Sort the words in the series, removing duplicates and whitespace.
+
+        This will remove duplicate words, as well as replace leading/trailing
+        and multiple consecutive whitespace with a single space.
+        Split the series into two, one containing the single names and the
+        other containing all names that are delimited using "|", because they
+        need to be handled differently.
+        As this also removes multiple consecutive, as well as
+        leading/trailing whitespace, it should be run last.
+        """
+
+        def _sort_names(value: str) -> str:
+            """ Sort a single entry in the series. """
+            names = []
+            for name in value.split("|"):
+                words = {w.strip() for w in name.split(" ") if w.strip()}
+                names.append(" ".join(sorted(words)))
+
+            return "|".join(names)
+
+        return series.map(_sort_names)
 
     return (raw_series
             .pipe(_normalize)
             .pipe(_replace_abbreviations)
             .pipe(_remove_forbidden_chars)
-            .pipe(_cleanup_spaces))
+            .pipe(_cleanup_words)
+            )
 
 
 def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
