@@ -94,6 +94,8 @@ class _Config(InstanceDescriptorMixin):
             self, "arrival_identifier", list[str])
         self.departure_identifier = p.NestedTypeProperty(
             self, "departure_identifier", list[str])
+        self.interpolate_missing_locations = p.Property(
+            self, "interpolate_missing_locations", bool)
 
     def load_default_config(self) -> None:
         """ Loads the default configuration.

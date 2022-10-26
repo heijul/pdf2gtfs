@@ -250,3 +250,14 @@ min_connection_count: 1
 #
 # Type: bool
 disable_location_detection: False
+
+# If True, any locations, that were not found, will be interpolated using the
+#   locations, that were found. These locations will be added to the output,
+#   depending on this setting.
+# If this is set to False and the location of a stop was not found, the
+#   stops' location will have a latitude/longitude of 0.
+#
+# Note: Need at least 2 valid locations, to interpolate.
+#
+# Type: bool
+interpolate_missing_locations: True

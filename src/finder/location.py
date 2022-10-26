@@ -12,6 +12,11 @@ class Location:
     lat: float
     lon: float
 
+    @property
+    def is_valid(self) -> bool:
+        """ Return if the location is valid. Invalid locations are at 0,0. """
+        return self.lat != 0 and self.lon != 0
+
     def __add__(self, other: Location) -> Location:
         if not isinstance(other, Location):
             raise TypeError(f"Can only add Location to Location, "

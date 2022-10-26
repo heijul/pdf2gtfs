@@ -263,10 +263,13 @@ class GTFSHandler:
             if stop.valid:
                 continue
             if isinstance(node, MissingNode):
-                logger.warning(
-                    f"Could not find location for '{stop.stop_name}'. "
-                    f"You will have to manually add the coordinates.")
-                continue
+                msg = f"Could not find location for '{stop.stop_name}'."
+                if Config.interpolate_missing_locations and node.loc.is_valid:
+                    logger.info(msg + "Using the interpolated coordinates.")
+                else:
+                    msg += "You will have to manually add the coordinates."
+                    logger.warning(msg)
+                    continue
             stop.set_location(*node.loc)
         logger.info("Done.")
 

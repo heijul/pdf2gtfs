@@ -355,8 +355,8 @@ class Finder:
         best_nodes = _select_best_nodes(route_stop_nodes)
         logger.info(f"Done. Took {time() - t:.2f}s")
 
+        update_missing_locations(list(best_nodes.values()), True)
         if Config.display_route in [1, 3, 5, 7]:
-            update_missing_locations(list(best_nodes.values()), True)
             display_nodes(list(best_nodes.values()))
         return best_nodes
 
