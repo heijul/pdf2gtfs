@@ -69,7 +69,7 @@ class GTFSHandler:
         if not timetable.stops.stops:
             return
         for stop in timetable.stops.stops:
-            self.stops.add(stop.name)
+            self.stops.add(stop.normalized_name)
         self.generate_routes(timetable)
 
         stop_times = self.generate_stop_times(timetable.entries)

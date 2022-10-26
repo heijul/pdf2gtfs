@@ -1,4 +1,5 @@
 """ Used to obtain unique stops, even if their names do not differ. """
+from utils import normalize_name
 
 
 class Stop:
@@ -6,6 +7,7 @@ class Stop:
 
     def __init__(self, name: str, raw_row_id: int):
         self.name = name
+        self.normalized_name = normalize_name(name)
         self.raw_row_id = raw_row_id
         self.annotation = ""
         self.is_connection = False

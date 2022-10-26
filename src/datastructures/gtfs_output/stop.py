@@ -8,6 +8,7 @@ from dataclasses import dataclass, Field
 import pandas as pd
 
 from datastructures.gtfs_output import BaseDataClass, ExistingBaseContainer
+from utils import normalize_name
 
 
 MAX_EDIT_DISTANCE = 3
@@ -26,6 +27,7 @@ class GTFSStopEntry(BaseDataClass):
         super().__init__(stop_id)
         self.stop_id = self.id
         self.stop_name = name
+        self.normalized_name = normalize_name(name)
         self._stop_lat = None
         self._stop_lon = None
 
@@ -113,8 +115,7 @@ class GTFSStops(ExistingBaseContainer):
     def get(self, stop_name: str) -> GTFSStopEntry:
         """ Return the GTFSStop with the given stop_name. """
         for entry in self.entries:
-            # TODO: Normalize both names.
-            if entry.stop_name != stop_name:
+            if entry.normalized_name != stop_name:
                 continue
             return entry
 

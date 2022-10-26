@@ -5,6 +5,10 @@ from __future__ import annotations
 import re
 from typing import TypeAlias, TypeVar
 
+import pandas as pd
+
+import config
+
 
 class _UIDGenerator:
     def __init__(self) -> None:
@@ -40,45 +44,6 @@ def next_uid() -> str:
 
 
 SPECIAL_CHARS = "\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF"
-
-
-def normalize_name(name: str) -> str:
-    """ Normalize the given name.
-
-    Return a str which only consists of letters and allowed chars.
-    Will also remove any parentheses and their contents.
-    """
-    from config import Config
-
-    def _remove_parentheses(string: str) -> str:
-        # Replace with space if there are spaces on either side.
-        string = re.sub(r"( *\(.*\) *?\b)", " ", string)
-        # Replace with nothing if its is followed by another symbol (like ',')
-        return re.sub(r"( *\(.*\).*?\B)", "", string)
-
-    def _remove_forbidden_symbols(string: str) -> str:
-        # Special chars include for example umlaute
-        # See https://en.wikipedia.org/wiki/List_of_Unicode_characters
-        allowed_chars = "".join([re.escape(char)
-                                 for char in Config.allowed_stop_chars])
-        re_allowed_symbols = rf"[^a-zA-Z\d{SPECIAL_CHARS}{allowed_chars}]"
-        return re.sub(re_allowed_symbols, "", string)
-
-    def _remove_non_letter_starts(string: str) -> str:
-        # FEATURE: Instead of doing this, create function to add city name in
-        #  case name starts with a '-'. See kvv example.
-        # Names should start with a letter.
-        while any([string.startswith(char)
-                   for char in Config.allowed_stop_chars]):
-            string = string[1:]
-        return string
-
-    name = _remove_parentheses(name)
-    name = _remove_forbidden_symbols(name)
-    name = _remove_non_letter_starts(name)
-    # Remove multiple continuous spaces
-    return re.sub("( +)", " ", name)
-
 
 T_ = TypeVar("T_")
 PaddedList: TypeAlias = list[T_ | None]
@@ -131,3 +96,61 @@ def replace_abbreviation(value: re.Match) -> str:
     if key not in Config.name_abbreviations:
         return Config.name_abbreviations[key + "."]
     return Config.name_abbreviations[key.lower()]
+
+
+def normalize_series(raw_series: pd.Series) -> pd.Series:
+    """ Normalize the series and remove symbols. """
+
+    def _normalize(series: pd.Series) -> pd.Series:
+        """ Lower and casefold the series. """
+        return series.str.lower().str.casefold()
+
+    def _replace_abbreviations(series: pd.Series) -> pd.Series:
+        """ Replace the abbreviations by their full version. """
+        return series.str.replace(
+            get_abbreviations_regex(), replace_abbreviation, regex=True)
+
+    def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
+        """ Remove parentheses and their content and special chars. """
+        # Match parentheses and all text enclosed by them.
+        parentheses_re = r"(\(.*\))"
+        allowed_chars = "".join(config.Config.allowed_stop_chars)
+        # Match all chars other than the allowed ones.
+        char_re = fr"([^a-zA-Z\d\|{SPECIAL_CHARS}{allowed_chars}])"
+        regex = "|".join([parentheses_re, char_re])
+        return series.str.replace(regex, " ", regex=True)
+
+    def _cleanup_words(series: pd.Series) -> pd.Series:
+        """ Sort the words in the series, removing duplicates and whitespace.
+
+        This will remove duplicate words, as well as replace leading/trailing
+        and multiple consecutive whitespace with a single space.
+        Split the series into two, one containing the single names and the
+        other containing all names that are delimited using "|", because they
+        need to be handled differently.
+        As this also removes multiple consecutive, as well as
+        leading/trailing whitespace, it should be run last.
+        """
+
+        def _sort_names(value: str) -> str:
+            """ Sort a single entry in the series. """
+            names = []
+            for name in value.split("|"):
+                words = {w.strip() for w in name.split(" ") if w.strip()}
+                names.append(" ".join(sorted(words)))
+
+            return "|".join(names)
+
+        return series.map(_sort_names)
+
+    return (raw_series
+            .pipe(_normalize)
+            .pipe(_replace_abbreviations)
+            .pipe(_remove_forbidden_chars)
+            .pipe(_cleanup_words)
+            )
+
+
+def normalize_name(name: str) -> str:
+    """ Normalize the given name. """
+    return normalize_series(pd.Series([name])).iloc[0]

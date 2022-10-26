@@ -27,7 +27,7 @@ from finder.location import Location
 from finder.location_finder import find_stop_nodes, update_missing_locations
 from finder.location_nodes import display_nodes, MissingNode, Node
 from finder.osm_values import get_all_cat_scores
-from utils import get_abbreviations_regex, replace_abbreviation, SPECIAL_CHARS
+from utils import normalize_series, normalize_name
 
 
 if TYPE_CHECKING:
@@ -142,60 +142,9 @@ def get_osm_data_from_qlever(filepath: Path) -> bool:
     return True
 
 
-def _cleanup_name(raw_series: pd.Series) -> pd.Series:
-    def _normalize(series: pd.Series) -> pd.Series:
-        """ Lower and casefold the series. """
-        return series.str.lower().str.casefold()
-
-    def _replace_abbreviations(series: pd.Series) -> pd.Series:
-        """ Replace the abbreviations by their full version. """
-        return series.str.replace(
-            get_abbreviations_regex(), replace_abbreviation, regex=True)
-
-    def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
-        """ Remove parentheses and their content and special chars. """
-        # Match parentheses and all text enclosed by them.
-        parentheses_re = r"(\(.*\))"
-        allowed_chars = "".join(Config.allowed_stop_chars)
-        # Match all chars other than the allowed ones.
-        char_re = fr"([^a-zA-Z\d\|{SPECIAL_CHARS}{allowed_chars}])"
-        regex = "|".join([parentheses_re, char_re])
-        return series.str.replace(regex, " ", regex=True)
-
-    def _cleanup_words(series: pd.Series) -> pd.Series:
-        """ Sort the words in the series, removing duplicates and whitespace.
-
-        This will remove duplicate words, as well as replace leading/trailing
-        and multiple consecutive whitespace with a single space.
-        Split the series into two, one containing the single names and the
-        other containing all names that are delimited using "|", because they
-        need to be handled differently.
-        As this also removes multiple consecutive, as well as
-        leading/trailing whitespace, it should be run last.
-        """
-
-        def _sort_names(value: str) -> str:
-            """ Sort a single entry in the series. """
-            names = []
-            for name in value.split("|"):
-                words = {w.strip() for w in name.split(" ") if w.strip()}
-                names.append(" ".join(sorted(words)))
-
-            return "|".join(names)
-
-        return series.map(_sort_names)
-
-    return (raw_series
-            .pipe(_normalize)
-            .pipe(_replace_abbreviations)
-            .pipe(_remove_forbidden_chars)
-            .pipe(_cleanup_words)
-            )
-
-
 def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
     df = read_csv(BytesIO(raw_data))
-    df["names"] = _cleanup_name(df["names"])
+    df["names"] = normalize_series(df["names"])
     # Remove entries with empty name.
     return df[df["names"] != ""]
 
@@ -495,12 +444,8 @@ def get_routes(handler: GTFSHandler) -> Routes:
     return clean_routes
 
 
-def _normalize_stop(stop: str) -> str:
-    return _cleanup_name(pd.Series([stop])).iloc[0]
-
-
 def _create_stop_regex(stop: str) -> str:
-    name = _normalize_stop(stop)
+    name = normalize_name(stop)
     regex = " ".join([rf"\b{re.escape(word)}\b" for word in name.split(" ")])
     return regex
 
@@ -526,7 +471,7 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
     dfs = []
     for stop_id, stop in stops:
         df = _filter_df_by_stop(stop, full_df)
-        stop_length = len(_normalize_stop(stop).replace(" ", ""))
+        stop_length = len(normalize_name(stop).replace(" ", ""))
         if df.empty:
             continue
         name_df = df["names"].str.split("|", regex=False)

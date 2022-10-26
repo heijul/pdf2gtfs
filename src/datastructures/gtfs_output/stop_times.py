@@ -158,7 +158,7 @@ class GTFSStopTimes(BaseContainer):
             trip_id, stop_id, sequence, arrival, departure)
         return self._add(entry)
 
-    def add_multiple(self, trip_id: str, stops: GTFSStops,
+    def add_multiple(self, trip_id: str, gtfs_stops: GTFSStops,
                      offset: int, time_strings: dict[Stop: str]
                      ) -> list[GTFSStopTimesEntry]:
         """ Creates a new entry for each time_string. """
@@ -184,7 +184,7 @@ class GTFSStopTimes(BaseContainer):
                 continue
 
             last_stop_name = stop.name
-            stop_id = stops.get(stop.name).stop_id
+            stop_id = gtfs_stops.get(stop.normalized_name).stop_id
             last_entry = self.add(trip_id, stop_id, seq, time)
             entries.append(last_entry)
 
