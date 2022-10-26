@@ -252,7 +252,10 @@ class Nodes:
             df = self.filter_df_by_stop(stop)
             for values in df.itertuples(False, "StopPosition"):
                 values: StopPosition
-                node = self.get_or_create(stop, values)
+                if values.lat == 0 or values.lon == 0:
+                    node = self.get_or_create_missing(stop, values)
+                else:
+                    node = self.get_or_create(stop, values)
                 if stop == stops.first:
                     node.cost = StartCost.from_cost(node.cost)
                     self._node_heap.add_node(node)
@@ -276,9 +279,7 @@ class Nodes:
     def _create_missing_node(self, stop: Stop, values: StopPosition
                              ) -> MissingNode:
         loc = Location(values.lat, values.lon)
-        node = MissingNode(
-            stop, values.idx, values.names, loc, values.node_cost)
-        node.cost.stop_cost = stop.cost
+        node = MissingNode(stop, values.idx, values.names, loc, inf)
         self._add(node)
         return node
 
