@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from math import inf
 from time import time
 from typing import TYPE_CHECKING
 
@@ -29,12 +28,12 @@ class LocationFinder:
                  df: DF) -> None:
         self.handler = handler
         self.stops = Stops(handler, stop_names)
-        self.nodes = Nodes(df, self.stops)
+        self.nodes: Nodes = Nodes(df, self.stops)
 
     def find_dijkstra(self) -> list[Node]:
         """ Uses Dijkstra's algorithm to find the shortest route. """
         while True:
-            node: Node = self.nodes.get_min()
+            node: Node = self.nodes.pop()
             if node.stop.is_last:
                 if not node.parent:
                     continue
@@ -45,6 +44,8 @@ class LocationFinder:
                 if isinstance(neighbor, MissingNode):
                     continue
                 has_neighbors = True
+            # Only create MissingNodes for neighbors of nodes
+            #  without any true neighbors or children.
             if not node.has_children and not has_neighbors:
                 logger.info(f"Created missing childnode for {node}")
                 self.nodes.create_missing_neighbor_for_node(node)
@@ -104,16 +105,13 @@ def find_stop_nodes(handler: GTFSHandler,
     logger.info("Starting location detection...")
     t = time()
     d = df.copy()
-    location_finder = LocationFinder(handler, route, d.copy())
-    nodes = location_finder.find_dijkstra()
+    finder: LocationFinder = LocationFinder(handler, route, d.copy())
+    nodes = finder.find_dijkstra()
     update_missing_locations(nodes)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     if Config.display_route in [4, 5, 6, 7]:
-        all_nodes = [node for node in location_finder.nodes.node_map.values()
-                     if not isinstance(node, MissingNode)
-                     and node.cost.as_float != inf]
-        display_nodes(all_nodes)
+        finder.nodes.display_all_nodes()
 
     if Config.display_route in [2, 3, 6, 7]:
         display_nodes(nodes)

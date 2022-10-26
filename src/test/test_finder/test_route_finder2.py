@@ -128,7 +128,7 @@ class TestNode(TestCase):
         self.nodes = Nodes(self.df, self.stops)
 
     def test_get_neighbors(self) -> None:
-        nodes = self.nodes.node_heap
+        nodes = self.nodes._node_heap
 
         for node in nodes:
             if node.stop == self.stops.last:
@@ -151,7 +151,7 @@ def get_stops_and_dummy_df(stop_count: int = 3) -> tuple[list, DF]:
                "idx", "stop_id", "names",
                "name_cost", "node_cost"]
     stops = [(f"{i}", f"stop_{i}") for i in range(stop_count)]
-    lat_lon = [(round(49 + i / 1000, 4), round(9 + i/1000, 4))
+    lat_lon = [(round(49 + i / 1000, 4), round(9 + i / 1000, 4))
                for i in range(1, 10)]
     costs = [(i, i % 2) for i in range(9, 18)]
 
