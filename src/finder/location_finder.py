@@ -104,8 +104,7 @@ def find_stop_nodes(handler: GTFSHandler,
     """ Return the Nodes mapped to the stop ids for a list of routes. """
     logger.info("Starting location detection...")
     t = time()
-    d = df.copy()
-    finder: LocationFinder = LocationFinder(handler, route, d.copy())
+    finder: LocationFinder = LocationFinder(handler, route, df.copy())
     nodes = finder.find_dijkstra()
     update_missing_locations(nodes)
     logger.info(f"Done. Took {time() - t:.2f}s")
