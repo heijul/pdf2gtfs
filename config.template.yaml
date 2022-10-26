@@ -162,7 +162,7 @@ output_pp: True
 # Type: bool
 always_overwrite: False
 
-# Disable interactive mode (default is on). This will result in no user
+# Disable interactive mode. This will result in no user
 #   interaction necessary and may be useful, when run in a script.
 # Specifically, you will not be asked whether existing files should be
 #   overwritten (value of always_overwrite is respected). You will also not be
