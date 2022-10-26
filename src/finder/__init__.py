@@ -5,9 +5,7 @@
 from __future__ import annotations
 
 import datetime as dt
-import itertools
 import logging
-import operator
 import os.path
 import platform
 import re
@@ -504,30 +502,9 @@ def _normalize_stop(stop: str) -> str:
     return _cleanup_name(pd.Series([stop])).iloc[0]
 
 
-def _create_stop_regex(stop: str, add_permutations: str) -> str:
-    def _get_permutations(string: str) -> list[str]:
-        if add_permutations == "none":
-            return [string]
-
-        words = string.split(" ")
-
-        n = len(words)
-        range_args = (1, n + 1) if add_permutations == "all" else (n, n + 1)
-
-        perms_list: list[list[str]] = []
-        for i in range(*range_args):
-            perms_list.append(list(itertools.permutations(words, i)))
-        perm_str = [" ".join(perm) for perms in perms_list for perm in perms]
-        perm_str.sort(key=operator.methodcaller("count", " "), reverse=True)
-        return perm_str
-
-    assert add_permutations in ["all", "max", "none"]
-    permutations = _get_permutations(stop)
-    if add_permutations == "all":
-        regex_list = [rf"\b{re.escape(perm)}\b" for perm in permutations]
-    else:
-        regex_list = [re.escape(perm) for perm in _get_permutations(stop)]
-    regex = "|".join(regex_list)
+def _create_stop_regex(stop: str) -> str:
+    name = _normalize_stop(stop)
+    regex = " ".join([rf"\b{re.escape(word)}\b" for word in name.split(" ")])
     return regex
 
 
@@ -537,7 +514,7 @@ def _compile_regex(regex: str) -> re.Pattern[str]:
 
 
 def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
-    c_regex = _compile_regex(_create_stop_regex(_normalize_stop(stop), "none"))
+    c_regex = _compile_regex(_create_stop_regex(stop))
     df = full_df[full_df["names"].str.contains(c_regex, regex=True)]
     return df.copy()
 
@@ -580,8 +557,7 @@ def prefilter_df(stops: list[str], full_df: DF) -> DF:
     def _remove_duplicate_regexes(duplicate_regex: str) -> str:
         return "|".join(set(duplicate_regex.split("|")))
 
-    regexes = [_create_stop_regex(_normalize_stop(stop), "none")
-               for stop in stops]
+    regexes = [_create_stop_regex(stop) for stop in stops]
     unique_regex: str = _remove_duplicate_regexes("|".join(regexes))
     df = full_df[full_df["names"].str.contains(
         unique_regex, regex=True, flags=re.IGNORECASE + re.UNICODE)]
