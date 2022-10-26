@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, Field
 from enum import Enum
+from time import strptime
 from typing import TYPE_CHECKING
 
 import config
@@ -91,11 +92,26 @@ class Routes(BaseContainer):
 
     @staticmethod
     def names_from_entry(entry: TimeTableEntry) -> tuple[str, str]:
-        """ Get the short_name and long_name from the given entry. """
+        """ Get the short_name and long_name from the given entry.
+
+        Ensure the times in the entry are actually parseable.
+        """
+        start_stop = None
+        end_stop = None
+
+        for stop, time_string in entry.values.items():
+            try:
+                strptime(time_string, config.Config.time_format)
+            except ValueError:
+                continue
+            if not start_stop:
+                start_stop = stop
+                continue
+            if not end_stop:
+                end_stop = stop
+
         short_name = entry.route_name
-        start_name = list(entry.values.keys())[0].name
-        end_name = list(entry.values.keys())[-1].name
-        long_name = f"{start_name}-{end_name}"
+        long_name = f"{start_stop.name}-{end_stop.name}"
         return short_name, long_name
 
     def add_from_entry(self, entry: TimeTableEntry) -> None:
