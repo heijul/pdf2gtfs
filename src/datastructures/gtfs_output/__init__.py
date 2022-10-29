@@ -129,8 +129,8 @@ class ExistingBaseContainer(BaseContainer):
 
     def initialize(self) -> None:
         """ Add all existing entries. """
-        for entry in self.from_file():
-            self._add(entry)
+        self.entries = self.from_file()
+        for entry in self.entries:
             UIDGenerator.skip(entry.id)
 
     def write(self) -> None:
@@ -151,6 +151,7 @@ class ExistingBaseContainer(BaseContainer):
             default = []
         if not self.fp.exists():
             return default
+        logger.info(f"Reading existing file {self.fp}...")
         try:
             df = pd.read_csv(self.fp, dtype=str)
         except Exception as e:

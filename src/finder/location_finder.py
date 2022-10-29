@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 from config import Config
 from finder.location import Location
-from finder.location_nodes import display_nodes, MissingNode, Nodes
-from finder.stops import Stops
+from finder.location_nodes import display_nodes, MNode, Nodes
+from finder.stops import Stop, Stops
 from finder.types import DF
 
 
@@ -21,35 +21,38 @@ logger = logging.getLogger(__name__)
 
 
 class LocationFinder:
-    """ Tries to find the locations of the given stop_names for all routes
+    """ Tries to find the locations of the given route for all routes
     described in the given handler. """
 
-    def __init__(self, handler: GTFSHandler, stop_names: list[tuple[str, str]],
+    def __init__(self, handler: GTFSHandler, route: list[tuple[str, str]],
                  df: DF) -> None:
         self.handler = handler
-        self.stops = Stops(handler, stop_names)
+        self.stops: Stops = Stops(handler, route)
         self.nodes: Nodes = Nodes(df, self.stops)
+        self._generate_nodes()
+
+    def _generate_nodes(self) -> None:
+        """ Creates all Node objects for all stops.
+
+        If a stop already has a location, create a ExistingNode instead.
+        """
+
+        stop_ids = [stop.stop_id for stop in self.stops]
+        existing_locs = self.handler.stops.get_existing_stops(stop_ids)
+        for stop in self.stops:
+            stop: Stop
+            loc = Location(*existing_locs.get(stop.stop_id))
+            self.nodes.create_nodes_for_stop(stop, loc)
 
     def find_dijkstra(self) -> list[Node]:
         """ Uses Dijkstra's algorithm to find the shortest route. """
         while True:
-            node: Node = self.nodes.pop()
+            node: Node = self.nodes.get_min_node()
             if node.stop.is_last:
                 if not node.parent:
                     continue
                 break
-            has_neighbors = False
-            for neighbor in node.get_neighbors():
-                neighbor.update_parent_if_lower_cost(node)
-                if isinstance(neighbor, MissingNode):
-                    continue
-                has_neighbors = True
-            # Only create MissingNodes for neighbors of nodes
-            #  without any true neighbors or children.
-            if not node.has_children and not has_neighbors:
-                logger.info(f"Created missing childnode for {node}")
-                self.nodes.create_missing_neighbor_for_node(node)
-            node.visited = True
+            node.update_neighbors()
 
         route = node.construct_route()
         return route
@@ -68,7 +71,7 @@ def update_missing_locations(
     def reset_missing_node_locations() -> None:
         """ Reset the locations of all MissingNode to 0, 0. """
         for node in all_nodes:
-            if not isinstance(node, MissingNode):
+            if not isinstance(node, MNode):
                 continue
             node.loc = Location(0, 0)
 
@@ -102,17 +105,15 @@ def update_missing_locations(
             if node.loc == Location(0, 0):
                 missing_nodes.append(node)
                 continue
-            # Current node has valid location.
-            if not missing_nodes:
-                prev = node
-                continue
-            # Fix missing node locations.
-            loc_delta = get_loc_delta(prev, node, len(missing_nodes) + 1)
-            missing_loc = prev.loc + loc_delta
-            for missing_node in missing_nodes:
-                missing_node.loc = missing_loc
-                missing_loc += loc_delta
-            missing_nodes = []
+            if missing_nodes:
+                # Fix missing node locations.
+                loc_delta = get_loc_delta(prev, node, len(missing_nodes) + 1)
+                missing_loc = prev.loc + loc_delta
+                for missing_node in missing_nodes:
+                    missing_node.loc = missing_loc
+                    missing_loc += loc_delta
+                missing_nodes = []
+            prev = node
 
     def fix_bordering_node_locations(nodes: list[Node]) -> None:
         """ Fix the locations of MissingNodes at the start or end.
@@ -121,7 +122,7 @@ def update_missing_locations(
         add it to the last known node location, iteratively.
         """
         idx = get_first_valid_node_id(nodes)
-        if idx == 0:
+        if idx == 0 or idx + 1 == len(nodes):
             return
 
         loc_delta = get_loc_delta(nodes[idx + 1], nodes[idx])
@@ -155,6 +156,7 @@ def find_stop_nodes(handler: GTFSHandler,
     t = time()
     finder: LocationFinder = LocationFinder(handler, route, df.copy())
     nodes = finder.find_dijkstra()
+    check_existing(handler, nodes, route)
     update_missing_locations(nodes)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
@@ -165,3 +167,36 @@ def find_stop_nodes(handler: GTFSHandler,
         display_nodes(nodes)
 
     return {node.stop.stop_id: node for node in nodes}
+
+
+def check_existing(handler: GTFSHandler, nodes: list[Node],
+                   route: list[tuple[str, str]]) -> None:
+    """ Checks if all valid existing locations are used. """
+
+    def get_valid_existing_locs() -> dict[str: Location]:
+        """ Return all existing locations with valid location. """
+        raw = handler.stops.get_existing_stops([r[0] for r in route])
+        existing_locs = {}
+        for gtfs_stop_id, (lat, lon) in raw.items():
+            loc = Location(lat, lon)
+            if not loc.is_valid:
+                continue
+            existing_locs[gtfs_stop_id] = loc
+        return existing_locs
+
+    existing = get_valid_existing_locs()
+    if not existing:
+        return
+
+    used_all_existing = True
+    for node in nodes:
+        stop_id = node.stop.stop_id
+        if stop_id not in existing:
+            continue
+        if not node.loc == existing[stop_id]:
+            logger.warning(f"Did not use existing loc for '{node.stop.name}'. "
+                           f"Got: {node.loc} Instead of: {existing[stop_id]}")
+            used_all_existing = False
+
+    if used_all_existing:
+        logger.info("Used all existing locations.")

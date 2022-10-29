@@ -24,7 +24,7 @@ from datastructures.gtfs_output.trips import GTFSTrips
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
 from finder import Node
-from finder.location_nodes import MissingNode
+from finder.location_nodes import MNode
 from user_input.cli import handle_annotations
 
 
@@ -262,10 +262,10 @@ class GTFSHandler:
             #  not be updated anyway
             if stop.valid:
                 continue
-            if isinstance(node, MissingNode):
+            if isinstance(node, MNode):
                 msg = f"Could not find location for '{stop.stop_name}'."
                 if Config.interpolate_missing_locations and node.loc.is_valid:
-                    logger.info(msg + "Using the interpolated coordinates.")
+                    logger.info(msg + " Using the interpolated coordinates.")
                 else:
                     msg += "You will have to manually add the coordinates."
                     logger.warning(msg)
@@ -334,7 +334,7 @@ class GTFSHandler:
             t_diff = s2.arrival_time - s1.departure_time
             if not t_diff:
                 continue
-            times.append(t_diff.to_hours())
+            times.append(abs(t_diff.to_hours()))
         if not times:
             return Time()
         return Time.from_hours(mean(times))

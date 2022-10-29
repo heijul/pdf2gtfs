@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Generator, TYPE_CHECKING
+from typing import Iterator, TYPE_CHECKING
 
 from config import Config
 from datastructures.gtfs_output.stop_times import Time
 from finder.distance import Distance
+import finder.location_nodes as loc_nodes
 
 
 if TYPE_CHECKING:
@@ -22,11 +23,22 @@ class Stop:
         self.idx = idx
         self.stop_id = stop_id
         self.name = name
+        self.nodes = []
         self._next = next_
         self.cost = stop_cost
         self._avg_time_to_next = None
         self._max_dist_to_next = None
         self._set_distance_bounds()
+
+    @property
+    def exists(self) -> bool:
+        """ Checks if any of the nodes exists already. """
+        return any(isinstance(node, loc_nodes.ENode) for node in self.nodes)
+
+    @property
+    def is_first(self) -> bool:
+        """ Whether the stop is the first stop of the route. """
+        return self is self.stops.first
 
     @property
     def is_last(self) -> bool:
@@ -134,8 +146,20 @@ class Stops:
         return self.handler.get_avg_time_between_stops(
             stop1.stop_id, stop2.stop_id)
 
-    def __iter__(self) -> Generator[Stop, None, None]:
+    def __iter__(self) -> Iterator[Stop, None, None]:
         current = self.first
         while current is not None:
             yield current
             current = current.next
+
+    def get_from_stop_id(self, stop_id: str) -> Stop:
+        """ Return the Stop with the given stop_id.
+
+        Raises a KeyError, if no Stop with the given stop_id exists.
+        """
+        stop = self.first
+        while stop is not None:
+            if stop.stop_id == stop_id:
+                return stop
+            stop = stop.next
+        raise KeyError(f"Stop with stop_id '{stop_id}' does not exist.")

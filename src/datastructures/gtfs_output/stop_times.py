@@ -13,6 +13,7 @@ from datastructures.gtfs_output import BaseContainer, BaseDataClass
 from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.trips import Trip_Factory
 from datastructures.timetable.stops import Stop
+from utils import normalize_name
 
 
 logger = logging.getLogger(__name__)
@@ -164,14 +165,15 @@ class GTFSStopTimes(BaseContainer):
         """ Creates a new entry for each time_string. """
 
         entries = []
-        last_stop_name = ""
         last_entry = None
+        last_gtfs_stop = None
         service_day_delta = Time(offset)
         prev_time = Time()
 
         for seq, (stop, time_string) in enumerate(time_strings.items()):
             if stop.is_connection:
                 continue
+            gtfs_stop = gtfs_stops.get(normalize_name(stop.name))
             time = Time.from_string(time_string)
             if time < prev_time:
                 service_day_delta += Time(24)
@@ -179,11 +181,11 @@ class GTFSStopTimes(BaseContainer):
             time += service_day_delta
 
             # Consecutive stops with the same name indicate arrival/departure
-            if stop.name == last_stop_name:
+            if last_gtfs_stop and last_gtfs_stop == gtfs_stop:
                 last_entry.departure_time = time
                 continue
 
-            last_stop_name = stop.name
+            last_gtfs_stop = gtfs_stop
             stop_id = gtfs_stops.get(stop.normalized_name).stop_id
             last_entry = self.add(trip_id, stop_id, seq, time)
             entries.append(last_entry)

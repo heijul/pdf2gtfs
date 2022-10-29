@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+import sys
 import webbrowser
 from functools import partial
 from math import inf, sqrt
 from statistics import mean, StatisticsError
-from typing import Callable, Generator
+from typing import Callable, Generator, Type
 
 import folium
 import numpy as np
@@ -34,73 +35,14 @@ class Node:
         self.stop = stop
         self.index = index
         self.names = names
-        self.loc = loc
-        self.parent = None
+        self.loc: Location = loc
+        self.parent: Node | None = None
         self.has_children = False
         self.cost: Cost = cost
         self.visited = False
+        self.stop.nodes.append(self)
         if Node.nodes is None:
             raise Exception("Nodes needs to be set, before creating a node.")
-
-    def get_neighbors(self) -> Generator[Node, None, None]:
-        """ Return the neighbors of the node, that are within the
-        maximum travel distance of the Nodes stop. """
-        df = Node.nodes.get_df_close_to_next(self)
-        if (df.index.values < 0).any():
-            return Node.nodes.missing_node_factory(df, self.stop.next)
-        return Node.nodes.node_factory(df, self.stop.next)
-
-    def dist_exact(self, node: Node) -> Distance:
-        """ Return our exact distance (up to a few m) to the given node. """
-        # TODO NOW: Use geopy.
-        lat_mid = mean((self.loc.lat, node.loc.lat))
-        distance_per_lon_deg = get_distance_per_lon_deg(lat_mid)
-        lat_dist = abs(self.loc.lat - node.loc.lat) * DISTANCE_PER_LAT_DEG
-        lon_dist = abs(self.loc.lon - node.loc.lon) * distance_per_lon_deg
-        dist = sqrt(lat_dist.m ** 2 + lon_dist.m ** 2)
-        return Distance(m=dist)
-
-    def _is_close(self, lat: float, lon: float, max_dist: Distance) -> bool:
-        """ Checks if the vertical/horizontal distances to lat/lon are
-        less than max_dist. Faster than calculating the exact distance. """
-        # TODO: Maybe use self.loc.lat instead of lat_mid
-        lat_mid = self.loc.lat + lat
-        lat_diff = abs(self.loc.lat - lat)
-        lon_diff = abs(self.loc.lon - lon)
-        lat_dist = lat_diff * DISTANCE_PER_LAT_DEG
-        lon_dist = lon_diff * get_distance_per_lon_deg(lat_mid)
-        return lat_dist < max_dist and lon_dist < max_dist
-
-    def is_close(self, array: np.ndarray, max_dist: float = None,
-                 add_self: bool = False) -> bool:
-        """ Whether the lat/lon given by the array are close to our location.
-        If add_self is given, add our stops max_dist_to_next """
-        if array[0] == 0 and array[1] == 0:
-            return True
-        if max_dist is None:
-            max_dist = Distance(m=0)
-            add_self = True
-        if add_self:
-            # TODO NOW: This '* 3' should be done elsewhere.
-            max_dist += self.stop.max_dist_to_next * 3
-        return self._is_close(array[0], array[1], max_dist)
-
-    def cost_with_parent(self, parent_node: Node) -> Cost:
-        """ Return the cost of self, if parent_node was its parent. """
-
-        travel_cost = calculate_travel_cost_between(parent_node, self)
-        cost = Cost(parent_node.cost.as_float, self.cost.node_cost,
-                    self.cost.name_cost, travel_cost)
-        return cost
-
-    def construct_route(self) -> list[Node]:
-        """ Construct the full route.
-
-        In the full route, each entry is the parent of the next entry.
-        """
-        if not self.parent:
-            return [self]
-        return self.parent.construct_route() + [self]
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Node) and
@@ -126,8 +68,8 @@ class Node:
         base = (f"Node('{self.stop.name}', cost: {self.cost.as_float:.0f}, "
                 f"loc: {self.loc}")
         valid_parent = (self.parent and
-                        not isinstance(self.parent, MissingNode) and
-                        not isinstance(self, MissingNode))
+                        not isinstance(self.parent, MNode) and
+                        not isinstance(self, MNode))
         if valid_parent:
             dist_to_parent = self.dist_exact(self.parent)
             base += f", to_parent: {dist_to_parent.km:.3f}km"
@@ -136,50 +78,124 @@ class Node:
     def __hash__(self) -> int:
         return id(self)
 
+    def get_close_neighbors(self) -> list[Node]:
+        """ Return all neighbors of node that are close to node. """
+        all_neighbors = self.stop.next.nodes
+        neighbors = [n for n in all_neighbors if self.close_nodes(n)]
+        return neighbors
+
+    def dist_exact(self, node: Node) -> Distance:
+        """ Return our exact distance (up to a few m) to the given node. """
+        # TODO NOW: Use geopy.
+        lat_mid = mean((self.loc.lat, node.loc.lat))
+        distance_per_lon_deg = get_distance_per_lon_deg(lat_mid)
+        lat_dist = abs(self.loc.lat - node.loc.lat) * DISTANCE_PER_LAT_DEG
+        lon_dist = abs(self.loc.lon - node.loc.lon) * distance_per_lon_deg
+        dist = sqrt(lat_dist.m ** 2 + lon_dist.m ** 2)
+        return Distance(m=dist)
+
+    def cost_with_parent(self, parent_node: Node) -> Cost:
+        """ Calculate the cost of self, if parent_node was its parent. """
+
+        travel_cost = calculate_travel_cost_between(parent_node, self)
+        cost = Cost(parent_node.cost.as_float, self.cost.node_cost,
+                    self.cost.name_cost, travel_cost)
+        return cost
+
+    def construct_route(self) -> list[Node]:
+        """ Construct the full route.
+
+        In the full route, each entry is the parent of the next entry.
+        """
+        if not self.parent:
+            return [self]
+        return self.parent.construct_route() + [self]
+
     @property
     def has_parent(self) -> bool:
         """ If the node has a parent. """
         return self.parent is not None
 
-    def update_parent_if_lower_cost(self, new_parent: Node) -> None:
-        """ If the new_parent is a better parent than the current one, change
-        our parent to new_parent.
-        A parent A is better than another B, if
-         - B is None (i.e. Node has no parent)
-         - B is a MissingNode and A is not
-         - the cost from Node to A are lower than the cost from Node to B.
+    def set_parent(self, parent: Node) -> None:
+        """ Set our parent to parent, if it is different to our parent. """
+        if self.parent and parent == self.parent:
+            return
+        self.nodes.update_parent(parent, self, self.cost_with_parent(parent))
+
+    def update_parent_if_better(self, other: Node) -> None:
+        """ Update the parent to other, if it is better. """
+        if not self.parent:
+            self.set_parent(other)
+            return
+        self.set_parent(self._select_better_parent(self.parent, other))
+
+    def _select_better_parent(self, parent1: Node, parent2: Node) -> Node:
+        """ Select the better parent of the two given parents. """
+        better_node_by_type = self.compare_node_type(parent1, parent2)
+        if better_node_by_type is None:
+            cost1 = self.cost_with_parent(parent1)
+            cost2 = self.cost_with_parent(parent2)
+            return parent1 if cost1 < cost2 else parent2
+        return better_node_by_type
+
+    def get_max_dist(self) -> Distance:
+        """ Return the maximum distance of the current node. """
+        return self.stop.max_dist_to_next * 3
+
+    def close_nodes(self, node: Node) -> bool:
+        """ Return if the two nodes are close to each other. """
+        if isinstance(node, MNode) and not node.parent:
+            return True
+        distances = self.loc.distances(node.loc)
+        max_dist = self.get_max_dist()
+        return all(dist <= max_dist for dist in distances)
+
+    @staticmethod
+    def compare_node_type(node1: Node, node2: Node) -> Node | None:
+        """ Compare the two nodes and return the one with the better type.
+
+        If both have the same type, return None instead.
+        ENodes are better than Nodes and Nodes are better than MNodes.
         """
-        cost_to_new_parent = self.cost_with_parent(new_parent)
-        if not self.has_parent:
-            msg = (f"Found parent for {self}:\n"
-                   f"\t{new_parent}\n"
-                   f"\t\twith cost: {cost_to_new_parent}\n")
-            logger.info(msg)
-            self.nodes.update_parent(new_parent, self, cost_to_new_parent)
+
+        def type_count(n1: Node, n2: Node, node_type: Type[Node]) -> int:
+            """ Sum the number of nodes with the given node_type. """
+            return isinstance(n1, node_type) + isinstance(n2, node_type)
+
+        # Can only compare the type of nodes of the same stop.
+        assert node1.stop == node2.stop
+
+        existing_node_count = type_count(node1, node2, ENode)
+        # If only one Node is an existing node, we return it.
+        if existing_node_count == 1:
+            return node1 if isinstance(node1, ENode) else node2
+        # If both nodes are the same type,
+        if existing_node_count == 2:
+            return None
+        missing_node_count = type_count(node1, node2, MNode)
+        # If only one node is a MissingNode, return the other one.
+        if missing_node_count == 1:
+            return node1 if isinstance(node2, MNode) else node2
+        return None
+
+    def update_neighbors(self) -> None:
+        """ Update the neighbor's parent to, if necessary. """
+        has_neighbors = False
+        for neighbor in self.get_close_neighbors():
+            neighbor.update_parent_if_better(self)
+            if isinstance(neighbor, MNode):
+                continue
+            has_neighbors = True
+        self.visited = True
+        # Only create MissingNodes if we don't have any true neighbors,
+        #  children, or if there is no ENode for the neighbors' stop.
+        if has_neighbors or self.has_children or self.stop.exists:
             return
-
-        force_no_update = (isinstance(new_parent, MissingNode) and
-                           not isinstance(self.parent, MissingNode))
-        if force_no_update:
-            return
-
-        better_cost = cost_to_new_parent.as_float < self.cost.as_float
-        force_update = (isinstance(self.parent, MissingNode) and
-                        not isinstance(new_parent, MissingNode))
-        if not better_cost and not force_update:
-            return
-        if better_cost and not force_update:
-            msg = (f"Found parent with lower cost for {self}.\n"
-                   f"\tCurrent: {self.parent}\n"
-                   f"\t\twith cost: {self.cost}\n"
-                   f"\tBetter:  {new_parent}\n"
-                   f"\t\twith cost: {cost_to_new_parent}\n")
-            logger.info(msg)
-
-        self.nodes.update_parent(new_parent, self, cost_to_new_parent)
+        logger.info(f"Created missing childnode for {self}")
+        self.nodes.create_missing_neighbor_for_node(self)
 
 
-class MissingNode(Node):
+class MNode(Node):
     """ Describes a node, we know exists, but do not have the location for.
     It has a high node_score, to prevent MissingNodes to be better than
     normal ones. """
@@ -189,6 +205,9 @@ class MissingNode(Node):
         cost = Cost(parent_cost, 0, 0, 0)
         super().__init__(stop, index, names, loc, cost)
 
+    def __repr__(self) -> str:
+        return "M" + super().__repr__()
+
     def dist_exact(self, node: Node) -> Distance:
         """ The exact distance of a MissingNode to another Node
         is only defined, if its parent is. """
@@ -197,29 +216,42 @@ class MissingNode(Node):
         raise NotImplementedError(
             "Can't calculate distance to missing node without parent.")
 
-    def is_close(self, array: np.ndarray,
-                 max_dist: float = None, add_self: bool = True) -> bool:
-        """ MissingNodes without parent are always close to other Nodes.
-        MissingNodes with parent use their parents is_close method,
-        with increased max_dist. """
-        if not self.parent:
-            # We don't know where the missing node is, so we have to assume
-            # it is close. Only relevant if there are no start nodes.
-            return True
+    def get_max_dist(self) -> Distance:
+        """ Return the maximum distance of the current node.
 
-        if max_dist is None:
-            max_dist = Distance(m=0)
-        if add_self:
-            max_dist += self.stop.max_dist_to_next * 3
-        return self.parent.is_close(array, max_dist, add_self)
+        If the MNode has no parent, return maxsize instead.
+        """
+        if not self.parent:
+            return Distance(m=sys.maxsize)
+        return super().get_max_dist() + self.parent.get_max_dist()
 
     def cost_with_parent(self, parent: Node) -> Cost:
         """ Calculate the cost the Node would have to the given node. """
         cost = Cost(parent.cost.as_float, 0, 0, 0)
         return cost
 
+    def close_nodes(self, node: Node) -> bool:
+        """ Return if the node is close.
+
+        MNodes without a parent are always close to other nodes. If they do
+        have a parent, use the parent as anchor, to check if node is close.
+        """
+        if not self.parent:
+            return True
+        # TODO: Needs the max_dist as well...
+        return self.parent.close_nodes(node)
+
+
+class ENode(Node):
+    """ Nodes used for existing locations. """
+
+    def __init__(self, stop: Stop, loc: Location, parent_cost: float) -> None:
+        cost = Cost(parent_cost, 0, 0, 0)
+        index = sys.maxsize
+        super().__init__(stop, index, stop.name, loc, cost)
+
     def __repr__(self) -> str:
-        return "Missing" + super().__repr__()
+        return "E" + super().__repr__()
 
 
 class Nodes:
@@ -233,41 +265,43 @@ class Nodes:
         self.higher_cost_dfs: dict[Stop: df] = {}
         Node.nodes = self
         self._initialize_dfs(stops)
-        self._initialize_nodes(stops)
 
     def _initialize_dfs(self, stops: Stops) -> None:
         self.dfs: dict[Stop: DF] = {}
 
         stop = stops.first
 
-        while True:
+        while stop is not None:
             self.dfs[stop] = self.filter_df_by_stop(stop)
-            stop = stop.next
-            if stop is None:
-                break
-
-    def _initialize_nodes(self, stops: Stops) -> None:
-        stop = stops.first
-        while True:
-            df = self.filter_df_by_stop(stop)
-            for values in df.itertuples(False, "StopPosition"):
-                values: StopPosition
-                if values.lat == 0 or values.lon == 0:
-                    node = self.get_or_create_missing(stop, values)
-                else:
-                    node = self.get_or_create(stop, values)
-                if stop == stops.first:
-                    node.cost = StartCost.from_cost(node.cost)
-                    self._node_heap.add_node(node)
-            if stop.is_last:
-                break
             stop = stop.next
 
     def _add(self, node: Node) -> None:
         self._node_map[(node.stop, node.index)] = node
-        if node.cost.as_float == inf:
-            return
         self._node_heap.add_node(node)
+
+    def create_nodes_for_stop(self, stop: Stop, loc: Location | None) -> None:
+        """ Create the nodes for the given stop.
+
+        If loc is given and valid, create an ExistingNode, otherwise use
+        the dataframe to generate Node/MissingNode, depending on its values.
+        """
+        if loc and loc.is_valid:
+            node = self._create_existing_node(stop, loc)
+            if stop.is_first:
+                node.cost = StartCost.from_cost(node.cost)
+                self._node_heap.update(node)
+            return
+
+        df = self.filter_df_by_stop(stop)
+        for values in df.itertuples(False, "StopPosition"):
+            values: StopPosition
+            if values.lat == 0 or values.lon == 0:
+                node = self.get_or_create_missing(stop, values)
+            else:
+                node = self.get_or_create(stop, values)
+            if stop.is_first:
+                node.cost = StartCost.from_cost(node.cost)
+                self._node_heap.update(node)
 
     def _create_node(self, stop: Stop, values: StopPosition) -> Node:
         loc = Location(values.lat, values.lon)
@@ -276,10 +310,16 @@ class Nodes:
         self._add(node)
         return node
 
-    def _create_missing_node(self, stop: Stop, values: StopPosition
-                             ) -> MissingNode:
+    def _create_missing_node(self, stop: Stop, values: StopPosition) -> MNode:
         loc = Location(values.lat, values.lon)
-        node = MissingNode(stop, values.idx, values.names, loc, inf)
+        node = MNode(stop, values.idx, values.names, loc, inf)
+        self._add(node)
+        return node
+
+    def _create_existing_node(self, stop: Stop, loc: Location) -> ENode:
+        """ Create a new ExistingNode for stop at the given location. """
+        parent_cost = 0 if stop.is_first else inf
+        node = ENode(stop, loc, parent_cost)
         self._add(node)
         return node
 
@@ -299,10 +339,10 @@ class Nodes:
             0, 0, parent.cost.as_float, 0)
         neighbor = self._create_missing_node(stop, values)
         self.next_missing_node_idx -= 1
-        neighbor.update_parent_if_lower_cost(parent)
+        neighbor.update_parent_if_better(parent)
+        self._add(neighbor)
 
-    def get_or_create_missing(self, stop: Stop, values: StopPosition,
-                              ) -> MissingNode:
+    def get_or_create_missing(self, stop: Stop, values: StopPosition) -> MNode:
         """ Checks if a MissingNode with the given stop and values exist,
         and returns it. If it does not exist, it will first be created. """
         node = self._node_map.get((stop, values.idx))
@@ -323,41 +363,7 @@ class Nodes:
             self.next_missing_node_idx -= 1
         return df
 
-    def get_df_close_to_next(self, node: Node) -> DF:
-        """ Return a dataframe of nodes close to the given node. """
-        next_stop = node.stop.next
-        df = self.dfs.setdefault(next_stop, self.filter_df_by_stop(next_stop))
-        return df[df[["lat", "lon"]].apply(node.is_close, raw=True, axis=1)]
-
-    def get_missing_from_stop(self, stop: Stop) -> list[StopPosition]:
-        """ Return all existing MissingNodes using the given stop. """
-        stop_positions = []
-        for i in range(self.next_missing_node_idx, 0):
-            if (stop, i) not in self._node_map:
-                continue
-            stop_position = StopPosition(i, stop.name, stop.name, 0, 0, 0, 0)
-            stop_positions.append(stop_position)
-        return stop_positions
-
-    def node_factory(self, df: DF, stop: Stop) -> Generator[Node, None, None]:
-        """ Return a function, which when called will return a new Node,
-        with the given stop and the next values in df. """
-        create_node_partial: Callable[[StopPosition], Node]
-        create_node_partial = partial(self.get_or_create, stop)
-        stop_positions = list(df.itertuples(False, "StopPosition"))
-        stop_positions += self.get_missing_from_stop(stop)
-        return (create_node_partial(pos) for pos in stop_positions)
-
-    def missing_node_factory(self, df: DF, stop: Stop
-                             ) -> Generator[Node, None, None]:
-        """ Return a function, which when called will return a new MissingNode,
-        with the given stop and the next values in df. """
-        create_missing_partial: Callable[[StopPosition], Node]
-        create_missing_partial = partial(self.get_or_create_missing, stop)
-        stop_positions = df.itertuples(False, "StopPosition")
-        return (create_missing_partial(pos) for pos in stop_positions)
-
-    def pop(self) -> Node:
+    def get_min_node(self) -> Node:
         """ Return the unvisited node with the lowest Cost. """
         return self._node_heap.pop()
 
@@ -368,13 +374,12 @@ class Nodes:
         parent.has_children = True
         self._node_heap.update(node)
 
-    def duplicate_missing_node(self, node: MissingNode) -> None:
-        """ Creates a new MissingNode, with the same values of node,
-        but with a different index. """
-        duplicate = MissingNode(node.stop, self.next_missing_node_idx,
-                                node.names, node.loc, node.cost.node_cost)
-        self._add(duplicate)
-        self.next_missing_node_idx -= 1
+    def display_all_nodes(self) -> None:
+        """ Display all nodes, that are not MissingNodes. """
+        all_nodes = [node for node in self._node_map.values()
+                     if not isinstance(node, MNode)
+                     and node.cost.as_float != inf]
+        display_nodes(all_nodes)
 
     def __repr__(self) -> str:
         num_stops = len(set([nodes for nodes, _ in self._node_map]))
@@ -382,17 +387,10 @@ class Nodes:
                 f"# nodes: {len(self._node_map)}, "
                 f"# unvisited nodes: {self._node_heap.count})")
 
-    def display_all_nodes(self) -> None:
-        """ Display all nodes, that are not MissingNodes. """
-        all_nodes = [node for node in self._node_map.values()
-                     if not isinstance(node, MissingNode)
-                     and node.cost.as_float != inf]
-        display_nodes(all_nodes)
-
 
 def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
     """ Return the travel cost between from_node and to_node. """
-    if isinstance(from_node, MissingNode) or isinstance(to_node, MissingNode):
+    if isinstance(from_node, MNode) or isinstance(to_node, MNode):
         return 0
     # TODO: Currently does not use lower/upper bounds,
     #  other than getting expected distance.
@@ -421,7 +419,7 @@ def display_nodes(nodes: list[Node]) -> None:
         Returns the average location of all Nodes, which are not Missing.
         """
         try:
-            valid_nodes = [n for n in nodes if not isinstance(n, MissingNode)]
+            valid_nodes = [n for n in nodes if not isinstance(n, MNode)]
             return (mean([n.loc.lat for n in valid_nodes]),
                     mean([n.loc.lon for n in valid_nodes]))
         except StatisticsError:
@@ -438,7 +436,7 @@ def display_nodes(nodes: list[Node]) -> None:
         loc = [node.loc.lat, node.loc.lon]
         if loc[0] == 0 and loc[1] == 0:
             continue
-        if isinstance(node, MissingNode):
+        if isinstance(node, MNode):
             icon = folium.Icon(color="red", icon="remove-circle")
         else:
             icon = folium.Icon(color="green", icon="map-marker")
@@ -478,6 +476,11 @@ class NodeHeap:
         last position, such that the previous node's cost are equal and the
         next (it it exists) are higher.
         """
+
+        # Node already exists.
+        if node in self.node_map:
+            self.update(node)
+            return
 
         heap_node = HeapNode(node)
         self.node_map[node] = heap_node
@@ -579,3 +582,6 @@ class HeapNode:
         if self.next and self.next.node_cost < self.node_cost:
             return False
         return True
+
+    def __repr__(self) -> str:
+        return f"HeapNode({self.node})"

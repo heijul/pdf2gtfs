@@ -22,6 +22,7 @@ class GTFSStopEntry(BaseDataClass):
     stop_name: str
     stop_lat: float | None
     stop_lon: float | None
+    used_in_timetable: bool
 
     def __init__(self, name: str, *, stop_id: str = None) -> None:
         super().__init__(stop_id)
@@ -30,6 +31,7 @@ class GTFSStopEntry(BaseDataClass):
         self.normalized_name = normalize_name(name)
         self._stop_lat = None
         self._stop_lon = None
+        self.used_in_timetable = False
 
     @property
     def stop_lat(self) -> float | None:
@@ -104,9 +106,12 @@ class GTFSStops(ExistingBaseContainer):
 
     def add(self, stop_name: str) -> None:
         """ Add a GTFSStop with the given stop_name. """
-        if self.get(stop_name):
+        entry = self.get(stop_name)
+        if entry:
+            entry.used_in_timetable = True
             return
         entry = GTFSStopEntry(stop_name)
+        entry.used_in_timetable = True
         if self.fp.exists() and not self.overwrite:
             self.append = True
             self.new_entries.append(entry)
@@ -119,10 +124,29 @@ class GTFSStops(ExistingBaseContainer):
                 continue
             return entry
 
-    def get_by_stop_id(self, stop_id: str) -> GTFSStopEntry:
+    def get_by_stop_id(self, stop_id: str, missing_ok: bool = False
+                       ) -> GTFSStopEntry | None:
         """ Return the GTFSStop with the given stop_id.
-        Raises a KeyError if no such GTFSStop exists. """
+
+        If no such GTFSStop exists, will either return None or raise a
+        KeyError, depending on missing_ok.
+        """
         for entry in self.entries:
             if entry.stop_id == stop_id:
                 return entry
+        if missing_ok:
+            return None
         raise KeyError(f"No stop with stop_id '{stop_id}'.")
+
+    def get_existing_stops(self, stop_ids: list[str]
+                           ) -> dict[str: tuple[float, float]]:
+        """ Return the locations of any existing stops of route. """
+        existing_locs: dict[str: tuple[float, float]] = {}
+
+        for stop_id in stop_ids:
+            gtfs_stop = self.get_by_stop_id(stop_id, True)
+            if not gtfs_stop:
+                continue
+            existing_locs[stop_id] = gtfs_stop.stop_lat, gtfs_stop.stop_lon
+
+        return existing_locs

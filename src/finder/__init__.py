@@ -25,7 +25,7 @@ from requests.exceptions import ConnectionError
 from config import Config
 from finder.location import Location
 from finder.location_finder import find_stop_nodes, update_missing_locations
-from finder.location_nodes import display_nodes, MissingNode, Node
+from finder.location_nodes import display_nodes, MNode, Node
 from finder.osm_values import get_all_cat_scores
 from utils import normalize_series, normalize_name
 
@@ -323,16 +323,12 @@ class Finder:
                 stop_nodes = find_stop_nodes(self.handler, route, df)
                 for stop_id, node in stop_nodes.items():
                     nodes.setdefault(stop_id, []).append(node)
-                # TODO NOW: Allow enable/disable.
-                route = list(reversed(route))
-                stop_nodes = find_stop_nodes(self.handler, route, df)
-                for stop_id, node in stop_nodes.items():
-                    nodes.setdefault(stop_id, []).append(node)
+                # TODO: Add search for reversed as well.
             return nodes
 
         def _select_best_node(stop_nodes: list[Node]) -> Node:
-            nodes = [n for n in stop_nodes if not isinstance(n, MissingNode)]
-            missing = [n for n in stop_nodes if isinstance(n, MissingNode)]
+            nodes = [n for n in stop_nodes if not isinstance(n, MNode)]
+            missing = [n for n in stop_nodes if isinstance(n, MNode)]
             if not nodes:
                 return missing[0]
             nodes_unique = set(nodes)
@@ -346,7 +342,9 @@ class Finder:
                 nodes[stop_id] = _select_best_node(stop_nodes)
             return nodes
 
-        df = get_df(self.handler.stops.entries, self.full_df)
+        used_stops = [e for e in self.handler.stops.entries
+                      if e.used_in_timetable]
+        df = get_df(used_stops, self.full_df)
 
         logger.info("Searching for the stop locations of each route.")
         t = time()
@@ -486,11 +484,8 @@ def prefilter_df(stops: list[str], full_df: DF) -> DF:
     """ Filter the full_df, such that each entry contains a
     normalized stop name. """
 
-    def _remove_duplicate_regexes(duplicate_regex: str) -> str:
-        return "|".join(set(duplicate_regex.split("|")))
-
     regexes = [_create_stop_regex(stop) for stop in stops]
-    unique_regex: str = _remove_duplicate_regexes("|".join(regexes))
+    unique_regex: str = "|".join(set(regexes))
     df = full_df[full_df["names"].str.contains(unique_regex, regex=True)]
     return df.copy()
 
