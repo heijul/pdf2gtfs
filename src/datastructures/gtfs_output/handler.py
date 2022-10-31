@@ -271,7 +271,7 @@ class GTFSHandler:
                     msg += "You will have to manually add the coordinates."
                     logger.warning(msg)
                     continue
-            stop.set_location(*node.loc)
+            stop.set_location(*node.loc, isinstance(node, MNode))
         logger.info("Done.")
 
     def get_stops_of_route(self, route_id: str) -> list[GTFSStopEntry]:

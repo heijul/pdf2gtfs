@@ -7,6 +7,7 @@ from dataclasses import dataclass, Field
 
 import pandas as pd
 
+from config import Config
 from datastructures.gtfs_output import BaseDataClass, ExistingBaseContainer
 from utils import normalize_name
 
@@ -22,6 +23,7 @@ class GTFSStopEntry(BaseDataClass):
     stop_name: str
     stop_lat: float | None
     stop_lon: float | None
+    stop_desc: str
 
     def __init__(self, name: str, *, stop_id: str = None) -> None:
         super().__init__(stop_id)
@@ -30,6 +32,7 @@ class GTFSStopEntry(BaseDataClass):
         self.normalized_name = normalize_name(name)
         self._stop_lat = None
         self._stop_lon = None
+        self.stop_desc = ""
         self.used_in_timetable = False
 
     @property
@@ -49,25 +52,32 @@ class GTFSStopEntry(BaseDataClass):
                 self.stop_lat is not None
                 and self.stop_lon is not None)
 
-    def set_location(self, lat: float, lon: float) -> None:
+    def set_location(self, lat: float, lon: float, missing: bool) -> None:
         """ Set the location to the given latitude/longitude. """
-        if lat is None or lon is None:
+        interpolate = Config.interpolate_missing_locations
+        if (missing and not interpolate) or lat is None or lon is None:
             lat = None
             lon = None
         self._stop_lat = lat
         self._stop_lon = lon
+        if missing and interpolate:
+            self.stop_desc = ("Location interpolated by pdf2gtfs using "
+                              "the surrounding locations.")
 
-    def _to_output(self, field: Field) -> str:
-        is_coordinate_field = field in ["stop_lat", "stop_lon"]
-        if is_coordinate_field and self.get_field_value(field) is None:
-            return ""
-        return super()._to_output(field)
+    def get_field_value(self, field: Field):
+        """ Clean either coordinate value, if it is None. """
+        if field in ["stop_lat", "stop_lon"]:
+            value = super().get_field_value(field)
+            return "" if value is None else value
+        return super().get_field_value(field)
 
     @staticmethod
     def from_series(series: pd.Series) -> GTFSStopEntry:
         """ Creates a new GTFSStop from the given series. """
         stop = GTFSStopEntry(series["stop_name"], stop_id=series["stop_id"])
-        stop.set_location(series.get("stop_lat"), series.get("stop_lon"))
+        stop.set_location(series.get("stop_lat"), series.get("stop_lon"),
+                          False)
+        stop.stop_desc = series.get("stop_desc")
         return stop
 
 

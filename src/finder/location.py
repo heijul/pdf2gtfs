@@ -25,8 +25,26 @@ class Location:
     lon: float
 
     def __init__(self, lat: Any, lon: Any) -> None:
-        self.lat = self._clean_value(lat)
-        self.lon = self._clean_value(lon)
+        self.lat = lat
+        self.lon = lon
+
+    @property
+    def lat(self) -> float:
+        """ The latitude of the location. """
+        return self._lat
+
+    @lat.setter
+    def lat(self, value: Any) -> None:
+        self._lat = self._clean_value(value)
+
+    @property
+    def lon(self) -> float:
+        """ The longitude of the location. """
+        return self._lon
+
+    @lon.setter
+    def lon(self, value: Any) -> None:
+        self._lon = self._clean_value(value)
 
     @staticmethod
     def _clean_value(value: Any) -> float:
@@ -38,7 +56,7 @@ class Location:
         # Coordinates are between -90 and 90 degree.
         if -90 > value > 90:
             return 0
-        return value
+        return round(value, 5)
 
     @property
     def is_valid(self) -> bool:
