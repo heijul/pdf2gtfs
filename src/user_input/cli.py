@@ -131,6 +131,7 @@ def _get_agency_column_widths(agencies: list[GTFSAgencyEntry]) -> list[int]:
 def _get_agency_prompt(path: Path, agencies: list[GTFSAgencyEntry]):
     agency_strings = []
     widths = _get_agency_column_widths(agencies)
+    agencies.sort(key=lambda a: a.agency_id)
 
     for i, agency in enumerate(agencies):
         agency_string = _get_agency_string(str(i), agency.values, widths)
