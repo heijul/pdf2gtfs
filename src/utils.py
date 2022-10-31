@@ -7,8 +7,6 @@ from typing import TypeAlias, TypeVar
 
 import pandas as pd
 
-import config
-
 
 class _UIDGenerator:
     def __init__(self) -> None:
@@ -112,6 +110,8 @@ def normalize_series(raw_series: pd.Series) -> pd.Series:
 
     def _remove_forbidden_chars(series: pd.Series) -> pd.Series:
         """ Remove parentheses and their content and special chars. """
+        import config
+
         # Match parentheses and all text enclosed by them.
         parentheses_re = r"(\(.*\))"
         allowed_chars = "".join(config.Config.allowed_stop_chars)

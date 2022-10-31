@@ -17,9 +17,10 @@ from config import Config
 from datastructures.gtfs_output.agency import GTFSAgency
 from datastructures.gtfs_output.calendar import GTFSCalendar, GTFSCalendarEntry
 from datastructures.gtfs_output.calendar_dates import GTFSCalendarDates
-from datastructures.gtfs_output.routes import Routes
-from datastructures.gtfs_output.stop import GTFSStops
-from datastructures.gtfs_output.stop_times import GTFSStopTimes, Time
+from datastructures.gtfs_output.routes import GTFSRoutes
+from datastructures.gtfs_output.stop import GTFSStopEntry, GTFSStops
+from datastructures.gtfs_output.stop_times import (
+    GTFSStopTimes, GTFSStopTimesEntry, Time)
 from datastructures.gtfs_output.trips import GTFSTrips
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
@@ -57,7 +58,7 @@ class GTFSHandler:
     def __init__(self) -> None:
         self._agency = GTFSAgency()
         self._stops = GTFSStops()
-        self._routes = Routes(self.agency.get_default().agency_id)
+        self._routes = GTFSRoutes(self.agency.get_default().agency_id)
         self._calendar = GTFSCalendar()
         self._trips = GTFSTrips()
         self._stop_times = GTFSStopTimes()
@@ -273,6 +274,15 @@ class GTFSHandler:
             stop.set_location(*node.loc)
         logger.info("Done.")
 
+    def get_stops_of_route(self, route_id: str) -> list[GTFSStopEntry]:
+        """ Returns all stops of the given route. """
+        trips = self.trips.get_with_route_id(route_id)
+        trip_stop_times = [self.stop_times.get_with_trip_id(trip.trip_id)
+                           for trip in trips]
+        # Only need a single trip, trips of the same route use the same stops.
+        stop_ids = [stop_time.stop_id for stop_time in trip_stop_times[0]]
+        return [self.stops.get_by_stop_id(stop_id) for stop_id in stop_ids]
+
     def get_stop_ids(self, route_id: str) -> list[tuple[str]]:
         """ Return the stop_ids, used in the route with the given route_id. """
         trips = self.trips.get_with_route_id(route_id)
@@ -294,7 +304,7 @@ class GTFSHandler:
         return self._agency
 
     @property
-    def routes(self) -> Routes:
+    def routes(self) -> GTFSRoutes:
         """ The routes. """
         return self._routes
 
@@ -323,11 +333,25 @@ class GTFSHandler:
         """ The calendar dates. """
         return self._calendar_dates
 
-    def get_avg_time_between_stops(self, stop_id1: str, stop_id2: str) -> Time:
-        """ Given two consecutive stops, given by stop_id1 and stop_id2,
-        return the time it takes on average to get from one to the other. """
-        stop_times1 = self.stop_times.get_with_stop_id(stop_id1)
-        stop_times2 = self.stop_times.get_with_stop_id(stop_id2)
+    def get_avg_time_between_stops(self, route_id: str,
+                                   stop_id1: str, stop_id2: str) -> Time:
+        """ Calculate the average travel time between the two stops. """
+
+        def _aligned_stop_times(times1: list[GTFSStopTimesEntry],
+                                times2: list[GTFSStopTimesEntry]) -> bool:
+            if len(times1) != len(times2):
+                return False
+            for time1, time2 in zip(times1, times2):
+                in_sequence = time1.stop_sequence < time2.stop_sequence
+                same_trip = time1.trip_id == time2.trip_id
+                if not in_sequence or not same_trip:
+                    return False
+            return True
+
+        trip_ids = [t.trip_id for t in self.trips.get_with_route_id(route_id)]
+        stop_times1 = self.stop_times.get_with_stop_id(trip_ids, stop_id1)
+        stop_times2 = self.stop_times.get_with_stop_id(trip_ids, stop_id2)
+        assert _aligned_stop_times(stop_times1, stop_times2)
 
         times = []
         for s1, s2 in zip(stop_times1, stop_times2):

@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import cos, radians
 from typing import Any, Iterator
 
-from finder.distance import (
-    Distance, DISTANCE_PER_LAT_DEG,
-    get_distance_per_lon_deg)
+
+DISTANCE_IN_M_PER_LAT_DEG: float = 111320
+
+
+def get_distance_per_lon_deg(lat: float) -> float:
+    """ Return the distance a one degree difference in longitude makes.
+
+    The distance per degree depends on the latitude.
+    """
+    return DISTANCE_IN_M_PER_LAT_DEG * abs(cos(radians(lat)))
 
 
 @dataclass
@@ -65,6 +73,6 @@ class Location:
         """ Calculates the distances in lat/lon between the two locations. """
         lat_diff, lon_diff = self - loc
         mid_lat = self.lat + lat_diff
-        lat_dist = DISTANCE_PER_LAT_DEG * lat_diff
+        lat_dist = DISTANCE_IN_M_PER_LAT_DEG * lat_diff
         lon_dist = get_distance_per_lon_deg(mid_lat) * lon_diff
         return lat_dist, lon_dist

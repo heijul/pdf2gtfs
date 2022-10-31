@@ -24,10 +24,10 @@ class LocationFinder:
     """ Tries to find the locations of the given route for all routes
     described in the given handler. """
 
-    def __init__(self, handler: GTFSHandler, route: list[tuple[str, str]],
-                 df: DF) -> None:
+    def __init__(self, handler: GTFSHandler, route_id: str,
+                 route: list[tuple[str, str]], df: DF) -> None:
         self.handler = handler
-        self.stops: Stops = Stops(handler, route)
+        self.stops: Stops = Stops(handler, route_id, route)
         self.nodes: Nodes = Nodes(df, self.stops)
         self._generate_nodes()
 
@@ -148,13 +148,16 @@ def update_missing_locations(
     fix_bordering_node_locations(list(reversed(all_nodes)))
 
 
-def find_stop_nodes(handler: GTFSHandler,
+def find_stop_nodes(handler: GTFSHandler, route_id: str,
                     route: list[tuple[str, str]], df: DF
                     ) -> dict[str: Node]:
     """ Return the Nodes mapped to the stop ids for a list of routes. """
-    logger.info("Starting location detection...")
+    msg = (f"Starting location detection for the route from "
+           f"'{route[0][1]}' to '{route[-1][1]}'...")
+    logger.info(msg)
     t = time()
-    finder: LocationFinder = LocationFinder(handler, route, df.copy())
+    finder: LocationFinder = LocationFinder(
+        handler, route_id, route, df.copy())
     nodes = finder.find_dijkstra()
     check_existing(handler, nodes, route)
     update_missing_locations(nodes)

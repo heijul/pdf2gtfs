@@ -23,6 +23,7 @@ import requests
 from requests.exceptions import ConnectionError
 
 from config import Config
+from datastructures.gtfs_output.stop import GTFSStopEntry
 from finder.location import Location
 from finder.location_finder import find_stop_nodes, update_missing_locations
 from finder.location_nodes import display_nodes, MNode, Node
@@ -40,7 +41,7 @@ StopID: TypeAlias = str
 StopName: TypeAlias = str
 StopIdent: TypeAlias = tuple[StopID, StopName]
 Route: TypeAlias = list[StopIdent]
-Routes: TypeAlias = list[Route]
+Routes: TypeAlias = dict[str: Route]
 RouteStopIDs: TypeAlias = list[tuple[StopID]]
 StopsNode: TypeAlias = dict[StopID, Node]
 StopsNodes: TypeAlias = dict[StopID, list[Node]]
@@ -317,10 +318,10 @@ class Finder:
         """ Return a dictionary of all stops and their locations. """
 
         def _search_stop_nodes_of_all_routes() -> StopsNodes:
-            routes: Routes = get_routes(self.handler)
+            routes: Routes = get_unique_routes(self.handler)
             nodes: dict[str: list[Node]] = {}
-            for route in routes:
-                stop_nodes = find_stop_nodes(self.handler, route, df)
+            for route_id, route in routes.items():
+                stop_nodes = find_stop_nodes(self.handler, route_id, route, df)
                 for stop_id, node in stop_nodes.items():
                     nodes.setdefault(stop_id, []).append(node)
                 # TODO: Add search for reversed as well.
@@ -387,59 +388,52 @@ def get_df(stop_entries: list, raw_df: DF) -> DF:
     return cost_df
 
 
-def get_routes(handler: GTFSHandler) -> Routes:
+def get_unique_routes(handler: GTFSHandler) -> Routes:
     """ Return a list of unique routes.
 
     The list contains unique combinations of stops occuring in the tables.
     If one combination is contained by another, only return the containing one.
     """
 
-    def get_stop_ids_from_gtfs_routes() -> RouteStopIDs:
-        """ Return the stop_ids for each route. """
-        stop_ids: list[tuple[str]] = []
-        for route in handler.routes.entries:
-            stop_ids += handler.get_stop_ids(route.route_id)
-        return stop_ids
+    def route_is_contained(contained_route_id: str) -> bool:
+        """ Return if the route is contained by any other. """
 
-    def get_routes_from_stop_ids(stop_ids: RouteStopIDs) -> Routes:
-        """ Return all routes, which contain the given stop_ids. """
-
-        def __get_route_from_stop_id(stop_id: StopID) -> StopIdent:
-            return stop_id, handler.stops.get_by_stop_id(stop_id).stop_name
-
-        routes = []
-        for stop_ids in set(stop_ids):
-            routes.append(list(map(__get_route_from_stop_id, stop_ids)))
-        routes = sorted(routes, key=len, reverse=True)
-        return routes
-
-    def remove_routes_contained_by_others(raw_routes: Routes) -> Routes:
-        """ Return routes, which are not fully contained by another one. """
-
-        def __route_is_contained(r1: Route, r2: Route) -> bool:
-            start_idx = r1.index(r2[0]) if r2[0] in r1 else None
-            if start_idx is None:
-                return False
-
+        def _route_contains_stops(
+                container: list[GTFSStopEntry], stops: list[GTFSStopEntry]
+                ) -> bool:
+            """ Return if all stops are in container, in the right order. """
             # No need to check for length, as r1 has at least the length of r2.
-            for idx, stop in enumerate(r2, start_idx):
-                if r1[idx] == stop:
-                    return False
-            return True
+            # Copy to prevent changing the list using pop.
+            stops = list(stops)
+            for container_stop in container:
+                if stops and stops[0] == container_stop:
+                    stops.pop(0)
 
-        routes = [raw_routes[0]]
-        for route_idx, new_route in enumerate(raw_routes[1:], 1):
-            for route in routes:
-                if __route_is_contained(route, new_route):
-                    continue
-            routes.append(new_route)
+            return not stops
 
-        return routes
+        route_stops = handler.get_stops_of_route(contained_route_id)
 
-    route_stop_ids = get_stop_ids_from_gtfs_routes()
-    duplicate_routes = get_routes_from_stop_ids(route_stop_ids)
-    clean_routes = remove_routes_contained_by_others(duplicate_routes)
-    return clean_routes
+        for existing_route_id in routes:
+            existing_stops = handler.get_stops_of_route(existing_route_id)
+            if _route_contains_stops(existing_stops, route_stops):
+                return True
+
+        return False
+
+    route_ids: list[str] = [r.route_id for r in handler.routes.entries]
+    # Need to sort routes by number of stops.
+    route_ids.sort(key=lambda r: len(handler.get_stops_of_route(r)),
+                   reverse=True)
+
+    routes: Routes = {}
+    for route_id in route_ids:
+        if route_is_contained(route_id):
+            continue
+        route = [(stop.stop_id, stop.stop_name)
+                 for stop in handler.get_stops_of_route(route_id)]
+        routes[route_id] = route
+
+    return routes
 
 
 def _create_stop_regex(stop: str) -> str:

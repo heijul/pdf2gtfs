@@ -121,20 +121,16 @@ gtfs_routetype: "Tram"
 
 # Average speed of the public transport vehicle in km per hour.
 # This is used to reduce the search radius for the locations of the stops.
+# Sane values for some routetypes:
+#    Rail: 30 - 80, Bus/Tram: 10 - 30
 #
-# Type: int
+# Type: Non-negative int
 average_speed: 20
 
 # Stop names are stripped of all characters which are not letters or whitelisted.
 #
 # Type: list of str
 allowed_stop_chars: [ " " ]  # ["-", "/", ".", " "]
-
-# The maximum distance between stops in km. Can be set to a higher value,
-#   but will slow down coordinate matching.
-#
-# Type: non-negative int
-max_stop_distance: 100
 
 # The path to the output directory for the gtfs files.
 #   Default is "./out".
@@ -190,7 +186,7 @@ display_route: 1
 # Note: The cache will be rebuilt regardless of this setting,
 #   if the value of name_abbreviations or allowed_stop_chars is changed.
 #
-# Type: non-negative int
+# Type: Non-negative int
 stale_cache_days: 7
 
 # When searching for the stop locations, the abbreviations listed here will be
@@ -261,3 +257,32 @@ disable_location_detection: False
 #
 # Type: bool
 interpolate_missing_locations: True
+
+# Locations for a stop are ignored, if they are closer (in m) than this value.
+# Note: This is the direct (geodesic) distance, taking neither the
+#   actual path of the streets/rail/..., nor the terrain into account.
+#
+# Type: Non-negative int
+min_travel_distance: 30
+
+# The offset in minutes, used for the lower/upper bounds, when calculating the
+#   lower/upper average travel distances.
+# Distances closer/farther, respectively, are punished with a higher cost.
+#
+# Type: Positive int
+average_travel_distance_offset: 2
+
+# Enable/Disable simple travel cost calculation.
+# If enabled, higher travel distance will equate higher travel cost.
+# If disabled, the expected travel distance will be taken into account as well.
+# Note: Setting this to True may decrease the speed of location detection a bit.
+#
+# Type: Bool
+simple_travel_cost_calculation: False
+
+# The node cost of missing nodes. Changing this may improve the speed and
+#   accuracy of location detection.
+# As reference, node costs for normal nodes are between 0 and 20.
+#
+# Type: Non-negative int
+missing_node_cost: 500

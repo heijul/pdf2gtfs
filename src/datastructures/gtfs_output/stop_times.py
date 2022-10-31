@@ -91,10 +91,15 @@ class Time:
         minutes = self.minutes - other.minutes
         seconds = self.seconds - other.seconds
         if seconds < 0:
-            minutes -= seconds // 60
+            minutes += seconds // 60
+            seconds = seconds % 60
         if minutes < 0:
-            hours -= minutes // 60
-        return Time(hours, minutes, seconds)
+            hours += minutes // 60
+            minutes = minutes % 60
+        time = Time(hours, minutes, seconds)
+        if time < Time():
+            return Time()
+        return time
 
     def to_hours(self) -> float:
         """ Returns a float describing the time in hours. """
@@ -248,11 +253,12 @@ class GTFSStopTimes(BaseContainer):
     def __gt__(self, other: GTFSStopTimes):
         return not self.__lt__(other)
 
-    def get_with_stop_id(self, stop_id: str) -> list[GTFSStopTimesEntry]:
+    def get_with_stop_id(self, trip_ids: list[str], stop_id: str
+                         ) -> list[GTFSStopTimesEntry]:
         """ Return all StopTimesEntries using the given stop_id. """
         entries = []
         for entry in self.entries:
-            if entry.stop_id == stop_id:
+            if entry.stop_id == stop_id and entry.trip_id in trip_ids:
                 entries.append(entry)
         return entries
 

@@ -6,12 +6,22 @@ from typing import Iterator, TYPE_CHECKING
 
 from config import Config
 from datastructures.gtfs_output.stop_times import Time
-from finder.distance import Distance
 import finder.location_nodes as loc_nodes
 
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
+
+
+def get_travel_distance(avg_time: Time) -> float:
+    """ Return the distance travelled (in m), using the average speed and time.
+
+    Uses the average time to the next stop and the average speed
+     to calculate the maximal distance.
+    Speed is in km/h and we multiply it by hours, so we need to
+     multiply by 1000 again to get the distance in meters.
+    """
+    return avg_time.to_hours() * Config.average_speed * 1000
 
 
 class Stop:
@@ -28,7 +38,7 @@ class Stop:
         self.cost = stop_cost
         self._avg_time_to_next = None
         self._max_dist_to_next = None
-        self._set_distance_bounds()
+        self.distance_bounds = self._get_distance_bounds()
 
     @property
     def exists(self) -> bool:
@@ -57,39 +67,22 @@ class Stop:
     def next(self, value: Stop) -> None:
         self._next = value
 
-    @property
-    def avg_time_to_next(self) -> Time:
-        """ The average (as written in the pdf timetable) time it takes to
-        get to the next stop of the route. """
+    def _get_distance_bounds(self) -> tuple[float, float, float]:
+        """ Set the lower/mid/upper distance limits.
 
-        def _calculate_avg_time_to_next() -> Time:
-            return Stop.stops.get_avg_time_between(self, self.next)
-
-        if self._avg_time_to_next is None and self.next:
-            self._avg_time_to_next: Time = _calculate_avg_time_to_next()
-        return self._avg_time_to_next
-
-    @staticmethod
-    def get_max_dist(avg_time: Time) -> Distance:
-        """ Uses the average time to the next stop and the average speed
-        to calculate the maximal distance. """
-        return Distance(km=avg_time.to_hours() * Config.average_speed)
-
-    def _set_distance_bounds(self) -> None:
-        if self.avg_time_to_next is None:
-            self.distance_bounds = Distance(m=0), Distance(m=0)
-            return
-
-        lower = self.get_max_dist(self.avg_time_to_next - Time(0, 1))
-        upper = self.get_max_dist(self.avg_time_to_next + Time(0, 1))
-        self.distance_bounds = lower, upper
-
-    @property
-    def max_dist_to_next(self) -> Distance:
-        """ The approximate maximal distance the next stop is away. """
-        if not self._max_dist_to_next:
-            self._max_dist_to_next = self.get_max_dist(self.avg_time_to_next)
-        return self._max_dist_to_next
+        The mid limit is defined using the average travel time and speed.
+        The lower and upper limits are defined using the average trave speed
+        and the travel time, offset by (arbitrarily chosen) 2 minutes.
+        The lower bound can't be lower than the min_travel_distance..
+        """
+        time_delta = Time(0, Config.average_travel_distance_offset)
+        if self.next is None:
+            return float("inf"), float("inf"), float("inf")
+        avg_time = Stop.stops.get_avg_time_between(self, self.next)
+        lower = get_travel_distance(avg_time - time_delta)
+        mid = get_travel_distance(avg_time)
+        upper = get_travel_distance(avg_time + time_delta)
+        return max(lower, Config.min_travel_distance), mid, upper
 
     def before(self, other: Stop) -> bool:
         """ Return True, if this stop occurs before other. """
@@ -109,9 +102,10 @@ class Stop:
 class Stops:
     """ The stops of a route. Implemented as singly-linked-list. """
 
-    def __init__(self, handler: GTFSHandler,
+    def __init__(self, handler: GTFSHandler, route_id: str,
                  stop_names: list[tuple[str, str]]) -> None:
         self.handler = handler
+        self.route_id = route_id
         Stop.stops = self
         self.first, self.last = self._create_stops(stop_names)
 
@@ -133,8 +127,8 @@ class Stops:
         names_with_index = [(idx, s_id, name)
                             for idx, (s_id, name) in enumerate(stop_names)]
 
-        for i, idx, stop_name in reversed(names_with_index):
-            stop = Stop(i, idx, stop_name, stop, i * 1000)
+        for i, stop_id, stop_name in reversed(names_with_index):
+            stop = Stop(i, stop_id, stop_name, stop, i * 1000)
             if not last:
                 last = stop
 
@@ -144,7 +138,7 @@ class Stops:
         """ Return the average time it takes to get from stop1 to stop2. """
         # TODO NOW: Uses all routes. Should instead use the current route.
         return self.handler.get_avg_time_between_stops(
-            stop1.stop_id, stop2.stop_id)
+            self.route_id, stop1.stop_id, stop2.stop_id)
 
     def __iter__(self) -> Iterator[Stop, None, None]:
         current = self.first

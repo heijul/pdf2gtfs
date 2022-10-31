@@ -5,20 +5,17 @@ from __future__ import annotations
 import logging
 import sys
 import webbrowser
-from functools import partial
-from math import inf, sqrt
+from math import inf, log, sqrt
 from statistics import mean, StatisticsError
-from typing import Callable, Generator, Type
+from typing import Type
 
 import folium
-import numpy as np
 import pandas as pd
 
 from config import Config
 from finder import Location
 from finder.cost import Cost, StartCost
-from finder.distance import (
-    Distance, DISTANCE_PER_LAT_DEG, get_distance_per_lon_deg)
+from finder.location import DISTANCE_IN_M_PER_LAT_DEG, get_distance_per_lon_deg
 from finder.stops import Stop, Stops
 from finder.types import DF, StopPosition
 
@@ -72,7 +69,7 @@ class Node:
                         not isinstance(self, MNode))
         if valid_parent:
             dist_to_parent = self.dist_exact(self.parent)
-            base += f", to_parent: {dist_to_parent.km:.3f}km"
+            base += f", to_parent: {dist_to_parent / 1000:.3f}km"
         return base + ")"
 
     def __hash__(self) -> int:
@@ -84,15 +81,15 @@ class Node:
         neighbors = [n for n in all_neighbors if self.close_nodes(n)]
         return neighbors
 
-    def dist_exact(self, node: Node) -> Distance:
+    def dist_exact(self, node: Node) -> float:
         """ Return our exact distance (up to a few m) to the given node. """
         # TODO NOW: Use geopy.
         lat_mid = mean((self.loc.lat, node.loc.lat))
         distance_per_lon_deg = get_distance_per_lon_deg(lat_mid)
-        lat_dist = abs(self.loc.lat - node.loc.lat) * DISTANCE_PER_LAT_DEG
+        lat_dist = abs(self.loc.lat - node.loc.lat) * DISTANCE_IN_M_PER_LAT_DEG
         lon_dist = abs(self.loc.lon - node.loc.lon) * distance_per_lon_deg
-        dist = sqrt(lat_dist.m ** 2 + lon_dist.m ** 2)
-        return Distance(m=dist)
+        dist = sqrt(lat_dist ** 2 + lon_dist ** 2)
+        return dist
 
     def cost_with_parent(self, parent_node: Node) -> Cost:
         """ Calculate the cost of self, if parent_node was its parent. """
@@ -120,14 +117,17 @@ class Node:
         """ Set our parent to parent, if it is different to our parent. """
         if self.parent and parent == self.parent:
             return
-        self.nodes.update_parent(parent, self, self.cost_with_parent(parent))
+        cost = self.cost_with_parent(parent)
+        if cost.as_float == inf:
+            return
+        self.nodes.update_parent(parent, self, cost)
 
-    def update_parent_if_better(self, other: Node) -> None:
+    def update_parent_if_better(self, parent: Node) -> None:
         """ Update the parent to other, if it is better. """
         if not self.parent:
-            self.set_parent(other)
+            self.set_parent(parent)
             return
-        self.set_parent(self._select_better_parent(self.parent, other))
+        self.set_parent(self._select_better_parent(self.parent, parent))
 
     def _select_better_parent(self, parent1: Node, parent2: Node) -> Node:
         """ Select the better parent of the two given parents. """
@@ -135,19 +135,20 @@ class Node:
         if better_node_by_type is None:
             cost1 = self.cost_with_parent(parent1)
             cost2 = self.cost_with_parent(parent2)
-            return parent1 if cost1 < cost2 else parent2
+            return parent1 if cost1 <= cost2 else parent2
         return better_node_by_type
 
-    def get_max_dist(self) -> Distance:
+    def get_max_dist(self) -> float:
         """ Return the maximum distance of the current node. """
-        return self.stop.max_dist_to_next * 3
+        return self.stop.distance_bounds[2]
 
-    def close_nodes(self, node: Node) -> bool:
+    def close_nodes(self, node: Node, max_dist: float = 0) -> bool:
         """ Return if the two nodes are close to each other. """
         if isinstance(node, MNode) and not node.parent:
             return True
         distances = self.loc.distances(node.loc)
-        max_dist = self.get_max_dist()
+        if max_dist == 0:
+            max_dist = self.get_max_dist()
         return all(dist <= max_dist for dist in distances)
 
     @staticmethod
@@ -187,9 +188,10 @@ class Node:
                 continue
             has_neighbors = True
         self.visited = True
+
         # Only create MissingNodes if we don't have any true neighbors,
         #  children, or if there is no ENode for the neighbors' stop.
-        if has_neighbors or self.has_children or self.stop.exists:
+        if has_neighbors or self.has_children or self.stop.next.exists:
             return
         logger.info(f"Created missing childnode for {self}")
         self.nodes.create_missing_neighbor_for_node(self)
@@ -202,13 +204,13 @@ class MNode(Node):
 
     def __init__(self, stop: Stop, index: int, names: str, loc: Location,
                  parent_cost: float) -> None:
-        cost = Cost(parent_cost, 0, 0, 0)
+        cost = Cost(parent_cost, Config.missing_node_cost, 0, 0)
         super().__init__(stop, index, names, loc, cost)
 
     def __repr__(self) -> str:
         return "M" + super().__repr__()
 
-    def dist_exact(self, node: Node) -> Distance:
+    def dist_exact(self, node: Node) -> float:
         """ The exact distance of a MissingNode to another Node
         is only defined, if its parent is. """
         if self.parent:
@@ -216,21 +218,21 @@ class MNode(Node):
         raise NotImplementedError(
             "Can't calculate distance to missing node without parent.")
 
-    def get_max_dist(self) -> Distance:
+    def get_max_dist(self) -> float:
         """ Return the maximum distance of the current node.
 
         If the MNode has no parent, return maxsize instead.
         """
         if not self.parent:
-            return Distance(m=sys.maxsize)
+            return float("inf")
         return super().get_max_dist() + self.parent.get_max_dist()
 
     def cost_with_parent(self, parent: Node) -> Cost:
         """ Calculate the cost the Node would have to the given node. """
-        cost = Cost(parent.cost.as_float, 0, 0, 0)
+        cost = Cost(parent.cost.as_float, Config.missing_node_cost, 0, 0)
         return cost
 
-    def close_nodes(self, node: Node) -> bool:
+    def close_nodes(self, node: Node, max_dist: float = 0) -> bool:
         """ Return if the node is close.
 
         MNodes without a parent are always close to other nodes. If they do
@@ -238,8 +240,7 @@ class MNode(Node):
         """
         if not self.parent:
             return True
-        # TODO: Needs the max_dist as well...
-        return self.parent.close_nodes(node)
+        return self.parent.close_nodes(node, self.get_max_dist())
 
 
 class ENode(Node):
@@ -336,7 +337,7 @@ class Nodes:
         stop: Stop = parent.stop.next
         values: StopPosition = StopPosition(
             self.next_missing_node_idx, stop.name, stop.name,
-            0, 0, parent.cost.as_float, 0)
+            0, 0, Config.missing_node_cost, 0)
         neighbor = self._create_missing_node(stop, values)
         self.next_missing_node_idx -= 1
         neighbor.update_parent_if_better(parent)
@@ -392,22 +393,29 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
     """ Return the travel cost between from_node and to_node. """
     if isinstance(from_node, MNode) or isinstance(to_node, MNode):
         return 0
-    # TODO: Currently does not use lower/upper bounds,
-    #  other than getting expected distance.
-    lower, upper = from_node.stop.distance_bounds
-    actual_distance: Distance = from_node.dist_exact(to_node)
-    # Too far away from either bound. Lower is >= 0
-    if actual_distance.m == 0:
+
+    actual_distance: float = from_node.dist_exact(to_node)
+    # Distance is too small.
+    if actual_distance < Config.min_travel_distance:
         return inf
-    step_count = 5
-    # Discrete function, to prevent values close to each other
-    # having vastly different scores.
-    expected_distance = upper - lower
-    distance_diff = (actual_distance - expected_distance).m
-    step_distance = (expected_distance - lower).m / step_count
-    if step_distance < 1:
-        return 1
-    return (distance_diff // (step_distance + 1)) + 1
+    if Config.simple_travel_cost_calculation:
+        return log(max(1, int(actual_distance)), 8)
+
+    lower, mid, upper = from_node.stop.distance_bounds
+    # Log cant handle 0.
+    dist_to_mid = max(1, abs(actual_distance - mid))
+    # Determine the log_base, depending on the lower and upper bounds. If
+    #  the log_base decreases, the cost will increase. This is used to punish
+    #  distances too far away from the expected distance more harshly.
+    log_base = 8
+    if actual_distance < lower:
+        log_base /= lower // actual_distance
+    if actual_distance > upper:
+        log_base /= actual_distance // upper
+    # Log base needs to be higher than 1.
+    log_base = max(1.001, log_base)
+
+    return log(max(1, int(log(dist_to_mid, log_base) ** 4)), 2)
 
 
 def display_nodes(nodes: list[Node]) -> None:
@@ -477,6 +485,8 @@ class NodeHeap:
         next (it it exists) are higher.
         """
 
+        if node.cost.as_float == inf:
+            return
         # Node already exists.
         if node in self.node_map:
             self.update(node)

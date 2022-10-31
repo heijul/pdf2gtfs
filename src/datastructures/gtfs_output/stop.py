@@ -22,7 +22,6 @@ class GTFSStopEntry(BaseDataClass):
     stop_name: str
     stop_lat: float | None
     stop_lon: float | None
-    used_in_timetable: bool
 
     def __init__(self, name: str, *, stop_id: str = None) -> None:
         super().__init__(stop_id)
@@ -124,8 +123,7 @@ class GTFSStops(ExistingBaseContainer):
                 continue
             return entry
 
-    def get_by_stop_id(self, stop_id: str, missing_ok: bool = False
-                       ) -> GTFSStopEntry | None:
+    def get_by_stop_id(self, stop_id: str) -> GTFSStopEntry:
         """ Return the GTFSStop with the given stop_id.
 
         If no such GTFSStop exists, will either return None or raise a
@@ -134,8 +132,6 @@ class GTFSStops(ExistingBaseContainer):
         for entry in self.entries:
             if entry.stop_id == stop_id:
                 return entry
-        if missing_ok:
-            return None
         raise KeyError(f"No stop with stop_id '{stop_id}'.")
 
     def get_existing_stops(self, stop_ids: list[str]
@@ -144,8 +140,9 @@ class GTFSStops(ExistingBaseContainer):
         existing_locs: dict[str: tuple[float, float]] = {}
 
         for stop_id in stop_ids:
-            gtfs_stop = self.get_by_stop_id(stop_id, True)
-            if not gtfs_stop:
+            try:
+                gtfs_stop = self.get_by_stop_id(stop_id)
+            except KeyError:
                 continue
             existing_locs[stop_id] = gtfs_stop.stop_lat, gtfs_stop.stop_lon
 
