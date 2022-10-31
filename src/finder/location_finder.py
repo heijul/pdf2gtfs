@@ -159,7 +159,6 @@ def find_stop_nodes(handler: GTFSHandler, route_id: str,
     finder: LocationFinder = LocationFinder(
         handler, route_id, route, df.copy())
     nodes = finder.find_dijkstra()
-    check_existing(handler, nodes, route)
     update_missing_locations(nodes)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
@@ -170,36 +169,3 @@ def find_stop_nodes(handler: GTFSHandler, route_id: str,
         display_nodes(nodes)
 
     return {node.stop.stop_id: node for node in nodes}
-
-
-def check_existing(handler: GTFSHandler, nodes: list[Node],
-                   route: list[tuple[str, str]]) -> None:
-    """ Checks if all valid existing locations are used. """
-
-    def get_valid_existing_locs() -> dict[str: Location]:
-        """ Return all existing locations with valid location. """
-        raw = handler.stops.get_existing_stops([r[0] for r in route])
-        existing_locs = {}
-        for gtfs_stop_id, (lat, lon) in raw.items():
-            loc = Location(lat, lon)
-            if not loc.is_valid:
-                continue
-            existing_locs[gtfs_stop_id] = loc
-        return existing_locs
-
-    existing = get_valid_existing_locs()
-    if not existing:
-        return
-
-    used_all_existing = True
-    for node in nodes:
-        stop_id = node.stop.stop_id
-        if stop_id not in existing:
-            continue
-        if not node.loc == existing[stop_id]:
-            logger.warning(f"Did not use existing loc for '{node.stop.name}'. "
-                           f"Got: {node.loc} Instead of: {existing[stop_id]}")
-            used_all_existing = False
-
-    if used_all_existing:
-        logger.info("Used all existing locations.")

@@ -399,7 +399,7 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
     if actual_distance < Config.min_travel_distance:
         return inf
     if Config.simple_travel_cost_calculation:
-        return log(max(1, int(actual_distance)), 8)
+        return int(log(max(1, int(actual_distance)), 8))
 
     lower, mid, upper = from_node.stop.distance_bounds
     # Log cant handle 0.
@@ -414,8 +414,8 @@ def calculate_travel_cost_between(from_node: Node, to_node: Node) -> float:
         log_base /= actual_distance // upper
     # Log base needs to be higher than 1.
     log_base = max(1.001, log_base)
-
-    return log(max(1, int(log(dist_to_mid, log_base) ** 4)), 2)
+    travel_cost = int(log(max(1, int(log(dist_to_mid, log_base) ** 4)), 2))
+    return max(1, travel_cost)
 
 
 def display_nodes(nodes: list[Node]) -> None:

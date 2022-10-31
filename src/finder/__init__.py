@@ -465,6 +465,8 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
         df = _filter_df_by_stop(stop, full_df)
         stop_length = len(normalize_name(stop).replace(" ", ""))
         if df.empty:
+            df[["name_cost", "stop_id", "idx"]] = None
+            dfs.append(df)
             continue
         name_df = df["names"].str.split("|", regex=False)
         df.loc[:, "name_cost"] = name_df.map(calculate_name_cost)
