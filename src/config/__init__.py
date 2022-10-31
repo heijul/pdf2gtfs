@@ -101,6 +101,7 @@ class _Config(InstanceDescriptorMixin):
             self, "simple_travel_cost_calculation", bool)
         self.missing_node_cost = p.IntBoundsProperty(
             self, "missing_node_cost", 0)
+        self.disable_output = p.Property(self, "disable_output", bool)
 
     def load_default_config(self) -> None:
         """ Loads the default configuration.

@@ -85,3 +85,8 @@ def _add_optional_arguments(parser: ArgumentParser):
     text = "Disable the detection of the location of the stops."
     parser.add_argument("--disable_location_detection", const=True,
                         action="store_const", help=text)
+
+    text = ("Disable writing the output to the output directory. "
+            "Used for debugging.")
+    parser.add_argument("--disable_output", const=True,
+                        action="store_const", help=text)

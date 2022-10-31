@@ -296,3 +296,8 @@ simple_travel_cost_calculation: False
 #
 # Type: Non-negative int
 missing_node_cost: 500
+
+# Disable the output of any gtfs-files.
+#
+# Type: Boolean
+disable_output: False

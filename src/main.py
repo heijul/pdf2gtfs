@@ -52,9 +52,14 @@ def main() -> None:
 
     tables = get_timetables()
     handler = generate_gtfs(tables)
-    if not Config.disable_location_detection:
+    if Config.disable_location_detection:
+        logger.info("Skipping location detection, as requested.")
+    else:
         route = match_coordinates(handler)
         handler.add_coordinates(route)
+    if Config.disable_output:
+        logger.info("Skipping writing of GTFS files, as requested.")
+        return
     handler.write_files()
 
 
