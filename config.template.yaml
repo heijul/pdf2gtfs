@@ -301,3 +301,12 @@ missing_node_cost: 500
 #
 # Type: Boolean
 disable_output: False
+
+# Do not check if a nodes' neighbors are close.
+# Setting this to True may help improve location accuracy at times, when few
+#   locations were found, if e.g. average sped is highly varying on the route.
+#   It may also improve the performance, in cases where a very broad term
+#   (e.g. "Hauptbahnhof"/"central station") is used as the sole stop name.
+#
+# Type: Boolean
+disable_close_node_check: False

@@ -144,11 +144,13 @@ class Node:
 
     def close_nodes(self, node: Node, max_dist: float = 0) -> bool:
         """ Return if the two nodes are close to each other. """
+        if Config.disable_close_node_check:
+            return True
         if isinstance(node, MNode) and not node.parent:
             return True
-        distances = self.loc.distances(node.loc)
         if max_dist == 0:
             max_dist = self.get_max_dist()
+        distances = self.loc.distances(node.loc)
         return all(dist <= max_dist for dist in distances)
 
     @staticmethod

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import cos, radians
-from typing import Any, Iterator
+from typing import Any, Generator, Iterator
 
 
 DISTANCE_IN_M_PER_LAT_DEG: float = 111320
@@ -69,10 +69,10 @@ class Location:
     def __hash__(self) -> int:
         return hash(f"{self.lat},{self.lon}")
 
-    def distances(self, loc: Location) -> tuple[float, float]:
+    def distances(self, loc: Location) -> Generator[float, None, None]:
         """ Calculates the distances in lat/lon between the two locations. """
         lat_diff, lon_diff = self - loc
         mid_lat = self.lat + lat_diff
-        lat_dist = DISTANCE_IN_M_PER_LAT_DEG * lat_diff
+        yield DISTANCE_IN_M_PER_LAT_DEG * lat_diff
         lon_dist = get_distance_per_lon_deg(mid_lat) * lon_diff
-        return lat_dist, lon_dist
+        yield lon_dist

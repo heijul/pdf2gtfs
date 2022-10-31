@@ -102,6 +102,8 @@ class _Config(InstanceDescriptorMixin):
         self.missing_node_cost = p.IntBoundsProperty(
             self, "missing_node_cost", 0)
         self.disable_output = p.Property(self, "disable_output", bool)
+        self.disable_close_node_check = p.Property(
+            self, "disable_close_node_check", bool)
 
     def load_default_config(self) -> None:
         """ Loads the default configuration.
