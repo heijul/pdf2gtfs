@@ -71,8 +71,7 @@ class _Config(InstanceDescriptorMixin):
         self.annot_identifier = p.Property(self, "annot_identifier", list)
         self.route_identifier = p.Property(self, "route_identifier", list)
         self.gtfs_routetype = p.RouteTypeProperty(self, "gtfs_routetype")
-        self.average_speed = p.IntBoundsProperty(
-            self, "average_speed", 0, 400)
+        self.average_speed = p.AverageSpeedProperty(self, "average_speed")
         self.allowed_stop_chars = p.Property(self, "allowed_stop_chars", list)
         self.output_dir = p.OutputDirectoryProperty(self, "output_dir")
         self.preprocess = p.Property(self, "preprocess", bool)

@@ -121,11 +121,21 @@ gtfs_routetype: "Tram"
 
 # Average speed of the public transport vehicle in km per hour.
 # This is used to reduce the search radius for the locations of the stops.
-# Sane values for some routetypes:
-#    Rail: 30 - 80, Bus/Tram: 10 - 30
+# Note: If set to 0, it will use the following defaults, depending on routetype:
+#   - Tram/StreetCar/Light rail: 25
+#   - Subway/Metro: 35
+#   - Rail: 50
+#   - Bus: 15
+#   - Ferry: 20
+#   - CableTram: 10
+#   - AerialLift: 10
+#   - SuspendedCableCar: 10
+#   - Funicular: 10
+#   - Trolleybus: 15
+#   - Monorail: 35
 #
-# Type: Non-negative int
-average_speed: 20
+# Type: Integer between 0 and 200.
+average_speed: 0
 
 # Stop names are stripped of all characters which are not letters or whitelisted.
 #

@@ -462,3 +462,21 @@ class AbbrevProperty(NestedTypeProperty):
                 sorted(value.items(), key=lambda x: len(x[0]), reverse=True))
 
         super().__set__(obj, value)
+
+
+class AverageSpeedProperty(IntBoundsProperty):
+    """ Property for the average_speed. If set to 0, return a sane default. """
+
+    def __init__(self, cls, attr) -> None:
+        super().__init__(cls, attr, 0, 200)
+
+    def __get__(self, obj: CType, objtype=None) -> Any:
+        # Override get instead of set, to autodetect the speed. Otherwise,
+        #  setting the routetype would not necessarily update the speed.
+        value = super().__get__(obj, objtype)
+        if value != 0:
+            return value
+        routetype = int(getattr(obj, "gtfs_routetype").value)
+        defaults = {0: 25, 1: 35, 2: 50, 3: 15, 4: 20,
+                    5: 10, 6: 10, 7: 10, 11: 15, 12: 35}
+        return defaults[routetype]
