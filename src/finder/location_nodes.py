@@ -447,9 +447,11 @@ def display_nodes(nodes: list[Node]) -> None:
         if loc[0] == 0 and loc[1] == 0:
             continue
         if isinstance(node, MNode):
-            icon = folium.Icon(color="red", icon="remove-circle")
+            icon = folium.Icon(color="red", icon="glyphicon-remove")
+        elif isinstance(node, ENode):
+            icon = folium.Icon(color="blue", icon="glyphicon-lock")
         else:
-            icon = folium.Icon(color="green", icon="map-marker")
+            icon = folium.Icon(color="green", icon="glyphicon-ok")
         text = (f"Stop: '{node.stop.name}'<br>"
                 f"Names: '{node.names}'<br>"
                 f"Lat: {loc[0]:>7.4f}<br>"
