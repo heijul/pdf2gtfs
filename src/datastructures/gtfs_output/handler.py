@@ -83,6 +83,8 @@ class GTFSHandler:
     def generate_routes(self, timetable: TimeTable) -> None:
         """ Generate the routes for the given timetable. """
         for entry in timetable.entries:
+            if isinstance(entry, TimeTableRepeatEntry):
+                continue
             self.routes.add_from_entry(entry)
 
     def generate_stop_times(self, entries: list[TimeTableEntry]
