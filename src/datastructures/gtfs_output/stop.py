@@ -104,11 +104,11 @@ class GTFSStops(ExistingBaseContainer):
 
         New entries will be appended, if necessary. """
         if self.new_entries:
-            stops = "', '".join([e.stop_name for e in self.new_entries])
-            stops = f"['{stops}']"
+            stops = "\n\t".join([e.stop_name for e in self.new_entries])
+            stops = f"\n\t{stops}\n"
             logger.warning(
                 f"The file '{self.filename}' exists and contains data, but "
-                f"does not contain entries for the following stops:\n{stops}"
+                f"does not contain entries for the following stops:{stops}"
                 f"\nNew entries will be created and added to the file.")
             self.overwrite = True
         super().write()
