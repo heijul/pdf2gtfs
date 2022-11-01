@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from operator import attrgetter
 
+from config import Config
 from p2g_types import Char
 
 
@@ -91,7 +92,7 @@ class BBox:
         # TODO NOW: Tests.
         lower, upper = sorted((self, other), key=attrgetter("x0"))
         # No need for abs, because lower and upper are sorted.
-        return upper.x0 - lower.x1 <= 0.01
+        return upper.x0 - lower.x1 <= Config.max_char_distance
 
     def __repr__(self) -> str:
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"

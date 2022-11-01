@@ -104,6 +104,8 @@ class _Config(InstanceDescriptorMixin):
         self.disable_output = p.Property(self, "disable_output", bool)
         self.disable_close_node_check = p.Property(
             self, "disable_close_node_check", bool)
+        self.max_char_distance = p.FloatBoundsProperty(
+            self, "max_char_distance", 0)
 
     def load_default_config(self) -> None:
         """ Loads the default configuration.

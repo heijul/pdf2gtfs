@@ -204,6 +204,12 @@ repeat_strategy: "cycle"
 # Type: non-negative int
 max_row_distance: 3
 
+# Maximum horizontal distance in points between two characters, to be
+#   considered part of the same Field.
+#
+# Type: Non-negative float
+max_char_distance: 0.01
+
 # The minimum number of consecutive (i.e. distance to next line <= max_row_distance)
 #   lines required, for something to be recognized as a table.
 #

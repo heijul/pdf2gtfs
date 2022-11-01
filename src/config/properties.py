@@ -65,26 +65,42 @@ class Property:
         setattr(obj, self.attr, value)
 
 
-# TODO: Needs proper errors, if oob.
-class IntBoundsProperty(Property):
-    """ Property of type 'int', which has a lower and/or upper bound. """
+class BoundsProperty(Property):
+    """ Used for properties with bounded values. """
 
-    def __init__(self, cls, attr, lower: int = None, upper: int = None
+    def __init__(self, cls, attr, attr_type: type, lower=None, upper=None
                  ) -> None:
-        super().__init__(cls, attr, int)
+        super().__init__(cls, attr, attr_type)
         self.lower = lower
         self.upper = upper
 
-    def validate(self, value: int) -> None:
+    def validate(self, value: Any) -> None:
         """ Checks if the value is within bounds. """
         super().validate(value)
         self._validate_within_bounds(value)
 
-    def _validate_within_bounds(self, value: int):
+    def _validate_within_bounds(self, value: Any):
         upper_oob = self.upper and value > self.upper
         lower_oob = self.lower and value < self.lower
+        # TODO: Needs proper errors, if oob.
         if upper_oob or lower_oob:
             raise err.OutOfBoundsPropertyError
+
+
+class FloatBoundsProperty(BoundsProperty):
+    """ Bounded property of type float. """
+
+    def __init__(self, cls, attr, lower: float = None, upper: float = None
+                 ) -> None:
+        super().__init__(cls, attr, float, lower, upper)
+
+
+class IntBoundsProperty(BoundsProperty):
+    """ Bounded property of type int. """
+
+    def __init__(self, cls, attr, lower: int = None, upper: int = None
+                 ) -> None:
+        super().__init__(cls, attr, int, lower, upper)
 
 
 def value_to_generic(base_value: Any) -> type:
