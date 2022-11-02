@@ -281,12 +281,11 @@ class Column(FieldContainer):
             # Use max() to prevent ZeroDivisionError.
             return (len(self.fields) / max(1, empty_field_count)) <= 0.5
 
-        has_repeat_identifier = self.get_repeat_intervals() != ""
         has_data_field = self.has_field_of_type(FieldType.DATA)
 
         if not _is_sparse() and _constains_long_strings():
             return ColumnType.STOP
-        if has_repeat_identifier:
+        if self.has_repeat_interval():
             return ColumnType.REPEAT
         if self.has_field_of_type(FieldType.STOP_ANNOT):
             # Update previous column if current is a stop annotation and
@@ -300,32 +299,31 @@ class Column(FieldContainer):
             return ColumnType.DATA
         return ColumnType.OTHER
 
-    def _get_repeat_interval_from_identifier(
-            self, start_identifier: str, end_identifier: str) -> str:
-        """ Returns the value between start_identifier and end_identifier. """
-        start_regex = rf".*?{re.escape(start_identifier)}\s*"
+    def _get_repeat_intervals(self, start: str, end: str) -> list[str]:
+        """ Finds all repeat intervals, if this is a repeat column. """
+        start_regex = rf".*{re.escape(start)}\s*"
         value_regex = r"(\d{1,3}[-,.]\d{1,3}|\d{1,3})"
-        end_regex = rf"\s*{re.escape(end_identifier)}.*"
+        end_regex = rf"\s*{re.escape(end)}.*"
         regex = start_regex + value_regex + end_regex
-        flags = re.IGNORECASE + re.UNICODE
 
         texts = "\n".join([field.text for field in self.fields])
-        match = re.search(regex, texts, flags=flags)
-        if not match:
-            return ""
-        return match.groups()[0]
+        matches = re.findall(regex, texts, flags=re.I + re.U)
+        return matches
 
-    def get_repeat_intervals(self) -> str:
-        """ Try to find the start and end of the repeat_identifier in
-        self.fields. If both exist, try to get the repeat interval. """
-        if self.intervals is not None:
-            return self.intervals
+    def get_repeat_intervals(self) -> list[str]:
+        """ Get all repeat intervals Try to find the start and end of the
+        repeat_identifier in
+        our fields. If both exist, try to get the repeat interval.
+        """
         for start, end in Config.repeat_identifier:
-            interval = self._get_repeat_interval_from_identifier(start, end)
+            interval = self._get_repeat_intervals(start, end)
             if interval:
-                self.intervals = interval
                 return interval
-        return ""
+        return []
+
+    def has_repeat_interval(self) -> bool:
+        """ Check if the column contains at least one interval. """
+        return bool(self.get_repeat_intervals())
 
     def merge(self, other: Column):
         """ Merge self with other, such that self contains all fields and its

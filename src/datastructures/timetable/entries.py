@@ -54,12 +54,21 @@ class TimeTableEntry:
 
 
 class TimeTableRepeatEntry(TimeTableEntry):
-    """ A repeating entry in a TimeTable.
-    Does not contain time data (except the interval). """
+    """ A repeating entry in a TimeTable. Does not contain time data. """
 
-    def __init__(self, header_text: str = "", interval_str: str = "") -> None:
+    def __init__(self, header_text: str, intervals: list[str]) -> None:
         super().__init__(header_text)
-        self.intervals = self.interval_str_to_int_list(interval_str)
+        self.intervals = None
+        intervals = list(set(intervals))
+        if len(intervals) > 1:
+            # FEATURE: Add user_input to ask for stops and interval.
+            logger.warning("Multiple different repeat intervals found for a "
+                           "single column. Cannot discern which interval is "
+                           "active between which stops. "
+                           "Repeat column will be skipped.")
+            return
+
+        self.intervals = self.interval_str_to_int_list(intervals[0])
 
     @staticmethod
     def interval_str_to_int_list(value_str: str) -> list[int]:
