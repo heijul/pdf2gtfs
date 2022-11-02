@@ -255,22 +255,17 @@ class Column(FieldContainer):
     def type(self) -> ColumnType:
         """ The type of the column. If no type is set, it will be updated. """
         if not self._type:
-            self.update_type()
+            self._type = self._detect_type()
         return self._type
 
-    def set_to_stop(self) -> None:
-        """ Set the type to stop. """
-        # TODO NOW: Remove in favor of type setter. Add log message to setter.
-        self._type = ColumnType.STOP
-
-    def update_type(self) -> None:
-        """ Detect and set the type. """
-        self._type = self._detect_type()
+    @type.setter
+    def type(self, value: ColumnType) -> None:
+        self._type = value
 
     def _detect_type(self) -> ColumnType:
         def _constains_long_strings() -> bool:
             """ Returns if the column contains long strings. """
-            return mean(map(lambda f: len(f.text), self.fields)) > 6
+            return mean(map(lambda f: len(f.text), self.fields)) > 8
 
         def _is_sparse() -> bool:
             """ Returns if the column is sparse.
@@ -293,7 +288,7 @@ class Column(FieldContainer):
             # CHECK: If this makes sense.
             previous = self.table.columns.prev(self)
             if previous.has_type() and previous.type == ColumnType.OTHER:
-                previous.set_to_stop()
+                previous.type = ColumnType.STOP
             return ColumnType.STOP_ANNOTATION
         if has_data_field:
             return ColumnType.DATA
