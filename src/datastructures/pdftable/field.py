@@ -74,14 +74,12 @@ class Field(BBoxObject):
         except ValueError:
             return False
 
-    def _contains(self, idents: list[str], strict: bool = True) -> bool:
+    def _contains(self, idents: list[str]) -> bool:
         def _contains_single(ident: str) -> bool:
-            ident = ident.lower().strip()
-            if strict:
-                return ident == text
+            ident = ident.lower().strip().replace(" ", "")
             return ident in text
 
-        text = self.text.lower().strip()
+        text = self.text.lower().strip().replace(" ", "")
         return any(map(_contains_single, idents))
 
     def __contains__(self, item: Any) -> bool:
