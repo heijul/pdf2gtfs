@@ -90,9 +90,8 @@ class BBox:
     def is_next_to(self, other) -> bool:
         """ Checks if the two bboxes are touching or close to each other. """
         # TODO NOW: Tests.
-        lower, upper = sorted((self, other), key=attrgetter("x0"))
-        # No need for abs, because lower and upper are sorted.
-        return upper.x0 - lower.x1 <= Config.max_char_distance
+        left, right = sorted((self, other), key=attrgetter("x0"))
+        return abs(right.x0 - left.x1) <= Config.max_char_distance
 
     def __repr__(self) -> str:
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
@@ -130,4 +129,5 @@ class BBoxObject:
 
     def is_next_to(self, other: BBoxObject) -> bool:
         """ Checks if the objects' bboxes are next to each other. """
+        # TODO: Should take font size into account.
         return self.bbox.is_next_to(other.bbox)
