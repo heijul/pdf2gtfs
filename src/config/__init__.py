@@ -106,6 +106,8 @@ class _Config(InstanceDescriptorMixin):
             self, "disable_close_node_check", bool)
         self.max_char_distance = p.FloatBoundsProperty(
             self, "max_char_distance", 0)
+        self.cache_directory = p.Property(self, "cache_directory", str)
+        self.qlever_endpoint_url = p.Property(self, "qlever_endpoint_url", str)
 
     def load_default_config(self) -> None:
         """ Loads the default configuration.

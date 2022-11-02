@@ -4,31 +4,22 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
-import os.path
-import platform
 import re
-from io import BytesIO
 from math import inf
-from os import makedirs
-from pathlib import Path
-from tempfile import NamedTemporaryFile
 from time import time
 from typing import TYPE_CHECKING, TypeAlias
-from urllib import parse
 
 import pandas as pd
-import requests
-from requests.exceptions import ConnectionError
 
 from config import Config
 from datastructures.gtfs_output.stop import GTFSStopEntry
+from finder.fetcher import OSMFetcher
 from finder.location import Location
 from finder.location_finder import find_stop_nodes, update_missing_locations
 from finder.location_nodes import display_nodes, MNode, Node
 from finder.osm_values import get_all_cat_scores
-from utils import normalize_series, normalize_name
+from utils import normalize_name
 
 
 if TYPE_CHECKING:
@@ -42,7 +33,6 @@ StopName: TypeAlias = str
 StopIdent: TypeAlias = tuple[StopID, StopName]
 Route: TypeAlias = list[StopIdent]
 Routes: TypeAlias = dict[str: Route]
-RouteStopIDs: TypeAlias = list[tuple[StopID]]
 StopsNode: TypeAlias = dict[StopID, Node]
 StopsNodes: TypeAlias = dict[StopID, list[Node]]
 
@@ -53,305 +43,36 @@ NAME_KEYS = ["name", "alt_name", "ref_name",
              "short_name", "official_name", "loc_name"]
 
 
-def get_qlever_query() -> str:
-    """ Return the full query, usable by QLever. """
-
-    def _union(a: str, b: str) -> str:
-        # Union two statements. Uses \t as delimiter after/before braces.
-        if not a:
-            return b
-        return f"{{\t{a}\t}} UNION {{\t{b}\t}}"
-
-    def _to_identifier(key: str) -> str:
-        return f"?{key}"
-
-    def get_selection() -> list[str]:
-        """ Return the select clause. """
-        identifier = map(_to_identifier, KEYS + KEYS_OPTIONAL)
-        group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\"|\") AS ?names)"
-        variables = " ".join(identifier) + group_concat
-        return ["SELECT {} WHERE {{".format(variables)]
-
-    def get_transports() -> list[str]:
-        """ Return a union of all possible public_transport values. """
-        fmt = "?stop osmkey:public_transport \"{}\" ."
-        transport = ""
-        transport = _union(transport, fmt.format("station"))
-        transport = _union(transport, fmt.format("stop_position"))
-        transport = _union(transport, fmt.format("platform"))
-        return transport.strip().split("\t")
-
-    def get_names() -> list[str]:
-        """ Return a union of clauses, based on the different name keys. """
-        name_fmt = "?stop osmkey:{} ?name ."
-        names = ""
-        for name_key in NAME_KEYS:
-            names = _union(names, name_fmt.format(name_key))
-        return names.strip().split("\t")
-
-    def get_optionals() -> list[str]:
-        """ Get the clause for all optional keys. """
-        fmt = "OPTIONAL {{ ?stop osmkey:{0} ?{0} . }}"
-        return [fmt.format(key) for key in KEYS_OPTIONAL]
-
-    def get_group_by() -> list[str]:
-        """ Group-by statement, grouping by optional and mandatory keys. """
-        fmt = "GROUP BY {}"
-        identifier = " ".join(map(_to_identifier, KEYS + KEYS_OPTIONAL))
-        return [fmt.format(identifier)]
-
-    pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
-           "PREFIX geo: <http://www.opengis.net/ont/geosparql#>",
-           "PREFIX geof: <http://www.opengis.net/def/function/geosparql/>",
-           "PREFIX osm: <https://www.openstreetmap.org/>",
-           "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>",
-           "PREFIX osmkey: <https://www.openstreetmap.org/wiki/Key:>"]
-    base = ["?stop osmkey:public_transport ?public_transport .",
-            "?stop rdf:type osm:node .",
-            "?stop geo:hasGeometry ?location ."]
-    binds = ["BIND (geof:latitude(?location) AS ?lat)",
-             "BIND (geof:longitude(?location) AS ?lon)"]
-
-    query_list = (pre + get_selection() +
-                  get_transports() + base + get_names() +
-                  get_optionals() + binds + ["}"] + get_group_by())
-    return " \n".join(query_list)
-
-
-def get_osm_data_from_qlever(filepath: Path) -> bool:
-    """ Saves the osm data fetched using QLever in the given filepath.
-
-    :return: True, if fetching and writing was successful, False otherwise.
-    """
-    base_url = "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
-    data = {"action": "tsv_export", "query": get_qlever_query()}
-    url = base_url + parse.urlencode(data)
-
-    try:
-        r = requests.get(url)
-    except ConnectionError as e:
-        logger.error(f"Could not get osm data: {e}")
-        return False
-
-    if r.status_code != 200:
-        logger.error(f"Could not get osm data: {r}\n{r.content}")
-        return False
-
-    # TODO NOW: Try -> except
-    osm_data_to_file(r.content, filepath)
-
-    return True
-
-
-def _clean_osm_data(raw_data: bytes) -> pd.DataFrame:
-    df = read_csv(BytesIO(raw_data))
-    df["names"] = normalize_series(df["names"])
-    # Remove entries with empty name.
-    return df[df["names"] != ""]
-
-
-def get_osm_comments(include_date: bool = True) -> str:
-    """ Return the comment that would be written to the top of the cache,
-    if the cache would be created right now. Uses get_qlever_query. """
-
-    join_str = "\n#   "
-    date = dt.date.today().strftime("%Y%m%d")
-    query = join_str.join(get_qlever_query().split("\n"))
-    abbrevs = join_str.join(
-        [f"{key}: {value}"
-         for key, value in sorted(Config.name_abbreviations.items())])
-    allowed_chars = sorted(Config.allowed_stop_chars)
-    comments = [f"# Queried: {date}"] if include_date else []
-    comments += [f"# Query:{join_str}{query}",
-                 f"# Abbreviations:{join_str}{abbrevs}",
-                 f"# Allowed chars:{join_str}{allowed_chars}"]
-    return "\n".join(comments) + "\n"
-
-
-def osm_data_to_file(raw_data: bytes, filepath: Path):
-    """ Writes the given raw_data to the given filepath,
-    overwriting existing files. """
-    df = _clean_osm_data(raw_data)
-
-    with open(filepath, "w") as fil:
-        fil.write(get_osm_comments())
-
-    df.to_csv(filepath, sep="\t", header=False, index=False, mode="a")
-
-
-def get_cache_dir_path() -> Path | None:
-    """ Return the system dependent path to the cache directory. """
-
-    system = platform.system().lower()
-    if system == "windows":
-        return Path(os.path.expandvars("%LOCALAPPDATA%/pdf2gtfs/")).resolve()
-    if system == "linux":
-        return Path(os.path.expanduser("~/.cache/pdf2gtfs/")).resolve()
-
-    logger.warning("Cache is only supported on linux and windows "
-                   "platforms.")
-
-
-def create_cache_dir() -> tuple[bool, Path | None]:
-    """ Creates the platform-specific cache directory if it does not exist.
-
-    :returns: Whether the cache directory is valid and the path to directory
-    """
-    path = get_cache_dir_path()
-    if not path:
-        return False, None
-    if not path.exists():
-        try:
-            makedirs(path, exist_ok=True)
-        except OSError as e:
-            logging.warning(f"Cache directory could not be created. "
-                            f"Caching has been disabled. Reason: {e}")
-            return False, None
-    if not path.is_dir():
-        logger.warning(f"Cache directory '{path}' appears to be a file. "
-                       f"You need to rename/remove that file to use caching. "
-                       f"Caching has been disabled.")
-        return False, None
-    return True, path
-
-
-def read_csv(file: Path | BytesIO) -> pd.DataFrame:
-    """ Read the given file or stream with pandas' read_csv.
-
-    The file/stream must be CSV structured.
-    Return a DataFrame with the content.
-    """
-
-    dtype = {"lat": float, "lon": float,
-             "public_transport": str, "names": str}
-    for key in KEYS_OPTIONAL:
-        dtype[key] = str
-
-    return pd.read_csv(
-        file,
-        sep="\t",
-        names=KEYS + KEYS_OPTIONAL + ["names"],
-        dtype=dtype,
-        keep_default_na=False,
-        header=0,
-        comment="#")
-
-
 class Finder:
     """ Handles the cache/dataframe creation. """
 
     def __init__(self, gtfs_handler: GTFSHandler):
         self.handler = gtfs_handler
-        self.temp = None
-        self.use_cache, cache_dir = create_cache_dir()
-        self._set_fp(cache_dir)
-        self._get_stop_data()
+        self.osm_fetcher = OSMFetcher()
 
-    def _set_fp(self, cache_dir: Path):
-        self.fp: Path = cache_dir.joinpath("osm_cache.tsv").resolve()
-        self.temp = NamedTemporaryFile()
-        if self.use_cache:
-            return
-        self.fp = Path(self.temp.name).resolve()
-
-    def rebuild_cache(self) -> bool:
-        """ Cache needs to be rebuilt, if it does not exist or is too old. """
-        if not self.fp.exists() or Path(self.temp.name).resolve() == self.fp:
-            return True
-        return self._cache_is_stale() or not self._query_same_as_cache()
-
-    def _cache_is_stale(self) -> bool:
-        with open(self.fp, "r") as fil:
-            line = fil.readline().strip()
-
-        msg = ("Cache was found, but does not seem valid. First line must "
-               "be a comment '# Queried: YYYYMMDD', where YYYYMMDD is the "
-               "date when the cache was created.")
-        if not line.startswith("# Queried: "):
-            logger.warning(msg)
-            return True
-
-        try:
-            date = dt.datetime.now()
-            date_str = line.split(": ")[1].strip()
-            query_date = dt.datetime.strptime(date_str, "%Y%m%d")
-        except (ValueError, IndexError):
-            logger.warning(msg)
-            return True
-
-        return (date - query_date).days > Config.stale_cache_days
-
-    def _query_same_as_cache(self) -> bool:
-        def _get_line() -> str:
-            return fil.readline().strip()
-
-        lines = []
-        with open(self.fp, "r") as fil:
-            line = _get_line()
-            while line.startswith("#"):
-                if line != "#":
-                    lines.append(line)
-                line = _get_line()
-        cache_comments = lines[1:]
-        current_comments = [
-            line.strip()
-            for line in get_osm_comments(False).split("\n") if line]
-
-        return current_comments == cache_comments
-
-    def _get_stop_data(self) -> None:
-        if not self.use_cache or self.rebuild_cache():
-            if not get_osm_data_from_qlever(self.fp):
-                return
-
-        try:
-            df = read_csv(self.fp)
-        except Exception as e:
-            cache_str = " cached " if self.use_cache else " "
-            logger.error(
-                f"While trying to read the{cache_str}osm data an error "
-                f"occurred:\n{e}\nStop location detection will be skipped.")
-            df = None
-        self.full_df: pd.DataFrame = df
+    def search_stop_nodes_of_all_routes(self, df: pd.DataFrame) -> StopsNodes:
+        """ Locate the stop nodes for each route individually. """
+        routes: Routes = get_unique_routes(self.handler)
+        nodes: dict[str: list[Node]] = {}
+        for route_id, route in routes.items():
+            stop_nodes = find_stop_nodes(self.handler, route_id, route, df)
+            for stop_id, node in stop_nodes.items():
+                nodes.setdefault(stop_id, []).append(node)
+            # TODO: Add search for reversed as well.
+        return nodes
 
     def find_location_nodes(self) -> dict[str: Location]:
         """ Return a dictionary of all stops and their locations. """
 
-        def _search_stop_nodes_of_all_routes() -> StopsNodes:
-            routes: Routes = get_unique_routes(self.handler)
-            nodes: dict[str: list[Node]] = {}
-            for route_id, route in routes.items():
-                stop_nodes = find_stop_nodes(self.handler, route_id, route, df)
-                for stop_id, node in stop_nodes.items():
-                    nodes.setdefault(stop_id, []).append(node)
-                # TODO: Add search for reversed as well.
-            return nodes
-
-        def _select_best_node(stop_nodes: list[Node]) -> Node:
-            nodes = [n for n in stop_nodes if not isinstance(n, MNode)]
-            missing = [n for n in stop_nodes if isinstance(n, MNode)]
-            if not nodes:
-                return missing[0]
-            nodes_unique = set(nodes)
-            nodes_count = {n: nodes.count(n) for n in nodes_unique}
-            node_with_max_count = max(nodes, key=nodes_count.get)
-            return node_with_max_count
-
-        def _select_best_nodes(stops_nodes: StopsNodes) -> StopsNode:
-            nodes: dict[str: Node] = {}
-            for stop_id, stop_nodes in stops_nodes.items():
-                nodes[stop_id] = _select_best_node(stop_nodes)
-            return nodes
-
         used_stops = [e for e in self.handler.stops.entries
                       if e.used_in_timetable]
-        df = get_df(used_stops, self.full_df)
+        df = get_df(used_stops, self.osm_fetcher.df)
 
         logger.info("Searching for the stop locations of each route.")
         t = time()
 
-        route_stop_nodes = _search_stop_nodes_of_all_routes()
-        best_nodes = _select_best_nodes(route_stop_nodes)
+        route_stop_nodes = self.search_stop_nodes_of_all_routes(df)
+        best_nodes = self.select_best_nodes(route_stop_nodes)
         logger.info(f"Done. Took {time() - t:.2f}s")
 
         update_missing_locations(list(best_nodes.values()), True)
@@ -517,3 +238,25 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     """ Calculate the integer score based on KEYS_OPTIONAL. """
     return full_df[KEYS_OPTIONAL].min(axis=1) ** 2 // 20
+
+
+def select_best_nodes(stops_nodes: StopsNodes) -> StopsNode:
+    """ Select the nodes for every stop. """
+
+    def select_best_node_of_stop() -> Node:
+        """ Select the best node for a specific Stop. """
+        nodes = [n for n in stop_nodes if not isinstance(n, MNode)]
+        missing = [n for n in stop_nodes if isinstance(n, MNode)]
+        if not nodes:
+            return missing[0]
+        nodes_unique = set(nodes)
+        nodes_count = {n: nodes.count(n) for n in nodes_unique}
+        node_with_max_count = max(nodes, key=nodes_count.get)
+        return node_with_max_count
+
+    # TODO: Needs to recalculate the cost of each node. This may also have
+    #  unexpected results, if some route is detached from the rest.
+    best_nodes: dict[str: Node] = {}
+    for stop_id, stop_nodes in stops_nodes.items():
+        best_nodes[stop_id] = select_best_node_of_stop()
+    return best_nodes

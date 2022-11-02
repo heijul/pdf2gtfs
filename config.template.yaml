@@ -336,3 +336,24 @@ missing_node_cost: 500
 #
 # Type: Boolean
 disable_close_node_check: False
+
+
+#########################
+#  QLever and OSM data  #
+#########################
+
+# The path to the cache directory. If this is empty or not a valid path, the
+# default path will be selected based on the system:
+#   - linux: ~/.config/pdf2gtfs/
+#   - windows: %APPDATALOCAL%/pdf2gtfs/
+# The /path/to/pdf2gtfs/src directory will be used as fallback.
+#
+# Type: str
+cache_directory: ""
+
+# The full url to the QLever endpoint.
+# Note: Set this to e.g. https://qlever.cs.uni-freiburg.de/api/osm-planet/?
+#   to get locations from the whole world (slower), instead of just germany.
+#
+# Type: url str
+qlever_endpoint_url: "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
