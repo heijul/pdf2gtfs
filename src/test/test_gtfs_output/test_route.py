@@ -1,7 +1,8 @@
 from unittest import TestCase
 
 from config import Config
-from datastructures.gtfs_output.routes import Route, Routes, RouteType
+from datastructures.gtfs_output.routes import (
+    GTFSRouteEntry, GTFSRoutes, RouteType)
 from datastructures.timetable.entries import TimeTableEntry
 from test_timetable import create_stops
 
@@ -18,11 +19,11 @@ class TestRouteType(TestCase):
 
 class TestRoute(TestCase):
     def test_eq(self) -> None:
-        r1 = Route("1", "short_name", "long_name")
-        r2 = Route("1", "short_name", "long_name")
-        r3 = Route("1", "short_name2", "long_name")
-        r4 = Route("1", "short_name2", "long_name3")
-        r5 = Route("44", "short_name2", "long_name3")
+        r1 = GTFSRouteEntry("1", "short_name", "long_name")
+        r2 = GTFSRouteEntry("1", "short_name", "long_name")
+        r3 = GTFSRouteEntry("1", "short_name2", "long_name")
+        r4 = GTFSRouteEntry("1", "short_name2", "long_name3")
+        r5 = GTFSRouteEntry("44", "short_name2", "long_name3")
         self.assertEqual(r1, r1)
         self.assertEqual(r1, r2)
         self.assertNotEqual(r1, r3)
@@ -40,7 +41,7 @@ class TestRoute(TestCase):
         self.assertNotEqual(r4, r5)
 
     def test_route_type(self) -> None:
-        route = Route("1", "short", "long")
+        route = GTFSRouteEntry("1", "short", "long")
         self.assertEqual(Config.gtfs_routetype, route.route_type)
 
 
@@ -51,15 +52,15 @@ class TestRoutes(TestCase):
         e.set_value(stops[0], "6.00")
         e.set_value(stops[1], "6.30")
         e.set_value(stops[2], "7.42")
-        short_name, long_name = Routes.names_from_entry(e)
+        short_name, long_name = GTFSRoutes.names_from_entry(e)
         self.assertEqual(short_name, "")
         self.assertEqual(long_name, "stop0-stop2")
         e.route_name = "testroute"
-        short_name, _ = Routes.names_from_entry(e)
+        short_name, _ = GTFSRoutes.names_from_entry(e)
         self.assertEqual(short_name, "testroute")
 
     def test_add(self) -> None:
-        routes = Routes("agency_0")
+        routes = GTFSRoutes("agency_0")
         self.assertEqual(0, len(routes.entries))
         route1 = routes.add("short1", "long1")
         self.assertEqual(1, len(routes.entries))
