@@ -38,6 +38,8 @@ class Stop:
         self._avg_time_to_next = None
         self._max_dist_to_next = None
         self.distance_bounds = self._get_distance_bounds()
+        if Stop.stops is None:
+            raise Exception("Stop.stops needs to be, before creating a Stop.")
 
     @property
     def exists(self) -> bool:
@@ -83,7 +85,9 @@ class Stop:
         lower = get_travel_distance(avg_time - time_delta)
         mid = get_travel_distance(avg_time)
         upper = get_travel_distance(avg_time + time_delta)
-        return max(lower, Config.min_travel_distance), mid, upper
+        return (max(lower, Config.min_travel_distance),
+                max(mid, Config.min_travel_distance),
+                max(upper, Config.min_travel_distance))
 
     def before(self, other: Stop) -> bool:
         """ Return True, if this stop occurs before other. """

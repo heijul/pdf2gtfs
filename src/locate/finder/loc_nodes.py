@@ -39,7 +39,8 @@ class Node:
         self.visited = False
         self.stop.nodes.append(self)
         if Node.nodes is None:
-            raise Exception("Nodes needs to be set, before creating a node.")
+            raise Exception("Node.nodes needs to be set, "
+                            "before creating a Node.")
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Node) and

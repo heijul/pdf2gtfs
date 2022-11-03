@@ -7,10 +7,12 @@ import pandas as pd
 
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
+from datastructures.gtfs_output.stop import GTFSStopEntry
 from datastructures.gtfs_output.stop_times import Time
 from locate.finder.cost import Cost
 from locate.finder.loc_nodes import Nodes
 from locate.finder.stops import Stop, Stops
+from test_locate import create_handler
 
 
 DF: TypeAlias = pd.DataFrame
@@ -18,44 +20,29 @@ DF: TypeAlias = pd.DataFrame
 
 class TestStop(TestCase):
     def setUp(self) -> None:
-        self.stop_1 = Stop(0, "0", "stop_0", 0)
-        self.stop_2 = Stop(1, "1", "stop_1", 0)
-        self.stop_3 = Stop(2, "2", "stop_2", 0)
+        handler = create_handler()
+
+        self.stops = Stops(handler, "route_0",
+                           handler.get_stops_of_route("route_0"))
         Config.average_speed = 15
 
-    def test__set_distance_bounds(self) -> None:
+    def test_exists(self) -> None:
+        ...
+
+    def test_set_distance_bounds(self) -> None:
+        Config.average_speed = 15
+        min_dist = Config.min_travel_distance
+        Config.average_travel_distance_offset = 2
         times = [1, 2, 12, 0]
-        expected_lower = [0, 250, 2750, 0]
-        expected_upper = [500, 750, 3250, 0]
+        expected_lower = [min_dist, min_dist, 2500, min_dist]
+        expected_mid = [250, 500, 3000, 0]
+        expected_upper = [750, 1000, 3500, 0]
         for i in range(3):
-            self.stop_1._avg_time_to_next = Time(minutes=times[i])
-            self.stop_1._set_distance_bounds()
-            lower, upper = self.stop_1.distance_bounds
-            self.assertEqual(expected_lower[i], lower.m)
-            self.assertEqual(expected_upper[i], upper.m)
-
-    def test_get_max_dist(self) -> None:
-        minute = Time(minutes=1)
-        max_dist = self.stop_1.get_max_dist(minute)
-        self.assertEqual(250, max_dist.m)
-        no_time = Time()
-        max_dist = self.stop_1.get_max_dist(no_time)
-        self.assertEqual(0, max_dist.m)
-        hour = Time(hours=1)
-        max_dist = self.stop_1.get_max_dist(hour)
-        self.assertEqual(15, max_dist.km)
-        fifty_five = Time(minutes=56)
-        max_dist = self.stop_1.get_max_dist(fifty_five)
-        self.assertEqual(14, max_dist.km)
-        fifty_five = Time(minutes=56)
-        max_dist = self.stop_1.get_max_dist(fifty_five)
-        self.assertEqual(14, max_dist.km)
-
-    def test_max_dist_to_next(self) -> None:
-        self.stop_1._avg_time_to_next = Time(minutes=3)
-        self.stop_1.next = self.stop_2
-        max_dist = self.stop_1.max_dist_to_next
-        self.assertEqual(750, max_dist.m)
+            self.stops[0]._avg_time_to_next = Time(minutes=times[i])
+            lower, mid, upper = self.stop_1._get_distance_bounds()
+            self.assertEqual(expected_lower[i], lower)
+            self.assertEqual(expected_mid[i], mid)
+            self.assertEqual(expected_upper[i], upper)
 
     def test_before(self) -> None:
         self.assertTrue(self.stop_1.before(self.stop_2))
