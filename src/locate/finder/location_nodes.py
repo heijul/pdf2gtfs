@@ -13,11 +13,13 @@ import folium
 import pandas as pd
 
 from config import Config
-from finder import Location
-from finder.cost import Cost, StartCost
-from finder.location import DISTANCE_IN_M_PER_LAT_DEG, get_distance_per_lon_deg
-from finder.stops import Stop, Stops
-from finder.types import DF, StopPosition
+from locate import Location
+from locate.finder.cost import Cost, StartCost
+from locate.finder.location import (
+    DISTANCE_IN_M_PER_LAT_DEG,
+    get_distance_per_lon_deg)
+from locate.finder.stops import Stop, Stops
+from locate.finder.types import DF, StopPosition
 
 
 logger = logging.getLogger(__name__)

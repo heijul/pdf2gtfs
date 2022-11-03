@@ -8,9 +8,9 @@ import pandas as pd
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
 from datastructures.gtfs_output.stop_times import Time
-from finder.cost import Cost
-from finder.location_nodes import Nodes
-from finder.stops import Stop, Stops
+from locate.finder.cost import Cost
+from locate.finder.location_nodes import Nodes
+from locate.finder.stops import Stop, Stops
 
 
 DF: TypeAlias = pd.DataFrame

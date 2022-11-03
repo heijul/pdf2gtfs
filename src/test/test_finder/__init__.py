@@ -1,4 +1,4 @@
-""" Helper functions used by tests for the finder subpackage."""
+""" Helper functions used by tests for the locate subpackage."""
 
 from datastructures.gtfs_output.handler import GTFSHandler
 from datastructures.gtfs_output.stop_times import Time

@@ -24,8 +24,8 @@ from datastructures.gtfs_output.stop_times import (
 from datastructures.gtfs_output.trips import GTFSTrips
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
-from finder import Node
-from finder.location_nodes import MNode
+from locate import Node
+from locate.finder.location_nodes import MNode
 from user_input.cli import handle_annotations
 
 
@@ -364,3 +364,7 @@ class GTFSHandler:
         if not times:
             return Time()
         return Time.from_hours(mean(times))
+
+    def get_used_stops(self) -> list[GTFSStopEntry]:
+        """ Return a list of GTFSStopEntries, which are used in the PDF. """
+        return [stop for stop in self.stops.entries if stop.used_in_timetable]

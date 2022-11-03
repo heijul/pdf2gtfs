@@ -1,6 +1,4 @@
-""" Subpackage to detect the locations of the stops. """
-# TODO NOW: Split into osm_fetcher, location_detector, etc.
-
+""" Subpackage to detect the coordinates of each stop. """
 
 from __future__ import annotations
 
@@ -14,11 +12,12 @@ import pandas as pd
 
 from config import Config
 from datastructures.gtfs_output.stop import GTFSStopEntry
-from finder.fetcher import OSMFetcher
-from finder.location import Location
-from finder.location_finder import find_stop_nodes, update_missing_locations
-from finder.location_nodes import display_nodes, MNode, Node
-from finder.osm_values import get_all_cat_scores
+from locate.fetcher import OSMFetcher
+from locate.finder.location import Location
+from locate.finder.location_finder import (
+    find_stop_nodes, update_missing_locations)
+from locate.finder.location_nodes import display_nodes, MNode, Node
+from locate.finder.osm_values import get_all_cat_scores
 from utils import normalize_name
 
 
@@ -72,7 +71,7 @@ class Finder:
         t = time()
 
         route_stop_nodes = self.search_stop_nodes_of_all_routes(df)
-        best_nodes = self.select_best_nodes(route_stop_nodes)
+        best_nodes = select_best_nodes(route_stop_nodes)
         logger.info(f"Done. Took {time() - t:.2f}s")
 
         update_missing_locations(list(best_nodes.values()), True)

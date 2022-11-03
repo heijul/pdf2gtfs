@@ -1,4 +1,5 @@
 """ Handles the fetching and caching of OSM data. """
+
 import os
 import platform
 from datetime import datetime as dt

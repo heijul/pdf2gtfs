@@ -1,4 +1,4 @@
-""" Stops used by the finder. """
+""" Stops used by the locate. """
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Iterator, TYPE_CHECKING
 
 from config import Config
 from datastructures.gtfs_output.stop_times import Time
-import finder.location_nodes as loc_nodes
+import locate.finder.location_nodes as loc_nodes
 
 
 if TYPE_CHECKING:

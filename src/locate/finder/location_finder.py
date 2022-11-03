@@ -7,15 +7,17 @@ from time import time
 from typing import TYPE_CHECKING
 
 from config import Config
-from finder.location import Location
-from finder.location_nodes import display_nodes, MNode, Nodes
-from finder.stops import Stop, Stops
-from finder.types import DF
+from locate.finder.location import Location
+from locate.finder.location_nodes import (
+    display_nodes, MNode,
+    Nodes)
+from locate.finder.stops import Stop, Stops
+from locate.finder.types import DF
 
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.handler import GTFSHandler
-    from finder import Node
+    from locate import Node
 
 logger = logging.getLogger(__name__)
 

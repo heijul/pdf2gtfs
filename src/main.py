@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
-from finder import Finder, Node
+from locate import Finder, Node
 from p2g_logging import initialize_logging
 from reader import Reader
 from user_input.arg_parser import parse_args
