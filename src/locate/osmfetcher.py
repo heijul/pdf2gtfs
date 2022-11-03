@@ -1,4 +1,4 @@
-""" Handles the fetching and caching of OSM data. """
+""" Provides a fetcher for OSM data using QLever. """
 
 import os
 import platform
@@ -16,7 +16,6 @@ from utils import normalize_series
 
 
 logger = getLogger(__name__)
-
 KEYS = ["lat", "lon", "public_transport"]
 KEYS_OPTIONAL = ["railway", "bus", "tram",
                  "train", "subway", "monorail", "light_rail"]
