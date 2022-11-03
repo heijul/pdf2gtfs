@@ -7,7 +7,7 @@ import pandas as pd
 
 
 if TYPE_CHECKING:
-    from locate.finder.location_nodes import Node
+    from locate.finder.loc_nodes import Node
 
 Heap: TypeAlias = list["Node"]
 DF: TypeAlias = pd.DataFrame

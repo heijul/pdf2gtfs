@@ -13,11 +13,9 @@ import folium
 import pandas as pd
 
 from config import Config
-from locate import Location
 from locate.finder.cost import Cost, StartCost
 from locate.finder.location import (
-    DISTANCE_IN_M_PER_LAT_DEG,
-    get_distance_per_lon_deg)
+    DISTANCE_IN_M_PER_LAT_DEG, get_distance_per_lon_deg, Location)
 from locate.finder.stops import Stop, Stops
 from locate.finder.types import DF, StopPosition
 

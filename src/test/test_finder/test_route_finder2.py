@@ -9,7 +9,7 @@ from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
 from datastructures.gtfs_output.stop_times import Time
 from locate.finder.cost import Cost
-from locate.finder.location_nodes import Nodes
+from locate.finder.loc_nodes import Nodes
 from locate.finder.stops import Stop, Stops
 
 

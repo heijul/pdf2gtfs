@@ -25,7 +25,7 @@ from datastructures.gtfs_output.trips import GTFSTrips
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
 from locate import Node
-from locate.finder.location_nodes import MNode
+from locate.finder.loc_nodes import MNode
 from user_input.cli import handle_annotations
 
 
