@@ -1,6 +1,7 @@
 """ Functions to setup logging. """
 
 import logging
+import sys
 from logging import LogRecord
 
 
@@ -24,5 +25,12 @@ def disable_pdfminer_logger() -> None:
 def initialize_logging(level: int):
     """ Reduce the pdfminer output and setup basic logging. """
     disable_pdfminer_logger()
-    logging.basicConfig(level=level)
+    stdout_handler = logging.StreamHandler(stream=sys.stdout)
+    logging.basicConfig(level=level, handlers=[stdout_handler])
     # FEATURE: Style the log output
+
+
+def flush_all_loggers() -> None:
+    """ Flush all handlers, to ensure all messages are displayed. """
+    for handler in logging.getLogger().handlers:
+        handler.flush()

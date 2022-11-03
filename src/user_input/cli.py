@@ -7,6 +7,8 @@ import logging
 from pathlib import Path
 from typing import Callable, TYPE_CHECKING, TypeAlias
 
+from p2g_logging import flush_all_loggers
+
 
 if TYPE_CHECKING:
     from datastructures.gtfs_output.agency import GTFSAgencyEntry
@@ -17,9 +19,7 @@ AnnotException: TypeAlias = dict[str: tuple[bool, list[datetime.date]]]
 
 
 def _get_input(prompt: str, check: CheckType, msg: str = "") -> str:
-    # Flush stdout/stderr in case some logging messages are not printed yet.
-    logging.getLogger().handlers[0].flush()
-
+    flush_all_loggers()
     answer = input(prompt + "\n> ").lower().strip()
     valid = answer in check if isinstance(check, list) else check(answer)
     if valid:
