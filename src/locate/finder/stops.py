@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Iterator, TYPE_CHECKING
 
 from config import Config
+from datastructures.gtfs_output.stop import GTFSStopEntry
 from datastructures.gtfs_output.stop_times import Time
 import locate.finder.location_nodes as loc_nodes
 
@@ -28,14 +29,12 @@ class Stop:
     """ A stop, uniquely defined by its GTFS stop_id, name and route index. """
     stops: Stops = None
 
-    def __init__(self, idx: int, stop_id: str, name: str,
-                 next_: Stop | None, stop_cost: int) -> None:
+    def __init__(self, idx: int, stop_id: str, name: str) -> None:
         self.idx = idx
         self.stop_id = stop_id
         self.name = name
         self.nodes = []
-        self._next = next_
-        self.cost = stop_cost
+        self._next = None
         self._avg_time_to_next = None
         self._max_dist_to_next = None
         self.distance_bounds = self._get_distance_bounds()
@@ -66,6 +65,8 @@ class Stop:
     @next.setter
     def next(self, value: Stop) -> None:
         self._next = value
+        # Need to recalculate the bounds if the next stop changes.
+        self.distance_bounds = self._get_distance_bounds()
 
     def _get_distance_bounds(self) -> tuple[float, float, float]:
         """ Set the lower/mid/upper distance limits.
@@ -103,11 +104,11 @@ class Stops:
     """ The stops of a route. Implemented as singly-linked-list. """
 
     def __init__(self, handler: GTFSHandler, route_id: str,
-                 stop_names: list[tuple[str, str]]) -> None:
+                 gtfs_stops: list[GTFSStopEntry]) -> None:
         self.handler = handler
         self.route_id = route_id
         Stop.stops = self
-        self.first, self.last = self._create_stops(stop_names)
+        self.first, self.last = self._create_stops(gtfs_stops)
 
     @property
     def stops(self) -> list[Stop]:
@@ -121,22 +122,23 @@ class Stops:
         return stops
 
     @staticmethod
-    def _create_stops(stop_names: list[tuple[str, str]]) -> tuple[Stop, Stop]:
-        last = None
-        stop = None
-        names_with_index = [(idx, s_id, name)
-                            for idx, (s_id, name) in enumerate(stop_names)]
+    def _create_stops(gtfs_stops: list[GTFSStopEntry]) -> tuple[Stop, Stop]:
+        """ Create the stops from the gtfs_stops. Returns the start/end. """
+        first_stop = None
+        previous_stop = None
 
-        for i, stop_id, stop_name in reversed(names_with_index):
-            stop = Stop(i, stop_id, stop_name, stop, i * 1000)
-            if not last:
-                last = stop
+        for i, gtfs_stop in enumerate(gtfs_stops):
+            current_stop = Stop(i, gtfs_stop.stop_id, gtfs_stop.stop_name)
+            if not first_stop:
+                first_stop = current_stop
+            if previous_stop:
+                previous_stop.next = current_stop
+            previous_stop = current_stop
 
-        return stop, last
+        return first_stop, previous_stop
 
     def get_avg_time_between(self, stop1: Stop, stop2: Stop) -> Time:
         """ Return the average time it takes to get from stop1 to stop2. """
-        # TODO NOW: Uses all routes. Should instead use the current route.
         return self.handler.get_avg_time_between_stops(
             self.route_id, stop1.stop_id, stop2.stop_id)
 

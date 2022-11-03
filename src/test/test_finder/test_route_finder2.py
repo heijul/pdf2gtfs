@@ -18,9 +18,9 @@ DF: TypeAlias = pd.DataFrame
 
 class TestStop(TestCase):
     def setUp(self) -> None:
-        self.stop_1 = Stop(0, "0", "stop_0", None, 0)
-        self.stop_2 = Stop(1, "1", "stop_1", None, 0)
-        self.stop_3 = Stop(2, "2", "stop_2", None, 0)
+        self.stop_1 = Stop(0, "0", "stop_0", 0)
+        self.stop_2 = Stop(1, "1", "stop_1", 0)
+        self.stop_3 = Stop(2, "2", "stop_2", 0)
         Config.average_speed = 15
 
     def test__set_distance_bounds(self) -> None:

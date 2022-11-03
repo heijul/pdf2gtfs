@@ -7,6 +7,7 @@ from time import time
 from typing import TYPE_CHECKING
 
 from config import Config
+from datastructures.gtfs_output.stop import GTFSStopEntry
 from locate.finder.location import Location
 from locate.finder.location_nodes import (
     display_nodes, MNode,
@@ -27,7 +28,7 @@ class LocationFinder:
     described in the given handler. """
 
     def __init__(self, handler: GTFSHandler, route_id: str,
-                 route: list[tuple[str, str]], df: DF) -> None:
+                 route: list[GTFSStopEntry], df: DF) -> None:
         self.handler = handler
         self.stops: Stops = Stops(handler, route_id, route)
         self.nodes: Nodes = Nodes(df, self.stops)
@@ -151,11 +152,11 @@ def update_missing_locations(
 
 
 def find_stop_nodes(handler: GTFSHandler, route_id: str,
-                    route: list[tuple[str, str]], df: DF
+                    route: list[GTFSStopEntry], df: DF
                     ) -> dict[str: Node]:
     """ Return the Nodes mapped to the stop ids for a list of routes. """
     msg = (f"Starting location detection for the route from "
-           f"'{route[0][1]}' to '{route[-1][1]}'...")
+           f"'{route[0].stop_name}' to '{route[-1].stop_name}'...")
     logger.info(msg)
     t = time()
     finder: LocationFinder = LocationFinder(

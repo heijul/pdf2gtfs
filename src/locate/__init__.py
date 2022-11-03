@@ -12,7 +12,7 @@ import pandas as pd
 
 from config import Config
 from datastructures.gtfs_output.stop import GTFSStopEntry
-from locate.osmfetcher import OSMFetcher
+from locate.osmfetcher import KEYS_OPTIONAL, OSMFetcher
 from locate.finder.location import Location
 from locate.finder.location_finder import (
     find_stop_nodes, update_missing_locations)
@@ -27,25 +27,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DF: TypeAlias = pd.DataFrame
-StopID: TypeAlias = str
-StopName: TypeAlias = str
-StopIdent: TypeAlias = tuple[StopID, StopName]
-Route: TypeAlias = list[StopIdent]
-Routes: TypeAlias = dict[str: Route]
-StopsNode: TypeAlias = dict[StopID, Node]
-StopsNodes: TypeAlias = dict[StopID, list[Node]]
-
-KEYS = ["lat", "lon", "public_transport"]
-KEYS_OPTIONAL = ["railway", "bus", "tram",
-                 "train", "subway", "monorail", "light_rail"]
-NAME_KEYS = ["name", "alt_name", "ref_name",
-             "short_name", "official_name", "loc_name"]
 
 
-def search_stop_nodes_of_all_routes(handler: GTFSHandler,
-                                    df: pd.DataFrame) -> StopsNodes:
+def search_locations_for_all_routes(
+        handler: GTFSHandler, df: DF) -> dict[str: list[Node]]:
     """ Locate the stop nodes for each route individually. """
-    routes: Routes = get_unique_routes(handler)
+    routes = get_unique_routes(handler)
     nodes: dict[str: list[Node]] = {}
     for route_id, route in routes.items():
         stop_nodes = find_stop_nodes(handler, route_id, route, df)
@@ -64,7 +51,7 @@ def find_location_nodes(gtfs_handler: GTFSHandler) -> dict[str: Location]:
     logger.info("Searching for the stop locations of each route.")
     t = time()
 
-    route_stop_nodes = search_stop_nodes_of_all_routes(gtfs_handler, df)
+    route_stop_nodes = search_locations_for_all_routes(gtfs_handler, df)
     best_nodes = select_best_nodes(route_stop_nodes)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
@@ -98,7 +85,7 @@ def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
     return df
 
 
-def get_unique_routes(handler: GTFSHandler) -> Routes:
+def get_unique_routes(handler: GTFSHandler) -> dict[str: list[GTFSStopEntry]]:
     """ Return a list of unique routes.
 
     The list contains unique combinations of stops occuring in the tables.
@@ -135,13 +122,11 @@ def get_unique_routes(handler: GTFSHandler) -> Routes:
     route_ids.sort(key=lambda r: len(handler.get_stops_of_route(r)),
                    reverse=True)
 
-    routes: Routes = {}
+    routes = {}
     for route_id in route_ids:
         if route_is_contained(route_id):
             continue
-        route = [(stop.stop_id, stop.stop_name)
-                 for stop in handler.get_stops_of_route(route_id)]
-        routes[route_id] = route
+        routes[route_id] = handler.get_stops_of_route(route_id)
 
     return routes
 
@@ -229,7 +214,7 @@ def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     return full_df[KEYS_OPTIONAL].min(axis=1) ** 2 // 20
 
 
-def select_best_nodes(stops_nodes: StopsNodes) -> StopsNode:
+def select_best_nodes(stops_nodes: dict[str: list[Node]]) -> dict[str: Node]:
     """ Select the nodes for every stop. """
 
     def select_best_node_of_stop() -> Node:
