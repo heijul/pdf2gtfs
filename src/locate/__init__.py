@@ -42,70 +42,60 @@ NAME_KEYS = ["name", "alt_name", "ref_name",
              "short_name", "official_name", "loc_name"]
 
 
-class Finder:
-    """ Handles the cache/dataframe creation. """
-
-    def __init__(self, gtfs_handler: GTFSHandler):
-        self.handler = gtfs_handler
-        self.osm_fetcher = OSMFetcher()
-
-    def search_stop_nodes_of_all_routes(self, df: pd.DataFrame) -> StopsNodes:
-        """ Locate the stop nodes for each route individually. """
-        routes: Routes = get_unique_routes(self.handler)
-        nodes: dict[str: list[Node]] = {}
-        for route_id, route in routes.items():
-            stop_nodes = find_stop_nodes(self.handler, route_id, route, df)
-            for stop_id, node in stop_nodes.items():
-                nodes.setdefault(stop_id, []).append(node)
-            # TODO: Add search for reversed as well.
-        return nodes
-
-    def find_location_nodes(self) -> dict[str: Location]:
-        """ Return a dictionary of all stops and their locations. """
-
-        used_stops = [e for e in self.handler.stops.entries
-                      if e.used_in_timetable]
-        df = get_df(used_stops, self.osm_fetcher.df)
-
-        logger.info("Searching for the stop locations of each route.")
-        t = time()
-
-        route_stop_nodes = self.search_stop_nodes_of_all_routes(df)
-        best_nodes = select_best_nodes(route_stop_nodes)
-        logger.info(f"Done. Took {time() - t:.2f}s")
-
-        update_missing_locations(list(best_nodes.values()), True)
-        if Config.display_route in [1, 3, 5, 7]:
-            display_nodes(list(best_nodes.values()))
-        return best_nodes
+def search_stop_nodes_of_all_routes(handler: GTFSHandler,
+                                    df: pd.DataFrame) -> StopsNodes:
+    """ Locate the stop nodes for each route individually. """
+    routes: Routes = get_unique_routes(handler)
+    nodes: dict[str: list[Node]] = {}
+    for route_id, route in routes.items():
+        stop_nodes = find_stop_nodes(handler, route_id, route, df)
+        for stop_id, node in stop_nodes.items():
+            nodes.setdefault(stop_id, []).append(node)
+        # TODO: Add search for reversed as well.
+    return nodes
 
 
-def get_df(stop_entries: list, raw_df: DF) -> DF:
-    """ Split the dataframe and add the calculated node costs. """
+def find_location_nodes(gtfs_handler: GTFSHandler) -> dict[str: Location]:
+    """ Return a dictionary of all stops and their locations. """
 
-    def _split_df(df: DF) -> DF:
-        logger.info("Splitting DataFrame based on stop names...")
-        t = time()
-        stops = [(stop.stop_id, stop.stop_name) for stop in stop_entries]
-        prefiltered_df = prefilter_df([name for _, name in stops], df)
-        df = add_extra_columns(stops, prefiltered_df)
-        logger.info(f"Done. Took {time() - t:.2f}s")
-        return df
+    osm_fetcher = OSMFetcher()
+    df = prepare_df(gtfs_handler.get_used_stops(), osm_fetcher.df)
 
-    def _calculate_node_costs(df: DF) -> DF:
-        logger.info(f"Calculating location costs based on the selected "
-                    f"routetype '{Config.gtfs_routetype.name}'...")
-        t = time()
-        full_df = node_score_strings_to_int(df)
-        df.loc[:, "node_cost"] = get_node_cost(full_df)
-        df = df.loc[:, ["lat", "lon", "names",
-                        "node_cost", "stop_id", "idx", "name_cost"]]
-        logger.info(f"Done. Took {time() - t:.2f}s")
-        return df
+    logger.info("Searching for the stop locations of each route.")
+    t = time()
 
-    split_df = _split_df(raw_df)
-    cost_df = _calculate_node_costs(split_df)
-    return cost_df
+    route_stop_nodes = search_stop_nodes_of_all_routes(gtfs_handler, df)
+    best_nodes = select_best_nodes(route_stop_nodes)
+    logger.info(f"Done. Took {time() - t:.2f}s")
+
+    update_missing_locations(list(best_nodes.values()), True)
+    if Config.display_route in [1, 3, 5, 7]:
+        display_nodes(list(best_nodes.values()))
+    return best_nodes
+
+
+def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
+    """ Prefilter the DataFrame and score the names and nodes. """
+    # Filter the dataframe.
+    logger.info("Splitting DataFrame based on stop names...")
+    t = time()
+    stops = [(stop.stop_id, stop.stop_name) for stop in gtfs_stops]
+    prefiltered_df = prefilter_df([name for _, name in stops], raw_df)
+    # Calculate name score.
+    df = add_extra_columns(stops, prefiltered_df)
+    logger.info(f"Done. Took {time() - t:.2f}s")
+
+    logger.info(f"Calculating location costs based on the selected "
+                f"routetype '{Config.gtfs_routetype.name}'...")
+    t = time()
+    # Calculate node score.
+    full_df = node_score_strings_to_int(df)
+    df.loc[:, "node_cost"] = get_node_cost(full_df)
+    df = df.loc[:, ["lat", "lon", "names",
+                    "node_cost", "stop_id", "idx", "name_cost"]]
+    logger.info(f"Done. Took {time() - t:.2f}s")
+
+    return df
 
 
 def get_unique_routes(handler: GTFSHandler) -> Routes:
@@ -162,14 +152,14 @@ def _create_stop_regex(stop: str) -> str:
     return regex
 
 
-def _filter_df_by_stop(stop: str, full_df: DF) -> DF:
-    regex = _create_stop_regex(stop)
-    df = full_df[full_df["names"].str.contains(regex, regex=True)]
-    return df.copy()
-
-
 def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
     """ Add extra columns (name_cost, stop_id, idx) to the df. """
+
+    def filter_df_by_stop(stop: str) -> DF:
+        """ Return a filtered df, which only contains entries of stop. """
+        regex = _create_stop_regex(stop)
+        df = full_df[full_df["names"].str.contains(regex, regex=True)]
+        return df.copy()
 
     def calculate_name_cost(names: list[str]) -> int:
         """ Calculate the minimum approximate edit distance to the stop.
@@ -181,18 +171,18 @@ def add_extra_columns(stops: list[tuple[str, str]], full_df: DF) -> DF:
         return min([abs(stop_length - length) for length in name_lengths])
 
     dfs = []
-    for stop_id, stop in stops:
-        df = _filter_df_by_stop(stop, full_df)
-        stop_length = len(normalize_name(stop).replace(" ", ""))
-        if df.empty:
-            df[["name_cost", "stop_id", "idx"]] = None
-            dfs.append(df)
+    for stop_id, stop_name in stops:
+        filtered_df = filter_df_by_stop(stop_name)
+        stop_length = len(normalize_name(stop_name).replace(" ", ""))
+        if filtered_df.empty:
+            filtered_df[["name_cost", "stop_id", "idx"]] = None
+            dfs.append(filtered_df)
             continue
-        name_df = df["names"].str.split("|", regex=False)
-        df.loc[:, "name_cost"] = name_df.map(calculate_name_cost)
-        df.loc[:, "stop_id"] = stop_id
-        df.loc[:, "idx"] = df.index
-        dfs.append(df)
+        name_df = filtered_df["names"].str.split("|", regex=False)
+        filtered_df.loc[:, "name_cost"] = name_df.map(calculate_name_cost)
+        filtered_df.loc[:, "stop_id"] = stop_id
+        filtered_df.loc[:, "idx"] = filtered_df.index
+        dfs.append(filtered_df)
     return pd.concat(dfs, ignore_index=True)
 
 
