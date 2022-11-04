@@ -66,11 +66,10 @@ class GTFSHandler:
 
     def timetable_to_gtfs(self, timetable: TimeTable):
         """ Add the entries of the timetable. """
-        timetable.clean_values()
+        # TODO: Add timetable.is_valid property.
         if not timetable.stops.stops:
             return
-        for stop in timetable.stops.stops:
-            self.stops.add(stop.normalized_name)
+        self.add_timetable_stops(timetable)
         self.generate_routes(timetable)
 
         stop_times = self.generate_stop_times(timetable.entries)
@@ -79,6 +78,11 @@ class GTFSHandler:
             self.stop_times.merge(times)
         self.trips.remove_unused(self.stop_times)
         self.generate_calendar_dates()
+
+    def add_timetable_stops(self, timetable: TimeTable) -> None:
+        """ Create the stops for the given timetables. """
+        for stop in timetable.stops.stops:
+            self.stops.add(stop.normalized_name)
 
     def generate_routes(self, timetable: TimeTable) -> None:
         """ Generate the routes for the given timetable. """
