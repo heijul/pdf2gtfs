@@ -115,6 +115,9 @@ class BaseContainer:
     def __iter__(self) -> Iterator[DCType]:
         return iter(self.entries)
 
+    def __len__(self) -> int:
+        return len(self.entries)
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}: {self.entries!r}"
 
