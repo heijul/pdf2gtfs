@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta
 
+from dateutil.utils import today
+from holidays import country_holidays
+
 from config import Config
 from datastructures.gtfs_output.handler import (
     get_gtfs_archive_path,
@@ -91,6 +94,37 @@ class TestHandler(GTFSOutputBaseClass):
                         continue
                     self.assertEqual(trip_times[j], entry.departure_time)
                     j += 1
+
+    def test_generate_calendar_dates(self) -> None:
+        Config.gtfs_date_bounds = ""
+        Config.holiday_code = {"country": "DE", "subdivision": "BW"}
+        timetable = self.timetables[7]
+        self.handler.add_timetable_stops(timetable)
+        self.handler.generate_routes(timetable)
+        stop_times = self.handler.generate_stop_times(timetable.entries)
+        # Add generated stoptimes to ours.
+        for times in stop_times:
+            self.handler.stop_times.merge(times)
+        self.handler.trips.remove_unused(self.handler.stop_times)
+        self.assertEqual(0, len(self.handler.calendar_dates))
+        self.handler.generate_calendar_dates()
+        holiday_count = len(country_holidays("DE", "BW", today().year))
+        self.assertEqual(12, holiday_count)
+        self.assertEqual(holiday_count, len(self.handler.calendar_dates))
+
+    def test_generate_calendar_dates__no_holidays(self) -> None:
+        Config.holiday_code = {}
+        timetable = self.timetables[7]
+        self.handler.add_timetable_stops(timetable)
+        self.handler.generate_routes(timetable)
+        stop_times = self.handler.generate_stop_times(timetable.entries)
+        # Add generated stoptimes to ours.
+        for times in stop_times:
+            self.handler.stop_times.merge(times)
+        self.handler.trips.remove_unused(self.handler.stop_times)
+        self.assertEqual(0, len(self.handler.calendar_dates))
+        self.handler.generate_calendar_dates()
+        self.assertEqual(0, len(self.handler.calendar_dates))
 
 
 class TestHandlerHelpers(GTFSOutputBaseClass):
