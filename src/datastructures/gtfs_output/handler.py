@@ -172,6 +172,9 @@ class GTFSHandler:
         #  fall on sundays... Will only make a difference if there are
         #  different timetables for sundays/holidays... right?
 
+        if Config.holiday_code[0] is None:
+            return
+
         holiday_dates, non_holiday_dates = self.calendar.group_by_holiday()
 
         years = [date.year for date in Config.gtfs_date_bounds]

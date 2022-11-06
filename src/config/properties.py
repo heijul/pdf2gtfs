@@ -278,20 +278,21 @@ class HeaderValuesProperty(NestedTypeProperty):
         setattr(obj, self.attr, value)
 
 
-# TODO NOW: Nested
-class HolidayCodeProperty(Property):
+class HolidayCodeProperty(NestedTypeProperty):
     """ Property for the holiday code. """
 
     def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, dict)
+        super().__init__(cls, attr, dict[str: str])
 
     def validate(self, value: dict[str, str]):
         """ Checks if the holidays library knows the given
         country/subdivision code. """
         super().validate(value)
+        country = value.get("country")
+        if not country:
+            return
 
         supported_countries = list_supported_countries()
-        country = value.get("country")
         if country is None or country not in supported_countries:
             logger.warning(f"Invalid country code '{country}' "
                            f"for {self.attr} entry.")
@@ -305,6 +306,9 @@ class HolidayCodeProperty(Property):
     def __set__(self, obj, raw_value: dict):
         self.validate(raw_value)
         value = (raw_value.get("country"), raw_value.get("subdivision"))
+        if not value[0]:
+            value = (None, None)
+
         setattr(obj, self.attr, value)
 
 

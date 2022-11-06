@@ -183,6 +183,8 @@ departure_identifier: [ "ab" ]
 # See https://pypi.org/project/holidays/ for a list of possible values.
 # If no subdivision exists for a country, simply do not set subdivision or
 #    set it to the empty string.
+# If you don't wish to automatically change service on holidays, simply
+#    set this to an empty dictionary.
 #
 # Type: dict of string to string
 holiday_code:
