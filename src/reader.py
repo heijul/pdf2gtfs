@@ -151,7 +151,7 @@ def split_df_into_lines(df: pd.DataFrame) -> Lines:
     max_char_distance = round((df["y1"] - df["y0"]).mean()) / 2
     for val in df.sort_values(["y0", "x0"]).itertuples(False, "Char"):
         new_line = abs(val.y0 - line_y0) > max_char_distance
-        if new_line:
+        if not lines or new_line:
             line_y0 = val.y0
             lines.append([])
         lines[-1].append(val)

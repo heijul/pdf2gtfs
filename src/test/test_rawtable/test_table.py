@@ -77,6 +77,7 @@ class TestTable(TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        Config.load_default_config()
         super().setUpClass()
         set_up_config()
         cls.reader = Reader()
@@ -90,7 +91,7 @@ class TestTable(TestCase):
         table = split_rows_into_tables(rows)[1]
         table.generate_columns_from_rows()
         for col in table.columns:
-            col.update_type()
+            col.type = col._detect_type()
         data = self.get_data_func("test_generate_data_columns_from_rows")
         col_types = data["col_types"]
         cols = data["cols"]

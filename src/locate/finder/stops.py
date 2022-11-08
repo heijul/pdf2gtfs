@@ -35,7 +35,6 @@ class Stop:
         self.name = name
         self.nodes = []
         self._next = None
-        self._avg_time_to_next = None
         self._max_dist_to_next = None
         self.distance_bounds = self._get_distance_bounds()
         if Stop.stops is None:
