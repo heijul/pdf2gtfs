@@ -172,6 +172,18 @@ class TestHandler(GTFSOutputBaseClass):
         for entry in self.handler.calendar_dates.entries[2:]:
             self.assertEqual("20221010", entry.date)
 
+    def test_remove_unused_routes(self) -> None:
+        ...
+
+    def test_write_files(self) -> None:
+        ...
+
+    def test_create_zip_archive(self) -> None:
+        ...
+
+    def test_add_coordinates(self) -> None:
+        ...
+
     def test_get_stops_of_route(self) -> None:
         def get_route_ids_from_stop() -> list[str]:
             """ Return all route_ids for every trip the stop is used in. """
@@ -196,6 +208,15 @@ class TestHandler(GTFSOutputBaseClass):
                     stop_route_ids = get_route_ids_from_stop()
                     self.assertTrue(stop in stops
                                     or route_id not in stop_route_ids)
+
+    def test_get_avg_time_between_stops(self) -> None:
+        ...
+
+    def test_get_used_stops(self) -> None:
+        ...
+
+    def get_sorted_route_ids(self) -> None:
+        ...
 
 
 class TestHandlerHelpers(GTFSOutputBaseClass):
