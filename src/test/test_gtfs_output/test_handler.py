@@ -7,6 +7,7 @@ from config import Config
 from datastructures.gtfs_output.handler import (
     get_gtfs_archive_path,
     get_gtfs_filepaths, GTFSHandler)
+from datastructures.gtfs_output.stop import GTFSStopEntry
 from datastructures.gtfs_output.stop_times import Time
 from main import get_timetables
 from test_gtfs_output import GTFSOutputBaseClass
@@ -213,10 +214,33 @@ class TestHandler(GTFSOutputBaseClass):
         ...
 
     def test_get_used_stops(self) -> None:
-        ...
+        self.assertEqual([], self.handler.get_used_stops())
+        # Can't use .add(), bc that sets used_in_timetable to True.
+        self.handler.stops._add(GTFSStopEntry("test_stop"))
+        self.assertEqual([], self.handler.get_used_stops())
+        self.handler.timetable_to_gtfs(self.timetables[0])
+        self.assertEqual(22, len(self.handler.get_used_stops()))
+        self.assertEqual(23, len(self.handler.stops))
 
-    def get_sorted_route_ids(self) -> None:
-        ...
+    def test_get_sorted_route_ids(self) -> None:
+        self.handler.timetable_to_gtfs(self.timetables[0])
+        route_ids = self.handler.get_sorted_route_ids()
+        for i, route_id in enumerate(route_ids[1:], 1):
+            with self.subTest(i=i):
+                prev_stop_count = self.handler.get_stops_of_route(
+                    route_ids[i - 1])
+                stop_count = self.handler.get_stops_of_route(route_id)
+                self.assertTrue(len(prev_stop_count) >= len(stop_count))
+
+        # Order of adding does not matter.
+        self.handler.timetable_to_gtfs(self.timetables[7])
+        self.handler.timetable_to_gtfs(self.timetables[4])
+        for i, route_id in enumerate(route_ids[1:], 1):
+            with self.subTest(i=i):
+                prev_stop_count = self.handler.get_stops_of_route(
+                    route_ids[i - 1])
+                stop_count = self.handler.get_stops_of_route(route_id)
+                self.assertTrue(len(prev_stop_count) >= len(stop_count))
 
 
 class TestHandlerHelpers(GTFSOutputBaseClass):
