@@ -116,10 +116,7 @@ def get_unique_routes(handler: GTFSHandler) -> dict[str: list[GTFSStopEntry]]:
 
         return False
 
-    route_ids: list[str] = [r.route_id for r in handler.routes.entries]
-    # Need to sort routes by number of stops.
-    route_ids.sort(key=lambda r: len(handler.get_stops_of_route(r)),
-                   reverse=True)
+    route_ids = handler.get_sorted_route_ids()
 
     routes = {}
     for route_id in route_ids:

@@ -64,6 +64,41 @@ class GTFSHandler:
         self._stop_times = GTFSStopTimes()
         self._calendar_dates = GTFSCalendarDates()
 
+    @property
+    def agency(self) -> GTFSAgency:
+        """ The agency. """
+        return self._agency
+
+    @property
+    def routes(self) -> GTFSRoutes:
+        """ The routes. """
+        return self._routes
+
+    @property
+    def stops(self) -> GTFSStops:
+        """ The stops. """
+        return self._stops
+
+    @property
+    def calendar(self) -> GTFSCalendar:
+        """ The calendar. """
+        return self._calendar
+
+    @property
+    def trips(self) -> GTFSTrips:
+        """ The trips. """
+        return self._trips
+
+    @property
+    def stop_times(self) -> GTFSStopTimes:
+        """ The stop times. """
+        return self._stop_times
+
+    @property
+    def calendar_dates(self) -> GTFSCalendarDates:
+        """ The calendar dates. """
+        return self._calendar_dates
+
     def timetable_to_gtfs(self, timetable: TimeTable):
         """ Add the entries of the timetable. """
         # TODO: Add timetable.is_valid property.
@@ -292,56 +327,6 @@ class GTFSHandler:
         stop_ids = [stop_time.stop_id for stop_time in trip_stop_times[0]]
         return [self.stops.get_by_stop_id(stop_id) for stop_id in stop_ids]
 
-    def get_stop_ids(self, route_id: str) -> list[tuple[str]]:
-        """ Return the stop_ids, used in the route with the given route_id. """
-        trips = self.trips.get_with_route_id(route_id)
-        trip_stop_times = [self.stop_times.get_with_trip_id(trip.trip_id)
-                           for trip in trips]
-
-        stops_ids: list[tuple[str]] = []
-        for stop_times in trip_stop_times:
-            stop_times = sorted(stop_times, key=attrgetter("stop_sequence"))
-            stop_ids = tuple([stop_time.stop_id for stop_time in stop_times])
-            stops_ids.append(cast(tuple[str], stop_ids))
-
-        stops_ids = list(set([tuple(stop_ids) for stop_ids in stops_ids]))
-        return stops_ids
-
-    @property
-    def agency(self) -> GTFSAgency:
-        """ The agency. """
-        return self._agency
-
-    @property
-    def routes(self) -> GTFSRoutes:
-        """ The routes. """
-        return self._routes
-
-    @property
-    def stops(self) -> GTFSStops:
-        """ The stops. """
-        return self._stops
-
-    @property
-    def calendar(self) -> GTFSCalendar:
-        """ The calendar. """
-        return self._calendar
-
-    @property
-    def trips(self) -> GTFSTrips:
-        """ The trips. """
-        return self._trips
-
-    @property
-    def stop_times(self) -> GTFSStopTimes:
-        """ The stop times. """
-        return self._stop_times
-
-    @property
-    def calendar_dates(self) -> GTFSCalendarDates:
-        """ The calendar dates. """
-        return self._calendar_dates
-
     def get_avg_time_between_stops(self, route_id: str,
                                    stop_id1: str, stop_id2: str) -> Time:
         """ Calculate the average travel time between the two stops. """
@@ -375,3 +360,9 @@ class GTFSHandler:
     def get_used_stops(self) -> list[GTFSStopEntry]:
         """ Return a list of GTFSStopEntries, which are used in the PDF. """
         return [stop for stop in self.stops.entries if stop.used_in_timetable]
+
+    def get_sorted_route_ids(self) -> list[str]:
+        """ Return all route_ids, sorted desc. by the number of stops. """
+        route_ids: list[str] = [r.route_id for r in self.routes.entries]
+        return sorted(route_ids, reverse=True,
+                      key=lambda r: len(self.get_stops_of_route(r)))
