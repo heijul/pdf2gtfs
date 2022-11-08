@@ -174,7 +174,15 @@ class TestHandler(GTFSOutputBaseClass):
             self.assertEqual("20221010", entry.date)
 
     def test_remove_unused_routes(self) -> None:
-        ...
+        self.assertEqual(0, len(self.handler.routes))
+        self.handler.timetable_to_gtfs(self.timetables[3])
+        self.assertEqual(2, len(self.handler.routes))
+        self.handler.routes.add("test_route", "test_route")
+        self.handler.timetable_to_gtfs(self.timetables[4])
+        self.assertEqual(4, len(self.handler.routes))
+        # test_route is unused and will be removed.
+        self.handler._remove_unused_routes()
+        self.assertEqual(3, len(self.handler.routes))
 
     def test_write_files(self) -> None:
         ...

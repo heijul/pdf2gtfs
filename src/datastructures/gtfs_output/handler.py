@@ -246,6 +246,7 @@ class GTFSHandler:
                     service.service_id, dates, not default)
 
     def _remove_unused_routes(self) -> None:
+        # TODO: Check if this is even needed.
         used_route_ids = set([trip.route_id for trip in self.trips.entries])
         for route in list(self.routes.entries):
             if route.route_id in used_route_ids:
