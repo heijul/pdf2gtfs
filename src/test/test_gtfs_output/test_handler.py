@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 
-from dateutil.utils import today
 from holidays import country_holidays
 
 from config import Config
@@ -108,7 +107,7 @@ class TestHandler(GTFSOutputBaseClass):
         self.handler.trips.remove_unused(self.handler.stop_times)
         self.assertEqual(0, len(self.handler.calendar_dates))
         self.handler.generate_calendar_dates()
-        holiday_count = len(country_holidays("DE", "BW", today().year))
+        holiday_count = len(country_holidays("DE", "BW", datetime.now().year))
         self.assertEqual(12, holiday_count)
         self.assertEqual(holiday_count, len(self.handler.calendar_dates))
 
@@ -125,6 +124,31 @@ class TestHandler(GTFSOutputBaseClass):
         self.assertEqual(0, len(self.handler.calendar_dates))
         self.handler.generate_calendar_dates()
         self.assertEqual(0, len(self.handler.calendar_dates))
+
+    def test_get_stops_of_route(self) -> None:
+        def get_route_ids_from_stop() -> list[str]:
+            """ Return all route_ids for every trip the stop is used in. """
+            trip_ids = []
+            for stop_time in self.handler.stop_times:
+                if stop_time.stop_id == stop.stop_id:
+                    trip_ids.append(stop_time.trip_id)
+            return [trip.route_id for trip in self.handler.trips
+                    if trip.trip_id in trip_ids]
+
+        self.handler.timetable_to_gtfs(self.timetables[0])
+        route_ids = self.handler.get_sorted_route_ids()
+        counts = [22, 16, 7]
+
+        for i in range(len(route_ids)):
+            with self.subTest(i=i):
+                route_id = route_ids[i]
+                stops = self.handler.get_stops_of_route(route_id)
+                self.assertEqual(counts[i], len(stops))
+                # Each stop is either part of the route or has a different id.
+                for stop in self.handler.stops:
+                    stop_route_ids = get_route_ids_from_stop()
+                    self.assertTrue(stop in stops
+                                    or route_id not in stop_route_ids)
 
 
 class TestHandlerHelpers(GTFSOutputBaseClass):
