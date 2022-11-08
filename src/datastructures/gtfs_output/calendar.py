@@ -149,6 +149,18 @@ class GTFSCalendar(BaseContainer):
         return (list(filter(filter_func, self.entries)),
                 list(filter(non_filter_func, self.entries)))
 
+    def get_with_annot(self, annotation) -> list[GTFSCalendarEntry]:
+        """ Return all entries, that have the given annotation. """
+        return [e for e in self.entries if annotation in e.annotations]
+
+    def get_annotations(self) -> list[str]:
+        """ Return all annotations. """
+        annot_set = set()
+        raw_annots = [e.annotations for e in self.entries]
+        for _annot in raw_annots:
+            annot_set |= _annot
+        return sorted(annot_set)
+
 
 WEEKDAY_NAMES = [field.name for field in fields(GTFSCalendarEntry)
                  if field.type == "DayIsActive"]

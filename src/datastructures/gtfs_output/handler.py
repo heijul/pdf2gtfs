@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from operator import attrgetter
 from pathlib import Path
 from statistics import mean
 from time import sleep
-from typing import cast, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from zipfile import ZipFile
 
 from holidays.utils import country_holidays
@@ -228,24 +227,10 @@ class GTFSHandler:
         """ Add a new CalendarDateEntry for every annotation,
         based on the users input. """
 
-        def get_annots() -> list[str]:
-            """ Return the all annotations. """
-            annot_set = set()
-            raw_annots = [e.annotations for e in self.calendar.entries]
-            for _annot in raw_annots:
-                annot_set |= _annot
-            return list(annot_set)
-
-        def get_services_with_annot(annotation) -> list[GTFSCalendarEntry]:
-            """ Returns al
-            l CalendarEntry with the given annotation. """
-            return [e for e in self.calendar.entries
-                    if annotation in e.annotations]
-
         if Config.non_interactive:
             return
 
-        annots = get_annots()
+        annots = self.calendar.get_annotations()
         if not annots:
             return
 
@@ -253,7 +238,7 @@ class GTFSHandler:
         #  have different defaults, default=off will take precedence.
         annot_exceptions = handle_annotations(annots)
         for annot, (default, dates) in annot_exceptions.items():
-            services = get_services_with_annot(annot)
+            services = self.calendar.get_with_annot(annot)
             for service in services:
                 if not default:
                     service.disable()

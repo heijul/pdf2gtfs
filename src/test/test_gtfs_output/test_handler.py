@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from unittest import mock
 
 from holidays import country_holidays
 
@@ -124,6 +125,52 @@ class TestHandler(GTFSOutputBaseClass):
         self.assertEqual(0, len(self.handler.calendar_dates))
         self.handler.generate_calendar_dates()
         self.assertEqual(0, len(self.handler.calendar_dates))
+
+    @mock.patch("user_input.cli.input", create=True)
+    def test_add_annotation_dates(self, mocked_input) -> None:
+        # Do not clutter calendar_dates.txt
+        Config.holiday_code = {}
+        Config.non_interactive = False
+        self.handler.timetable_to_gtfs(self.timetables[4])
+        self.assertEqual(0, len(self.handler.calendar_dates))
+
+        mocked_input.side_effect = ["e", "n", "20221004", "", "s"]
+        self.handler.add_annotation_dates()
+        self.assertEqual(2, len(self.handler.calendar_dates))
+        services = self.handler.calendar.get_with_annot("*")
+        # Disabled by default.
+        for service in services:
+            self.assertFalse(service.monday.active)
+            self.assertFalse(service.tuesday.active)
+            self.assertFalse(service.wednesday.active)
+            self.assertFalse(service.thursday.active)
+            self.assertFalse(service.friday.active)
+            self.assertFalse(service.saturday.active)
+            self.assertFalse(service.sunday.active)
+        for entry in self.handler.calendar_dates:
+            self.assertEqual("20221004", entry.date)
+
+        mocked_input.side_effect = ["s", "e", "y", "20221010", ""]
+        self.handler.add_annotation_dates()
+        self.assertEqual(4, len(self.handler.calendar_dates))
+        services = self.handler.calendar.get_with_annot("*")
+        # At least one service is active.
+        for service in services:
+            # * was disabled above, which takes precedence.
+            if "*" in service.annotations:
+                self.assertTrue(not (
+                        service.monday.active or service.tuesday.active
+                        or service.wednesday.active or service.thursday.active
+                        or service.friday.active or service.saturday.active
+                        or service.sunday.active))
+            else:
+                self.assertTrue(
+                    service.monday.active or service.tuesday.active
+                    or service.wednesday.active or service.thursday.active
+                    or service.friday.active or service.saturday.active
+                    or service.sunday.active)
+        for entry in self.handler.calendar_dates.entries[2:]:
+            self.assertEqual("20221010", entry.date)
 
     def test_get_stops_of_route(self) -> None:
         def get_route_ids_from_stop() -> list[str]:
