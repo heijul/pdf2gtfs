@@ -166,7 +166,7 @@ def get_stops_from_stops_list(stops_list: list[tuple[str, str]]) -> Stops:
     handler = create_handler()
     route = handler.routes.add("test_route")
     for stop_id, stop_name in stops_list:
-        stop = GTFSStopEntry(stop_name, stop_id=stop_id)
+        stop = GTFSStopEntry(stop_name, stop_id)
         handler.stops.entries.append(stop)
     stops = Stops(handler, route.route_id, handler.stops.entries)
     return stops

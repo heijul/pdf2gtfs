@@ -108,6 +108,7 @@ class _Config(InstanceDescriptorMixin):
             self, "max_char_distance", 0)
         self.cache_directory = p.Property(self, "cache_directory", str)
         self.qlever_endpoint_url = p.Property(self, "qlever_endpoint_url", str)
+        self.input_files = p.InputProperty(self, "input_files")
 
     def load_default_config(self) -> None:
         """ Loads the default configuration.

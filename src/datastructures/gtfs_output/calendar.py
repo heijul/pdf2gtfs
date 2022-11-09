@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import datetime as dt
+from datetime import datetime as dt
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Callable, Optional, TypeAlias
+
+import pandas as pd
 
 from config import Config
 from datastructures.gtfs_output import BaseContainer, BaseDataClass, str_wrap
@@ -75,8 +77,9 @@ class GTFSCalendarEntry(BaseDataClass):
     start_date: ServiceDay = StartDate()
     end_date: ServiceDay = EndDate()
 
-    def __init__(self, days: list[str] = None, annots: set[str] | None = None):
-        super().__init__()
+    def __init__(self, days: list[str] = None, annots: set[str] = None,
+                 service_id: str = None):
+        super().__init__(service_id)
         self.service_id = self.id
         self.on_holidays = False
         self.start_date = StartDate()
@@ -112,6 +115,20 @@ class GTFSCalendarEntry(BaseDataClass):
 
     def __eq__(self, other: GTFSCalendarEntry):
         return self.same_days(other) and self.annotations == other.annotations
+
+    @staticmethod
+    def from_series(s: pd.Series) -> GTFSCalendarEntry:
+        """ Creates a new GTFSTrip from the given series. """
+        days = []
+        for i, day in enumerate(WEEKDAY_NAMES):
+            if s[day] != "1":
+                continue
+            days.append(str(i))
+        entry = GTFSCalendarEntry(days, set(), s["service_id"])
+        fmt = "%Y%m%d"
+        entry.start_date = ServiceDay(dt.strptime(s["start_date"], fmt))
+        entry.end_date = ServiceDay(dt.strptime(s["end_date"], fmt))
+        return entry
 
 
 class GTFSCalendar(BaseContainer):

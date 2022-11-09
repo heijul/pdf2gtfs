@@ -1,8 +1,12 @@
 """ Used by the handler to create the file 'calendar_dates.txt'. """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime as dt
 from pathlib import Path
+
+import pandas as pd
 
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
 
@@ -19,6 +23,12 @@ class GTFSCalendarDateEntry(BaseDataClass):
         self.service_id = service_id
         self.date = date
         self.exception_type = exception_type
+
+    @staticmethod
+    def from_series(s: pd.Series) -> GTFSCalendarDateEntry:
+        """ Creates a new GTFSTrip from the given series. """
+        return GTFSCalendarDateEntry(
+            s["service_id"], s["date"], s["exception_type"])
 
 
 class GTFSCalendarDates(BaseContainer):

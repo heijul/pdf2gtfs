@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import Config
-from datastructures.gtfs_output import BaseDataClass, ExistingBaseContainer
+from datastructures.gtfs_output import BaseDataClass, BaseContainer
 from utils import normalize_name
 
 
@@ -26,7 +26,7 @@ class GTFSStopEntry(BaseDataClass):
     stop_lon: float | None
     stop_desc: str
 
-    def __init__(self, name: str, *, stop_id: str = None) -> None:
+    def __init__(self, name: str, stop_id: str = None) -> None:
         super().__init__(stop_id)
         self.stop_id = self.id
         self.stop_name = name
@@ -73,46 +73,20 @@ class GTFSStopEntry(BaseDataClass):
         return super().get_field_value(field)
 
     @staticmethod
-    def from_series(series: pd.Series) -> GTFSStopEntry:
+    def from_series(s: pd.Series) -> GTFSStopEntry:
         """ Creates a new GTFSStop from the given series. """
-        stop = GTFSStopEntry(series["stop_name"], stop_id=series["stop_id"])
-        stop.set_location(series.get("stop_lat"), series.get("stop_lon"),
-                          False)
-        stop.stop_desc = series.get("stop_desc")
+        stop = GTFSStopEntry(s["stop_name"], s["stop_id"])
+        stop.set_location(s.get("stop_lat"), s.get("stop_lon"), False)
+        stop.stop_desc = s.get("stop_desc")
         return stop
 
 
-class GTFSStops(ExistingBaseContainer):
+class GTFSStops(BaseContainer):
     """ Used to create the 'stops.txt'. """
     entries: list[GTFSStopEntry]
 
     def __init__(self, path: Path) -> None:
         super().__init__("stops.txt", GTFSStopEntry, path)
-        self.append = False
-        self.new_entries = []
-
-    def to_output(self) -> str:
-        """ Return the content of the gtfs file. """
-        if not self.append:
-            return super().to_output()
-        with open(self.fp) as fil:
-            old_entries = fil.read().strip()
-        new_entries = "\n".join([e.to_output() for e in self.new_entries])
-        return f"{old_entries}\n{new_entries}\n"
-
-    def write(self) -> None:
-        """ Write the file to the disk.
-
-        New entries will be appended, if necessary. """
-        if self.new_entries:
-            stops = "\n\t".join([e.stop_name for e in self.new_entries])
-            stops = f"\n\t{stops}\n"
-            logger.warning(
-                f"The file '{self.filename}' exists and contains data, but "
-                f"does not contain entries for the following stops:{stops}"
-                f"\nNew entries will be created and added to the file.")
-            self.overwrite = True
-        super().write()
 
     def add(self, stop_name: str) -> None:
         """ Add a GTFSStop with the given stop_name. """
@@ -122,9 +96,6 @@ class GTFSStops(ExistingBaseContainer):
             return
         entry = GTFSStopEntry(stop_name)
         entry.used_in_timetable = True
-        if self.fp.exists() and not self.overwrite:
-            self.append = True
-            self.new_entries.append(entry)
         super()._add(entry)
 
     def get(self, stop_name: str) -> GTFSStopEntry:

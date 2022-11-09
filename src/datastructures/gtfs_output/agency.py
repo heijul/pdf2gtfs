@@ -7,9 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from datastructures.gtfs_output.__init__ import (
-    BaseDataClass, ExistingBaseContainer)
-from user_input.cli import select_agency
+from datastructures.gtfs_output.__init__ import BaseDataClass, BaseContainer
 
 
 @dataclass
@@ -53,20 +51,15 @@ class DummyGTFSAgencyEntry(GTFSAgencyEntry):
         self.name = "pdf2gtfs"
 
 
-class GTFSAgency(ExistingBaseContainer):
+class GTFSAgency(BaseContainer):
     """ Used to create 'agency.txt'. """
 
     def __init__(self, outdir: Path) -> None:
         super().__init__("agency.txt", GTFSAgencyEntry, outdir)
 
-    def from_file(self, default=None) -> list[GTFSAgencyEntry]:
-        """ Return the entries, of the existing file if it exists, otherwise
-        return a dummy. """
-        return super().from_file([DummyGTFSAgencyEntry()])
-
-    def get_default(self) -> GTFSAgencyEntry:
-        """ Return the first agency, if only a single one exists.
-        Otherwise, let the user select the correct agency. """
-        if len(self.entries) == 1:
-            return self.entries[0]
-        return select_agency(self.fp, self.entries)
+    def read_input_files(self) -> list[GTFSAgencyEntry]:
+        """ Return the entries of the inputfiles, otherwise return a dummy. """
+        entries = super().read_input_files()
+        if not entries:
+            return [DummyGTFSAgencyEntry()]
+        return entries

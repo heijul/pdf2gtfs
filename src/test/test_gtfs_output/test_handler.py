@@ -276,5 +276,5 @@ class TestHandlerHelpers(GTFSOutputBaseClass):
         # Need to use timedelta here, as the name is depending on the time.
         date = datetime.today()
         date_from_name = datetime.strptime(
-            name, f"pdf2gtfs_input_pdf_123_%Y%m%d_%H%M%S.zip")
+            name, "pdf2gtfs_input_pdf_123_%Y%m%d_%H%M%S.zip")
         self.assertTrue(abs(date - date_from_name) < timedelta(seconds=3))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+from operator import attrgetter
 from pathlib import Path
 from typing import Callable, TYPE_CHECKING, TypeAlias
 
@@ -11,7 +12,7 @@ from p2g_logging import flush_all_loggers
 
 
 if TYPE_CHECKING:
-    from datastructures.gtfs_output.agency import GTFSAgencyEntry
+    from datastructures.gtfs_output.agency import GTFSAgency, GTFSAgencyEntry
 
 logger = logging.getLogger(__name__)
 CheckType: TypeAlias = list[str] | Callable[[str], bool]
@@ -115,35 +116,34 @@ def _get_agency_string(
     return idx_str + " | ".join(agency_list)
 
 
-def _get_agency_header(agency: GTFSAgencyEntry) -> list[str]:
-    return agency.get_field_names().split(",")
+def _get_agency_header(agency: GTFSAgency) -> list[str]:
+    return agency.get_header().split(",")
 
 
-def _get_agency_column_widths(agencies: list[GTFSAgencyEntry]) -> list[int]:
-    widths = [5] + [len(col) for col in list(_get_agency_header(agencies[0]))]
+def _get_agency_column_widths(agency: GTFSAgency) -> list[int]:
+    widths = [5] + [len(col) for col in list(_get_agency_header(agency))]
     # Index column length.
-    widths[0] = max(widths[0], len(str(len(agencies))))
+    widths[0] = max(widths[0], len(str(len(agency))))
 
-    for agency in agencies:
-        for i, value in enumerate(agency.values, 1):
+    for entry in agency:
+        for i, value in enumerate(entry.values, 1):
             widths[i] = max(widths[i], len(value))
 
     return [size for size in widths]
 
 
-def _get_agency_prompt(path: Path, agencies: list[GTFSAgencyEntry]):
+def _get_agency_prompt(agency: GTFSAgency) -> str:
     agency_strings = []
-    widths = _get_agency_column_widths(agencies)
-    agencies.sort(key=lambda a: a.agency_id)
+    widths = _get_agency_column_widths(agency)
+    entries = sorted(agency, key=attrgetter("agency_id"))
 
-    for i, agency in enumerate(agencies):
-        agency_string = _get_agency_string(str(i), agency.values, widths)
-        agency_strings.append(agency_string)
+    for i, entry in enumerate(entries):
+        agency_strings.append(_get_agency_string(str(i), entry.values, widths))
 
-    prompt = f"Multiple agencies found in '{path}':"
+    prompt = "Multiple agencies found:"
     lin_sep = "\n\t"
 
-    columns = _get_agency_header(agencies[0])
+    columns = _get_agency_header(agency)
     prompt += lin_sep + _get_agency_string("index", columns, widths)
     prompt += lin_sep + lin_sep.join(agency_strings)
 
@@ -151,12 +151,11 @@ def _get_agency_prompt(path: Path, agencies: list[GTFSAgencyEntry]):
     return prompt
 
 
-def select_agency(path: Path, agencies: list[GTFSAgencyEntry]
-                  ) -> GTFSAgencyEntry:
+def select_agency(agency: GTFSAgency) -> GTFSAgencyEntry:
     """ Ask the user to select an agency from the given agencies. """
-    prompt = _get_agency_prompt(path, agencies)
-    answer = _get_input(prompt, list(map(str, range(len(agencies)))))
-    return agencies[int(answer)]
+    prompt = _get_agency_prompt(agency)
+    answer = _get_input(prompt, list(map(str, range(len(agency)))))
+    return agency.entries[int(answer)]
 
 
 # Existing outdir handling.

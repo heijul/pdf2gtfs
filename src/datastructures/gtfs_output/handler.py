@@ -26,7 +26,7 @@ from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
 from locate import Node
 from locate.finder.loc_nodes import MNode
-from user_input.cli import handle_annotations
+from user_input.cli import handle_annotations, select_agency
 
 
 if TYPE_CHECKING:
@@ -52,8 +52,7 @@ class GTFSHandler:
         temp_dir_path = Path(self.temp_dir.name)
         self._agency = GTFSAgency(temp_dir_path)
         self._stops = GTFSStops(temp_dir_path)
-        self._routes = GTFSRoutes(temp_dir_path,
-                                  self.agency.get_default().agency_id)
+        self._routes = GTFSRoutes(temp_dir_path, self.get_default_agency_id())
         self._calendar = GTFSCalendar(temp_dir_path)
         self._trips = GTFSTrips(temp_dir_path)
         self._stop_times = GTFSStopTimes(temp_dir_path)
@@ -96,6 +95,13 @@ class GTFSHandler:
     def calendar_dates(self) -> GTFSCalendarDates:
         """ The calendar dates. """
         return self._calendar_dates
+
+    def get_default_agency_id(self) -> str:
+        """ Return the first agency, if only a single one exists.
+        Otherwise, let the user select the correct agency. """
+        if len(self.agency.entries) == 1:
+            return self.agency.entries[0].agency_id
+        return select_agency(self.agency).agency_id
 
     def timetable_to_gtfs(self, timetable: TimeTable):
         """ Add the entries of the timetable. """

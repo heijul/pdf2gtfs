@@ -58,9 +58,32 @@ display_route: 1
 stale_cache_days: 7
 
 
-############
-#  Output  #
-############
+####################
+#  Input / Output  #
+####################
+
+# Each path p specified here will be used in the GTFS-feed, if the following
+#   conditions are met:
+#     1. If the filename of p is equal to one of the GTFS files, it will be
+#        prepended to the output of the respective GTFS file.
+#        For agency.txt/stops.txt: The entries will be used to select an
+#        agency or enhance the location detection, respectively.
+#     2. If p is a .zip archive, it will be unpacked to a temporary directory
+#        and each .txt file is handled, as described in 1.
+#     3. If p is a path to a directory, all .txt files will be handled,
+#        as described in 1.
+#
+# Note: Right now, there is put in absolutely no effort to ensure neither, that
+#   all input files use unique IDs, nor that the entries itself are unique.
+#   The IDs for newly created entries will still be unique. However, if two
+#   different input files define e.g. two different agencies with the same
+#   agency_id, both will be added to the output agency.txt, without updating
+#   the IDs, resulting in an invalid GTFS-feed. In the same way, if two input
+#   files define the same agency, both will be added, as well.
+#   In such cases, manual intervention is necessary.
+#
+# Type: list of paths
+input_files: [ ]
 
 # The path to the output directory for the gtfs files.
 #   Default is "./out".

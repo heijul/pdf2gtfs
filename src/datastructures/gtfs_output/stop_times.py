@@ -9,6 +9,8 @@ from itertools import cycle
 from pathlib import Path
 from statistics import mean
 
+import pandas as pd
+
 from config import Config
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
 from datastructures.gtfs_output.stop import GTFSStops
@@ -28,16 +30,16 @@ class Time:
     seconds: int = 0
 
     @staticmethod
-    def from_string(time_string: str) -> Time:
+    def from_string(time_string: str, fmt: str = None) -> Time:
         """ Return a new Time, by trying to transform it into a dt.time. """
         time_string = time_string.replace(" ", "")
         try:
-            time = dt.strptime(time_string, Config.time_format)
+            time = dt.strptime(time_string, fmt or Config.time_format)
         except ValueError:
             logger.warning(f"Value '{time_string}' does not seem to have the "
                            f"necessary format '{Config.time_format}'.")
             return Time()
-        return Time(time.hour, time.minute, 0)
+        return Time(time.hour, time.minute, time.second)
 
     def to_output(self) -> str:
         """ Returns the time in ISO-8601 format. """
@@ -130,7 +132,7 @@ class GTFSStopTimesEntry(BaseDataClass):
     stop_sequence: int
 
     def __init__(self, trip_id: str, stop_id: str, stop_sequence: int,
-                 arrival_time: Time, departure_time: Time = None):
+                 arrival_time: Time, departure_time: Time = None) -> None:
         super().__init__()
         self.trip_id = trip_id
         self.stop_id = stop_id
@@ -142,6 +144,15 @@ class GTFSStopTimesEntry(BaseDataClass):
         """ Return a new instance of this entry with the given trip_id. """
         return GTFSStopTimesEntry(trip_id, self.stop_id, self.stop_sequence,
                                   self.arrival_time, self.departure_time)
+
+    @staticmethod
+    def from_series(s: pd.Series) -> GTFSStopTimesEntry:
+        """ Creates a new GTFSTrip from the given series. """
+        fmt = "%H:%M:%S"
+        arr_time = Time.from_string(s["arrival_time"], fmt)
+        dep_time = Time.from_string(s["departure_time"], fmt)
+        return GTFSStopTimesEntry(
+            s["trip_id"], s["stop_id"], s["stop_sequence"], arr_time, dep_time)
 
 
 def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:

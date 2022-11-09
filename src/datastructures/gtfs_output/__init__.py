@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, Field, fields
+from operator import methodcaller
 from pathlib import Path
 from typing import Iterator, Optional, Type, TypeVar
 
@@ -54,10 +55,42 @@ class BaseContainer:
 
     entries: list[DCType]
 
-    def __init__(self, filename: str, entry_type: Type[DCType], path: Path):
-        self.fp = path.joinpath(filename)
+    def __init__(self, file_name: str, entry_type: Type[DCType], path: Path):
+        self.fp = path.joinpath(file_name)
         self.entry_type = entry_type
-        self.entries: list[DCType] = []
+        self.entries: list[entry_type] = self.read_input_files()
+        for entry in self.entries:
+            UIDGenerator.skip(entry.id)
+
+    def read_input_file(self, path: Path) -> list[DCType]:
+        """ Try to read the given input file. """
+        try:
+            df = pd.read_csv(path, dtype=str)
+        except Exception as e:
+            logger.warning(f"The following exception occurred, when trying "
+                           f"to read the input file '{path}':\n{e}")
+            return []
+        # FEATURE: Check, if the IDs are still unique.
+        entries = self.entries_from_df(df)
+        return entries
+
+    def read_input_files(self) -> list[DCType]:
+        """ Read the existing file, returning a list of all entries.
+         If the file does not exist, return the default instead. """
+        from config import Config
+
+        entries = []
+        for file in Config.input_files.get(self.fp.name, []):
+            logger.info(f"Reading input file {file}...")
+            entries += self.read_input_file(file)
+        return entries
+
+    def entries_from_df(self, df: pd.DataFrame) -> list[DCType]:
+        """ Turn the given dataframe into entries with the correct type. """
+        entries = []
+        for _, values in df.iterrows():
+            entries.append(self.entry_type.from_series(values))
+        return entries
 
     def _add(self, entry: DCType) -> DCType:
         if entry in self.entries:
@@ -76,12 +109,14 @@ class BaseContainer:
                 return entry
         return None
 
+    def get_header(self) -> str:
+        """ Returns the field_names (headers) of the entry. """
+        return ",".join([field.name for field in fields(self.entry_type)])
+
     def to_output(self) -> str:
         """ Return the content of the gtfs file. """
-        field_names = self.entry_type.get_field_names()
-        entry_output = "\n".join(
-            map(lambda entry: entry.to_output(), self.entries))
-        return f"{field_names}\n{entry_output}\n"
+        entry_output = "\n".join(map(methodcaller("to_output"), self.entries))
+        return f"{self.get_header()}\n{entry_output}\n"
 
     def write(self) -> None:
         """ Write the file content to the output directory. """
@@ -99,51 +134,6 @@ class BaseContainer:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}: {self.entries!r}"
-
-
-class ExistingBaseContainer(BaseContainer):
-    """ Base class for gtfs files, which may be existing. """
-
-    def __init__(self, filename: str, entry_type: Type[DCType], path: Path):
-        super().__init__(filename, entry_type, path)
-        self.overwrite = False
-        self.initialize()
-
-    def initialize(self) -> None:
-        """ Add all existing entries. """
-        self.entries = self.from_file()
-        for entry in self.entries:
-            UIDGenerator.skip(entry.id)
-
-    def from_file(self, default=None) -> list[DCType]:
-        """ Read the existing file, returning a list of all entries.
-         If the file does not exist, return the default instead. """
-
-        if default is None:
-            default = []
-        if not self.fp.exists():
-            return default
-        logger.info(f"Reading existing file {self.fp}...")
-        try:
-            df = pd.read_csv(self.fp, dtype=str)
-        except Exception as e:
-            def_msg = (f"Found existing file {self.fp}, but when trying to "
-                       f"read it, the following exception occurred:\n{e}")
-            logger.warning(def_msg)
-            self.overwrite = True
-            return default
-        entries = self.entries_from_df(df)
-        if not entries:
-            self.overwrite = True
-            return default
-        return entries
-
-    def entries_from_df(self, df: pd.DataFrame) -> list[DCType]:
-        """ Turn the given dataframe into entries with the correct type. """
-        entries = []
-        for _, values in df.iterrows():
-            entries.append(self.entry_type.from_series(values))
-        return entries
 
 
 def str_wrap(value) -> str:

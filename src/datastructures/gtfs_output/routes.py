@@ -8,6 +8,8 @@ from pathlib import Path
 from time import strptime
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 import config
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
 
@@ -48,13 +50,15 @@ class GTFSRouteEntry(BaseDataClass):
     route_type: RouteType
 
     def __init__(
-            self, agency_id: str, short_name: str, long_name: str) -> None:
-        super().__init__()
+            self, agency_id: str, short_name: str, long_name: str,
+            route_id: str = None, route_type: RouteType = None) -> None:
+        super().__init__(route_id)
         self.route_id = self.id
         self.agency_id = agency_id
         self.route_long_name = long_name
         self.route_short_name = short_name
-        self.route_type: RouteType = config.Config.gtfs_routetype
+        route_type = route_type or config.Config.gtfs_routetype
+        self.route_type: RouteType = route_type
 
     def get_field_value(self, field: Field):
         """ Return the value of a given Field. """
@@ -67,6 +71,13 @@ class GTFSRouteEntry(BaseDataClass):
         return (self.agency_id == other.agency_id and
                 self.route_short_name == other.route_short_name and
                 self.route_long_name == other.route_long_name)
+
+    @staticmethod
+    def from_series(s: pd.Series) -> GTFSRouteEntry:
+        """ Creates a new GTFSTrip from the given series. """
+        return GTFSRouteEntry(s["agency_id"], s["short_name"],
+                              s["long_name"], s["route_id"],
+                              RouteType(s["route_type"]))
 
 
 class GTFSRoutes(BaseContainer):

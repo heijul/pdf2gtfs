@@ -9,9 +9,11 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import UnionType
 from typing import (
     Any, get_args, get_origin, Iterable, TYPE_CHECKING, TypeVar, Union)
+from zipfile import ZipFile
 
 from holidays.utils import list_supported_countries
 
@@ -500,3 +502,56 @@ class AverageSpeedProperty(IntBoundsProperty):
         defaults = {0: 25, 1: 35, 2: 50, 3: 15, 4: 20,
                     5: 10, 6: 10, 7: 10, 11: 15, 12: 35}
         return defaults[routetype]
+
+
+class InputProperty(NestedTypeProperty):
+    """ Property for providing GTFS-feeds or files. """
+
+    def __init__(self, cls: CType, attr: str) -> None:
+        self.temp_dir = None
+        super().__init__(cls, attr, dict[str: list[Path]])
+
+    def __del__(self) -> None:
+        if self.temp_dir is None:
+            return
+        self.temp_dir.cleanup()
+
+    def __set__(self, obj, value: Any) -> None:
+        if not isinstance(value, list):
+            raise err.InvalidPropertyTypeError
+
+        paths = []
+        for path_str in value:
+            paths += self.get_paths_for_input_path(Path(path_str).resolve())
+        paths = set(paths)
+
+        path_dict = {}
+        for path in paths:
+            path_dict.setdefault(path.name, []).append(path)
+        self.validate(path_dict)
+        super().__set__(obj, path_dict)
+
+    def get_paths_for_input_path(self, input_path: Path) -> list[Path]:
+        """ Get all file paths for the given path. """
+        if not input_path.exists():
+            logger.warning(f"The given input path '{input_path}' "
+                           f"does not exist.")
+            return []
+        # Directory.        # Directory.
+        if input_path.is_dir():
+            return list(input_path.glob("*.txt"))
+        # GTFS feed.
+        if input_path.name.endswith(".zip"):
+            logger.info("Input file is a zip archive. Extracting...")
+            self.temp_dir = TemporaryDirectory()
+            with ZipFile(input_path, "r") as zip_file:
+                zip_file.extractall(self.temp_dir.name)
+            logger.info("Done.")
+            return list(Path(self.temp_dir.name).glob("*.txt"))
+        # Single GTFS file.
+        if input_path.name.endswith(".txt"):
+            return [input_path]
+
+        logger.warning(f"The given input path '{input_path}' is not a valid "
+                       f"input path. See the template config for more info.")
+        return []

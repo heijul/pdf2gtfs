@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, TYPE_CHECKING, TypeAlias
 
+import pandas as pd
+
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
 
 
@@ -22,11 +24,17 @@ class GTFSTripEntry(BaseDataClass):
     route_id: str
     service_id: str
 
-    def __init__(self, route_id: str, service_id: str) -> None:
-        super().__init__()
+    def __init__(self, route_id: str, service_id: str, trip_id: str = None
+                 ) -> None:
+        super().__init__(trip_id)
         self.trip_id = self.id
         self.route_id = route_id
         self.service_id = service_id
+
+    @staticmethod
+    def from_series(s: pd.Series) -> GTFSTripEntry:
+        """ Creates a new GTFSTrip from the given series. """
+        return GTFSTripEntry(s["route_id"], s["service_id"], s["trip_id"])
 
 
 class GTFSTrips(BaseContainer):
