@@ -73,7 +73,7 @@ class _Config(InstanceDescriptorMixin):
         self.gtfs_routetype = p.RouteTypeProperty(self, "gtfs_routetype")
         self.average_speed = p.AverageSpeedProperty(self, "average_speed")
         self.allowed_stop_chars = p.Property(self, "allowed_stop_chars", list)
-        self.output_dir = p.OutputDirectoryProperty(self, "output_dir")
+        self.output_path = p.OutputPathProperty(self, "output_path")
         self.preprocess = p.Property(self, "preprocess", bool)
         self.output_pp = p.Property(self, "output_pp", bool)
         self.always_overwrite = p.Property(self, "always_overwrite", bool)
@@ -109,6 +109,13 @@ class _Config(InstanceDescriptorMixin):
         self.cache_directory = p.Property(self, "cache_directory", str)
         self.qlever_endpoint_url = p.Property(self, "qlever_endpoint_url", str)
         self.input_files = p.InputProperty(self, "input_files")
+
+    @property
+    def output_dir(self) -> Path:
+        """ The directory the GTFS-feed will be written to. """
+        if self.output_path.name.endswith(".zip"):
+            return self.output_path.parent
+        return self.output_path
 
     def load_default_config(self) -> None:
         """ Loads the default configuration.

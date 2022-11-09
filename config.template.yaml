@@ -82,17 +82,27 @@ stale_cache_days: 7
 #   files define the same agency, both will be added, as well.
 #   In such cases, manual intervention is necessary.
 #
-# Type: list of paths
+# Type: list of str
 input_files: [ ]
 
-# The path to the output directory for the gtfs files.
-#   Default is "./out".
+# The path the GTFS-feed is written to.
+# If this is a directory, the feed will be exported into that directory and
+#   the name of the feed will be set to
+#   'pdf2gtfs_[input_file]_[date]_[time].zip', where [input_file] is the name
+#   of the input pdf (without extension), date/time is the current date/time
+#   in YYYYMMDD/HHMMSS format, respectively.
+# If the path ends in '.zip' and the file exists, you will be asked whether
+#   it should be overwritten.
+# If the given path does not exist and does not end in '.zip', a directory
+#   with the given name will be created.
 #
 # Type: str
-output_dir: "./out"
+output_path: "./out"
 
-# Whether the preprocessed pdf should be saved. If true, the pdf will be saved
-#   to the output_dir. Setting this when 'preprocess' is false has no effect.
+# Whether the preprocessed PDF should be saved. If true, the PDF will be saved
+#   to the same directory as the GTFS-feed. This might be useful, to check if
+#   the preprocessing altered the PDF in unintended ways.
+# Setting this when 'preprocess' is false has no effect.
 #
 # Type: bool
 output_pp: True

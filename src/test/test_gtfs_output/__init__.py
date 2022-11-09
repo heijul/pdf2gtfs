@@ -21,10 +21,11 @@ class GTFSOutputBaseClass(TestCase):
     @classmethod
     def setUpClass(cls, name="") -> None:
         """ Create the output directory. """
+        Config.load_default_config()
         cls.temp_dir = _create_temp_out_dir()
         name = name if name else "test.txt"
         cls.filename = Path(cls.temp_dir.name).joinpath(name)
-        Config.output_dir = Path(cls.temp_dir.name)
+        Config.output_path = Path(cls.temp_dir.name)
 
     @classmethod
     def tearDownClass(cls) -> None:

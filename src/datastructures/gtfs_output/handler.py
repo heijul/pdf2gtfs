@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 def get_gtfs_archive_path() -> Path:
     """ Returns the absolute path to the output archive. """
+    if Config.output_path != Config.output_dir:
+        return Config.output_path
+
     date_and_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     in_filename = Path(Config.filename).stem
     outname = f"pdf2gtfs_{in_filename}_{date_and_time}.zip"

@@ -12,7 +12,7 @@ class TestAgency(GTFSOutputBaseClass):
         super().setUpClass(name)
 
     def setUp(self) -> None:
-        Config.output_dir = self.temp_dir.name
+        Config.output_path = self.temp_dir.name
 
     def tearDown(self) -> None:
         try:
@@ -36,8 +36,8 @@ class TestAgency(GTFSOutputBaseClass):
 
     def test_read_agency(self) -> None:
         self._create_agency(1)
-        temp_dir_path = Path(self.temp_dir.name)
-        agency = GTFSAgency(temp_dir_path)
+        Config.input_files = [self.filename]
+        agency = GTFSAgency(self.filename.parent)
         self.assertEqual(1, len(agency.entries))
         entry = agency.entries[0]
         self.assertFalse(isinstance(entry, DummyGTFSAgencyEntry))

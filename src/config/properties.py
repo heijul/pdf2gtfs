@@ -422,23 +422,40 @@ class RouteTypeProperty(Property):
         return super().__set__(obj, value)
 
 
-class OutputDirectoryProperty(Property):
+class OutputPathProperty(Property):
     """ Property for the output directory. """
 
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, Path)
 
     def __set__(self, obj, value: str | Path) -> None:
-        if isinstance(value, str):
-            value = value.strip()
-            value = Path(value).resolve()
-            if value.exists() and not value.is_dir():
-                logger.error("Given output directory is not a directory.")
-                raise err.InvalidOutputDirectoryError(str(value))
-            if not value.exists():
-                logger.info(f"Output directory '{value}' does not exist "
-                            f"and will be created.")
-        super().__set__(obj, value)
+        if isinstance(value, Path):
+            super().__set__(obj, value)
+            return
+        if not isinstance(value, str):
+            raise err.InvalidPropertyTypeError
+        path = Path(value.strip()).resolve()
+        is_zip_name = path.name.endswith(".zip")
+
+        if path.exists() and path.is_file() and not is_zip_name:
+            logger.error("The given output path already exists, "
+                         "but is not a .zip file.")
+            raise err.InvalidOutputPathError
+
+        if is_zip_name:
+            dir_path = path.parent
+            name_msg = f"set to '{path.name}'"
+        else:
+            dir_path = path
+            name_msg = (f"chosen based on the current date, time and "
+                        f"the name of the input file")
+        logger.info(f"GTFS-feed will be exported to '{dir_path}'. The name "
+                    f"of the feed will be {name_msg}.")
+        if not dir_path.exists():
+            logger.info(f"Output directory '{dir_path}' does not exist "
+                        f"and will be created.")
+
+        super().__set__(obj, path)
 
 
 class DateBoundsProperty(Property):

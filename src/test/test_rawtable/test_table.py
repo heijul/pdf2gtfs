@@ -16,7 +16,7 @@ from test import get_data_gen, get_test_src_dir
 def set_up_config() -> None:
     Config.pages = "2"
     Config.filename = str(get_test_src_dir().joinpath("data/vag_1.pdf"))
-    Config.output_dir = get_test_src_dir().joinpath("out/")
+    Config.output_path = get_test_src_dir().joinpath("out/")
 
 
 def create_rows(row_count: int = 5, col_count: int = 3,
