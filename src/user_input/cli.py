@@ -168,7 +168,7 @@ def create_output_directory() -> bool:
         msg = ("An error occurred, while trying "
                "to create the output directory:\n")
         if isinstance(e, PermissionError):
-            return msg + "You are missing the permissions, to create it."
+            return msg + "You are missing the permissions to create it."
         if isinstance(e, FileExistsError):
             return msg + "There already exists a file with the same name."
         return msg + str(e)

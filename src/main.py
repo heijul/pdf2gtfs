@@ -2,6 +2,7 @@
 from the given pdf file. """
 
 import logging
+import sys
 from typing import TYPE_CHECKING
 
 from config import Config
@@ -50,7 +51,8 @@ def main() -> None:
     parse_args()
     initialize_logging(logging.DEBUG)
 
-    create_output_directory()
+    if not create_output_directory():
+        sys.exit(3)
 
     tables = get_timetables()
     handler = generate_gtfs(tables)

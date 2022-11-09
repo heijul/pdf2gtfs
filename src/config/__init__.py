@@ -76,7 +76,6 @@ class _Config(InstanceDescriptorMixin):
         self.output_path = p.OutputPathProperty(self, "output_path")
         self.preprocess = p.Property(self, "preprocess", bool)
         self.output_pp = p.Property(self, "output_pp", bool)
-        self.always_overwrite = p.Property(self, "always_overwrite", bool)
         self.non_interactive = p.Property(self, "non_interactive", bool)
         self.gtfs_date_bounds = p.DateBoundsProperty(self, "gtfs_date_bounds")
         self.display_route = p.IntBoundsProperty(self, "display_route", 0, 7)
@@ -101,7 +100,6 @@ class _Config(InstanceDescriptorMixin):
             self, "simple_travel_cost_calculation", bool)
         self.missing_node_cost = p.IntBoundsProperty(
             self, "missing_node_cost", 0)
-        self.disable_output = p.Property(self, "disable_output", bool)
         self.disable_close_node_check = p.Property(
             self, "disable_close_node_check", bool)
         self.max_char_distance = p.FloatBoundsProperty(
