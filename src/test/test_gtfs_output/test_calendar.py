@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import TestCase
 
 from datastructures.gtfs_output.calendar import (
@@ -58,7 +59,8 @@ class TestCalendar(GTFSOutputBaseClass):
     def test_try_add(self) -> None:
         days = ["0", "1", "2"]
         annots = set()
-        c = GTFSCalendar()
+        temp_dir_path = Path(self.temp_dir.name)
+        c = GTFSCalendar(temp_dir_path)
         self.assertEqual(0, len(c.entries))
         c.add(days, annots)
         self.assertEqual(1, len(c.entries))
@@ -70,7 +72,8 @@ class TestCalendar(GTFSOutputBaseClass):
         self.assertEqual(3, len(c.entries))
 
     def test_get(self) -> None:
-        c = GTFSCalendar()
+        temp_dir_path = Path(self.temp_dir.name)
+        c = GTFSCalendar(temp_dir_path)
         days = ["0", "5", "3"]
         e = GTFSCalendarEntry(days, None)
         c.add(days, set())
@@ -79,7 +82,8 @@ class TestCalendar(GTFSOutputBaseClass):
         self.assertNotEqual(id(e), id(c.get(e)))
 
     def test_group_by_holiday(self) -> None:
-        c = GTFSCalendar()
+        temp_dir_path = Path(self.temp_dir.name)
+        c = GTFSCalendar(temp_dir_path)
         for i in range(7):
             if i % 2:
                 c.add(["h"], {"holiday", str(i)})

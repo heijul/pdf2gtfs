@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import TestCase
 
 from config import Config
@@ -75,12 +76,13 @@ class TestTime(TestCase):
 
 class TestStopTimes(TestCase):
     def setUp(self) -> None:
+        dummy_dir = Path(".")
         self.trip_id = 1
-        self.stop_times = GTFSStopTimes()
+        self.stop_times = GTFSStopTimes(dummy_dir)
 
         self.stops = create_stops(3)
 
-        self.gtfs_stops = GTFSStops()
+        self.gtfs_stops = GTFSStops(dummy_dir)
         for stop in self.stops:
             self.gtfs_stops.add(stop.name)
 

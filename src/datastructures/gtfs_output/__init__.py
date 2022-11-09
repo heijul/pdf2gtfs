@@ -10,7 +10,6 @@ from typing import Iterator, Optional, Type, TypeVar
 
 import pandas as pd
 
-from user_input.cli import overwrite_existing_file
 from utils import next_uid, UIDGenerator
 
 
@@ -55,18 +54,10 @@ class BaseContainer:
 
     entries: list[DCType]
 
-    def __init__(self, filename: str, entry_type: Type[DCType]):
-        self.filename = filename
+    def __init__(self, filename: str, entry_type: Type[DCType], path: Path):
+        self.fp = path.joinpath(filename)
         self.entry_type = entry_type
         self.entries: list[DCType] = []
-
-    @property
-    def fp(self) -> Path:
-        """ Return the absolute filepath of the file. """
-        from config import Config
-
-        # STYLE: Remove filename if not used elsewhere and override.
-        return Path(Config.output_dir).joinpath(self.filename).resolve()
 
     def _add(self, entry: DCType) -> DCType:
         if entry in self.entries:
@@ -97,18 +88,6 @@ class BaseContainer:
         self._write(self.to_output())
 
     def _write(self, content: str) -> None:
-        from config import Config
-
-        if self.fp.exists():
-            if not Config.always_overwrite and Config.non_interactive:
-                logger.warning(
-                    f"File {self.fp} already exists and overwriting "
-                    f"is disabled.")
-                return
-            if not Config.always_overwrite and not Config.non_interactive:
-                if not overwrite_existing_file(self.fp):
-                    return
-
         with open(self.fp, "w") as fil:
             fil.write(content)
 
@@ -125,8 +104,8 @@ class BaseContainer:
 class ExistingBaseContainer(BaseContainer):
     """ Base class for gtfs files, which may be existing. """
 
-    def __init__(self, filename: str, entry_type: Type[DCType]):
-        super().__init__(filename, entry_type)
+    def __init__(self, filename: str, entry_type: Type[DCType], path: Path):
+        super().__init__(filename, entry_type, path)
         self.overwrite = False
         self.initialize()
 
@@ -135,16 +114,6 @@ class ExistingBaseContainer(BaseContainer):
         self.entries = self.from_file()
         for entry in self.entries:
             UIDGenerator.skip(entry.id)
-
-    def write(self) -> None:
-        """ Write the file content to the output directory.
-
-        Does not overwrite existing files,
-        unless it is forced, by self.overwrite.
-        """
-        if self.fp.exists() and not self.overwrite:
-            return
-        super().write()
 
     def from_file(self, default=None) -> list[DCType]:
         """ Read the existing file, returning a list of all entries.

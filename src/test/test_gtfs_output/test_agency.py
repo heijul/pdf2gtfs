@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from config import Config
 from datastructures.gtfs_output.agency import GTFSAgency, DummyGTFSAgencyEntry
@@ -28,13 +29,15 @@ class TestAgency(GTFSOutputBaseClass):
             fil.write(lines)
 
     def test_create_dummy_agency(self) -> None:
-        agency = GTFSAgency()
+        temp_dir_path = Path(self.temp_dir.name)
+        agency = GTFSAgency(temp_dir_path)
         self.assertEqual(1, len(agency.entries))
         self.assertTrue(isinstance(agency.entries[0], DummyGTFSAgencyEntry))
 
     def test_read_agency(self) -> None:
         self._create_agency(1)
-        agency = GTFSAgency()
+        temp_dir_path = Path(self.temp_dir.name)
+        agency = GTFSAgency(temp_dir_path)
         self.assertEqual(1, len(agency.entries))
         entry = agency.entries[0]
         self.assertFalse(isinstance(entry, DummyGTFSAgencyEntry))

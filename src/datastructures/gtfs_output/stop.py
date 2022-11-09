@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, Field
+from pathlib import Path
 
 import pandas as pd
 
@@ -85,8 +86,8 @@ class GTFSStops(ExistingBaseContainer):
     """ Used to create the 'stops.txt'. """
     entries: list[GTFSStopEntry]
 
-    def __init__(self) -> None:
-        super().__init__("stops.txt", GTFSStopEntry)
+    def __init__(self, path: Path) -> None:
+        super().__init__("stops.txt", GTFSStopEntry, path)
         self.append = False
         self.new_entries = []
 

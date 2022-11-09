@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from statistics import mean
@@ -42,26 +43,24 @@ def get_gtfs_archive_path() -> Path:
     return Config.output_dir.joinpath(outname)
 
 
-def get_gtfs_filepaths() -> list[Path]:
-    """ Return all gtfs files. """
-    filenames = ["agency.txt", "calendar.txt", "calendar_dates.txt",
-                 "routes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
-    paths = [Config.output_dir.joinpath(name) for name in filenames]
-    return paths
-
-
 class GTFSHandler:
     """ Handles the creation of all gtfs files and provides
     an interface to query them. """
 
     def __init__(self) -> None:
-        self._agency = GTFSAgency()
-        self._stops = GTFSStops()
-        self._routes = GTFSRoutes(self.agency.get_default().agency_id)
-        self._calendar = GTFSCalendar()
-        self._trips = GTFSTrips()
-        self._stop_times = GTFSStopTimes()
-        self._calendar_dates = GTFSCalendarDates()
+        self.temp_dir = tempfile.TemporaryDirectory(prefix="pdf2gtfs")
+        temp_dir_path = Path(self.temp_dir.name)
+        self._agency = GTFSAgency(temp_dir_path)
+        self._stops = GTFSStops(temp_dir_path)
+        self._routes = GTFSRoutes(temp_dir_path,
+                                  self.agency.get_default().agency_id)
+        self._calendar = GTFSCalendar(temp_dir_path)
+        self._trips = GTFSTrips(temp_dir_path)
+        self._stop_times = GTFSStopTimes(temp_dir_path)
+        self._calendar_dates = GTFSCalendarDates(temp_dir_path)
+
+    def __del__(self) -> None:
+        self.temp_dir.cleanup()
 
     @property
     def agency(self) -> GTFSAgency:
@@ -147,7 +146,7 @@ class GTFSHandler:
         def create_stop_times() -> GTFSStopTimes:
             """ Creates the StopTimes for the current entry. """
             trip = trip_factory()
-            _stop_times = GTFSStopTimes()
+            _stop_times = GTFSStopTimes(Path(self.temp_dir.name))
             _stop_times.add_multiple(
                 trip.trip_id, self.stops, service_day_offset, entry.values)
             return _stop_times
@@ -253,10 +252,12 @@ class GTFSHandler:
                 continue
             self.routes.entries.remove(route)
 
-    def write_files(self) -> None:
-        """ Write all gtfs files to the output directory. """
+    def write_files_to_temp(self) -> None:
+        """ Write all gtfs files to a temporary directory. """
+        # Final cleanup steps before output.
         self._remove_unused_routes()
         self.add_annotation_dates()
+        # Write the files to the temp dir.
         self.agency.write()
         self.stops.write()
         self.routes.write()
@@ -264,7 +265,15 @@ class GTFSHandler:
         self.trips.write()
         self.stop_times.write()
         self.calendar_dates.write()
+
         self.create_zip_archive()
+
+    def get_gtfs_filepaths(self) -> list[Path]:
+        """ Return all gpptfs files. """
+        paths = [self.agency.fp, self.calendar.fp, self.calendar_dates.fp,
+                 self.routes.fp, self.stop_times.fp, self.stops.fp,
+                 self.trips.fp]
+        return paths
 
     def create_zip_archive(self) -> None:
         """ Creates the final gtfs zip archive. """
@@ -277,7 +286,7 @@ class GTFSHandler:
             return self.create_zip_archive()
 
         with ZipFile(archive_path, mode="w") as zip_file:
-            for path in get_gtfs_filepaths():
+            for path in self.get_gtfs_filepaths():
                 zip_file.write(path, arcname=path.name)
 
     def add_coordinates(self, nodes: dict[str: Node]) -> None:

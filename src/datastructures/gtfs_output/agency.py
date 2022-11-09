@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 
@@ -55,8 +56,8 @@ class DummyGTFSAgencyEntry(GTFSAgencyEntry):
 class GTFSAgency(ExistingBaseContainer):
     """ Used to create 'agency.txt'. """
 
-    def __init__(self) -> None:
-        super().__init__("agency.txt", GTFSAgencyEntry)
+    def __init__(self, outdir: Path) -> None:
+        super().__init__("agency.txt", GTFSAgencyEntry, outdir)
 
     def from_file(self, default=None) -> list[GTFSAgencyEntry]:
         """ Return the entries, of the existing file if it exists, otherwise

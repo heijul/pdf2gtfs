@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime as dt
 from itertools import cycle
+from pathlib import Path
 from statistics import mean
 
 from config import Config
@@ -153,8 +154,8 @@ class GTFSStopTimes(BaseContainer):
     """ Used to create the 'stop_times.txt.'. """
     entries: list[GTFSStopTimesEntry]
 
-    def __init__(self) -> None:
-        super().__init__("stop_times.txt", GTFSStopTimesEntry)
+    def __init__(self, path: Path) -> None:
+        super().__init__("stop_times.txt", GTFSStopTimesEntry, path)
 
     def add(self, trip_id: str, stop_id: str, sequence: int,
             arrival: Time, departure: Time = None) -> GTFSStopTimesEntry:
@@ -203,7 +204,7 @@ class GTFSStopTimes(BaseContainer):
 
     def duplicate(self, trip_id) -> GTFSStopTimes:
         """ Creates a new instance with updated copies of the entries. """
-        new = GTFSStopTimes()
+        new = GTFSStopTimes(self.fp.parent)
 
         for entry in self.entries:
             new._add(entry.duplicate(trip_id))

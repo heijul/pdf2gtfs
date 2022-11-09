@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import TestCase
 
 from config import Config
@@ -60,7 +61,8 @@ class TestRoutes(TestCase):
         self.assertEqual(short_name, "testroute")
 
     def test_add(self) -> None:
-        routes = GTFSRoutes("agency_0")
+        dummy_dir = Path(".")
+        routes = GTFSRoutes(dummy_dir, "agency_0")
         self.assertEqual(0, len(routes.entries))
         route1 = routes.add("short1", "long1")
         self.assertEqual(1, len(routes.entries))

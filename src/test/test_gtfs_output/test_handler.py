@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest import mock
 
 from holidays import country_holidays
 
 from config import Config
 from datastructures.gtfs_output.handler import (
-    get_gtfs_archive_path,
-    get_gtfs_filepaths, GTFSHandler)
+    get_gtfs_archive_path, GTFSHandler)
 from datastructures.gtfs_output.stop import GTFSStopEntry
 from datastructures.gtfs_output.stop_times import Time
 from main import get_timetables
@@ -250,6 +250,18 @@ class TestHandler(GTFSOutputBaseClass):
                 stop_count = self.handler.get_stops_of_route(route_id)
                 self.assertTrue(len(prev_stop_count) >= len(stop_count))
 
+    def test_get_gtfs_filepaths(self) -> None:
+        names = ["agency.txt", "calendar.txt", "calendar_dates.txt",
+                 "routes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
+
+        filepaths = self.handler.get_gtfs_filepaths()
+        temp_dir = Path(self.handler.temp_dir.name)
+        for i in range(len(names)):
+            with self.subTest(i=i):
+                filepaths[i].resolve()
+                self.assertEqual(names[i], filepaths[i].name)
+                self.assertEqual(temp_dir.resolve(), filepaths[i].parent)
+
 
 class TestHandlerHelpers(GTFSOutputBaseClass):
     def setUp(self) -> None:
@@ -266,13 +278,3 @@ class TestHandlerHelpers(GTFSOutputBaseClass):
         date_from_name = datetime.strptime(
             name, f"pdf2gtfs_input_pdf_123_%Y%m%d_%H%M%S.zip")
         self.assertTrue(abs(date - date_from_name) < timedelta(seconds=3))
-
-    def test_get_gtfs_filepaths(self) -> None:
-        names = ["agency.txt", "calendar.txt", "calendar_dates.txt",
-                 "routes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
-
-        filepaths = get_gtfs_filepaths()
-        for i in range(len(names)):
-            with self.subTest(i=i):
-                self.assertEqual(names[i], filepaths[i].name)
-                self.assertEqual(Config.output_dir, filepaths[i].parent)

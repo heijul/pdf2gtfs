@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass, fields
+from pathlib import Path
 from typing import Callable, Optional, TypeAlias
 
 from config import Config
@@ -118,8 +119,8 @@ class GTFSCalendar(BaseContainer):
 
     entries: list[GTFSCalendarEntry]
 
-    def __init__(self) -> None:
-        super().__init__("calendar.txt", GTFSCalendarEntry)
+    def __init__(self, path: Path) -> None:
+        super().__init__("calendar.txt", GTFSCalendarEntry, path)
 
     def add(self, days: list[str], annots: set[str]) -> GTFSCalendarEntry:
         """ Add an entry, active on the given days with the given annots. """

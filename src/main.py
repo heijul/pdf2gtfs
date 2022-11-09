@@ -62,7 +62,7 @@ def main() -> None:
     if Config.disable_output:
         logger.info("Skipping writing of GTFS files, as requested.")
         return
-    handler.write_files()
+    handler.write_files_to_temp()
 
 
 if __name__ == "__main__":

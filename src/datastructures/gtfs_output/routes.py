@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, Field
 from enum import Enum
+from pathlib import Path
 from time import strptime
 from typing import TYPE_CHECKING
 
@@ -71,8 +72,8 @@ class GTFSRouteEntry(BaseDataClass):
 class GTFSRoutes(BaseContainer):
     """ Used to create 'routes.txt'. """
 
-    def __init__(self, agency_id: str) -> None:
-        super().__init__("routes.txt", GTFSRouteEntry)
+    def __init__(self, path: Path, agency_id: str) -> None:
+        super().__init__("routes.txt", GTFSRouteEntry, path)
         self.agency_id: str = agency_id
 
     def add(self, short_name: str = "", long_name: str = "") -> GTFSRouteEntry:

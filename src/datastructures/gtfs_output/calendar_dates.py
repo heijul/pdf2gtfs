@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime as dt
+from pathlib import Path
 
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
 
@@ -24,8 +25,8 @@ class GTFSCalendarDates(BaseContainer):
     """ Used to create the 'calendar_dates.txt'. """
     entries: list[GTFSCalendarDateEntry]
 
-    def __init__(self) -> None:
-        super().__init__("calendar_dates.txt", GTFSCalendarDateEntry)
+    def __init__(self, path: Path) -> None:
+        super().__init__("calendar_dates.txt", GTFSCalendarDateEntry, path)
 
     def add(self, service_id: str, date: dt.date, add_service: bool
             ) -> GTFSCalendarDateEntry:

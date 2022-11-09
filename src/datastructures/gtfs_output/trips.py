@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, TYPE_CHECKING, TypeAlias
 
 from datastructures.gtfs_output import BaseContainer, BaseDataClass
@@ -32,8 +33,8 @@ class GTFSTrips(BaseContainer):
     """ Used to create the 'trips.txt'. """
     entries: list[GTFSTripEntry]
 
-    def __init__(self) -> None:
-        super().__init__("trips.txt", GTFSTripEntry)
+    def __init__(self, path: Path) -> None:
+        super().__init__("trips.txt", GTFSTripEntry, path)
 
     def add(self, route_id: str, service_id: str) -> GTFSTripEntry:
         """ Add a single trip with the given route_id and service_id. """
