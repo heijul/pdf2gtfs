@@ -26,7 +26,8 @@ from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
 from locate import Node
 from locate.finder.loc_nodes import MNode
-from user_input.cli import handle_annotations, select_agency
+from user_input.cli import (
+    handle_annotations, overwrite_existing_file, select_agency)
 
 
 if TYPE_CHECKING:
@@ -287,10 +288,12 @@ class GTFSHandler:
     def create_zip_archive(self) -> None:
         """ Creates the final gtfs zip archive. """
         archive_path = get_gtfs_archive_path()
-        # TODO: Needs check, once output_archive_path is added as cli arg.
-        # If the output archive already exist, simply try to create it again.
-        if archive_path.exists():
-            # This will ensure a different filepath.
+        # If the automatically created output archive already exist, simply
+        # try to create it again. This will ensure a different filepath.
+        # Otherwise the user needs to decide what to do.
+        if archive_path.exists() and archive_path == Config.output_path:
+            overwrite_existing_file(archive_path)
+        elif archive_path.exists():
             sleep(1)
             return self.create_zip_archive()
 
