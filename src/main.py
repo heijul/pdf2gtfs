@@ -61,9 +61,6 @@ def main() -> None:
     else:
         route = match_coordinates(handler)
         handler.add_coordinates(route)
-    if Config.disable_output:
-        logger.info("Skipping writing of GTFS files, as requested.")
-        return
     handler.write_files_to_temp()
 
 
