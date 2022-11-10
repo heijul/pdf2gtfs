@@ -127,7 +127,7 @@ class Field(BBoxObject):
 
         def _is_indented() -> bool:
             min_indention_in_pts = 3
-            dist = abs(ref_field.bbox.x0 - self.bbox.x0)
+            dist = ref_field.bbox.x0 - self.bbox.x0
             return dist >= min_indention_in_pts
 
         # Order is important, because we want to strip delim even if indented.

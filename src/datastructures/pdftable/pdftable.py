@@ -93,9 +93,18 @@ class PDFTable:
         """ Fix stop names (indented or starting with a delimiter),
         indicating they use the same city/POI as the previous stop. """
         stop_column = self.columns.of_type(ColumnType.STOP)[0]
-        fields = stop_column.fields
-        reference_field = fields[0]
-        for field in fields[1:]:
+        first_field_idx = 0
+        reference_field = None
+        for i, field in enumerate(stop_column.fields):
+            if field.row.type == RowType.DATA:
+                reference_field = field
+                first_field_idx = i
+                break
+
+        if not reference_field:
+            return
+
+        for field in stop_column.fields[first_field_idx:]:
             # Don't update the reference_field, in case field is indented.
             if not field.fix_name_if_split(reference_field):
                 reference_field = field
