@@ -447,8 +447,8 @@ class OutputPathProperty(Property):
             name_msg = f"set to '{path.name}'"
         else:
             dir_path = path
-            name_msg = (f"chosen based on the current date, time and "
-                        f"the name of the input file")
+            name_msg = ("chosen based on the current date, time and "
+                        "the name of the input file")
         logger.info(f"GTFS-feed will be exported to '{dir_path}'. The name "
                     f"of the feed will be {name_msg}.")
         if not dir_path.exists():
