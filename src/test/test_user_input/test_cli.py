@@ -19,8 +19,9 @@ def get_path_with_insufficient_permissions() -> str:
 
 class TestCLI(P2GTestCase):
     @classmethod
-    def setUpClass(cls: P2GTestCase, create_temp_dir: bool = True) -> None:
-        super().setUpClass(create_temp_dir)
+    def setUpClass(cls: P2GTestCase, **kwargs) -> None:
+        kwargs = {"create_temp_dir": True, "disable_logging": True}
+        super().setUpClass(**kwargs)
 
     def test__to_date(self) -> None:
         dates = ["20221004", "20221231", "20220229", "20240229",

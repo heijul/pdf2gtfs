@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable
@@ -66,19 +67,25 @@ class P2GTestCase(TestCase):
         super().__init__(methodName)
 
     @classmethod
-    def setUpClass(cls: P2GTestCase, create_temp_dir: bool = False) -> None:
+    def setUpClass(cls: P2GTestCase,
+                   create_temp_dir: bool = False,
+                   disable_logging: bool = False) -> None:
         super().setUpClass()
         cls.temp_dir = None
         if create_temp_dir:
             # TODO: Create a single pdf2gtfs temp dir, where all
             #  test temp_dirs are located.
             cls.temp_dir = TemporaryDirectory(prefix="pdf2gtfs_test_")
+        if disable_logging:
+            logging.disable(logging.CRITICAL)
 
     @classmethod
     def tearDownClass(cls: P2GTestCase) -> None:
         super().tearDownClass()
         if cls.temp_dir is not None:
             cls.temp_dir.cleanup()
+        # No need to check if disabled.
+        logging.disable(logging.NOTSET)
 
     def setUp(self) -> None:
         super().setUp()
