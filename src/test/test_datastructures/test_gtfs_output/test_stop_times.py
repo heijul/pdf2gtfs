@@ -4,7 +4,7 @@ from unittest import TestCase
 from config import Config
 from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.stop_times import GTFSStopTimes, Time
-from test_timetable import create_stops
+from test_datastructures.test_timetable import create_stops
 
 
 class TestTime(TestCase):
@@ -76,7 +76,7 @@ class TestTime(TestCase):
 
 class TestStopTimes(TestCase):
     def setUp(self) -> None:
-        dummy_dir = Path(".")
+        dummy_dir = Path("")
         self.trip_id = 1
         self.stop_times = GTFSStopTimes(dummy_dir)
 

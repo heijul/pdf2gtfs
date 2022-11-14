@@ -3,7 +3,7 @@ from pathlib import Path
 
 from config import Config
 from datastructures.gtfs_output.agency import GTFSAgency, DummyGTFSAgencyEntry
-from test_gtfs_output import GTFSOutputBaseClass
+from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
 class TestAgency(GTFSOutputBaseClass):

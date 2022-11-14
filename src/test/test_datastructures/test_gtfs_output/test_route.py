@@ -5,7 +5,7 @@ from config import Config
 from datastructures.gtfs_output.routes import (
     GTFSRouteEntry, GTFSRoutes, RouteType)
 from datastructures.timetable.entries import TimeTableEntry
-from test_timetable import create_stops
+from test_datastructures.test_timetable import create_stops
 
 
 class TestRouteType(TestCase):
@@ -61,7 +61,7 @@ class TestRoutes(TestCase):
         self.assertEqual(short_name, "testroute")
 
     def test_add(self) -> None:
-        dummy_dir = Path(".")
+        dummy_dir = Path("")
         routes = GTFSRoutes(dummy_dir, "agency_0")
         self.assertEqual(0, len(routes.entries))
         route1 = routes.add("short1", "long1")

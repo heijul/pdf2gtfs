@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from datastructures.gtfs_output.calendar import (
     GTFSCalendar, GTFSCalendarEntry, DayIsActive, WEEKDAY_NAMES)
-from test_gtfs_output import GTFSOutputBaseClass
+from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
 class TestCalendarEntry(TestCase):
