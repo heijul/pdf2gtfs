@@ -295,24 +295,32 @@ class HolidayCodeProperty(NestedTypeProperty):
         """ Checks if the holidays library knows the given
         country/subdivision code. """
         super().validate(value)
-        country = value.get("country")
+        self._validate_holiday_code(value)
+
+    def _validate_holiday_code(self, value: dict[str, str]) -> None:
+        country = value.get("country").lower()
+        # Automatic adding of holiday dates is disabled.
         if not country:
             return
 
-        supported_countries = list_supported_countries()
-        if country is None or country not in supported_countries:
+        supported_countries = {
+            country.lower(): [sub.lower() for sub in subs]
+            for country, subs in list_supported_countries().items()}
+        if country not in supported_countries:
             logger.warning(f"Invalid country code '{country}' "
                            f"for {self.attr} entry.")
             raise err.InvalidHolidayCodeError
-        sub = value.get("subdivision")
-        if sub and sub not in supported_countries[country]:
-            logger.warning(f"Invalid subdivision code '{sub}' for valid "
-                           f"country '{country}' of {self.attr} entry.")
-            raise err.InvalidHolidayCodeError
+        sub = value.get("subdivision").lower()
+        if not sub or sub in supported_countries[country]:
+            return
+        logger.warning(f"Invalid subdivision code '{sub}' for valid "
+                       f"country '{country}' of {self.attr} entry.")
+        raise err.InvalidHolidayCodeError
 
     def __set__(self, obj, raw_value: dict):
         self.validate(raw_value)
-        value = (raw_value.get("country"), raw_value.get("subdivision"))
+        value = (raw_value.get("country").upper(),
+                 raw_value.get("subdivision").upper())
         if not value[0]:
             value = (None, None)
 

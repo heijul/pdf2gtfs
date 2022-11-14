@@ -241,3 +241,40 @@ class TestHeaderValuesProperty(PropertyTestCase):
             with self.subTest(i=i):
                 prop.__set__(self.dummy, value)
                 self.assertEqual(result, prop.__get__(self.dummy))
+
+
+class TestHolidayCodeProperty(PropertyTestCase):
+    def get_property(self, name: str) -> p.HolidayCodeProperty | None:
+        return super().get_property(name)
+
+    def test__validate_holiday_code(self) -> None:
+        prop = p.HolidayCodeProperty(self.dummy, "prop")
+        valid_codes = [{"country": "DE", "subdivision": "BW"},
+                       {"country": "de", "subdivision": "BW"},
+                       {"country": "", "subdivision": "BW"},
+                       {"country": "de", "subdivision": ""}]
+        invalid_codes = [{"country": "test"},
+                         {"country": "DE", "subdivision": "AZ"}]
+        for i, valid_code in enumerate(valid_codes):
+            with self.subTest(i=i):
+                try:
+                    prop._validate_holiday_code(valid_code)
+                except err.InvalidHolidayCodeError:
+                    self.fail("InvalidHolidayCodeError raised")
+        for j, invalid_code in enumerate(invalid_codes):
+            with (self.subTest(j=j),
+                  self.assertRaises(err.InvalidHolidayCodeError)):
+                prop._validate_holiday_code(invalid_code)
+
+    def test___set__(self) -> None:
+        prop = p.HolidayCodeProperty(self.dummy, "prop")
+        values = [["", "BW"], ["DE", "BW"], ["de", "bw"],
+                  ["DE", ""]]
+        results = [(None, None), ("DE", "BW"), ("DE", "BW"),
+                   ("DE", "")]
+        for i, (value, result) in enumerate(zip(values, results, strict=True)):
+            with self.subTest(i=i):
+                prop.__set__(self.dummy,
+                             {"country": value[0], "subdivision": value[1]})
+
+                self.assertEqual(result, prop.__get__(self.dummy))
