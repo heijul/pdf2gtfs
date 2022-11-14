@@ -241,10 +241,6 @@ class RepeatIdentifierProperty(NestedTypeProperty):
                              f"config.template.yaml for more details.")
                 raise err.InvalidRepeatIdentifierError
 
-    def __set__(self, obj, value: list):
-        self.validate(value)
-        return super().__set__(obj, value)
-
 
 class HeaderValuesProperty(NestedTypeProperty):
     """ Property for the header_values. """
@@ -252,19 +248,22 @@ class HeaderValuesProperty(NestedTypeProperty):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict[str: str | list[str]])
 
-    def validate(self, value: dict):
+    def validate(self, value: Any):
         """ Validates the given value.
 
         Checks if all values of the dict are within the known header values,
         i.e. number strings 0 to 6 and character 'h'.
         """
+        super().validate(value)
+        self._validate_header_values(value)
 
+    def _validate_header_values(self, value: dict[str: str | list[str]]
+                                ) -> None:
         def _raise_invalid_header_error() -> None:
             logger.error(
                 f"Invalid value for '{self.attr}': {{'{ident}': '{day}'}}")
             raise err.InvalidHeaderDaysError
 
-        super().validate(value)
         for ident, days in value.items():
             if isinstance(days, str):
                 days = days.split(",")
@@ -280,7 +279,9 @@ class HeaderValuesProperty(NestedTypeProperty):
         self.validate(value)
         for ident, days in value.items():
             if isinstance(days, str):
-                value[ident] = list(days.split(","))
+                value[ident] = sorted([day.strip() for day in days.split(",")])
+            else:
+                value[ident] = sorted(days)
         setattr(obj, self.attr, value)
 
 
