@@ -191,9 +191,19 @@ class TestCLI(P2GTestCase):
         result = [5, 9, 11, 10, 20]
         self.assertEqual(result, cli._get_agency_column_widths(agency))
 
-    @mock.patch("user_input.cli.input", create=True)
-    def test__get_agency_prompt(self, mock_input: mock.Mock) -> None:
-        ...
+    def test__get_agency_prompt(self) -> None:
+        result = ("Multiple agencies found:\n\t"
+                  "index | agency_id | agency_name "
+                  "|      agency_url | agency_timezone\n\t"
+                  "    0 |  agency_0 |    agency_0 "
+                  "| www.example.com |   Europe/Berlin\n\t"
+                  "    1 |  agency_1 |    agency_1 "
+                  "| www.example.com |   Europe/Berlin\n\t"
+                  "    2 |  agency_2 |    agency_2 "
+                  "| www.example.com |   Europe/Berlin\n\n"
+                  "Please provide the index of the agency you want to use.")
+        agency = create_agency(Path(self.temp_dir.name), 3, "www.example.com")
+        self.assertEqual(result, cli._get_agency_prompt(agency))
 
     @mock.patch("user_input.cli.input", create=True)
     def test__select_agency(self, mock_input: mock.Mock) -> None:
