@@ -182,3 +182,62 @@ class TestNestedTypeProperty(PropertyTestCase):
     def test__validate_generic_type_args(self) -> None:
         # Skipping this test, because it is tested in _test__validate_type.
         pass
+
+
+class TestRepeatIdentifierProperty(PropertyTestCase):
+    def get_property(self, name: str) -> p.RepeatIdentifierProperty | None:
+        return super().get_property(name)
+
+    def test__validate_length(self) -> None:
+        prop = p.RepeatIdentifierProperty(self.dummy, "prop")
+        valids = [["Alle", "Minuten"], ["Repeats with period:", ""]]
+        invalids = [["Alle", "X", "Minutes"], ["Repeats with period:"],
+                    []]
+        try:
+            prop._validate_length(valids)
+        except err.InvalidRepeatIdentifierError:
+            self.fail("InvalidRepeatIdentifierError raised")
+        for i, invalid_value in enumerate(invalids):
+            with (self.subTest(i=i),
+                  self.assertRaises(err.InvalidRepeatIdentifierError)):
+                prop._validate_length([invalid_value])
+
+
+class TestHeaderValuesProperty(PropertyTestCase):
+    def get_property(self, name: str) -> p.HeaderValuesProperty | None:
+        return super().get_property(name)
+
+    def test__validate_header_values(self) -> None:
+        prop = p.HeaderValuesProperty(self.dummy, "prop")
+        valid_values = [{"weekdays": "1,2,3,4,5"},
+                        {"weekdays": "0, 1, 2,3,4"},
+                        {"weekdays": "1, 2, 3, 4, 5"},
+                        {"weekends": ["5", "6"]},
+                        {"holidays": "h"},
+                        {}]
+        invalid_values = [{"weekends": "sunday,saturday"},
+                          {"holidays": "3112"},
+                          {"weekends": ["5", "6h"]},
+                          {"weekends": ["6", "7"]},
+                          {"other days": "-1"}]
+        for i, value in enumerate(valid_values):
+            with self.subTest(i=i):
+                try:
+                    prop._validate_header_values(value)
+                except err.InvalidHeaderDaysError:
+                    self.fail("InvalidHeaderDaysError raised")
+        for j, value in enumerate(invalid_values):
+            with (self.subTest(j=j),
+                  self.assertRaises(err.InvalidHeaderDaysError)):
+                prop._validate_header_values(value)
+
+    def test___set__(self) -> None:
+        prop = p.HeaderValuesProperty(self.dummy, "prop")
+        values = [{"weekdays": "1, 2,3 , 5, 4"},
+                  {"weekends": ["h", "5", "6"]}]
+        results = [{"weekdays": ["1", "2", "3", "4", "5"]},
+                   {"weekends": ["5", "6", "h"]}]
+        for i, (value, result) in enumerate(zip(values, results, strict=True)):
+            with self.subTest(i=i):
+                prop.__set__(self.dummy, value)
+                self.assertEqual(result, prop.__get__(self.dummy))
