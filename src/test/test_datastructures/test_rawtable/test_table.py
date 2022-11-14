@@ -1,6 +1,6 @@
 from operator import attrgetter
+from pathlib import Path
 from typing import Iterator
-from unittest import TestCase
 
 from pdfminer.layout import LTPage
 
@@ -10,13 +10,7 @@ from datastructures.pdftable.container import Row
 from datastructures.pdftable.field import Field
 from datastructures.pdftable.pdftable import split_rows_into_tables, Tables
 from reader import dataframe_to_rows, get_chars_dataframe, Reader
-from test import get_data_gen, get_test_src_dir
-
-
-def set_up_config() -> None:
-    Config.pages = "2"
-    Config.filename = str(get_test_src_dir().joinpath("data/vag_1.pdf"))
-    Config.output_path = get_test_src_dir().joinpath("out/")
+from test import get_data_gen, get_test_src_dir, P2GTestCase
 
 
 def create_rows(row_count: int = 5, col_count: int = 3,
@@ -71,15 +65,18 @@ def create_table_from_data(texts: list[str], bboxes: list[str]
     return split_rows_into_tables(rows)
 
 
-class TestTable(TestCase):
+class TestTable(P2GTestCase):
     reader: Reader = None
     pages: Iterator[LTPage] = None
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUpClass(cls, **kwargs) -> None:
         Config.load_default_config()
-        super().setUpClass()
-        set_up_config()
+        super().setUpClass(True)
+        Config.pages = "2"
+        Config.filename = str(get_test_src_dir().joinpath("data/vag_1.pdf"))
+        Config.output_pp = True
+        Config.output_path = str(Path(cls.temp_dir.name))
         cls.reader = Reader()
         cls.reader.preprocess()
         cls.pages = cls.reader.get_pages()

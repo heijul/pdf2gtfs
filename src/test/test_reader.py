@@ -1,11 +1,12 @@
-from unittest import TestCase
-
 from config import Config
 from reader import get_chars_dataframe, dataframe_to_rows, get_pages, Reader
 
+from test import P2GTestCase
 
-class TestReader(TestCase):
+
+class TestReader(P2GTestCase):
     def setUp(self) -> None:
+        super().setUp()
         Config.preprocess = False
         self.data_dir = Config.p2g_dir.joinpath("src/test/data")
         self.filename = self.data_dir.joinpath("vag_1_preprocessed.pdf")

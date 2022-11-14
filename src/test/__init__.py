@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Callable
+from unittest import TestCase
 
 import yaml
 
@@ -44,7 +46,41 @@ class Data:
 def get_data_gen(file: str, cls: str) -> Callable[[str], Any]:
     """ Convenience function, to make multiple calls
     from the same file/class easier. """
+
     def _get_data(_, method: str) -> Any:
         return Data.get_instance().get(filename, cls, method)
+
     filename = Path(file).name
     return _get_data
+
+
+class P2GTestCase(TestCase):
+    """ Base class for test cases (super().setUp() has to be called by subs).
+
+    Ensures that we always use the default config, even if one test changed it.
+    """
+
+    temp_dir: TemporaryDirectory | None
+
+    def __init__(self, methodName: str = "runTest") -> None:
+        super().__init__(methodName)
+
+    @classmethod
+    def setUpClass(cls: P2GTestCase, create_temp_dir: bool = False) -> None:
+        super().setUpClass()
+        cls.temp_dir = None
+        if create_temp_dir:
+            # TODO: Create a single pdf2gtfs temp dir, where all
+            #  test temp_dirs are located.
+            cls.temp_dir = TemporaryDirectory(prefix="pdf2gtfs_test_")
+
+    @classmethod
+    def tearDownClass(cls: P2GTestCase) -> None:
+        super().tearDownClass()
+        if cls.temp_dir is not None:
+            cls.temp_dir.cleanup()
+
+    def setUp(self) -> None:
+        super().setUp()
+        # Reset the config. Easier/Less error-prone than cleaning up properly.
+        Config.load_default_config()

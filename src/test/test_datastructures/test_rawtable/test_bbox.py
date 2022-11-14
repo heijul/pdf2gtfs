@@ -1,9 +1,8 @@
-from unittest import TestCase
-
+from test import P2GTestCase
 from datastructures.pdftable.bbox import BBox, BBoxObject
 
 
-class TestBBox(TestCase):
+class TestBBox(P2GTestCase):
     def setUp(self) -> None:
         self.bbox1 = BBox(5, 10, 10, 15)
         self.bbox2 = BBox(10, 15, 15, 20)
@@ -34,7 +33,7 @@ class TestBBox(TestCase):
         self.assertEqual(10, self.bbox2.y_distance(self.bbox3))
 
 
-class TestBBoxObject(TestCase):
+class TestBBoxObject(P2GTestCase):
     def setUp(self) -> None:
         self.obj1 = BBoxObject()
         self.obj2 = BBoxObject(BBox(5, 10, 10, 20))

@@ -11,7 +11,7 @@ from datastructures.gtfs_output.stop import GTFSStopEntry
 from datastructures.gtfs_output.stop_times import Time
 from main import get_timetables
 from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
-from test import get_data_gen
+from test import get_data_gen, P2GTestCase
 
 
 class TestHandler(GTFSOutputBaseClass):
@@ -263,7 +263,7 @@ class TestHandler(GTFSOutputBaseClass):
                 self.assertEqual(temp_dir.resolve(), filepaths[i].parent)
 
 
-class TestHandlerHelpers(GTFSOutputBaseClass):
+class TestHandlerHelpers(P2GTestCase):
     def setUp(self) -> None:
         Config.filename = "input_pdf_123"
 

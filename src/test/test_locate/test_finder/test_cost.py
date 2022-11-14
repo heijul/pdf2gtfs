@@ -1,10 +1,10 @@
 from math import inf
-from unittest import TestCase
 
 from locate.finder.cost import Cost
+from test import P2GTestCase
 
 
-class TestCost(TestCase):
+class TestCost(P2GTestCase):
     def setUp(self) -> None:
         self.cost_1 = Cost(1, 2, 3, 4)
         self.cost_2 = Cost(5, 4, 3, 2)

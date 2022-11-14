@@ -1,12 +1,11 @@
-from unittest import TestCase
-
 from config import Config
 from locate.finder import Nodes
 from test_locate.test_finder import (
     get_stops_and_dummy_df, get_stops_from_stops_list)
+from test import P2GTestCase
 
 
-class TestNode(TestCase):
+class TestNode(P2GTestCase):
     def setUp(self) -> None:
         Config.average_speed = 10
         stops_list, self.df = get_stops_and_dummy_df()

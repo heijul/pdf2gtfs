@@ -1,13 +1,13 @@
 from pathlib import Path
-from unittest import TestCase
 
 from config import Config
 from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.stop_times import GTFSStopTimes, Time
 from test_datastructures.test_timetable import create_stops
+from test import P2GTestCase
 
 
-class TestTime(TestCase):
+class TestTime(P2GTestCase):
     def setUp(self) -> None:
         self.t1 = Time(4, 20, 40)
         self.t2 = Time(4, 40, 20)
@@ -74,7 +74,7 @@ class TestTime(TestCase):
         self.assertEqual(self.t1.seconds, 2)
 
 
-class TestStopTimes(TestCase):
+class TestStopTimes(P2GTestCase):
     def setUp(self) -> None:
         dummy_dir = Path("")
         self.trip_id = 1

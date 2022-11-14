@@ -1,15 +1,12 @@
-from unittest import mock, TestCase
+from unittest import mock
 
 from config import Config
 from datastructures.gtfs_output.stop_times import Time
 from test_locate.test_finder import get_stops_from_stops_list
+from test import P2GTestCase
 
 
-class TestStop(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        Config.load_default_config()
-
+class TestStop(P2GTestCase):
     def setUp(self) -> None:
         stop_list = [("0", "stop_0"), ("1", "stop_1")]
         self.stops = get_stops_from_stops_list(stop_list)

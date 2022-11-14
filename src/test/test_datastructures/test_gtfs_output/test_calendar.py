@@ -1,12 +1,11 @@
 from pathlib import Path
-from unittest import TestCase
 
 from datastructures.gtfs_output.calendar import (
-    GTFSCalendar, GTFSCalendarEntry, DayIsActive, WEEKDAY_NAMES)
+    DayIsActive, GTFSCalendar, GTFSCalendarEntry, WEEKDAY_NAMES)
 from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
-class TestCalendarEntry(TestCase):
+class TestCalendarEntry(GTFSOutputBaseClass):
     def setUp(self) -> None:
         days = ["0", "1", "2", "3", "4"]
         self.weekdays_1 = GTFSCalendarEntry(days)

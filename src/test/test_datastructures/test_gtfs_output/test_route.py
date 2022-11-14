@@ -1,14 +1,14 @@
 from pathlib import Path
-from unittest import TestCase
 
 from config import Config
 from datastructures.gtfs_output.routes import (
     GTFSRouteEntry, GTFSRoutes, RouteType)
 from datastructures.timetable.entries import TimeTableEntry
 from test_datastructures.test_timetable import create_stops
+from test import P2GTestCase
 
 
-class TestRouteType(TestCase):
+class TestRouteType(P2GTestCase):
     def test_to_output(self) -> None:
         routetype = RouteType.Tram
         self.assertEqual(routetype.to_output(), "0")
@@ -18,7 +18,7 @@ class TestRouteType(TestCase):
         self.assertEqual(routetype.to_output(), "6")
 
 
-class TestRoute(TestCase):
+class TestRoute(P2GTestCase):
     def test_eq(self) -> None:
         r1 = GTFSRouteEntry("1", "short_name", "long_name")
         r2 = GTFSRouteEntry("1", "short_name", "long_name")
@@ -46,7 +46,7 @@ class TestRoute(TestCase):
         self.assertEqual(Config.gtfs_routetype, route.route_type)
 
 
-class TestRoutes(TestCase):
+class TestRoutes(P2GTestCase):
     def test_names_from_entry(self) -> None:
         stops = create_stops(3)
         e = TimeTableEntry("montag-freitag")

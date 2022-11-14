@@ -11,15 +11,6 @@ class TestAgency(GTFSOutputBaseClass):
     def setUpClass(cls, name="agency.txt") -> None:
         super().setUpClass(name)
 
-    def setUp(self) -> None:
-        Config.output_path = self.temp_dir.name
-
-    def tearDown(self) -> None:
-        try:
-            os.unlink(self.filename)
-        except OSError:
-            pass
-
     def _create_agency(self, entry_count: int = 1):
         lines = ["agency_id,agency_name,agency_url,agency_timezone"]
         lines += [f"{i},agency_{i},https://www.pdf2gtfs.com/{i},Europe/Berlin"

@@ -1,10 +1,10 @@
-from unittest import TestCase
-
 from config import Config
 from utils import replace_abbreviations
 
+from test import P2GTestCase
 
-class TestUtils(TestCase):
+
+class TestUtils(P2GTestCase):
     def test_replace_abbreviations__no_dot(self) -> None:
         Config.name_abbreviations = {"str": "strasse"}
         names = {"hauptstr.": "hauptstr.",
