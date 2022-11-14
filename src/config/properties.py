@@ -73,6 +73,10 @@ class BoundsProperty(Property):
     def __init__(self, cls, attr, attr_type: type, lower=None, upper=None
                  ) -> None:
         super().__init__(cls, attr, attr_type)
+        if lower:
+            self._validate_type(lower)
+        if upper:
+            self._validate_type(upper)
         self.lower = lower
         self.upper = upper
 
@@ -134,7 +138,7 @@ def value_to_generic(base_value: Any) -> type:
         return base_type
     if base_type is dict:
         return base_type.__class_getitem__(get_dict_item_types())
-    if isinstance(base_value, Iterable):
+    if isinstance(base_value, Iterable) and base_value:
         return base_type.__class_getitem__(get_iter_item_types())
     return base_type
 
