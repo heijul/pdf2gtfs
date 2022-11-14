@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest import mock
 
 from config import Config
+from datastructures.gtfs_output.agency import GTFSAgency, GTFSAgencyEntry
 from test import P2GTestCase
 import user_input.cli as cli
 
@@ -15,6 +16,26 @@ def get_path_with_insufficient_permissions() -> str:
     if platform.system().lower() == "windows":
         return "C:/Windows/pdf2gtfs/"
     return "/pdf2gtfs/"
+
+
+def create_agency(path: Path, num: int, url: str = None, tz: str = None
+                  ) -> GTFSAgency:
+    if not url:
+        url = "https://www.pdf2gtfs.com"
+    if not tz:
+        tz = "Europe/Berlin"
+    agencies = []
+    for i in range(num):
+        agency_id = f"agency_{i}"
+        agency_entry = GTFSAgencyEntry(agency_id, url, tz, agency_id=agency_id)
+        agencies.append(agency_entry.to_output())
+
+    input_file = path.joinpath("agency.txt")
+    with open(input_file, "w") as file:
+        file.write("agency_id,agency_name,agency_url,agency_timezone")
+        file.write("\n" + "\n".join(agencies) + "\n")
+    Config.input_files = [input_file]
+    return GTFSAgency(path)
 
 
 class TestCLI(P2GTestCase):
@@ -144,6 +165,47 @@ class TestCLI(P2GTestCase):
         self.assertTrue(cli.ask_overwrite_existing_file(filename))
         self.assertFalse(cli.ask_overwrite_existing_file(filename))
         self.assertEqual(3, mock_input.call_count)
+
+    def test__get_agency_string(self) -> None:
+        widths = [5, 9, 11, 9, 8]
+        agency = ["agency_id", "agency_name", "url", "tz"]
+        result = "    0 | agency_id | agency_name |       url |       tz"
+        self.assertEqual(result, cli._get_agency_string("0", agency, widths))
+        result = "   12 | agency_id | agency_name |       url |       tz"
+        self.assertEqual(result, cli._get_agency_string("12", agency, widths))
+        agency = ["agency_id", "agency_name", "url", "timezone"]
+        result = "   12 | agency_id | agency_name |       url | timezone"
+        self.assertEqual(result, cli._get_agency_string("12", agency, widths))
+
+    def test__get_agency_header(self) -> None:
+        agency = create_agency(Path(self.temp_dir.name), 0)
+        result = ["agency_id", "agency_name", "agency_url", "agency_timezone"]
+        self.assertEqual(result, cli._get_agency_header(agency))
+
+    def test__get_agency_column_width(self) -> None:
+        path = Path(self.temp_dir.name)
+        agency = create_agency(path, 1)
+        result = [5, 9, 11, 24, 15]
+        self.assertEqual(result, cli._get_agency_column_widths(agency))
+        agency = create_agency(path, 1, "a", "agency_test_timezone")
+        result = [5, 9, 11, 10, 20]
+        self.assertEqual(result, cli._get_agency_column_widths(agency))
+
+    @mock.patch("user_input.cli.input", create=True)
+    def test__get_agency_prompt(self, mock_input: mock.Mock) -> None:
+        ...
+
+    @mock.patch("user_input.cli.input", create=True)
+    def test__select_agency(self, mock_input: mock.Mock) -> None:
+        agency = create_agency(Path(self.temp_dir.name), 3)
+        mock_input.side_effect = ["1"]
+        self.assertEqual(agency.entries[1], cli.select_agency(agency))
+        self.assertEqual(1, mock_input.call_count)
+        mock_input.reset_mock()
+        # IDs need to be between 1 and number of agencies.
+        mock_input.side_effect = ["3", "1"]
+        self.assertEqual(agency.entries[1], cli.select_agency(agency))
+        self.assertEqual(2, mock_input.call_count)
 
     @mock.patch("user_input.cli.input", create=True)
     def test_create_output_directory(self, mock_input: mock.Mock) -> None:
