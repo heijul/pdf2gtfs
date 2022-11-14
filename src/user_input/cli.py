@@ -92,7 +92,7 @@ def handle_annotations(annots: list[str]) -> AnnotException:
 
 
 # Overwrite handling.
-def overwrite_existing_file(filename: str | Path):
+def ask_overwrite_existing_file(filename: str | Path):
     """ Ask the user, if the given file should be overwritten. """
 
     msg = (f"The file '{filename}' already exists.\n"

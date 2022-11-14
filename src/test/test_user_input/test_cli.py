@@ -4,7 +4,7 @@ from unittest import mock
 
 from config import Config
 from test import P2GTestCase
-from user_input.cli import create_output_directory
+from user_input.cli import ask_overwrite_existing_file, create_output_directory
 
 
 def get_path_with_insufficient_permissions() -> str:
@@ -20,6 +20,17 @@ class TestCLI(P2GTestCase):
     @classmethod
     def setUpClass(cls: P2GTestCase, create_temp_dir: bool = True) -> None:
         super().setUpClass(create_temp_dir)
+
+    @mock.patch("user_input.cli.input", create=True)
+    def test_ask_overwrite_existing_file(self, mock_input: mock.Mock) -> None:
+        filename = Path(self.temp_dir.name).joinpath("test.zip")
+        with open(filename, "w") as fil:
+            fil.write("test_ask_overwrite")
+        mock_input.side_effect = ["n", "y", "n"]
+        self.assertFalse(ask_overwrite_existing_file(filename))
+        self.assertTrue(ask_overwrite_existing_file(filename))
+        self.assertFalse(ask_overwrite_existing_file(filename))
+        self.assertEqual(3, mock_input.call_count)
 
     @mock.patch("user_input.cli.input", create=True)
     def test_create_output_directory(self, mock_input: mock.Mock) -> None:

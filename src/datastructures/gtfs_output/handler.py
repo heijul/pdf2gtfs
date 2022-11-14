@@ -27,7 +27,7 @@ from datastructures.timetable.entries import (
 from locate import Node
 from locate.finder.loc_nodes import MNode
 from user_input.cli import (
-    handle_annotations, overwrite_existing_file, select_agency)
+    handle_annotations, ask_overwrite_existing_file, select_agency)
 
 
 if TYPE_CHECKING:
@@ -292,7 +292,7 @@ class GTFSHandler:
         # try to create it again. This will ensure a different filepath.
         # Otherwise the user needs to decide what to do.
         if archive_path.exists() and archive_path == Config.output_path:
-            overwrite_existing_file(archive_path)
+            ask_overwrite_existing_file(archive_path)
         elif archive_path.exists():
             sleep(1)
             return self.create_zip_archive()
