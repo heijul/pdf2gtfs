@@ -23,6 +23,36 @@ class TestCLI(P2GTestCase):
         kwargs = {"create_temp_dir": True, "disable_logging": True}
         super().setUpClass(**kwargs)
 
+    @mock.patch("user_input.cli.input", create=True)
+    def test__get_input(self, mock_input: mock.Mock) -> None:
+        def check(answer: str) -> bool:
+            return answer == "valid" or answer == ""
+
+        mock_input.side_effect = ["invalid", "invalid", "valid", "invalid"]
+        self.assertEqual("invalid", cli._get_input("test", ["invalid"], ""))
+        self.assertEqual(1, mock_input.call_count)
+        mock_input.reset_mock()
+        mock_input.side_effect = ["invalid", "invalid", "valid", "invalid"]
+        self.assertEqual("valid", cli._get_input("test", check, ""))
+        self.assertEqual(3, mock_input.call_count)
+
+    @mock.patch("user_input.cli.input", create=True)
+    def test__get_inputs(self, mock_input: mock.Mock) -> None:
+        def check(answer: str) -> bool:
+            return answer == "valid" or answer == ""
+
+        mock_input.side_effect = ["valid", "valid", "invalid", "test", ""]
+        results = cli._get_inputs("test", check, "")
+        self.assertEqual(["valid", "valid"], results)
+        self.assertEqual(5, mock_input.call_count)
+        mock_input.reset_mock()
+
+        mock_input.side_effect = ["valid", "valid", "invalid", "test", ""]
+        results = cli._get_inputs("", ["invalid", "test", ""], "")
+        self.assertEqual(["invalid", "test"], results)
+        self.assertEqual(5, mock_input.call_count)
+        mock_input.reset_mock()
+
     def test__to_date(self) -> None:
         dates = ["20221004", "20221231", "20220229", "20240229",
                  "no date", ""]
