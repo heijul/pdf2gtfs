@@ -72,7 +72,7 @@ def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     logger.info(f"Calculating location costs based on the selected "
-                f"routetype '{Config.gtfs_routetype.name}'...")
+                f"routetype '{Config.gtfs_routetype}'...")
     t = time()
     # Calculate node score.
     full_df = node_score_strings_to_int(df)

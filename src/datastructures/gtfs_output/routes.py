@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, Field
-from enum import Enum
+from enum import IntEnum
 from pathlib import Path
 from time import strptime
 from typing import TYPE_CHECKING
@@ -18,26 +18,58 @@ if TYPE_CHECKING:
     from datastructures.timetable.entries import TimeTableEntry
 
 
-class RouteType(Enum):
+def get_route_type(value: str) -> RouteType | None:
+    """ Return the route type, depending on value.
+
+    If value is a string containing a number, return the first RouteType using
+    that value as GTFS routetype value. If it is a string, return the
+    corresponding RouteType.
+    """
+    value = value.strip().lower()
+    if value.isnumeric():
+        for route_type, route_value in ROUTE_TYPE_TO_INT.items():
+            if route_value == int(value):
+                return route_type
+        return None
+    for route_type in ROUTE_TYPE_TO_INT:
+        if value == str(route_type.name).lower():
+            return route_type
+    return None
+
+
+def get_route_type_gtfs_value(route_type: RouteType):
+    """ Return the value used in GTFS for the given routetype. """
+    return ROUTE_TYPE_TO_INT[route_type]
+
+
+class RouteType(IntEnum):
     """ The routetype as described by the gtfs. """
     Tram = 0
-    StreetCar = 0
-    LightRail = 0
-    Subway = 1
-    Metro = 1
-    Rail = 2
-    Bus = 3
-    Ferry = 4
-    CableTram = 5
-    AerialLift = 6
-    SuspendedCableCar = 6
-    Funicular = 7
-    Trolleybus = 11
-    Monorail = 12
+    StreetCar = 1
+    LightRail = 2
+    Subway = 3
+    Metro = 4
+    Rail = 5
+    Bus = 6
+    Ferry = 7
+    CableTram = 8
+    AerialLift = 9
+    SuspendedCableCar = 10
+    Funicular = 11
+    Trolleybus = 12
+    Monorail = 13
 
     def to_output(self) -> str:
         """ Numerical string of the current value. """
-        return str(self.value)
+        return str(get_route_type_gtfs_value(self))
+
+
+ROUTE_TYPE_TO_INT = {
+    RouteType.Tram: 0, RouteType.StreetCar: 0, RouteType.LightRail: 0,
+    RouteType.Subway: 1, RouteType.Metro: 1, RouteType.Rail: 2,
+    RouteType.Bus: 3, RouteType.Ferry: 4, RouteType.CableTram: 5,
+    RouteType.AerialLift: 6, RouteType.SuspendedCableCar: 6,
+    RouteType.Funicular: 7, RouteType.Trolleybus: 11, RouteType.Monorail: 12}
 
 
 @dataclass
@@ -57,7 +89,7 @@ class GTFSRouteEntry(BaseDataClass):
         self.agency_id = agency_id
         self.route_long_name = long_name
         self.route_short_name = short_name
-        route_type = route_type or config.Config.gtfs_routetype
+        route_type = route_type or RouteType[config.Config.gtfs_routetype]
         self.route_type: RouteType = route_type
 
     def get_field_value(self, field: Field):

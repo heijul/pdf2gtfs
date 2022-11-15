@@ -40,7 +40,7 @@ def get_osm_values() -> dict[str: OSMValue]:
 
 def get_osm_value() -> OSMValue:
     """ Get the values for the current routetype. """
-    return get_osm_values()[Config.gtfs_routetype.name]()
+    return get_osm_values()[Config.gtfs_routetype]()
 
 
 class OSMValue:

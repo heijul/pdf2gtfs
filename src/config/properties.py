@@ -18,7 +18,8 @@ from zipfile import ZipFile
 from holidays.utils import list_supported_countries
 
 import config.errors as err
-from datastructures.gtfs_output.routes import RouteType
+from datastructures.gtfs_output.routes import (
+    get_route_type, get_route_type_gtfs_value)
 
 
 if TYPE_CHECKING:
@@ -423,16 +424,23 @@ class RouteTypeProperty(Property):
     """ Property for the gtfs_routetype. """
 
     def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, RouteType)
+        super().__init__(cls, attr, str)
 
-    def __set__(self, obj, value: str | int) -> None:
-        value = value.strip()
-        value = int(value) if value.isnumeric() else value
-        if isinstance(value, str):
-            value = RouteType[value]
-        elif isinstance(value, int):
-            value = RouteType(value)
-        return super().__set__(obj, value)
+    def validate(self, value: str) -> None:
+        """ Checks if there are any obvious errors with the value. """
+        super().validate(value)
+        self._validate_route_type(value)
+
+    @staticmethod
+    def _validate_route_type(value: str) -> None:
+        route_type = get_route_type(value)
+        if route_type is None:
+            raise err.InvalidRouteTypeValueError
+
+    def __set__(self, obj, value: str) -> None:
+        self.validate(value)
+        route_type = get_route_type(value)
+        return super().__set__(obj, route_type.name)
 
 
 class OutputPathProperty(Property):
@@ -528,10 +536,11 @@ class AverageSpeedProperty(IntBoundsProperty):
         value = super().__get__(obj, objtype)
         if value != 0:
             return value
-        routetype = int(getattr(obj, "gtfs_routetype").value)
+        routetype = get_route_type(obj.gtfs_routetype)
+
         defaults = {0: 25, 1: 35, 2: 50, 3: 15, 4: 20,
                     5: 10, 6: 10, 7: 10, 11: 15, 12: 35}
-        return defaults[routetype]
+        return defaults[get_route_type_gtfs_value(routetype)]
 
 
 class InputProperty(NestedTypeProperty):
