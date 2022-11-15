@@ -299,7 +299,7 @@ class HolidayCodeProperty(NestedTypeProperty):
         self._validate_holiday_code(value)
 
     def _validate_holiday_code(self, value: dict[str, str]) -> None:
-        country = value.get("country").lower()
+        country = value.get("country", "").lower()
         # Automatic adding of holiday dates is disabled.
         if not country:
             return
@@ -311,7 +311,7 @@ class HolidayCodeProperty(NestedTypeProperty):
             logger.warning(f"Invalid country code '{country}' "
                            f"for {self.attr} entry.")
             raise err.InvalidHolidayCodeError
-        sub = value.get("subdivision").lower()
+        sub = value.get("subdivision", "").lower()
         if not sub or sub in supported_countries[country]:
             return
         logger.warning(f"Invalid subdivision code '{sub}' for valid "
@@ -320,8 +320,8 @@ class HolidayCodeProperty(NestedTypeProperty):
 
     def __set__(self, obj, raw_value: dict):
         self.validate(raw_value)
-        value = (raw_value.get("country").upper(),
-                 raw_value.get("subdivision").upper())
+        value = (raw_value.get("country", "").upper(),
+                 raw_value.get("subdivision", "").upper())
         if not value[0]:
             value = (None, None)
 

@@ -89,7 +89,7 @@ class GTFSRouteEntry(BaseDataClass):
         self.agency_id = agency_id
         self.route_long_name = long_name
         self.route_short_name = short_name
-        route_type = route_type or RouteType[config.Config.gtfs_routetype]
+        route_type = route_type or get_route_type(config.Config.gtfs_routetype)
         self.route_type: RouteType = route_type
 
     def get_field_value(self, field: Field):

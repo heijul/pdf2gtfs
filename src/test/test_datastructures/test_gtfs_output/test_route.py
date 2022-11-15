@@ -2,7 +2,8 @@ from pathlib import Path
 
 from config import Config
 from datastructures.gtfs_output.routes import (
-    GTFSRouteEntry, GTFSRoutes, RouteType)
+    get_route_type, get_route_type_gtfs_value, GTFSRouteEntry, GTFSRoutes,
+    RouteType)
 from datastructures.timetable.entries import TimeTableEntry
 from test_datastructures.test_timetable import create_stops
 from test import P2GTestCase
@@ -14,8 +15,9 @@ class TestRouteType(P2GTestCase):
         self.assertEqual(routetype.to_output(), "0")
         routetype = RouteType.AerialLift
         self.assertEqual(routetype.to_output(), "6")
+        # RouteType ID and GTFS ID are different.
         routetype = RouteType(6)
-        self.assertEqual(routetype.to_output(), "6")
+        self.assertEqual(routetype.to_output(), "3")
 
 
 class TestRoute(P2GTestCase):
@@ -43,7 +45,9 @@ class TestRoute(P2GTestCase):
 
     def test_route_type(self) -> None:
         route = GTFSRouteEntry("1", "short", "long")
-        self.assertEqual(Config.gtfs_routetype, route.route_type)
+        route_type = get_route_type(Config.gtfs_routetype)
+        self.assertEqual(
+            get_route_type_gtfs_value(route_type), route.route_type)
 
 
 class TestRoutes(P2GTestCase):
