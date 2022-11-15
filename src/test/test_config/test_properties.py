@@ -274,7 +274,35 @@ class TestHolidayCodeProperty(PropertyTestCase):
                    ("DE", "")]
         for i, (value, result) in enumerate(zip(values, results, strict=True)):
             with self.subTest(i=i):
-                prop.__set__(self.dummy,
-                             {"country": value[0], "subdivision": value[1]})
+                prop.__set__(
+                    self.dummy, {"country": value[0], "subdivision": value[1]})
+                self.assertEqual(result, prop.__get__(self.dummy))
 
+
+class TestRouteTypeProperty(PropertyTestCase):
+    def get_property(self, name: str) -> p.RouteTypeProperty | None:
+        return super().get_property(name)
+
+    def test__validate_route_type(self) -> None:
+        valid_values = ["Tram", "tram", "TRAM", "1", "2", "3", "11", "12"]
+        invalid_values = ["tr a m", "test", "22"]
+        for i, valid_value in enumerate(valid_values):
+            with self.subTest(i=i):
+                try:
+                    p.RouteTypeProperty._validate_route_type(valid_value)
+                except err.InvalidRouteTypeValueError:
+                    self.fail("InvalidRouteTypeValueError raised")
+        for j, invalid_value in enumerate(invalid_values):
+            with (self.subTest(j=j),
+                  self.assertRaises(err.InvalidRouteTypeValueError)):
+                p.RouteTypeProperty._validate_route_type(invalid_value)
+
+    def test___set__(self) -> None:
+        prop = p.RouteTypeProperty(self.dummy, "prop")
+        values = ["Tram", "tram", "bus", "Bus", "0", "2", "3", "5", "11", "12"]
+        results = ["Tram", "Tram", "Bus", "Bus", "Tram", "Rail", "Bus",
+                   "CableTram", "Trolleybus", "Monorail"]
+        for i, (value, result) in enumerate(zip(values, results, strict=True)):
+            with self.subTest(i=i):
+                prop.__set__(self.dummy, value)
                 self.assertEqual(result, prop.__get__(self.dummy))
