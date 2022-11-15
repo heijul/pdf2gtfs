@@ -1,6 +1,8 @@
-from config import InstanceDescriptorMixin
-import config.properties as p
+from pathlib import Path
+
 import config.errors as err
+import config.properties as p
+from config import InstanceDescriptorMixin
 from test import P2GTestCase
 
 
@@ -306,3 +308,120 @@ class TestRouteTypeProperty(PropertyTestCase):
             with self.subTest(i=i):
                 prop.__set__(self.dummy, value)
                 self.assertEqual(result, prop.__get__(self.dummy))
+
+
+class TestOutputPathProperty(PropertyTestCase):
+    @classmethod
+    def setUpClass(cls: P2GTestCase, **kwargs) -> None:
+        kwargs["create_temp_dir"] = True
+        super().setUpClass(**kwargs)
+
+    def get_property(self, name: str) -> p.OutputPathProperty | None:
+        return super().get_property(name)
+
+    def test__validate_path(self) -> None:
+        path = Path(self.temp_dir.name)
+        existing_zip_path = path.joinpath("test_exists.zip")
+        invalid_file_ending = path.joinpath("test.txt")
+        # Create empty zip.
+        for file_name in existing_zip_path, invalid_file_ending:
+            with open(file_name, "w") as file:
+                file.write("")
+        non_existing_zip_path = path.joinpath("tests_new.zip")
+        invalid_file_ending = path.joinpath("test.txt")
+
+        valid_values = [path, non_existing_zip_path, existing_zip_path]
+        invalid_values = [invalid_file_ending]
+        for i, valid_value in enumerate(valid_values):
+            with self.subTest(i=i):
+                try:
+                    p.OutputPathProperty._validate_path(valid_value)
+                except err.InvalidOutputPathError:
+                    self.fail("InvalidOutputPathError raised")
+        for j, invalid_value in enumerate(invalid_values):
+            with (self.subTest(j=j),
+                  self.assertRaises(err.InvalidOutputPathError)):
+                p.OutputPathProperty._validate_path(invalid_value)
+
+    def test___set__(self) -> None:
+        self.dummy.prop = p.OutputPathProperty(self.dummy, "prop")
+        path = Path(self.temp_dir.name)
+        zip_path = path.joinpath("test.zip")
+        values = [str(path), zip_path, str(zip_path)]
+        results = [path, zip_path, zip_path]
+        for i, (value, result) in enumerate(zip(values, results, strict=True)):
+            self.get_property("prop").__set__(self.dummy, value)
+            self.assertEqual(result, self.dummy.prop)
+
+
+class TestDateBoundsProperty(PropertyTestCase):
+    def get_property(self, name: str) -> p.DateBoundsProperty | None:
+        return super().get_property(name)
+
+    def test_clean_value(self) -> None:
+        valid_values = ["", ["", ""], ["20221004", ""], ["", "20221004"]]
+        invalid_values = [[""], ["20220229", ""], ["202202", ""]]
+        for i, valid_value in enumerate(valid_values):
+            with self.subTest(i=i):
+                try:
+                    p.DateBoundsProperty.clean_value(valid_value)
+                except err.InvalidDateBoundsError:
+                    self.fail("InvalidDateBoundsError raised")
+        for j, invalid_value in enumerate(invalid_values):
+            with (self.subTest(j=j),
+                  self.assertRaises(err.InvalidDateBoundsError)):
+                p.DateBoundsProperty.clean_value(invalid_value)
+
+    def test___set__(self) -> None:
+        self.dummy.prop = p.DateBoundsProperty(self.dummy, "prop")
+        values = ["", ["20220202", "20221010"]]
+        for i, value in enumerate(values):
+            with self.subTest(i=i):
+                self.dummy.prop = value
+                result = p.DateBoundsProperty.clean_value(value)
+                self.assertEqual(result, self.dummy.prop)
+
+
+class TestAbbrevProperty(PropertyTestCase):
+    def get_property(self, name: str) -> p.AbbrevProperty | None:
+        return super().get_property(name)
+
+    def test_clean_value(self) -> None:
+        values = {"hbf.": "hauptbahnhof", "bf.    ": "bahnhof",
+                  "bf": "Bahnhof",
+                  "longtest": "shorter", "ßhorttest": "longer  "}
+        clean_values = {"sshorttest": "longer", "longtest": "shorter",
+                        "hbf.": "hauptbahnhof", "bf.": "bahnhof",
+                        "bf": "bahnhof"}
+        self.assertEqual(clean_values, p.AbbrevProperty.clean_value(values))
+
+    def test___set__(self) -> None:
+        self.dummy.prop = p.AbbrevProperty(self.dummy, "prop")
+        values = [{"a": "am", "aa": "aam"}, {},
+                  {"hbf.": "hauptbahnhof", "bf.    ": "bahnhof",
+                   "bf": "Bahnhof", "longtest": "shorter",
+                   "ßhorttest": "longer  "}]
+        for i, value in enumerate(values):
+            with self.subTest(i=i):
+                clean_value = p.AbbrevProperty.clean_value(value)
+                self.get_property("prop").__set__(self.dummy, value)
+                self.assertEqual(clean_value, self.dummy.prop)
+
+
+class TestAverageSpeedProperty(PropertyTestCase):
+    def get_property(self, name: str) -> p.AverageSpeedProperty | None:
+        return super().get_property(name)
+
+    def test___get__(self) -> None:
+        self.dummy.prop = p.AverageSpeedProperty(self.dummy, "prop")
+        # Default average speed depends on the route type,
+        # but only if it is set to 0.
+        self.dummy.prop = 0
+        prop = self.get_property("prop")
+        self.dummy.gtfs_routetype = "tram"
+        self.assertEqual(25, prop.__get__(self.dummy))
+        self.dummy.gtfs_routetype = "monorail"
+        self.assertEqual(35, prop.__get__(self.dummy))
+        for value in range(1, 201):
+            self.dummy.prop = value
+            self.assertEqual(value, prop.__get__(self.dummy))

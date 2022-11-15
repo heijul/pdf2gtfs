@@ -449,13 +449,8 @@ class OutputPathProperty(Property):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, Path)
 
-    def __set__(self, obj, value: str | Path) -> None:
-        if isinstance(value, Path):
-            super().__set__(obj, value)
-            return
-        if not isinstance(value, str):
-            raise err.InvalidPropertyTypeError
-        path = Path(value.strip()).resolve()
+    @staticmethod
+    def _validate_path(path: Path) -> None:
         is_zip_name = path.name.endswith(".zip")
 
         if path.exists() and path.is_file() and not is_zip_name:
@@ -476,6 +471,12 @@ class OutputPathProperty(Property):
             logger.info(f"Output directory '{dir_path}' does not exist "
                         f"and will be created.")
 
+    def __set__(self, obj, value: str | Path) -> None:
+        if isinstance(value, Path):
+            super().__set__(obj, value)
+            return
+
+        path = Path(value.strip()).resolve()
         super().__set__(obj, path)
 
 
@@ -485,7 +486,10 @@ class DateBoundsProperty(Property):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, list)
 
-    def __set__(self, obj, value: list[str | dt.date]):
+    @staticmethod
+    def clean_value(value: str | list[str | dt.date]
+                    ) -> list[dt.datetime, dt.datetime]:
+        """ Return the value in the valid format or raise an error. """
         year = dt.date.today().year
         try:
             if value == "":
@@ -496,12 +500,13 @@ class DateBoundsProperty(Property):
                 value[0] = f"{year}0101"
             if value[1] == "":
                 value[1] = f"{year}1231"
-            value[0] = dt.datetime.strptime(value[0], "%Y%m%d")
-            value[1] = dt.datetime.strptime(value[1], "%Y%m%d")
+            return [dt.datetime.strptime(value[0], "%Y%m%d"),
+                    dt.datetime.strptime(value[1], "%Y%m%d")]
         except (TypeError, KeyError, IndexError, ValueError):
             raise err.InvalidDateBoundsError
 
-        super().__set__(obj, value)
+    def __set__(self, obj, value: list[str | dt.date]):
+        super().__set__(obj, self.clean_value(value))
 
 
 class AbbrevProperty(NestedTypeProperty):
@@ -510,18 +515,21 @@ class AbbrevProperty(NestedTypeProperty):
     def __init__(self, cls, attr) -> None:
         super().__init__(cls, attr, dict[str: str])
 
-    def __set__(self, obj, value: Any):
+    @staticmethod
+    def clean_value(value: dict[str: str]) -> dict[str: str]:
+        """ Sort the abbreviations by length and normalize them. """
+
         def _clean(string: str) -> str:
             return string.strip().lower().casefold()
 
-        if isinstance(value, dict):
-            value = {_clean(key): _clean(val) for key, val in value.items()}
-            # Longer keys should come first, to prevent "hbf." to be changed
-            #  to "hbahnhof", if both "hbf" and "bf" are given.
-            value = dict(
-                sorted(value.items(), key=lambda x: len(x[0]), reverse=True))
+        value = {_clean(key): _clean(val) for key, val in value.items()}
+        # Longer keys should come first, to prevent "hbf." to be changed
+        #  to "hbahnhof", if both "hbf" and "bf" are given.
+        return dict(
+            sorted(value.items(), key=lambda x: len(x[0]), reverse=True))
 
-        super().__set__(obj, value)
+    def __set__(self, obj, value: Any):
+        super().__set__(obj, self.clean_value(value))
 
 
 class AverageSpeedProperty(IntBoundsProperty):
