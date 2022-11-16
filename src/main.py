@@ -3,6 +3,7 @@ from the given pdf file. """
 
 import logging
 import sys
+from time import time
 from typing import TYPE_CHECKING
 
 from config import Config
@@ -48,6 +49,7 @@ def match_coordinates(gtfs_handler: GTFSHandler) -> list[Node]:
 
 def main() -> None:
     """ Main function. """
+    start = time()
     parse_args()
     initialize_logging(logging.DEBUG)
 
@@ -62,6 +64,7 @@ def main() -> None:
         route = match_coordinates(handler)
         handler.add_coordinates(route)
     handler.write_files_to_temp()
+    logger.info(f"Export complete. Took {time() - start:.2f}s. Exiting...")
 
 
 if __name__ == "__main__":
