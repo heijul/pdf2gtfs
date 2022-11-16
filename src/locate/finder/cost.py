@@ -11,13 +11,14 @@ class Cost:
 
     def __init__(self, parent_cost: float = None, node_cost: float = None,
                  name_cost: float = None, travel_cost: float = None) -> None:
-        def _get_cost(cost: float) -> float:
-            return inf if cost is None or cost < 0 else cost
+        self.parent_cost = self._get_cost(parent_cost)
+        self.node_cost = self._get_cost(node_cost)
+        self.name_cost = self._get_cost(name_cost)
+        self.travel_cost = self._get_cost(travel_cost)
 
-        self.parent_cost = _get_cost(parent_cost)
-        self.node_cost = _get_cost(node_cost)
-        self.name_cost = _get_cost(name_cost)
-        self.travel_cost = _get_cost(travel_cost)
+    @staticmethod
+    def _get_cost(cost: float | None) -> float:
+        return inf if cost is None or cost < 0 else cost
 
     @property
     def as_float(self) -> float:
