@@ -24,12 +24,6 @@ class BaseDataClass:
     def __init__(self, existing_id: str | None = None) -> None:
         self.id: str = next_uid() if existing_id is None else existing_id
 
-    @classmethod
-    def get_field_names(cls: BaseDataClass) -> str:
-        """ Returns the field_names (headers) of the entry. """
-        # STYLE: move to BaseContainer, bc a file has headers not an entry?
-        return ",".join([field.name for field in fields(cls)])
-
     def get_field_value(self, field: Field):
         """ Returns the value of the given field. """
         return getattr(self, field.name)

@@ -19,7 +19,7 @@ class GTFSAgencyEntry(BaseDataClass):
     agency_timezone: str
 
     def __init__(self, name: str, url: str, timezone: str,
-                 *, agency_id: str = None):
+                 agency_id: str = None):
         super().__init__(agency_id)
         self.agency_id = self.id
         self.agency_name = name
@@ -32,7 +32,7 @@ class GTFSAgencyEntry(BaseDataClass):
         return GTFSAgencyEntry(series["agency_name"],
                                series["agency_url"],
                                series["agency_timezone"],
-                               agency_id=series["agency_id"])
+                               series["agency_id"])
 
     @property
     def values(self) -> list[str]:
