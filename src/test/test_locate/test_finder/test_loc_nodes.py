@@ -155,6 +155,3 @@ class TestHeapNode(P2GTestCase):
 
 def test_calculate_travel_cost_between() -> None:
     ...
-
-
-
