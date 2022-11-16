@@ -107,9 +107,9 @@ class GTFSRouteEntry(BaseDataClass):
     @staticmethod
     def from_series(s: pd.Series) -> GTFSRouteEntry:
         """ Creates a new GTFSTrip from the given series. """
-        return GTFSRouteEntry(s["agency_id"], s["short_name"],
-                              s["long_name"], s["route_id"],
-                              RouteType(s["route_type"]))
+        return GTFSRouteEntry(s["agency_id"], s["route_short_name"],
+                              s["route_long_name"], s["route_id"],
+                              get_route_type(s["route_type"]))
 
 
 class GTFSRoutes(BaseContainer):
