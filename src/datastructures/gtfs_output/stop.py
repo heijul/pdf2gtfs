@@ -31,20 +31,10 @@ class GTFSStopEntry(BaseDataClass):
         self.stop_id = self.id
         self.stop_name = name
         self.normalized_name = normalize_name(name)
-        self._stop_lat = None
-        self._stop_lon = None
+        self.stop_lat = None
+        self.stop_lon = None
         self.stop_desc = ""
         self.used_in_timetable = False
-
-    @property
-    def stop_lat(self) -> float | None:
-        """ The latitude of the GTFSStop. """
-        return self._stop_lat
-
-    @property
-    def stop_lon(self) -> float | None:
-        """ The longitude of the GTFSStop. """
-        return self._stop_lon
 
     @property
     def valid(self) -> bool:
@@ -53,14 +43,15 @@ class GTFSStopEntry(BaseDataClass):
                 self.stop_lat is not None
                 and self.stop_lon is not None)
 
-    def set_location(self, lat: float, lon: float, missing: bool) -> None:
+    def set_location(self, lat: float | None, lon: float | None,
+                     missing: bool) -> None:
         """ Set the location to the given latitude/longitude. """
         interpolate = Config.interpolate_missing_locations
         if (missing and not interpolate) or lat is None or lon is None:
             lat = None
             lon = None
-        self._stop_lat = lat
-        self._stop_lon = lon
+        self.stop_lat = lat
+        self.stop_lon = lon
         if missing and interpolate:
             self.stop_desc = ("Location interpolated by pdf2gtfs using "
                               "the surrounding locations.")
@@ -76,7 +67,13 @@ class GTFSStopEntry(BaseDataClass):
     def from_series(s: pd.Series) -> GTFSStopEntry:
         """ Creates a new GTFSStop from the given series. """
         stop = GTFSStopEntry(s["stop_name"], s["stop_id"])
-        stop.set_location(s.get("stop_lat"), s.get("stop_lon"), False)
+        try:
+            lat = float(s["stop_lat"])
+            lon = float(s["stop_lon"])
+        except (ValueError, KeyError):
+            lat = None
+            lon = None
+        stop.set_location(lat, lon, False)
         stop.stop_desc = s.get("stop_desc")
         return stop
 
@@ -101,15 +98,14 @@ class GTFSStops(BaseContainer):
     def get(self, stop_name: str) -> GTFSStopEntry:
         """ Return the GTFSStop with the given stop_name. """
         for entry in self.entries:
-            if entry.normalized_name != stop_name:
+            if entry.normalized_name != normalize_name(stop_name):
                 continue
             return entry
 
     def get_by_stop_id(self, stop_id: str) -> GTFSStopEntry:
         """ Return the GTFSStop with the given stop_id.
 
-        If no such GTFSStop exists, will either return None or raise a
-        KeyError, depending on missing_ok.
+        If no such GTFSStop exists, a KeyError is raised.
         """
         for entry in self.entries:
             if entry.stop_id == stop_id:
