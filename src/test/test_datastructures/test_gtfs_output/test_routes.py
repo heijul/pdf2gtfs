@@ -20,7 +20,7 @@ class TestRouteType(P2GTestCase):
         self.assertEqual(routetype.to_output(), "3")
 
 
-class TestRoute(P2GTestCase):
+class TestGTFSRouteEntry(P2GTestCase):
     def test_eq(self) -> None:
         r1 = GTFSRouteEntry("1", "short_name", "long_name")
         r2 = GTFSRouteEntry("1", "short_name", "long_name")
@@ -49,21 +49,14 @@ class TestRoute(P2GTestCase):
         self.assertEqual(
             get_route_type_gtfs_value(route_type), route.route_type)
 
+    def test_get_field_value(self) -> None:
+        ...
 
-class TestRoutes(P2GTestCase):
-    def test_names_from_entry(self) -> None:
-        stops = create_stops(3)
-        e = TimeTableEntry("montag-freitag")
-        e.set_value(stops[0], "6.00")
-        e.set_value(stops[1], "6.30")
-        e.set_value(stops[2], "7.42")
-        short_name, long_name = GTFSRoutes.names_from_entry(e)
-        self.assertEqual(short_name, "")
-        self.assertEqual(long_name, "stop0-stop2")
-        e.route_name = "testroute"
-        short_name, _ = GTFSRoutes.names_from_entry(e)
-        self.assertEqual(short_name, "testroute")
+    def test_from_series(self) -> None:
+        ...
 
+
+class TestGTFSRoutes(P2GTestCase):
     def test_add(self) -> None:
         dummy_dir = Path("")
         routes = GTFSRoutes(dummy_dir, "agency_0")
@@ -77,3 +70,33 @@ class TestRoutes(P2GTestCase):
         self.assertNotEqual(id(route1), id(route2))
         self.assertEqual(route2, route3)
         self.assertEqual(id(route2), id(route3))
+
+    def test_get(self) -> None:
+        ...
+
+    def test_names_from_entry(self) -> None:
+        stops = create_stops(3)
+        e = TimeTableEntry("montag-freitag")
+        e.set_value(stops[0], "6.00")
+        e.set_value(stops[1], "6.30")
+        e.set_value(stops[2], "7.42")
+        short_name, long_name = GTFSRoutes.names_from_entry(e)
+        self.assertEqual(short_name, "")
+        self.assertEqual(long_name, "stop0-stop2")
+        e.route_name = "testroute"
+        short_name, _ = GTFSRoutes.names_from_entry(e)
+        self.assertEqual(short_name, "testroute")
+
+    def test_add_from_entry(self) -> None:
+        ...
+
+    def test_get_from_entry(self) -> None:
+        ...
+
+
+class Test(P2GTestCase):
+    def test_get_route_type(self) -> None:
+        ...
+
+    def test_get_route_type_gtfs_value(self) -> None:
+        ...

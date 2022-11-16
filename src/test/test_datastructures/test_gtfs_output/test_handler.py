@@ -16,7 +16,7 @@ from test import get_data_gen, P2GTestCase
 
 class TestHandler(GTFSOutputBaseClass):
     @classmethod
-    def setUpClass(cls, name="") -> None:
+    def setUpClass(cls, name="", **kwargs) -> None:
         super().setUpClass(name)
         Config.preprocess = False
         Config.pages = "1,2,3"
@@ -27,6 +27,9 @@ class TestHandler(GTFSOutputBaseClass):
 
     def setUp(self) -> None:
         self.handler = GTFSHandler()
+
+    def test_get_default_agency_id(self) -> None:
+        ...
 
     def test_timetable_to_gtfs(self) -> None:
         # Page 1, first table. No repeat columns.
@@ -173,7 +176,7 @@ class TestHandler(GTFSOutputBaseClass):
         for entry in self.handler.calendar_dates.entries[2:]:
             self.assertEqual("20221010", entry.date)
 
-    def test_remove_unused_routes(self) -> None:
+    def test__remove_unused_routes(self) -> None:
         self.assertEqual(0, len(self.handler.routes))
         self.handler.timetable_to_gtfs(self.timetables[3])
         self.assertEqual(2, len(self.handler.routes))
@@ -186,6 +189,18 @@ class TestHandler(GTFSOutputBaseClass):
 
     def test_write_files(self) -> None:
         ...
+
+    def test_get_gtfs_filepaths(self) -> None:
+        names = ["agency.txt", "calendar.txt", "calendar_dates.txt",
+                 "routes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
+
+        filepaths = self.handler.get_gtfs_filepaths()
+        temp_dir = Path(self.handler.temp_dir.name)
+        for i in range(len(names)):
+            with self.subTest(i=i):
+                filepaths[i].resolve()
+                self.assertEqual(names[i], filepaths[i].name)
+                self.assertEqual(temp_dir.resolve(), filepaths[i].parent)
 
     def test_create_zip_archive(self) -> None:
         ...
@@ -250,20 +265,11 @@ class TestHandler(GTFSOutputBaseClass):
                 stop_count = self.handler.get_stops_of_route(route_id)
                 self.assertTrue(len(prev_stop_count) >= len(stop_count))
 
-    def test_get_gtfs_filepaths(self) -> None:
-        names = ["agency.txt", "calendar.txt", "calendar_dates.txt",
-                 "routes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
 
-        filepaths = self.handler.get_gtfs_filepaths()
-        temp_dir = Path(self.handler.temp_dir.name)
-        for i in range(len(names)):
-            with self.subTest(i=i):
-                filepaths[i].resolve()
-                self.assertEqual(names[i], filepaths[i].name)
-                self.assertEqual(temp_dir.resolve(), filepaths[i].parent)
+# TODO: Move to TestHandler or use a single test.
 
 
-class TestHandlerHelpers(P2GTestCase):
+class Test(P2GTestCase):
     def setUp(self) -> None:
         Config.filename = "input_pdf_123"
 

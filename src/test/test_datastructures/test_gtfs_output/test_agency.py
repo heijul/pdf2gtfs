@@ -5,9 +5,17 @@ from datastructures.gtfs_output.agency import GTFSAgency, DummyGTFSAgencyEntry
 from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
+class TestAgencyEntry(GTFSOutputBaseClass):
+    def test_from_series(self) -> None:
+        ...
+
+    def test_values(self) -> None:
+        ...
+
+
 class TestAgency(GTFSOutputBaseClass):
     @classmethod
-    def setUpClass(cls, name="agency.txt") -> None:
+    def setUpClass(cls, name="agency.txt", **kwargs) -> None:
         super().setUpClass(name)
 
     def _create_agency(self, entry_count: int = 1):
@@ -24,7 +32,7 @@ class TestAgency(GTFSOutputBaseClass):
         self.assertEqual(1, len(agency.entries))
         self.assertTrue(isinstance(agency.entries[0], DummyGTFSAgencyEntry))
 
-    def test_read_agency(self) -> None:
+    def test_read_input_files(self) -> None:
         self._create_agency(1)
         Config.input_files = [self.filename]
         agency = GTFSAgency(self.filename.parent)

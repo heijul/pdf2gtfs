@@ -20,6 +20,19 @@ class TestTime(P2GTestCase):
         self.assertEqual(self.t1, Time.from_string("04.20"))
         self.assertEqual(self.t1, Time.from_string("4.20"))
 
+    def test_to_output(self) -> None:
+        ...
+
+    def test_copy(self) -> None:
+        t1c = self.t1.copy()
+        self.assertTrue(t1c == self.t1)
+        self.assertTrue(t1c.hours == 4)
+        self.assertTrue(t1c.minutes == 20)
+        t1c.hours = 3
+        t1c.minutes = 33
+        self.assertTrue(self.t1.hours == 4)
+        self.assertTrue(self.t1.minutes == 20)
+
     def test_eq(self) -> None:
         self.assertTrue(self.t1 == self.t1)
         self.assertFalse(self.t1 == self.t2)
@@ -38,16 +51,6 @@ class TestTime(P2GTestCase):
         self.assertTrue(self.t1 <= self.t1)
         self.assertTrue(self.t1 <= self.t2)
         self.assertFalse(self.t2 <= self.t1)
-
-    def test_copy(self) -> None:
-        t1c = self.t1.copy()
-        self.assertTrue(t1c == self.t1)
-        self.assertTrue(t1c.hours == 4)
-        self.assertTrue(t1c.minutes == 20)
-        t1c.hours = 3
-        t1c.minutes = 33
-        self.assertTrue(self.t1.hours == 4)
-        self.assertTrue(self.t1.minutes == 20)
 
     def test_add(self) -> None:
         t = self.t1 + self.t2
@@ -73,6 +76,23 @@ class TestTime(P2GTestCase):
         self.assertEqual(self.t1.minutes, 52)
         self.assertEqual(self.t1.seconds, 2)
 
+    def test_to_hours(self) -> None:
+        ...
+
+    def test_from_hours(self) -> None:
+        ...
+
+    def test_from_minutes(self) -> None:
+        ...
+
+
+class TestStopTimesEntry(P2GTestCase):
+    def test_duplicate(self) -> None:
+        ...
+
+    def test_from_series(self) -> None:
+        ...
+
 
 class TestStopTimes(P2GTestCase):
     def setUp(self) -> None:
@@ -85,6 +105,9 @@ class TestStopTimes(P2GTestCase):
         self.gtfs_stops = GTFSStops(dummy_dir)
         for stop in self.stops:
             self.gtfs_stops.add(stop.name)
+
+    def test_add(self) -> None:
+        ...
 
     def test_add_multiple(self) -> None:
         times = {self.stops[0]: "23.29",
@@ -107,3 +130,35 @@ class TestStopTimes(P2GTestCase):
                         self.stop_times.entries[1].arrival_time)
         self.assertTrue(self.stop_times.entries[1].arrival_time <
                         self.stop_times.entries[2].arrival_time)
+
+    def test_merge(self) -> None:
+        ...
+
+    def test_duplicate(self) -> None:
+        ...
+
+    def test_shift(self) -> None:
+        ...
+
+    def test_add_repeat(self) -> None:
+        ...
+
+    def test__get_entry_from_stop_id(self) -> None:
+        ...
+
+    def test___lt(self) -> None:
+        ...
+
+    def test_gt(self) -> None:
+        ...
+
+    def test_get_with_stop_id(self) -> None:
+        ...
+
+    def test_get_with_trip_id(self) -> None:
+        ...
+
+
+class Test(P2GTestCase):
+    def test__get_repeat_deltas(self) -> None:
+        ...

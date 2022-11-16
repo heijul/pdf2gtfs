@@ -5,6 +5,12 @@ from test import P2GTestCase
 
 
 class TestUtils(P2GTestCase):
+    def test_next_uid(self) -> None:
+        ...
+
+    def test_padded_list(self) -> None:
+        ...
+
     def test_replace_abbreviations__no_dot(self) -> None:
         Config.name_abbreviations = {"str": "strasse"}
         names = {"hauptstr.": "hauptstr.",
@@ -47,3 +53,15 @@ class TestUtils(P2GTestCase):
                  }
         for short_name, full_name in names.items():
             self.assertEqual(full_name, replace_abbreviations(short_name))
+
+    def test_get_abbreviations_regex(self) -> None:
+        ...
+
+    def test_replace_abbreviation(self) -> None:
+        ...
+
+    def test_normalize_series(self) -> None:
+        ...
+
+    def test_normalize_name(self) -> None:
+        ...

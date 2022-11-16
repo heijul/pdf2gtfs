@@ -11,7 +11,7 @@ class GTFSOutputBaseClass(P2GTestCase):
     temp_dir: TemporaryDirectory
 
     @classmethod
-    def setUpClass(cls, name="") -> None:
+    def setUpClass(cls, name="", **kwargs) -> None:
         """ Create the output directory. """
         super().setUpClass(True)
         name = name if name else "test.txt"

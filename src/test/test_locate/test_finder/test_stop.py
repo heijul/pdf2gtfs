@@ -6,6 +6,12 @@ from test_locate.test_finder import get_stops_from_stops_list
 from test import P2GTestCase
 
 
+class TestHelper(P2GTestCase):
+    def test_get_travel_distance(self) -> None:
+        # TODO: Ignore for now cause we'd need a working handler + stop_times
+        pass
+
+
 class TestStop(P2GTestCase):
     def setUp(self) -> None:
         stop_list = [("0", "stop_0"), ("1", "stop_1")]
@@ -15,8 +21,17 @@ class TestStop(P2GTestCase):
     def test_exists(self) -> None:
         ...
 
+    def test_is_first(self) -> None:
+        ...
+
+    def test_is_last(self) -> None:
+        ...
+
+    def test_next(self) -> None:
+        ...
+
     @mock.patch("locate.finder.stops.Stops.get_avg_time_between")
-    def test_set_distance_bounds(self, get_avg_time_between) -> None:
+    def test__get_distance_bounds(self, get_avg_time_between) -> None:
         Config.average_speed = 15
         min_dist = Config.min_travel_distance
         Config.average_travel_distance_offset = 2
@@ -51,6 +66,16 @@ class TestStop(P2GTestCase):
         self.assertTrue(stop_3.after(stop_1))
         self.assertFalse(stop_2.after(stop_2))
 
-    def test_avg_time_to_next(self) -> None:
-        # TODO: Ignore for now cause we'd need a working handler + stop_times
-        pass
+
+class TestStops(P2GTestCase):
+    def test_stops(self) -> None:
+        ...
+
+    def test__create_stops(self) -> None:
+        ...
+
+    def test_get_avg_time_between(self) -> None:
+        ...
+
+    def test_get_from_stop_id(self) -> None:
+        ...

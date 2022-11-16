@@ -281,6 +281,28 @@ class TestHolidayCodeProperty(PropertyTestCase):
                 self.assertEqual(result, prop.__get__(self.dummy))
 
 
+class TestPages(PropertyTestCase):
+    def test__set_value(self) -> None:
+        ...
+
+    def test_page_ids(self) -> None:
+        ...
+
+    def test__set_pages(self) -> None:
+        ...
+
+    def test_page_num(self) -> None:
+        ...
+
+    def test_validate(self) -> None:
+        ...
+
+
+class TestPage(PropertyTestCase):
+    def test___set__(self) -> None:
+        ...
+
+
 class TestRouteTypeProperty(PropertyTestCase):
     def get_property(self, name: str) -> p.RouteTypeProperty | None:
         return super().get_property(name)
