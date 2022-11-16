@@ -9,11 +9,13 @@ from test import P2GTestCase
 
 class GTFSOutputBaseClass(P2GTestCase):
     temp_dir: TemporaryDirectory
+    temp_path: Path
 
     @classmethod
     def setUpClass(cls, name="", **kwargs) -> None:
         """ Create the output directory. """
         super().setUpClass(True)
         name = name if name else "test.txt"
-        cls.filename = Path(cls.temp_dir.name).joinpath(name)
-        Config.output_path = Path(cls.temp_dir.name)
+        cls.temp_path = Path(cls.temp_dir.name)
+        cls.filename = cls.temp_path.joinpath(name)
+        Config.output_path = cls.temp_path
