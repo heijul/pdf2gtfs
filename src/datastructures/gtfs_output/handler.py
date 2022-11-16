@@ -262,9 +262,9 @@ class GTFSHandler:
                 continue
             self.routes.entries.remove(route)
 
-    def write_files_to_temp(self) -> None:
+    def write_files(self) -> None:
         """ Write all gtfs files to a temporary directory. """
-        # Final cleanup steps before output.
+        # Final steps before output.
         self._remove_unused_routes()
         self.add_annotation_dates()
         # Write the files to the temp dir.

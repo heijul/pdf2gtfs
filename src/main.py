@@ -63,7 +63,7 @@ def main() -> None:
     else:
         route = match_coordinates(handler)
         handler.add_coordinates(route)
-    handler.write_files_to_temp()
+    handler.write_files()
     logger.info(f"Export complete. Took {time() - start:.2f}s. Exiting...")
 
 
