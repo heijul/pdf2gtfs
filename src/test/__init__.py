@@ -62,6 +62,7 @@ class P2GTestCase(TestCase):
     """
 
     temp_dir: TemporaryDirectory | None
+    temp_path: Path | None
 
     def __init__(self, methodName: str = "runTest") -> None:
         super().__init__(methodName)
@@ -72,10 +73,12 @@ class P2GTestCase(TestCase):
                    disable_logging: bool = False) -> None:
         super().setUpClass()
         cls.temp_dir = None
+        cls.temp_path = None
         if create_temp_dir:
             # TODO: Create a single pdf2gtfs temp dir, where all
             #  test temp_dirs are located.
             cls.temp_dir = TemporaryDirectory(prefix="pdf2gtfs_test_")
+            cls.temp_path = Path(cls.temp_dir.name)
         if disable_logging:
             logging.disable(logging.CRITICAL)
 

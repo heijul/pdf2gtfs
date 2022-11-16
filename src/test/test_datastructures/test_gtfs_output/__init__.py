@@ -1,5 +1,4 @@
 """ Helper functions used by the tests of the gtfs_output subpackage. """
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -16,6 +15,5 @@ class GTFSOutputBaseClass(P2GTestCase):
         """ Create the output directory. """
         super().setUpClass(True)
         name = name if name else "test.txt"
-        cls.temp_path = Path(cls.temp_dir.name)
         cls.filename = cls.temp_path.joinpath(name)
         Config.output_path = cls.temp_path
