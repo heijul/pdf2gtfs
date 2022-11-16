@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime as dt
+import datetime as dt
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Callable, Optional, TypeAlias
@@ -36,7 +36,9 @@ class DayIsActive:
 class ServiceDay:
     """ Service day as defined by the gtfs (can have morethan 24 hours). """
 
-    def __init__(self, date: dt.date):
+    def __init__(self, date: dt.date | dt.datetime):
+        if isinstance(date, dt.datetime):
+            date = date.date()
         self.date = date
 
     def to_output(self) -> str:
@@ -129,8 +131,10 @@ class GTFSCalendarEntry(BaseDataClass):
             days.append(str(i))
         entry = GTFSCalendarEntry(days, set(), s["service_id"])
         fmt = "%Y%m%d"
-        entry.start_date = ServiceDay(dt.strptime(s["start_date"], fmt))
-        entry.end_date = ServiceDay(dt.strptime(s["end_date"], fmt))
+        entry.start_date = ServiceDay(
+            dt.datetime.strptime(s["start_date"], fmt))
+        entry.end_date = ServiceDay(
+            dt.datetime.strptime(s["end_date"], fmt))
         return entry
 
 
