@@ -54,7 +54,7 @@ class Location:
         except (ValueError, TypeError):
             return 0
         # Coordinates are between -90 and 90 degree.
-        if -90 > value > 90:
+        if value < -90 or value > 90:
             return 0
         return round(value, 5)
 
@@ -89,8 +89,9 @@ class Location:
 
     def distances(self, loc: Location) -> Generator[float, None, None]:
         """ Calculates the distances in lat/lon between the two locations. """
-        lat_diff, lon_diff = self - loc
-        mid_lat = self.lat + lat_diff
+        lat_diff = abs(self.lat - loc.lat)
         yield DISTANCE_IN_M_PER_LAT_DEG * lat_diff
+        mid_lat = (self.lat + loc.lat) / 2
+        lon_diff = abs(self.lon - loc.lon)
         lon_dist = get_distance_per_lon_deg(mid_lat) * lon_diff
         yield lon_dist
