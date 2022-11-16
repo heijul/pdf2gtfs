@@ -28,7 +28,7 @@ class GTFSCalendarDateEntry(BaseDataClass):
     def from_series(s: pd.Series) -> GTFSCalendarDateEntry:
         """ Creates a new GTFSTrip from the given series. """
         return GTFSCalendarDateEntry(
-            s["service_id"], s["date"], s["exception_type"])
+            s["service_id"], s["date"], int(s["exception_type"]))
 
 
 class GTFSCalendarDates(BaseContainer):
