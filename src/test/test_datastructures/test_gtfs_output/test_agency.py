@@ -1,16 +1,32 @@
+from dataclasses import fields
 from pathlib import Path
 
+import pandas as pd
+
 from config import Config
-from datastructures.gtfs_output.agency import GTFSAgency, DummyGTFSAgencyEntry
+from datastructures.gtfs_output.agency import (
+    GTFSAgency, DummyGTFSAgencyEntry,
+    GTFSAgencyEntry)
 from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
-class TestAgencyEntry(GTFSOutputBaseClass):
+class TestGTFSAgencyEntry(GTFSOutputBaseClass):
     def test_from_series(self) -> None:
-        ...
+        index = [field.name for field in fields(GTFSAgencyEntry)]
+        series = pd.Series(
+            ["a01", "transit_agency", "www.example.com", "Europe/Berlin"],
+            index=index)
+        entry = GTFSAgencyEntry.from_series(series)
+        self.assertEqual("a01", entry.agency_id)
+        self.assertEqual("transit_agency", entry.agency_name)
+        self.assertEqual("www.example.com", entry.agency_url)
+        self.assertEqual("Europe/Berlin", entry.agency_timezone)
 
     def test_values(self) -> None:
-        ...
+        entry = GTFSAgencyEntry(
+            "agency01", "www.example.com", "Europe/Berlin", "a02")
+        values = ["a02", "agency01", "www.example.com", "Europe/Berlin"]
+        self.assertEqual(values, entry.values)
 
 
 class TestAgency(GTFSOutputBaseClass):

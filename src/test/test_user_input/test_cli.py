@@ -27,7 +27,7 @@ def create_agency(path: Path, num: int, url: str = None, tz: str = None
     agencies = []
     for i in range(num):
         agency_id = f"agency_{i}"
-        agency_entry = GTFSAgencyEntry(agency_id, url, tz, agency_id=agency_id)
+        agency_entry = GTFSAgencyEntry(agency_id, url, tz, agency_id)
         agencies.append(agency_entry.to_output())
 
     input_file = path.joinpath("agency.txt")
