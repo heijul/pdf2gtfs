@@ -37,7 +37,7 @@ def get_route_type(value: str) -> RouteType | None:
     return None
 
 
-def get_route_type_gtfs_value(route_type: RouteType):
+def get_route_type_gtfs_value(route_type: RouteType) -> int:
     """ Return the value used in GTFS for the given routetype. """
     return ROUTE_TYPE_TO_INT[route_type]
 

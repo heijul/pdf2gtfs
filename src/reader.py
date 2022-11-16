@@ -201,6 +201,22 @@ def page_to_timetables(page: LTPage) -> list[TimeTable]:
     return tables
 
 
+def _preprocess_check() -> bool:
+    """ Check if we could theoretically preprocess the pdf. """
+    if not Config.preprocess:
+        logger.info("Preprocessing was disabled via config. "
+                    "Continuing with raw pdf file...")
+        return False
+    try:
+        from ghostscript import Ghostscript  # noqa: F401
+
+        return True
+    except RuntimeError:
+        logger.warning("Ghostscript library does not seem to be "
+                       "installed. Skipping preprocessing...")
+        return False
+
+
 class Reader:
     """ Class which oversees the reading of the file and handles
     e.g. the removal of any temporary files. """
@@ -309,19 +325,3 @@ class Reader:
             start = time()
 
         return timetables
-
-
-def _preprocess_check() -> bool:
-    """ Check if we could theoretically preprocess the pdf. """
-    if not Config.preprocess:
-        logger.info("Preprocessing was disabled via config. "
-                    "Continuing with raw pdf file...")
-        return False
-    try:
-        from ghostscript import Ghostscript  # noqa: F401
-
-        return True
-    except RuntimeError:
-        logger.warning("Ghostscript library does not seem to be "
-                       "installed. Skipping preprocessing...")
-        return False

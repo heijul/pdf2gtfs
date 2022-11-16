@@ -18,6 +18,7 @@ from datastructures.timetable.stops import DummyAnnotationStop, Stop
 logger = logging.getLogger(__name__)
 
 
+# TODO: Move to stops?!
 class StopList:
     """ TimeTable stops, used to select which stops are actual stops
     and which are only connections from the previous stop. """
