@@ -14,11 +14,11 @@ from datastructures.gtfs_output import BaseContainer, BaseDataClass
 if TYPE_CHECKING:
     from datastructures.gtfs_output.stop_times import GTFSStopTimes
 
-Trip_Factory: TypeAlias = Callable[[], "GTFSTripEntry"]
+Trip_Factory: TypeAlias = Callable[[], "GTFSTripsEntry"]
 
 
 @dataclass(init=False)
-class GTFSTripEntry(BaseDataClass):
+class GTFSTripsEntry(BaseDataClass):
     """ A single trip. """
     trip_id: str
     route_id: str
@@ -32,24 +32,24 @@ class GTFSTripEntry(BaseDataClass):
         self.service_id = service_id
 
     @staticmethod
-    def from_series(s: pd.Series) -> GTFSTripEntry:
+    def from_series(s: pd.Series) -> GTFSTripsEntry:
         """ Creates a new GTFSTrip from the given series. """
-        return GTFSTripEntry(s["route_id"], s["service_id"], s["trip_id"])
+        return GTFSTripsEntry(s["route_id"], s["service_id"], s["trip_id"])
 
 
 class GTFSTrips(BaseContainer):
     """ Used to create the 'trips.txt'. """
-    entries: list[GTFSTripEntry]
+    entries: list[GTFSTripsEntry]
 
     def __init__(self, path: Path) -> None:
-        super().__init__("trips.txt", GTFSTripEntry, path)
+        super().__init__("trips.txt", GTFSTripsEntry, path)
 
-    def add(self, route_id: str, service_id: str) -> GTFSTripEntry:
+    def add(self, route_id: str, service_id: str) -> GTFSTripsEntry:
         """ Add a single trip with the given route_id and service_id. """
-        entry = GTFSTripEntry(route_id, service_id)
+        entry = GTFSTripsEntry(route_id, service_id)
         return self._add(entry)
 
-    def remove(self, entry: GTFSTripEntry) -> None:
+    def remove(self, entry: GTFSTripsEntry) -> None:
         """ Remove the given entry. """
         if entry in self.entries:
             self.entries.remove(entry)
@@ -58,7 +58,7 @@ class GTFSTrips(BaseContainer):
         """ Returns a function which creates a new TripEntry for the given
         service and route. """
 
-        def _trip_factory() -> GTFSTripEntry:
+        def _trip_factory() -> GTFSTripsEntry:
             return self.add(route_id, service_id)
 
         return _trip_factory
@@ -71,7 +71,7 @@ class GTFSTrips(BaseContainer):
                 continue
             self.entries.remove(entry)
 
-    def get_with_route_id(self, route_id: str) -> list[GTFSTripEntry]:
+    def get_with_route_id(self, route_id: str) -> list[GTFSTripsEntry]:
         """ Return all trips with the given route_id. """
         trips = []
         for trip in self.entries:
