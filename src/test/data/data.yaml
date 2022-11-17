@@ -1,4 +1,4 @@
-test_table.py:
+test_pdftable.py:
   TestTable:
     test_generate_data_columns_from_rows:
       col_types: [ 1, 2, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 ]
