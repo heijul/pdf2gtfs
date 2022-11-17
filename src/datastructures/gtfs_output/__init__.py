@@ -64,7 +64,7 @@ class BaseContainer:
             logger.warning(f"The following exception occurred, when trying "
                            f"to read the input file '{path}':\n{e}")
             return []
-        # FEATURE: Check, if the IDs are still unique.
+        # FEATURE: Check if the IDs are still unique.
         entries = self.entries_from_df(df)
         return entries
 
