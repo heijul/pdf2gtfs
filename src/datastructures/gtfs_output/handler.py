@@ -134,6 +134,7 @@ class GTFSHandler:
                 continue
             self.routes.add_from_entry(entry)
 
+    # TODO: Split and cleanup.
     def generate_stop_times(self, entries: list[TimeTableEntry]
                             ) -> list[GTFSStopTimes]:
         """ Generate the full stoptimes of the given entries.

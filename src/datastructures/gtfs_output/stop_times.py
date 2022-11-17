@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime as dt
 from itertools import cycle
 from pathlib import Path
@@ -16,7 +16,6 @@ from datastructures.gtfs_output import BaseContainer, BaseDataClass
 from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.trips import Trip_Factory
 from datastructures.timetable.stops import Stop
-from utils import normalize_name
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +39,15 @@ class Time:
                            f"necessary format '{Config.time_format}'.")
             return Time()
         return Time(time.hour, time.minute, time.second)
+
+    @staticmethod
+    def from_gtfs(gtfs_time_string: str) -> Time:
+        """ Return a new Time from the given gtfs string (HH:MM:SS). """
+        try:
+            hours, minutes, seconds = gtfs_time_string.split(":")
+            return Time(int(hours), int(minutes), int(seconds))
+        except ValueError:
+            return Time()
 
     def to_output(self) -> str:
         """ Returns the time in ISO-8601 format. """
@@ -117,9 +125,9 @@ class Time:
     def from_minutes(float_minutes: float) -> Time:
         """ Creates a new time using minutes. """
         hours = int(float_minutes) // 60
-        minutes = int(float_minutes % 60)
+        minutes = float_minutes % 60
         seconds = int(round((minutes - int(minutes)) * 60, 0))
-        return Time(hours, minutes, seconds)
+        return Time(hours, int(minutes), seconds)
 
 
 @dataclass(init=False)
@@ -148,19 +156,26 @@ class GTFSStopTimesEntry(BaseDataClass):
     @staticmethod
     def from_series(s: pd.Series) -> GTFSStopTimesEntry:
         """ Creates a new GTFSTrip from the given series. """
-        fmt = "%H:%M:%S"
-        arr_time = Time.from_string(s["arrival_time"], fmt)
-        dep_time = Time.from_string(s["departure_time"], fmt)
+        arr_time = Time.from_gtfs(s["arrival_time"])
+        dep_time = Time.from_gtfs(s["departure_time"])
         return GTFSStopTimesEntry(
             s["trip_id"], s["stop_id"], s["stop_sequence"], arr_time, dep_time)
 
+    def __eq__(self, other: GTFSStopTimesEntry):
+        for field in fields(self):
+            if self.get_field_value(field) != other.get_field_value(field):
+                return False
+        return True
 
-def _get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
+
+def get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
+    """ Return a cycle of the repeat deltas, depending on the strategy. """
     if Config.repeat_strategy == "mean":
         return cycle([Time.from_minutes(mean(deltas))])
     return cycle([Time.from_minutes(delta) for delta in deltas])
 
 
+# TODO: Needs to be split for single
 class GTFSStopTimes(BaseContainer):
     """ Used to create the 'stop_times.txt.'. """
     entries: list[GTFSStopTimesEntry]
@@ -190,7 +205,7 @@ class GTFSStopTimes(BaseContainer):
         for seq, (stop, time_string) in enumerate(time_strings.items()):
             if stop.is_connection:
                 continue
-            gtfs_stop = gtfs_stops.get(normalize_name(stop.name))
+            gtfs_stop = gtfs_stops.get(stop.name)
             time = Time.from_string(time_string)
             if time < prev_time:
                 service_day_delta += Time(24)
@@ -210,10 +225,13 @@ class GTFSStopTimes(BaseContainer):
         return entries
 
     def merge(self, other: GTFSStopTimes):
-        """ Merge two stop_times files. """
+        """ Merge two stop_times files.
+
+        No actual merging happens.
+        """
         self.entries += other.entries
 
-    def duplicate(self, trip_id) -> GTFSStopTimes:
+    def _duplicate_with_trip_id(self, trip_id) -> GTFSStopTimes:
         """ Creates a new instance with updated copies of the entries. """
         new = GTFSStopTimes(self.fp.parent)
 
@@ -232,12 +250,12 @@ class GTFSStopTimes(BaseContainer):
                    deltas: list[int], trip_factory: Trip_Factory):
         """ Create new stop_times for all times between previous and next. """
         assert previous < next_
-        delta_cycle = _get_repeat_deltas(deltas)
+        delta_cycle = get_repeat_deltas(deltas)
         new_stop_times = []
 
         while True:
             trip = trip_factory()
-            new = previous.duplicate(trip.trip_id)
+            new = previous._duplicate_with_trip_id(trip.trip_id)
             new.shift(next(delta_cycle))
             if new > next_:
                 break
@@ -246,24 +264,42 @@ class GTFSStopTimes(BaseContainer):
 
         return new_stop_times
 
-    def __get_entry_from_stop_id(self, stop_id: str
-                                 ) -> GTFSStopTimesEntry | None:
+    def _get_entry_from_stop_id(self, stop_id: str
+                                ) -> GTFSStopTimesEntry | None:
         for i, entry in enumerate(self.entries):
             if entry.stop_id == stop_id:
                 return entry
         return None
 
+    def __eq__(self, other: GTFSStopTimes):
+        if len(self.entries) != len(other.entries):
+            return False
+        for entry in self.entries:
+            other_entry = other._get_entry_from_stop_id(entry.stop_id)
+            # Need to have the same entries
+            if not other_entry:
+                return False
+            if entry != other_entry:
+                return False
+        return True
+
     def __lt__(self, other: GTFSStopTimes):
         for entry in self.entries:
-            other_entry = other.__get_entry_from_stop_id(entry.stop_id)
+            other_entry = other._get_entry_from_stop_id(entry.stop_id)
             if not other_entry:
                 continue
             return entry.arrival_time < other_entry.arrival_time
 
         return False
 
+    def __le__(self, other: GTFSStopTimes):
+        return self == other or self < other
+
     def __gt__(self, other: GTFSStopTimes):
-        return not self.__lt__(other)
+        return not self.__lt__(other) and not self.__eq__(other)
+
+    def __ge__(self, other: GTFSStopTimes):
+        return self == other or self > other
 
     def get_with_stop_id(self, trip_ids: list[str], stop_id: str
                          ) -> list[GTFSStopTimesEntry]:
