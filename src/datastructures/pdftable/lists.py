@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC
 from operator import attrgetter
 from statistics import mean
 from typing import Generic, Iterator, TypeVar
@@ -15,7 +16,7 @@ PDFTableT = TypeVar("PDFTableT", bound="tbl.PDFTable")
 FieldContainerT = TypeVar("FieldContainerT", bound=FieldContainer)
 
 
-class FieldContainerList(Generic[FieldContainerT]):
+class FieldContainerList(Generic[FieldContainerT], ABC):
     """ Base class for lists of a single FieldContainerT,
     all being part of the same PDFTable. """
 
@@ -36,10 +37,15 @@ class FieldContainerList(Generic[FieldContainerT]):
     def add(self, obj: FieldContainerT):
         """ Add the given object, updating its references. """
         self._objects.append(obj)
-        self._update_reference(obj)
-
-    def _update_reference(self, obj: FieldContainerT):
+        # Update table reference of the object.
         obj.table = self.table
+
+    def _get_neighbour(self, current: FieldContainerT, delta: int
+                       ) -> FieldContainerT | None:
+        neighbour_index = self._objects.index(current) + delta
+        valid_index = 0 <= neighbour_index < len(self._objects)
+
+        return self._objects[neighbour_index] if valid_index else None
 
     def prev(self, current: FieldContainerT) -> FieldContainerT | None:
         """ Given the current container, return the previous one. """
@@ -72,13 +78,6 @@ class FieldContainerList(Generic[FieldContainerT]):
         """ Return all objects, with any of the given types. """
         return [obj for obj in self._objects if obj.type in types]
 
-    def _get_neighbour(self, current: FieldContainerT, delta: int
-                       ) -> FieldContainerT | None:
-        neighbour_index = self._objects.index(current) + delta
-        valid_index = 0 <= neighbour_index < len(self._objects)
-
-        return self._objects[neighbour_index] if valid_index else None
-
     def __iter__(self) -> Iterator[FieldContainerT]:
         return iter(self._objects)
 
@@ -109,11 +108,12 @@ class RowList(FieldContainerList[Row]):
     @property
     def mean_row_field_count(self) -> float:
         """ Return the average number of fields in all objects. """
-        if not self._objects:
+        if self.empty:
             return 0
         return mean([len(row.fields) for row in self._objects])
 
     def merge(self, other: RowList):
         """ Merge the two RowList, sorting the rows by their y0 coordinate. """
-        self._objects += other.objects
+        for obj in other.objects:
+            self.add(obj)
         self._objects.sort(key=attrgetter("bbox.y0"))
