@@ -294,7 +294,13 @@ class GTFSHandler:
         # try to create it again. This will ensure a different filepath.
         # Otherwise the user needs to decide what to do.
         if archive_path.exists() and archive_path == Config.output_path:
+            if Config.non_interactive:
+                logger.error(f"Output file '{archive_path}' exists and "
+                             f"interactive mode is off. Exiting...")
+                sys.exit(12)
             if not ask_overwrite_existing_file(archive_path):
+                logger.error(f"Output file '{archive_path}' already "
+                             f"exists. Exiting...")
                 sys.exit(12)
         elif archive_path.exists():
             sleep(1)
