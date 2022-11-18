@@ -47,14 +47,6 @@ T_ = TypeVar("T_")
 PaddedList: TypeAlias = list[T_ | None]
 
 
-def padded_list(objects: list[T_]) -> tuple[PaddedList, list[T_], PaddedList]:
-    """ Pad the list with None on either end and return all three. """
-    # TODO NOW: Use itertools.
-    left_pad = [None] + objects[:-1]
-    right_pad = objects[1:] + [None]
-    return left_pad, objects, right_pad
-
-
 def replace_abbreviations(name: str) -> str:
     """ Replace all abbreviations in name. """
     regex = get_abbreviations_regex()
@@ -152,5 +144,5 @@ def normalize_series(raw_series: pd.Series) -> pd.Series:
 
 
 def normalize_name(name: str) -> str:
-    """ Normalize the given name. """
+    """ Normalize the given name. Simple wrapper function for a single str. """
     return normalize_series(pd.Series([name])).iloc[0]
