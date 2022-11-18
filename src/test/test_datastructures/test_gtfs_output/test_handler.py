@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from pathlib import Path
-from time import sleep
 from unittest import mock
 
 from holidays import country_holidays
@@ -217,6 +216,7 @@ class TestHandler(P2GTestCase):
         self.handler.timetable_to_gtfs(timetable)
 
         fps = self.handler.get_gtfs_filepaths()
+        Config.output_path = self.temp_path
         for i, fp in enumerate(fps):
             with self.subTest(i=i):
                 self.assertFalse(fp.exists())
