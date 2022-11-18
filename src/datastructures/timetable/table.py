@@ -12,51 +12,10 @@ from config import Config
 from datastructures.pdftable.enums import ColumnType
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry, Weekdays)
-from datastructures.timetable.stops import DummyAnnotationStop, Stop
+from datastructures.timetable.stops import DummyAnnotationStop, Stop, StopList
 
 
 logger = logging.getLogger(__name__)
-
-
-# TODO: Move to stops?!
-class StopList:
-    """ TimeTable stops, used to select which stops are actual stops
-    and which are only connections from the previous stop. """
-
-    def __init__(self) -> None:
-        self._stops: list[Stop] = []
-
-    @property
-    def all_stops(self) -> list[Stop]:
-        """ Returns both connections as well as normal stops. """
-        return self._stops
-
-    @property
-    def stops(self) -> list[Stop]:
-        """ Only return stops that are not connections. """
-        return [stop for stop in self._stops if not stop.is_connection]
-
-    def add_stop(self, stop: Stop) -> None:
-        """ Add the given stop. """
-        self._stops.append(stop)
-
-    def get_from_id(self, row_id: int) -> Stop:
-        """ Return the stop with the given row_id. """
-        for stop in self.stops:
-            if stop.raw_row_id == row_id:
-                return stop
-
-    def add_annotation(self, text: str,
-                       *, stop: Stop = None, stop_id: int = None) -> None:
-        """ Add the text to the stop with the given stop_id, or stop. """
-        if stop_id is not None:
-            stop = self.get_from_id(stop_id)
-        stop.annotation = text
-
-    def clean(self) -> None:
-        """ Clean all stops. """
-        for stop in self._stops:
-            stop.clean()
 
 
 class TimeTable:
