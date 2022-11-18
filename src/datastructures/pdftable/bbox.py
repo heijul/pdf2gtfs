@@ -44,20 +44,9 @@ class BBox:
         """ Return a new BBox with the same coordinates. """
         return BBox(self.x0, self.y0, self.x1, self.y1)
 
-    def contains_vertical(self, other: BBox):
+    def contains_vertical(self, bbox: BBox):
         """ Returns, whether other's x coordinates lie within self's. """
-        return self._contains(other, "x")
-
-    def contains_horizontal(self, other: BBox):
-        """ Returns, whether other's y coordinates lie within self's. """
-        return self._contains(other, "y")
-
-    def contains(self, other: BBox, strict: bool = False) -> bool:
-        """ Returns, whether other is contained by self both vertically and
-        horizontally. If strict is given, check if both bboxes are valid. """
-        return (self.contains_vertical(other) and
-                self.contains_horizontal(other) and
-                (not strict or self.is_valid and other.is_valid))
+        return self.x0 <= bbox.x0 <= self.x1 and self.x0 <= bbox.x1 <= self.x1
 
     def merge(self, other: BBox) -> None:
         """ Merges other with self (inplace), such that:
@@ -68,18 +57,6 @@ class BBox:
         self.x1 = max(self.x1, other.x1)
         self.y1 = max(self.y1, other.y1)
 
-    def _contains(self, other, axis) -> bool:
-        def _get(cls, bound) -> float:
-            if bound == "lower":
-                return getattr(cls, f"{axis}0")
-            elif bound == "upper":
-                return getattr(cls, f"{axis}1")
-
-        lower, upper = _get(self, "lower"), _get(self, "upper")
-        other_lower, other_upper = _get(other, "lower"), _get(other, "upper")
-
-        return lower <= other_lower <= upper and lower <= other_upper <= upper
-
     def y_distance(self, other: BBox) -> float:
         """ Return the absolute distance of self to other on axis. """
         return min([abs(self.y0 - other.y0),
@@ -88,8 +65,10 @@ class BBox:
                     abs(self.y1 - other.y1)])
 
     def is_next_to(self, other) -> bool:
-        """ Checks if the two bboxes are touching or close to each other. """
-        # TODO NOW: Tests.
+        """ Checks if the two bboxes are touching or close to each other.
+
+        Completely ignores the y components.
+        """
         left, right = sorted((self, other), key=attrgetter("x0"))
         return abs(right.x0 - left.x1) <= Config.max_char_distance
 
