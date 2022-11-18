@@ -1,39 +1,60 @@
 from datetime import datetime, timedelta
 from pathlib import Path
+from time import sleep
 from unittest import mock
 
 from holidays import country_holidays
 
 from config import Config
+from datastructures.gtfs_output.agency import GTFSAgency, GTFSAgencyEntry
+from datastructures.gtfs_output.calendar import GTFSCalendar
+from datastructures.gtfs_output.calendar_dates import GTFSCalendarDates
 from datastructures.gtfs_output.handler import (
     get_gtfs_archive_path, GTFSHandler)
-from datastructures.gtfs_output.stop import GTFSStopEntry
-from datastructures.gtfs_output.stop_times import Time
+from datastructures.gtfs_output.routes import GTFSRoutes
+from datastructures.gtfs_output.stop import GTFSStopEntry, GTFSStops
+from datastructures.gtfs_output.stop_times import GTFSStopTimes, Time
+from datastructures.gtfs_output.trips import GTFSTrips
 from main import get_timetables
-from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 from test import get_data_gen, P2GTestCase
+from utils import UIDGenerator
 
 
-class TestHandler(GTFSOutputBaseClass):
+class TestHandler(P2GTestCase):
     @classmethod
-    def setUpClass(cls, name="", **kwargs) -> None:
-        super().setUpClass(name)
+    def setUpClass(cls, **kwargs) -> None:
+        super().setUpClass(True, True)
         Config.preprocess = False
         Config.pages = "1,2,3"
         input_file = "src/test/data/vag_1_preprocessed.pdf"
         Config.filename = str(Config.p2g_dir.joinpath(input_file))
+        Config.output_path = cls.temp_path
         cls.timetables = get_timetables()
         cls.data_gen = get_data_gen(__file__, cls.__name__)
 
     def setUp(self) -> None:
         self.handler = GTFSHandler()
 
-    def test_get_default_agency_id(self) -> None:
-        ...
+    @mock.patch("user_input.cli.input", create=True)
+    def test_get_default_agency_id(self, mock_select: mock.Mock) -> None:
+        mock_select.side_effect = ["0", "1", "2"]
+        dummy_agency: GTFSAgencyEntry = self.handler.agency.entries[0]
+        agency_id = self.handler.get_default_agency_id()
+        self.assertEqual(dummy_agency.agency_id, agency_id)
+        agencies = [GTFSAgencyEntry("agency_1", "", ""),
+                    GTFSAgencyEntry("agency_1", "", ""),
+                    GTFSAgencyEntry("agency_1", "", "")]
+        self.handler.agency.entries = agencies
+        agency_id = self.handler.get_default_agency_id()
+        self.assertEqual(agencies[0].agency_id, agency_id)
+        agency_id = self.handler.get_default_agency_id()
+        self.assertEqual(agencies[1].agency_id, agency_id)
+        agency_id = self.handler.get_default_agency_id()
+        self.assertEqual(agencies[2].agency_id, agency_id)
 
     def test_timetable_to_gtfs(self) -> None:
         # Page 1, first table. No repeat columns.
-        timetable = get_timetables()[0]
+        timetable = self.timetables[0]
         self.handler.timetable_to_gtfs(timetable)
         self.assertEqual(22, len(self.handler.stops))
         self.assertEqual(20, len(self.handler.trips))
@@ -44,7 +65,7 @@ class TestHandler(GTFSOutputBaseClass):
 
     def test_timetable_to_gtfs__with_repeat(self) -> None:
         # Page 2, first table. Contains repeat columns.
-        timetable = get_timetables()[3]
+        timetable = self.timetables[3]
         self.handler.timetable_to_gtfs(timetable)
         self.assertEqual(22, len(self.handler.stops))
         # Normal trips + first repeat trips + second repeat trips.
@@ -62,7 +83,7 @@ class TestHandler(GTFSOutputBaseClass):
         self.assertEqual(22, len(self.handler.stops))
 
     def test_generate_routes(self) -> None:
-        timetable = get_timetables()[6]
+        timetable = self.timetables[6]
         self.handler.add_timetable_stops(timetable)
         self.handler.generate_routes(timetable)
         self.assertEqual(3, len(self.handler.routes))
@@ -188,7 +209,39 @@ class TestHandler(GTFSOutputBaseClass):
         self.assertEqual(3, len(self.handler.routes))
 
     def test_write_files(self) -> None:
-        ...
+        Config.non_interactive = True
+        timetable = self.timetables[0]
+        # Reset UIDGenerator.
+        UIDGenerator.id = None
+        UIDGenerator.skip_ids = set()
+        self.handler.timetable_to_gtfs(timetable)
+
+        fps = self.handler.get_gtfs_filepaths()
+        for i, fp in enumerate(fps):
+            with self.subTest(i=i):
+                self.assertFalse(fp.exists())
+        self.handler.write_files()
+        for i, fp in enumerate(fps):
+            with self.subTest(i=i):
+                self.assertTrue(fp.exists())
+        Config.input_files = fps
+        # Reset UIDGenerator.
+        UIDGenerator.id = None
+        UIDGenerator.skip_ids = set()
+        agency = GTFSAgency(self.temp_path)
+        self.assertEqual(self.handler.agency, agency)
+        calendar = GTFSCalendar(self.temp_path)
+        self.assertEqual(self.handler.calendar, calendar)
+        calendar_dates = GTFSCalendarDates(self.temp_path)
+        self.assertEqual(self.handler.calendar_dates, calendar_dates)
+        routes = GTFSRoutes(self.temp_path, self.handler.routes.agency_id)
+        self.assertEqual(self.handler.routes, routes)
+        stop_times = GTFSStopTimes(self.temp_path)
+        self.assertEqual(self.handler.stop_times, stop_times)
+        stops = GTFSStops(self.temp_path)
+        self.assertEqual(self.handler.stops, stops)
+        trips = GTFSTrips(self.temp_path)
+        self.assertEqual(self.handler.trips, trips)
 
     def test_get_gtfs_filepaths(self) -> None:
         names = ["agency.txt", "calendar.txt", "calendar_dates.txt",
@@ -202,8 +255,42 @@ class TestHandler(GTFSOutputBaseClass):
                 self.assertEqual(names[i], filepaths[i].name)
                 self.assertEqual(temp_dir.resolve(), filepaths[i].parent)
 
-    def test_create_zip_archive(self) -> None:
-        ...
+    @mock.patch("user_input.cli.input", create=True)
+    def test_create_zip_archive(self, mock_input: mock.Mock) -> None:
+        mock_input.side_effect = ["y", "n"]
+        Config.non_interactive = False
+        timetable = self.timetables[0]
+        # Reset UIDGenerator.
+        UIDGenerator.id = None
+        UIDGenerator.skip_ids = set()
+        self.handler.timetable_to_gtfs(timetable)
+        self.handler.agency.write()
+        self.handler.stops.write()
+        self.handler.routes.write()
+        self.handler.calendar.write()
+        self.handler.trips.write()
+        self.handler.stop_times.write()
+        self.handler.calendar_dates.write()
+        fp = get_gtfs_archive_path()
+        Config.output_path = fp
+        self.assertFalse(fp.exists())
+        self.handler.create_zip_archive()
+        self.assertTrue(fp.exists())
+        try:
+            self.handler.create_zip_archive()
+        except SystemExit:
+            self.fail("SystemExit raised")
+        with self.assertRaises(SystemExit):
+            self.handler.create_zip_archive()
+
+        Config.non_interactive = True
+        with self.assertRaises(SystemExit):
+            self.handler.create_zip_archive()
+        Config.output_path = fp.parent.joinpath("testtest.zip")
+        fp = get_gtfs_archive_path()
+        self.assertFalse(fp.exists())
+        self.handler.create_zip_archive()
+        self.assertTrue(fp.exists())
 
     def test_add_coordinates(self) -> None:
         ...
@@ -234,7 +321,21 @@ class TestHandler(GTFSOutputBaseClass):
                                     or route_id not in stop_route_ids)
 
     def test_get_avg_time_between_stops(self) -> None:
-        ...
+        self.handler.timetable_to_gtfs(self.timetables[3])
+        stop_a = self.handler.stops.entries[9]
+        stop_b = self.handler.stops.entries[10]
+        stop_c = self.handler.stops.entries[11]
+        route_id = self.handler.routes.entries[0].route_id
+        avg_time_ab = self.handler.get_avg_time_between_stops(
+            route_id, stop_a.stop_id, stop_b.stop_id)
+        avg_time_bc = self.handler.get_avg_time_between_stops(
+            route_id, stop_b.stop_id, stop_c.stop_id)
+        avg_time_ac = self.handler.get_avg_time_between_stops(
+            route_id, stop_a.stop_id, stop_c.stop_id)
+        self.assertEqual(Time(0, 1), avg_time_ab)
+        self.assertEqual(Time(0, 2), avg_time_bc)
+        self.assertEqual(Time(0, 4, 4), avg_time_ac)
+        self.assertLessEqual(avg_time_ab + avg_time_bc, avg_time_ac)
 
     def test_get_used_stops(self) -> None:
         self.assertEqual([], self.handler.get_used_stops())
@@ -264,9 +365,6 @@ class TestHandler(GTFSOutputBaseClass):
                     route_ids[i - 1])
                 stop_count = self.handler.get_stops_of_route(route_id)
                 self.assertTrue(len(prev_stop_count) >= len(stop_count))
-
-
-# TODO: Move to TestHandler or use a single test.
 
 
 class Test(P2GTestCase):

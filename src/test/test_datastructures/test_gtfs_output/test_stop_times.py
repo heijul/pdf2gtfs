@@ -123,16 +123,16 @@ class TestGTFSStopTimesEntry(P2GTestCase):
         self.assertEqual(values[0], entry.trip_id)
         self.assertEqual(Time(13, 55, 0), entry.arrival_time)
         self.assertEqual(Time(14, 1, 10), entry.departure_time)
-        self.assertEqual(values[3], entry.stop_id)
-        self.assertEqual(values[4], entry.stop_sequence)
+        self.assertEqual("stop 1", entry.stop_id)
+        self.assertEqual(33, entry.stop_sequence)
         # Times greater 24 h should work.
         values = ["trip 1", "24:55:00", "24:55:10", "stop 1", "33"]
         entry = GTFSStopTimesEntry.from_series(pd.Series(values, index=index))
         self.assertEqual(values[0], entry.trip_id)
         self.assertEqual(Time(24, 55), entry.arrival_time)
         self.assertEqual(Time(24, 55, 10), entry.departure_time)
-        self.assertEqual(values[3], entry.stop_id)
-        self.assertEqual(values[4], entry.stop_sequence)
+        self.assertEqual("stop 1", entry.stop_id)
+        self.assertEqual(33, entry.stop_sequence)
 
     def test__comparisons__(self) -> None:
         s1 = GTFSStopTimesEntry("trip id 1", "stop id 1", 0,

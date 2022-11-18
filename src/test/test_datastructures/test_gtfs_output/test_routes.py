@@ -71,6 +71,18 @@ class TestGTFSRouteEntry(P2GTestCase):
         self.assertEqual(values[2], entry.route_short_name)
         self.assertEqual(values[3], entry.route_long_name)
         self.assertEqual("Bus", entry.route_type.name)
+        # Test some empty values
+        index = [f.name for f in fields(GTFSRouteEntry)]
+        values = ["route_id3", "agency_id1", "short_name", "", "3"]
+        s = pd.Series(values, index=index)
+        entry = GTFSRouteEntry.from_series(s)
+        self.assertEqual(values[3], entry.route_long_name)
+        # Test some empty values
+        index = [f.name for f in fields(GTFSRouteEntry)]
+        values = ["route_id3", "agency_id1", "", "long_name", "3"]
+        s = pd.Series(values, index=index)
+        entry = GTFSRouteEntry.from_series(s)
+        self.assertEqual(values[2], entry.route_short_name)
 
 
 class TestGTFSRoutes(GTFSOutputBaseClass):
