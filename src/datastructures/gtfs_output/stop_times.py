@@ -158,8 +158,8 @@ class GTFSStopTimesEntry(BaseDataClass):
         """ Creates a new GTFSTrip from the given series. """
         arr_time = Time.from_gtfs(s["arrival_time"])
         dep_time = Time.from_gtfs(s["departure_time"])
-        return GTFSStopTimesEntry(
-            s["trip_id"], s["stop_id"], s["stop_sequence"], arr_time, dep_time)
+        return GTFSStopTimesEntry(s["trip_id"], s["stop_id"],
+                                  int(s["stop_sequence"]), arr_time, dep_time)
 
     def __eq__(self, other: GTFSStopTimesEntry):
         for field in fields(self):
@@ -270,18 +270,6 @@ class GTFSStopTimes(BaseContainer):
             if entry.stop_id == stop_id:
                 return entry
         return None
-
-    def __eq__(self, other: GTFSStopTimes):
-        if len(self.entries) != len(other.entries):
-            return False
-        for entry in self.entries:
-            other_entry = other._get_entry_from_stop_id(entry.stop_id)
-            # Need to have the same entries
-            if not other_entry:
-                return False
-            if entry != other_entry:
-                return False
-        return True
 
     def __lt__(self, other: GTFSStopTimes):
         for entry in self.entries:

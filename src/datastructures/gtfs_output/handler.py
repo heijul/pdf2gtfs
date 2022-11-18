@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -25,7 +26,7 @@ from datastructures.gtfs_output.trips import GTFSTrips
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry)
 from locate import Node
-from locate.finder.loc_nodes import MNode
+from locate.finder.loc_nodes import ENode, MNode
 from user_input.cli import (
     handle_annotations, ask_overwrite_existing_file, select_agency)
 
@@ -293,7 +294,8 @@ class GTFSHandler:
         # try to create it again. This will ensure a different filepath.
         # Otherwise the user needs to decide what to do.
         if archive_path.exists() and archive_path == Config.output_path:
-            ask_overwrite_existing_file(archive_path)
+            if not ask_overwrite_existing_file(archive_path):
+                sys.exit(12)
         elif archive_path.exists():
             sleep(1)
             return self.create_zip_archive()
@@ -311,9 +313,7 @@ class GTFSHandler:
         logger.info("Adding coordinates to stops.")
         for stop_id, node in nodes.items():
             stop = self.stops.get_by_stop_id(stop_id)
-            # No need to add the location to existing stops, as these will
-            #  not be updated anyway
-            if stop.valid:
+            if stop.valid or isinstance(node, ENode):
                 continue
             if isinstance(node, MNode):
                 msg = f"Could not find location for '{stop.stop_name}'."

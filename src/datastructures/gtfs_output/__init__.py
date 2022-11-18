@@ -59,7 +59,7 @@ class BaseContainer:
     def read_input_file(self, path: Path) -> list[DCType]:
         """ Try to read the given input file. """
         try:
-            df = pd.read_csv(path, dtype=str)
+            df = pd.read_csv(path, dtype=str, keep_default_na=False)
         except Exception as e:
             logger.warning(f"The following exception occurred, when trying "
                            f"to read the input file '{path}':\n{e}")
@@ -119,6 +119,22 @@ class BaseContainer:
     def _write(self, content: str) -> None:
         with open(self.fp, "w") as fil:
             fil.write(content)
+
+    def __eq__(self, other: BaseContainer) -> bool:
+        fields1 = fields(self.entry_type)
+        fields2 = fields(other.entry_type)
+        # Different container, but allows comparing different classes.
+        if fields1 != fields2:
+            return False
+        if len(self.entries) != len(other.entries):
+            return False
+        # TODO: Sort the entries in some meaningful manner.
+        for entry1, entry2 in zip(self.entries, other.entries):
+            for field in fields1:
+                if (entry1.get_field_value(field)
+                        != entry2.get_field_value(field)):
+                    return False
+        return True
 
     def __iter__(self) -> Iterator[DCType]:
         return iter(self.entries)
