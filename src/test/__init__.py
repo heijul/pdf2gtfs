@@ -72,6 +72,7 @@ class P2GTestCase(TestCase):
                    create_temp_dir: bool = False,
                    disable_logging: bool = False) -> None:
         super().setUpClass()
+        Config.filename = str(get_test_src_dir().joinpath("data/vag_1.pdf"))
         cls.temp_dir = None
         cls.temp_path = None
         if create_temp_dir:
