@@ -53,7 +53,7 @@ class GTFSHandler:
     an interface to query them. """
 
     def __init__(self) -> None:
-        self.temp_dir = tempfile.TemporaryDirectory(prefix="pdf2gtfs")
+        self.temp_dir = tempfile.TemporaryDirectory(prefix="pdf2gtfs_")
         temp_dir_path = Path(self.temp_dir.name)
         self._agency = GTFSAgency(temp_dir_path)
         self._stops = GTFSStops(temp_dir_path)

@@ -59,7 +59,8 @@ class BaseContainer:
     def read_input_file(self, path: Path) -> list[DCType]:
         """ Try to read the given input file. """
         try:
-            df = pd.read_csv(path, dtype=str, keep_default_na=False)
+            df = pd.read_csv(path, dtype=str, keep_default_na=False,
+                             encoding="utf-8")
         except Exception as e:
             logger.warning(f"The following exception occurred, when trying "
                            f"to read the input file '{path}':\n{e}")
