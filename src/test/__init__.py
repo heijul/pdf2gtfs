@@ -29,7 +29,7 @@ class Data:
 
     def __initialize(self) -> None:
         self.path = get_test_src_dir().joinpath("data/data.yaml")
-        with open(self.path, "r") as file:
+        with open(self.path, "r", encoding="utf-8") as file:
             self.data = yaml.load(file, Loader=yaml.BaseLoader)
 
     @staticmethod
@@ -95,3 +95,4 @@ class P2GTestCase(TestCase):
         super().setUp()
         # Reset the config. Easier/Less error-prone than cleaning up properly.
         Config.load_default_config()
+        Config.output_pp = False

@@ -51,7 +51,9 @@ class Test(P2GTestCase):
 
     def test_dataframe_to_rows(self) -> None:
         Config.pages = "all"
-        pages = list(get_pages(Config.filename))
+        reader = Reader()
+        reader.preprocess()
+        pages = list(get_pages(reader.tempfile.name))
         self.assertEqual(6, len(pages))
         line_count = [76, 78, 77, 74, 78, 49]
         for i in range(len(pages)):
