@@ -148,7 +148,7 @@ class TimeTable:
 
         # TODO: Use pd.DataFrame for multicolumn header
         tabulated_table = tabulate(rows, headers=get_headers())
-        logger.info("\n" + str(tabulated_table))
+        logger.debug("\n" + str(tabulated_table))
 
     def clean_values(self) -> None:
         """ Clean all stops. """

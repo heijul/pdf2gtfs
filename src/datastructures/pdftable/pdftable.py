@@ -202,7 +202,7 @@ def split_rows_into_tables(rows: Rows) -> Tables:
                 log_skipped_rows()
                 current_rows = [row]
                 continue
-            logger.info(f"Distance between rows: {y_distance}")
+            logger.debug(f"Distance between rows: {y_distance}")
             tables.append(PDFTable(current_rows))
             current_rows = []
         current_rows.append(row)

@@ -196,7 +196,7 @@ class Node:
         #  children, or if there is no ENode for the neighbors' stop.
         if has_neighbors or self.has_children or self.stop.next.exists:
             return
-        logger.info(f"Created missing childnode for {self}")
+        logger.debug(f"Created missing childnode for {self}")
         self.nodes.create_missing_neighbor_for_node(self)
 
 

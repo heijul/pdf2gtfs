@@ -54,7 +54,7 @@ def main() -> None:
     """ Main function. """
     start = time()
     parse_args()
-    initialize_logging(logging.DEBUG)
+    initialize_logging(logging.INFO)
 
     if not create_output_directory():
         sys.exit(3)
