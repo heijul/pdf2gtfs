@@ -332,18 +332,15 @@ class Pages:
     """ Type of the value of the PagesProperty. """
 
     def __init__(self, pages_string: str = "all"):
+        self.all = True
         self.pages = []
-        self._set_value(pages_string)
-        self.validate()
+        self.set_value(pages_string)
+        self.remove_invalid_pages()
 
-    def _set_value(self, pages_string: str) -> None:
-        pages_string = pages_string.replace(" ", "")
-
-        if pages_string == "all":
-            self.all = True
-            return
-
-        self._set_pages(pages_string)
+    def set_value(self, pages_string: str) -> None:
+        """ Set the pages to the given pages string. """
+        self.all, self.pages = self._page_string_to_pages(pages_string)
+        self.remove_invalid_pages()
 
     @property
     def page_ids(self) -> list[int] | None:
@@ -351,7 +348,8 @@ class Pages:
         # pdfminer uses 0-indexed pages or None for all pages.
         return None if self.all else [page - 1 for page in self.pages]
 
-    def _set_pages(self, pages_string: str) -> None:
+    @staticmethod
+    def _page_string_to_pages(pages_string: str) -> tuple[bool, list[int]]:
         def _handle_non_numeric_pages(non_num_string: str) -> set[int]:
             """ Try to expand the non_num_string to a range. """
             if "-" in non_num_string:
@@ -364,6 +362,11 @@ class Pages:
                            f"Reason: Non-numeric and not a proper range.")
             return set()
 
+        pages_string = pages_string.replace(" ", "")
+
+        if pages_string == "all":
+            return True, []
+
         pages = set()
         for value_str in pages_string.split(","):
             if not str.isnumeric(value_str):
@@ -371,14 +374,13 @@ class Pages:
                 continue
             pages.add(int(value_str))
 
-        self.all = False
-        self.pages = sorted(pages)
+        return False, sorted(pages)
 
     def page_num(self, page_id: int) -> int:
         """ Returns the pagenumber (i.e. the page of the pdf) at page_id. """
         return page_id if self.all else self.pages[page_id - 1]
 
-    def validate(self) -> None:
+    def remove_invalid_pages(self) -> None:
         """ Checks that the pages start at 1 (pdf page). """
         if self.all:
             return
@@ -405,7 +407,9 @@ class PagesProperty(Property):
 
     def __set__(self, obj: CType, value: str | Pages) -> None:
         if isinstance(value, str):
-            value = Pages(value)
+            pages = Pages()
+            pages.set_value(value)
+            value = pages
 
         super().__set__(obj, value)
 
