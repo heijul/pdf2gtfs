@@ -44,8 +44,11 @@ def search_locations_for_all_routes(
 def find_location_nodes(gtfs_handler: GTFSHandler) -> dict[str: Location]:
     """ Return a dictionary of all stops and their locations. """
 
-    osm_fetcher = OSMFetcher()
-    df = prepare_df(gtfs_handler.get_used_stops(), osm_fetcher.df)
+    fetcher = OSMFetcher()
+    dataframe = fetcher.fetch()
+    if dataframe.empty:
+        return {}
+    df = prepare_df(gtfs_handler.get_used_stops(), dataframe)
 
     logger.info("Searching for the stop locations of each route.")
     t = time()

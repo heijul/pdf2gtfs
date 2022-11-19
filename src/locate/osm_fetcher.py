@@ -6,6 +6,7 @@ from datetime import datetime as dt
 from io import BytesIO
 from logging import getLogger
 from pathlib import Path
+from time import time
 from urllib import parse
 
 import pandas as pd
@@ -28,7 +29,6 @@ class OSMFetcher:
 
     def __init__(self) -> None:
         self.qlever_url = Config.qlever_endpoint_url
-        self.df = self.fetch()
 
     @property
     def cache_path(self) -> Path:
@@ -96,8 +96,12 @@ class OSMFetcher:
             fil.write(get_osm_comments())
         df.to_csv(
             self.cache_path, sep="\t", header=False, index=False, mode="a")
+        logger.info(f"OSM data was cached at {self.cache_path}.")
 
     def _get_raw_osm_data(self, query: str) -> tuple[bool, bytes | None]:
+        t = time()
+        logger.info("Cache needs to be rebuilt. Fetching OSM data from "
+                    "QLever...")
         data = {"action": "tsv_export", "query": query}
         url = self.qlever_url + parse.urlencode(data)
         try:
@@ -107,6 +111,8 @@ class OSMFetcher:
             return False, None
 
         if request.status_code == 200:
+            logger.info(f"Done fetching OSM data from QLever. "
+                        f"Took {time() - t}s.")
             return True, request.content
 
         logger.error(f"Could not get osm data: {request}\n{request.content}")
@@ -114,24 +120,32 @@ class OSMFetcher:
 
     def fetch(self) -> pd.DataFrame:
         """ Fetches the data from OSM. """
+        t = time()
+        logger.info("Looking for existing location information...")
         # Build query.
         query = get_qlever_query()
         # Check if query is cached and cache is fresh.
         cached_df: pd.DataFrame = self.read_cache()
         if not cached_df.empty:
+            logger.info(f"Done. Using cache with {len(cached_df)} entries.")
             return cached_df
         # Fetch data.
         success, raw_data = self._get_raw_osm_data(query)
         if not success:
+            logger.warning("Could not fetch OSM data using QLever. Will be "
+                           "unable to continue location detection.")
             return pd.DataFrame()
         # Create dataframe.
         dataframe = raw_osm_data_to_dataframe(raw_data)
         # An empty cache needs not to be cached.
         if dataframe.empty:
+            logger.warning("Fetching OSM data returned no results. Will be "
+                           "unable to continue location detection.")
             return dataframe
         # Cache dataframe.
         self.write_cache(dataframe)
-
+        logger.info(f"Done fetching location information. "
+                    f"Took {time() - t}s.")
         return dataframe
 
 
@@ -273,10 +287,15 @@ def get_qlever_query() -> str:
 
 def raw_osm_data_to_dataframe(raw_data: bytes) -> pd.DataFrame:
     """ Cleans the names and removes entries with no names. """
+    t = time()
+    logger.info("Normalizing the stop names...")
     df = read_data(BytesIO(raw_data))
     df["names"] = normalize_series(df["names"])
+    logger.info(f"Done. Took {t}s.")
     # Remove entries with empty name.
-    return df[df["names"] != ""]
+    df = df[df["names"] != ""]
+    logger.info("Dropped locations with empty names from the dataframe.")
+    return df
 
 
 def read_data(path_or_stream: Path | BytesIO) -> pd.DataFrame:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from typing import TypeAlias, TypeVar
 
@@ -143,6 +144,7 @@ def normalize_series(raw_series: pd.Series) -> pd.Series:
             )
 
 
+@functools.cache
 def normalize_name(name: str) -> str:
     """ Normalize the given name. Simple wrapper function for a single str. """
     return normalize_series(pd.Series([name])).iloc[0]

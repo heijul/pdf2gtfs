@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from config import Config
 from datastructures.gtfs_output.handler import GTFSHandler
-from locate import find_location_nodes, Node
+from locate import find_location_nodes
 from p2g_logging import initialize_logging
 from reader import Reader
 from user_input.arg_parser import parse_args
@@ -41,10 +41,13 @@ def generate_gtfs(timetables) -> GTFSHandler:
     return gtfs_handler
 
 
-def match_coordinates(gtfs_handler: GTFSHandler) -> list[Node]:
+def detect_locations(gtfs_handler: GTFSHandler) -> None:
     """ Find the locations of the stops defined in the gtfs_handler. """
+    if Config.disable_location_detection:
+        logger.info("Skipping location detection, as requested.")
+        return
     locations = find_location_nodes(gtfs_handler)
-    return locations if locations else None
+    gtfs_handler.add_coordinates(locations or [])
 
 
 def main() -> None:
@@ -58,11 +61,7 @@ def main() -> None:
 
     tables = get_timetables()
     handler = generate_gtfs(tables)
-    if Config.disable_location_detection:
-        logger.info("Skipping location detection, as requested.")
-    else:
-        route = match_coordinates(handler)
-        handler.add_coordinates(route)
+    detect_locations(handler)
     handler.write_files()
     logger.info(f"Export complete. Took {time() - start:.2f}s. Exiting...")
 
