@@ -211,7 +211,7 @@ def _preprocess_check() -> bool:
         from ghostscript import Ghostscript  # noqa: F401
 
         return True
-    except RuntimeError:
+    except (ImportError, RuntimeError):
         logger.warning("Ghostscript library does not seem to be "
                        "installed. Skipping preprocessing...")
         return False
@@ -222,7 +222,7 @@ class Reader:
     e.g. the removal of any temporary files. """
 
     def __init__(self) -> None:
-        self.tempfile = None
+        self.tempfile: NamedTemporaryFile = None
         self.filepath = Path(Config.filename).resolve()
 
     def __del__(self) -> None:
