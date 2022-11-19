@@ -282,25 +282,64 @@ class TestHolidayCodeProperty(PropertyTestCase):
 
 
 class TestPages(PropertyTestCase):
-    def test__set_value(self) -> None:
-        ...
+    def test_set_value(self) -> None:
+        pages = p.Pages()
+        pages.set_value("all")
+        self.assertTrue(pages.all)
+        self.assertEqual([], pages.pages)
+        pages.set_value("1      3, 2 -  4")
+        self.assertFalse(pages.all)
+        self.assertEqual([2, 3, 4, 13], pages.pages)
 
     def test_page_ids(self) -> None:
-        ...
+        pages = p.Pages()
+        self.assertIsNone(pages.page_ids)
+        self.assertEqual([], pages.pages)
+        pages.set_value("1, 2, 3, 4, 5")
+        self.assertEqual([0, 1, 2, 3, 4], pages.page_ids)
+        pages.set_value("1-5")
+        self.assertEqual([0, 1, 2, 3, 4], pages.page_ids)
 
-    def test__set_pages(self) -> None:
-        ...
+    def test__page_string_to_pages(self) -> None:
+        self.assertEqual((True, []), p.Pages._page_string_to_pages(" a l l "))
+        self.assertEqual((False, [13, 23, 33]),
+                         p.Pages._page_string_to_pages("1  3, 33, 23"))
+        self.assertEqual((False, list(range(1, 100))),
+                         p.Pages._page_string_to_pages("1-99"))
 
     def test_page_num(self) -> None:
-        ...
+        pages = p.Pages()
+        pages.set_value("3-8")
+        results = range(3, 9)
+        # pdfminer's page ids are 1-indexed.
+        for i in range(1, 6):
+            with self.subTest(i=i):
+                self.assertEqual(results[i - 1], pages.page_num(i))
 
-    def test_validate(self) -> None:
-        ...
+    def test_remove_invalid_pages(self) -> None:
+        pages = p.Pages()
+        self.assertEqual([], pages.pages)
+        pages.all, pages.pages = pages._page_string_to_pages("0,1,3-6")
+        self.assertEqual([0, 1, 3, 4, 5, 6], pages.pages)
+        pages.remove_invalid_pages()
+        self.assertEqual([1, 3, 4, 5, 6], pages.pages)
+        pages.all, pages.pages = pages._page_string_to_pages("0")
+        self.assertEqual([0], pages.pages)
+        with self.assertRaises(SystemExit):
+            pages.remove_invalid_pages()
 
 
 class TestPage(PropertyTestCase):
     def test___set__(self) -> None:
-        ...
+        pages = p.Pages()
+        pages.set_value("1,2,4-6")
+        prop = p.PagesProperty(self.dummy, "prop")
+        prop.__set__(self.dummy, pages)
+        self.assertEqual(pages, prop.__get__(self.dummy))
+        prop.__set__(self.dummy, "all")
+        value = prop.__get__(self.dummy)
+        self.assertEqual(True, value.all)
+        self.assertEqual([], value.pages)
 
 
 class TestRouteTypeProperty(PropertyTestCase):
