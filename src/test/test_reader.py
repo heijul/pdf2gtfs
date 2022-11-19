@@ -30,7 +30,7 @@ class Test(P2GTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        Config.preprocess = False
+        Config.filename = str(get_test_src_dir().joinpath("data/vag_1.pdf"))
 
     def test_get_chars_dataframe(self) -> None:
         ...
