@@ -262,7 +262,7 @@ class _Config(InstanceDescriptorMixin):
 
 def _read_yaml(path: Path) -> tuple[dict[str, Any], bool]:
     try:
-        with open(path) as config_file:
+        with open(path, encoding="utf-8") as config_file:
             return safe_load(config_file), True
     except (ScannerError, YAMLError) as error:
         if isinstance(error, ScannerError):

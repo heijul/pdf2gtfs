@@ -40,7 +40,7 @@ class OSMFetcher:
 
         def cache_is_stale() -> bool:
             """ Return if the cache is older than the configured days. """
-            with open(self.cache_path, "r") as fil:
+            with open(self.cache_path, "r", encoding="utf-8") as fil:
                 line = fil.readline().strip()
 
             msg = ("Cache was found, but does not seem valid. "
@@ -63,7 +63,7 @@ class OSMFetcher:
             """ Return if the query and the cache's query are the same. """
             lines = []
             # Get all starting comments of the file.
-            with open(self.cache_path, "r") as fil:
+            with open(self.cache_path, "r", encoding="utf-8") as fil:
                 line = fil.readline().strip()
                 while line.startswith("#"):
                     if line != "#":
@@ -92,7 +92,7 @@ class OSMFetcher:
     def write_cache(self, df: pd.DataFrame) -> None:
         """ Write the dataframe to disk. """
         # Write the comments first.
-        with open(self.cache_path, "w") as fil:
+        with open(self.cache_path, "w", encoding="utf-8") as fil:
             fil.write(get_osm_comments())
         df.to_csv(
             self.cache_path, sep="\t", header=False, index=False, mode="a")

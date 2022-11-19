@@ -118,7 +118,7 @@ class BaseContainer:
         self._write(self.to_output())
 
     def _write(self, content: str) -> None:
-        with open(self.fp, "w") as fil:
+        with open(self.fp, "w", encoding="utf-8") as fil:
             fil.write(content)
 
     def __eq__(self, other: BaseContainer) -> bool:

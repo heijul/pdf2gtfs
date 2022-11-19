@@ -386,7 +386,7 @@ class TestOutputPathProperty(PropertyTestCase):
         invalid_file_ending = path.joinpath("test.txt")
         # Create empty zip.
         for file_name in existing_zip_path, invalid_file_ending:
-            with open(file_name, "w") as file:
+            with open(file_name, "w", encoding="utf-8") as file:
                 file.write("")
         non_existing_zip_path = path.joinpath("tests_new.zip")
         invalid_file_ending = path.joinpath("test.txt")

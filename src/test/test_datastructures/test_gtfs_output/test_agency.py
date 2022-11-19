@@ -39,7 +39,7 @@ class TestAgency(GTFSOutputBaseClass):
         lines += [f"{i},agency_{i},https://www.pdf2gtfs.com/{i},Europe/Berlin"
                   for i in range(entry_count)]
         lines = "\n".join(lines)
-        with open(self.filename, "w") as fil:
+        with open(self.filename, "w", encoding="utf-8") as fil:
             fil.write(lines)
 
     def test_create_dummy_agency(self) -> None:

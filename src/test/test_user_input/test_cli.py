@@ -31,7 +31,7 @@ def create_agency(path: Path, num: int, url: str = None, tz: str = None
         agencies.append(agency_entry.to_output())
 
     input_file = path.joinpath("agency.txt")
-    with open(input_file, "w") as file:
+    with open(input_file, "w", encoding="utf-8") as file:
         file.write("agency_id,agency_name,agency_url,agency_timezone")
         file.write("\n" + "\n".join(agencies) + "\n")
     Config.input_files = [input_file]
@@ -158,7 +158,7 @@ class TestCLI(P2GTestCase):
     @mock.patch("user_input.cli.input", create=True)
     def test_ask_overwrite_existing_file(self, mock_input: mock.Mock) -> None:
         filename = Path(self.temp_dir.name).joinpath("test.zip")
-        with open(filename, "w") as fil:
+        with open(filename, "w", encoding="utf-8") as fil:
             fil.write("test_ask_overwrite")
         mock_input.side_effect = ["n", "y", "n"]
         self.assertFalse(cli.ask_overwrite_existing_file(filename))
