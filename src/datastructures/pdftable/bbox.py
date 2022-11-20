@@ -72,6 +72,10 @@ class BBox:
         left, right = sorted((self, other), key=attrgetter("x0"))
         return abs(right.x0 - left.x1) <= Config.max_char_distance
 
+    def __eq__(self, other: BBox):
+        return (self.x0 == other.x0 and self.x1 == other.x1
+                and self.y0 == other.y0 and self.y1 == other.y1)
+
     def __repr__(self) -> str:
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
 
