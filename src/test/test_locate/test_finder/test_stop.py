@@ -1,9 +1,15 @@
 from unittest import mock
 
+import pandas as pd
+
 from config import Config
 from datastructures.gtfs_output.stop_times import Time
-from test_locate.test_finder import get_stops_from_stops_list
+from locate import Location
+from locate.finder.cost import Cost
+from locate.finder.loc_nodes import ENode, MNode, Node, Nodes
+from locate.finder.stops import Stops
 from test import P2GTestCase
+from test_locate.test_finder import get_stops_from_stops_list
 
 
 class TestHelper(P2GTestCase):
@@ -14,21 +20,50 @@ class TestHelper(P2GTestCase):
 
 class TestStop(P2GTestCase):
     def setUp(self) -> None:
-        stop_list = [("0", "stop_0"), ("1", "stop_1")]
-        self.stops = get_stops_from_stops_list(stop_list)
+        stop_list = [(f"{i}", f"stop_{i}") for i in range(5)]
+        self.stops: Stops = get_stops_from_stops_list(stop_list)
         Config.average_speed = 15
+        values = [[i, i, f"stop_{i}", i, f"{i}", i, i] for i in range(10)]
+        df = pd.DataFrame(values,
+                          columns=["lat", "lon", "names", "node_cost",
+                                   "stop_id", "idx", "name_cost"])
+        self.nodes = Nodes(df, self.stops)
 
     def test_exists(self) -> None:
-        ...
+        for i, stop in enumerate(self.stops.stops):
+            with self.subTest(i=i):
+                self.assertFalse(stop.exists)
+        stop = self.stops.stops[0]
+        args = (1, "stop", Location(33.21, 12.32), Cost(0, 0, 0, 0))
+        Node(stop, *args)
+        self.assertFalse(stop.exists)
+        stop = self.stops.stops[1]
+        MNode(stop, *args[:-1], 0)
+        self.assertFalse(stop.exists)
+        stop = self.stops.stops[2]
+        ENode(stop, args[2], 0)
+        self.assertTrue(stop.exists)
 
     def test_is_first(self) -> None:
-        ...
+        self.assertTrue(self.stops.stops[0].is_first)
+        for i, stop in enumerate(self.stops.stops[1:]):
+            with self.subTest(i=i):
+                self.assertFalse(stop.is_first)
 
     def test_is_last(self) -> None:
-        ...
+        self.assertTrue(self.stops.stops[-1].is_last)
+        for i, stop in enumerate(self.stops.stops[:-1]):
+            with self.subTest(i=i):
+                self.assertFalse(stop.is_last)
 
     def test_next(self) -> None:
-        ...
+        next_stop = self.stops.last
+        for i, current in enumerate(reversed(self.stops.stops[:-1])):
+            if current.is_last:
+                break
+            with self.subTest(i=i):
+                self.assertEqual(next_stop, current.next)
+                next_stop = current
 
     @mock.patch("locate.finder.stops.Stops.get_avg_time_between")
     def test__get_distance_bounds(self, get_avg_time_between) -> None:
