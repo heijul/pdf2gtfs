@@ -76,10 +76,10 @@ class Field(BBoxObject):
 
     def _contains(self, idents: list[str]) -> bool:
         def _contains_single(ident: str) -> bool:
-            ident = ident.lower().strip().replace(" ", "")
-            return ident in text
+            ident = ident.lower().strip()
+            return f" {ident} " in text
 
-        text = self.text.lower().strip().replace(" ", "")
+        text = " " + self.text.lower().strip() + " "
         return any(map(_contains_single, idents))
 
     def __contains__(self, item: Any) -> bool:
