@@ -11,7 +11,8 @@ from test_locate.test_finder import (
 from test import P2GTestCase
 
 
-def get_stop_positions(stops: Stops) -> dict[Stop: list[StopPosition]]:
+def get_stop_positions(stops: Stops, num: int = 3
+                       ) -> dict[Stop: list[StopPosition]]:
     stop_positions = {}
     idx = 0
     for stop_num, stop in enumerate(stops.stops):
@@ -20,7 +21,7 @@ def get_stop_positions(stops: Stops) -> dict[Stop: list[StopPosition]]:
         lat = 47.8 + stop_num / 1000
         lon = 7.9 + stop_num / 1000
 
-        for i in range(1, 4):
+        for i in range(1, num + 1):
             lat += i / 10000
             lon += i / 10000
             stop_positions[stop].append(
@@ -71,10 +72,37 @@ class TestNode(P2GTestCase):
         ...
 
     def test_cost_with_parent(self) -> None:
-        ...
+        stop_positions = get_stop_positions(self.stops, 3)
+        stop = self.stops.stops[0]
+        parent0 = self.nodes.get_or_create(stop, stop_positions[stop][0])
+        parent2 = self.nodes.get_or_create(stop, stop_positions[stop][2])
+        parent2.cost = StartCost.from_cost(parent2.cost)
+        stop = stop.next
+        child0 = self.nodes.get_or_create(stop, stop_positions[stop][0])
+        child2 = self.nodes.get_or_create(stop, stop_positions[stop][2])
+        self.assertEqual(inf, child0.cost_with_parent(parent0).as_float)
+        self.assertEqual(inf, child2.cost_with_parent(parent0).as_float)
+        parent0.cost = StartCost.from_cost(parent0.cost)
+        self.assertEqual(12, child0.cost_with_parent(parent0).as_float)
+        self.assertEqual(19, child0.cost_with_parent(parent2).as_float)
+        self.assertEqual(21, child2.cost_with_parent(parent0).as_float)
+        self.assertEqual(28, child2.cost_with_parent(parent2).as_float)
 
     def test_construct_route(self) -> None:
-        ...
+        stop_positions = get_stop_positions(self.stops, 1)
+        nodes = []
+        for stop, positions in stop_positions.items():
+            nodes.append(self.nodes.get_or_create(stop, positions[0]))
+            if stop.is_first:
+                nodes[-1].cost = StartCost.from_cost(nodes[-1].cost)
+        prev = nodes[0]
+        for node in nodes[1:]:
+            node.set_parent(prev)
+            prev = node
+        node = nodes[-1]
+        self.assertTrue(node.stop.is_last)
+        route = node.construct_route()
+        self.assertEqual(nodes, route)
 
     def test_has_parent(self) -> None:
         positions = get_stop_positions(self.stops)
@@ -283,8 +311,15 @@ class TestMNode(P2GTestCase):
 
 
 class TestNodes(P2GTestCase):
-    def test__initialize_dfs(self) -> None:
-        ...
+    @classmethod
+    def setUpClass(cls: P2GTestCase, **kwargs) -> None:
+        super().setUpClass(False, True)
+
+    def setUp(self) -> None:
+        Config.average_speed = 10
+        stops_list, self.df = get_stops_and_dummy_df(5)
+        self.stops = get_stops_from_stops_list(stops_list)
+        self.nodes = Nodes(self.df, self.stops)
 
     def test_add(self) -> None:
         ...
@@ -317,9 +352,6 @@ class TestNodes(P2GTestCase):
         ...
 
     def test_update_parent(self) -> None:
-        ...
-
-    def test_display_all_nodes(self) -> None:
         ...
 
 
