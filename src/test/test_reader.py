@@ -86,7 +86,7 @@ class Test(P2GTestCase):
         if reload:
             try:
                 sys.meta_path.pop(0)
-                from ghostscript import Ghostscript
+                from ghostscript import Ghostscript  # NOQA: F401
             except RuntimeError:
                 pass
 

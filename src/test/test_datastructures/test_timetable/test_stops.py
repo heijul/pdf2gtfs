@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from datastructures.timetable.stops import Stop, StopList
 from test import P2GTestCase
 
