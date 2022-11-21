@@ -112,7 +112,7 @@ class OSMFetcher:
 
         if request.status_code == 200:
             logger.info(f"Done fetching OSM data from QLever. "
-                        f"Took {time() - t}s.")
+                        f"Took {time() - t:.2f}s.")
             return True, request.content
 
         logger.error(f"Could not get osm data: {request}\n{request.content}")
@@ -145,7 +145,7 @@ class OSMFetcher:
         # Cache dataframe.
         self.write_cache(dataframe)
         logger.info(f"Done fetching location information. "
-                    f"Took {time() - t}s.")
+                    f"Took {time() - t:.2f}s.")
         return dataframe
 
 
@@ -291,7 +291,7 @@ def raw_osm_data_to_dataframe(raw_data: bytes) -> pd.DataFrame:
     logger.info("Normalizing the stop names...")
     df = read_data(BytesIO(raw_data))
     df["names"] = normalize_series(df["names"])
-    logger.info(f"Done. Took {t}s.")
+    logger.info(f"Done. Took {time() - t:.2f}s.")
     # Remove entries with empty name.
     df = df[df["names"] != ""]
     logger.info("Dropped locations with empty names from the dataframe.")

@@ -169,7 +169,7 @@ def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
         rows.append(row)
 
     logger.info(f"Processing of rows took: "
-                f"{time() - start:.3f} seconds.")
+                f"{time() - start:.2f} seconds.")
     return rows
 
 
@@ -320,7 +320,7 @@ class Reader:
         for page in self.get_pages():
             page_num = Config.pages.page_num(page.pageid)
             logger.info(f"Basic reading of page {page_num} took: "
-                        f"{time() - start:.4} seconds.")
+                        f"{time() - start:.2} seconds.")
             timetables += page_to_timetables(page)
             start = time()
 
