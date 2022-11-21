@@ -6,12 +6,12 @@ from datetime import datetime
 from typing import Any
 
 from config import Config
+from datastructures.pdftable import Char
 from datastructures.pdftable.bbox import BBox, BBoxObject
 from datastructures.pdftable.container import (
     Column, FieldColumnReference, FieldRowReference, Row)
 from datastructures.pdftable.enums import (
     ColumnType, FieldType, FieldValue, RowType)
-from p2g_types import Char
 
 
 class Field(BBoxObject):

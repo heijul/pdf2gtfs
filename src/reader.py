@@ -18,11 +18,11 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 
 from config import Config
+from datastructures.pdftable import Char
 from datastructures.pdftable.field import Field
 from datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables)
 from datastructures.timetable.table import TimeTable
-from p2g_types import Char
 
 
 PDF_READ_ERROR_CODE = 2

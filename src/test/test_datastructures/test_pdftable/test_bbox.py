@@ -1,5 +1,5 @@
 from config import Config
-from p2g_types import Char
+from datastructures.pdftable import Char
 from test import P2GTestCase
 from datastructures.pdftable.bbox import BBox, BBoxObject
 

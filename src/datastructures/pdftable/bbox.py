@@ -7,7 +7,7 @@ from __future__ import annotations
 from operator import attrgetter
 
 from config import Config
-from p2g_types import Char
+from datastructures.pdftable import Char
 
 
 class BBox:

@@ -1,10 +1,10 @@
 from config import Config
+from datastructures.pdftable import Char
 from datastructures.pdftable.bbox import BBox
 from datastructures.pdftable.container import Column, Row
 from datastructures.pdftable.enums import FieldType
 from datastructures.pdftable.field import Field
 from datastructures.pdftable.pdftable import PDFTable
-from p2g_types import Char
 from test import P2GTestCase
 
 
