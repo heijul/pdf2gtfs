@@ -47,21 +47,6 @@ class Node:
                 self.stop == other.stop and self.index == other.index and
                 self.loc == other.loc and self.cost == other.cost)
 
-    def __lt__(self, other: Node) -> bool:
-        if not isinstance(other, Node):
-            raise TypeError(
-                f"Can only compare Node to Node, not {type(object)}.")
-        return self.cost < other.cost
-
-    def __le__(self, other: Node) -> bool:
-        return self < other or self == other
-
-    def __gt__(self, other: Node):
-        return not self <= other
-
-    def __ge__(self, other: Node) -> bool:
-        return not self < other
-
     def __repr__(self) -> str:
         base = (f"Node('{self.stop.name}', cost: {self.cost.as_float:.0f}, "
                 f"loc: {self.loc}")

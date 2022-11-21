@@ -37,9 +37,6 @@ class TestNode(P2GTestCase):
                 idx += 1
         return stop_positions
 
-    def test___comparisons(self) -> None:
-        ...
-
     def test_get_close_neighbors(self) -> None:
         node_heap = self.nodes._node_heap
 
