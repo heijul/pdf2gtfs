@@ -1,5 +1,5 @@
-from test import P2GTestCase
 import locate.finder.location as loc
+from test import P2GTestCase
 
 
 class TestLocation(P2GTestCase):

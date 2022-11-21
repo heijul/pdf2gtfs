@@ -3,10 +3,10 @@ import platform
 from pathlib import Path
 from unittest import mock
 
+import user_input.cli as cli
 from config import Config
 from datastructures.gtfs_output.agency import GTFSAgency, GTFSAgencyEntry
 from test import P2GTestCase
-import user_input.cli as cli
 
 
 def get_path_with_insufficient_permissions() -> str:

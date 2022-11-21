@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import Config
-from datastructures.gtfs_output import BaseDataClass, BaseContainer
+from datastructures.gtfs_output import BaseContainer, BaseDataClass
 from utils import normalize_name
 
 

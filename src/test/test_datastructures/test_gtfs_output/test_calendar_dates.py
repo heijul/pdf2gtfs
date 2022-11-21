@@ -1,7 +1,7 @@
+import datetime as dt
 from dataclasses import fields
 
 import pandas as pd
-import datetime as dt
 
 from datastructures.gtfs_output.calendar_dates import (
     GTFSCalendarDateEntry,

@@ -12,11 +12,11 @@ import pandas as pd
 
 from config import Config
 from datastructures.gtfs_output.stop import GTFSStopEntry
-from locate.osm_fetcher import KEYS_OPTIONAL, OSMFetcher
-from locate.finder.location import Location
 from locate.finder import find_stop_nodes, update_missing_locations
 from locate.finder.loc_nodes import display_nodes, MNode, Node
+from locate.finder.location import Location
 from locate.finder.osm_values import get_all_cat_scores
+from locate.osm_fetcher import KEYS_OPTIONAL, OSMFetcher
 from utils import normalize_name
 
 

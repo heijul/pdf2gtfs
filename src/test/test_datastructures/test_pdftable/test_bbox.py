@@ -1,7 +1,7 @@
 from config import Config
 from datastructures.pdftable import Char
-from test import P2GTestCase
 from datastructures.pdftable.bbox import BBox, BBoxObject
+from test import P2GTestCase
 
 
 class TestBBox(P2GTestCase):

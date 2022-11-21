@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Iterator, TYPE_CHECKING
 
+import locate.finder.loc_nodes as loc_nodes
 from config import Config
 from datastructures.gtfs_output.stop import GTFSStopEntry
 from datastructures.gtfs_output.stop_times import Time
-import locate.finder.loc_nodes as loc_nodes
 
 
 if TYPE_CHECKING:

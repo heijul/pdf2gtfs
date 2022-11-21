@@ -7,10 +7,8 @@ from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
 from reader import (
-    _preprocess_check, get_chars_dataframe, dataframe_to_rows, get_pages,
-    Reader,
-    sniff_page_count)
-
+    _preprocess_check, dataframe_to_rows, get_chars_dataframe, get_pages,
+    Reader, sniff_page_count)
 from test import get_test_src_dir, P2GTestCase
 
 

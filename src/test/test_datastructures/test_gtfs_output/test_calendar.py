@@ -6,8 +6,8 @@ import pandas as pd
 
 from datastructures.gtfs_output.calendar import (
     DayIsActive, GTFSCalendar, GTFSCalendarEntry, ServiceDay, WEEKDAY_NAMES)
-from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 from test import P2GTestCase
+from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
 class TestServiceDay(P2GTestCase):

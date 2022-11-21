@@ -7,9 +7,9 @@ from datastructures.gtfs_output.stop import GTFSStops
 from datastructures.gtfs_output.stop_times import (
     get_repeat_deltas, GTFSStopTimes, GTFSStopTimesEntry, Time)
 from datastructures.gtfs_output.trips import GTFSTrips
+from test import P2GTestCase
 from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 from test_datastructures.test_timetable import create_stops
-from test import P2GTestCase
 
 
 class TestTime(P2GTestCase):

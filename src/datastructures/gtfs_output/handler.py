@@ -28,7 +28,7 @@ from datastructures.timetable.entries import (
 from locate import Node
 from locate.finder.loc_nodes import ENode, MNode
 from user_input.cli import (
-    handle_annotations, ask_overwrite_existing_file, select_agency)
+    ask_overwrite_existing_file, handle_annotations, select_agency)
 
 
 if TYPE_CHECKING:

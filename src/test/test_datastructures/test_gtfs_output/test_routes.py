@@ -7,9 +7,9 @@ from datastructures.gtfs_output.routes import (
     get_route_type, get_route_type_gtfs_value, GTFSRouteEntry, GTFSRoutes,
     RouteType)
 from datastructures.timetable.entries import TimeTableEntry
+from test import P2GTestCase
 from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 from test_datastructures.test_timetable import create_stops
-from test import P2GTestCase
 
 
 class TestRouteType(P2GTestCase):

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from datastructures.gtfs_output.__init__ import BaseDataClass, BaseContainer
+from datastructures.gtfs_output.__init__ import BaseContainer, BaseDataClass
 
 
 @dataclass

@@ -6,9 +6,9 @@ from locate.finder import Stop, Stops
 from locate.finder.cost import StartCost
 from locate.finder.loc_nodes import HeapNode, Node, NodeHeap, Nodes
 from locate.finder.types import StopPosition
+from test import P2GTestCase
 from test_locate.test_finder import (
     get_stops_and_dummy_df, get_stops_from_stops_list)
-from test import P2GTestCase
 
 
 def get_stop_positions(stops: Stops, num: int = 3

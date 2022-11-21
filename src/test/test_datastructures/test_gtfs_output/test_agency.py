@@ -5,8 +5,7 @@ import pandas as pd
 
 from config import Config
 from datastructures.gtfs_output.agency import (
-    GTFSAgency, DummyGTFSAgencyEntry,
-    GTFSAgencyEntry)
+    DummyGTFSAgencyEntry, GTFSAgency, GTFSAgencyEntry)
 from test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 

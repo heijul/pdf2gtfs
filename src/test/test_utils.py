@@ -3,12 +3,11 @@ import re
 import pandas as pd
 
 from config import Config
+from test import P2GTestCase
 from utils import (
     get_abbreviations_regex, next_uid, normalize_series, replace_abbreviation,
     replace_abbreviations,
     UIDGenerator)
-
-from test import P2GTestCase
 
 
 class TestUtils(P2GTestCase):

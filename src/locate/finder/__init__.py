@@ -7,8 +7,8 @@ from time import time
 from typing import TYPE_CHECKING
 
 from config import Config
-from locate.finder.location import Location
 from locate.finder.loc_nodes import display_nodes, MNode, Node, Nodes
+from locate.finder.location import Location
 from locate.finder.stops import Stop, Stops
 from locate.finder.types import DF
 

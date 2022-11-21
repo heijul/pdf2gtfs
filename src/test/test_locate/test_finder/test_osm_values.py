@@ -1,7 +1,7 @@
+import locate.finder.osm_values as osmv
 from config import Config
 from datastructures.gtfs_output.routes import RouteType
 from test import P2GTestCase
-import locate.finder.osm_values as osmv
 
 
 class TestOSMValues(P2GTestCase):
