@@ -212,7 +212,7 @@ class MNode(Node):
         If the MNode has no parent, return maxsize instead.
         """
         if not self.parent:
-            return float("inf")
+            return inf
         return super().get_max_dist() + self.parent.get_max_dist()
 
     def cost_with_parent(self, parent: Node) -> Cost:
@@ -504,16 +504,12 @@ class NodeHeap:
 
         previous = self.first
         while True:
-            if previous.next is None or node_cost < previous.node_cost:
+            if (previous.next is None
+                    or previous.next and previous.next.node_cost > node_cost):
                 break
-            if node_cost > previous.node_cost:
+            if node_cost >= previous.node_cost:
                 previous = previous.next
                 continue
-            # Only break, if the previous's cost are equal to
-            #  node's cost and the next node has higher cost.
-            if previous.next.node_cost > previous.node_cost:
-                break
-            previous = previous.next
         return previous
 
     def insert_after(self, prev: HeapNode | None, heap_node: HeapNode) -> None:
