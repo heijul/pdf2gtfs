@@ -83,8 +83,7 @@ class OSMFetcher:
 
         If no cache exists, return None instead.
         """
-        path = self.cache_path
-        if not path.exists() or self.cache_needs_rebuild():
+        if not self.cache_path.exists() or self.cache_needs_rebuild():
             return pd.DataFrame()
         dataframe = read_data(self.cache_path)
         return dataframe
@@ -127,7 +126,8 @@ class OSMFetcher:
         # Check if query is cached and cache is fresh.
         cached_df: pd.DataFrame = self.read_cache()
         if not cached_df.empty:
-            logger.info(f"Done. Using cache with {len(cached_df)} entries.")
+            logger.info(f"Done. Found valid cache with "
+                        f"{len(cached_df)} entries.")
             return cached_df
         # Fetch data.
         success, raw_data = self._get_raw_osm_data(query)
