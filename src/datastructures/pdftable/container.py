@@ -150,13 +150,19 @@ class FieldContainer(BBoxObject):
         if the index should be incremented.
         """
         idx = 0
-        fields_list: list[list[Field]] = [[] for _ in range(len(splitters))]
-
-        for field in self.fields:
-            splitter_available = idx + 1 < len(splitters)
-            if splitter_available and next_idx(splitters[idx + 1], field):
-                idx += 1
-            fields_list[idx].append(field)
+        fields_list: list[list[Field]] = [[]]
+        splitters_iter = iter(splitters)
+        current_splitter = next(splitters_iter)
+        last_split = False
+        for field in list(self.fields):
+            if next_idx(current_splitter, field) and not last_split:
+                try:
+                    current_splitter = next(splitters_iter)
+                except StopIteration:
+                    last_split = True
+                if fields_list != [[]]:
+                    fields_list.append([])
+            fields_list[-1].append(field)
         return [self.from_fields(fields) for fields in fields_list]
 
     def has_field_of_type(self, typ: FieldType) -> bool:
