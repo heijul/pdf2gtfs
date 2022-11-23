@@ -255,12 +255,34 @@ class TestColumn(P2GTestCase):
     def test__get_repeat_intervals(self) -> None:
         fields = create_fields(1, 8, 12, 7)
         col = Column.from_fields(fields)
-        ...
+        fields[0].text = "Alle"
+        fields[1].text = "4"
+        fields[2].text = "min."
+        self.assertEqual(["4"], col._get_repeat_intervals("alle", "min"))
+        self.assertEqual(["4"], col._get_repeat_intervals("alle", "min."))
+        fields[3].text = "Alle"
+        fields[4].text = "5-9"
+        fields[5].text = "min."
+        self.assertEqual(["4", "5-9"],
+                         col._get_repeat_intervals("alle", "min."))
+        self.assertEqual([], col._get_repeat_intervals("allee", "min."))
+        fields[1].text = "4, 6"
+        self.assertEqual(["4, 6", "5-9"],
+                         col._get_repeat_intervals("alle", "min."))
 
     def test_get_repeat_intervals(self) -> None:
         fields = create_fields(1, 8, 12, 7)
         col = Column.from_fields(fields)
-        ...
+        fields[0].text = "Alle"
+        fields[1].text = "4"
+        fields[2].text = "min."
+        fields[3].text = "Every"
+        fields[4].text = "5-9"
+        fields[5].text = "min."
+        Config.repeat_identifier = [["alle", "min"]]
+        self.assertEqual(["4"], col.get_repeat_intervals())
+        Config.repeat_identifier = [["alle", "min"], ["every", "min"]]
+        self.assertEqual(["4", "5-9"], col.get_repeat_intervals())
 
     def test_merge(self) -> None:
         fields1 = create_fields(1, 8, 12, 7)
