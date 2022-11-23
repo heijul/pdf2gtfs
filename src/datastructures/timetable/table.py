@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import logging
 
-from tabulate import tabulate
-
 import datastructures.pdftable.pdftable as pdftable
 from config import Config
 from datastructures.pdftable.enums import ColumnType
 from datastructures.timetable.entries import (
-    TimeTableEntry, TimeTableRepeatEntry, Weekdays)
+    TimeTableEntry, TimeTableRepeatEntry)
 from datastructures.timetable.stops import Stop, StopList
 
 
@@ -114,40 +112,7 @@ class TimeTable:
 
         if Config.min_connection_count > 0:
             table.detect_connection()
-        if table.stops.stops:
-            table.print()
         return table
-
-    def print(self) -> None:
-        """ Pretty print the table."""
-
-        def days_to_header_values(days: Weekdays) -> str:
-            """ Turn the Weekdays to their human-readable form. """
-            for key in Config.header_values:
-                if str(Weekdays(key)) == str(days):
-                    return key
-            return ""
-
-        def get_headers() -> list[str]:
-            """ Return the headers of the table. """
-            headers = ["Days\nRoute\nRoute information"]
-            for e in self.entries:
-                header = days_to_header_values(e.days).capitalize()
-                annot = " ".join(e.annotations) if e.annotations else ""
-                headers.append(f"{header}\n{e.route_name}\n{annot}")
-            return headers
-
-        rows: list[list[str]] = [[] for _ in range(len(self.stops.stops))]
-
-        for stop, row in zip(self.stops.stops, rows, strict=True):
-            row.append(stop.name)
-            for entry in self.entries:
-                val = entry.get_value(stop)
-                row.append(val if val else "–")
-
-        # TODO: Use pd.DataFrame for multicolumn header
-        tabulated_table = tabulate(rows, headers=get_headers())
-        logger.debug("\n" + str(tabulated_table))
 
     def clean_values(self) -> None:
         """ Clean all stops. """
