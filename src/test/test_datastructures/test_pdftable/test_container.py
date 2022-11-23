@@ -1,48 +1,10 @@
 from config import Config
 from datastructures.pdftable.bbox import BBox
 from datastructures.pdftable.container import Column, Row
-from datastructures.pdftable.enums import ColumnType, RowType
+from datastructures.pdftable.enums import ColumnType, FieldType, RowType
 from datastructures.pdftable.field import Field
 from datastructures.pdftable.pdftable import PDFTable
 from test import P2GTestCase
-
-
-class TestFieldContainer(P2GTestCase):
-    def test_fields(self) -> None:
-        ...
-
-    def test_table(self) -> None:
-        ...
-
-    def test_has_type(self) -> None:
-        ...
-
-    def test_add_reference_to_field(self) -> None:
-        ...
-
-    def test_add_field(self) -> None:
-        ...
-
-    def test__add_field_at_index(self) -> None:
-        ...
-
-    def test_remove_field(self) -> None:
-        ...
-
-    def test_set_bbox_from_fields(self) -> None:
-        ...
-
-    def test__add_field(self) -> None:
-        ...
-
-    def test__contains_time_data(self) -> None:
-        ...
-
-    def test__split_at(self) -> None:
-        ...
-
-    def test_has_field_of_type(self) -> None:
-        ...
 
 
 def create_fields(num_x: int, num_y: int, delta_x: int, delta_y: int
@@ -137,6 +99,111 @@ class TestRow(P2GTestCase):
             for j, field in enumerate(row.fields):
                 with self.subTest(i=i, j=j):
                     self.assertLess(field.bbox.x0, splitter[i].bbox.x0)
+
+    def test_fields(self) -> None:
+        fields = create_fields(7, 1, 12, 7)
+        row = Row()
+        row.fields = fields
+        self.assertListEqual(fields, row.fields)
+        for i, field in enumerate(fields):
+            with self.subTest(i=i):
+                self.assertEqual(row, field.row)
+        self.assertEqual(fields[0].bbox.x0, row.bbox.x0)
+        self.assertEqual(fields[-1].bbox.x1, row.bbox.x1)
+        self.assertEqual(fields[0].bbox.y0, row.bbox.y0)
+        self.assertEqual(fields[-1].bbox.y1, row.bbox.y1)
+
+    def test_has_type(self) -> None:
+        row = Row()
+        self.assertFalse(row.has_type())
+        row._type = RowType.OTHER
+        self.assertTrue(row.has_type())
+        row._type = None
+        self.assertFalse(row.has_type())
+
+    def test_add_reference_to_field(self) -> None:
+        fields = create_fields(7, 1, 12, 7)
+        row = Row()
+        for i, field in enumerate(fields):
+            with self.subTest(i=i):
+                row.fields.append(field)
+                self.assertNotEqual(row, field.row)
+                row.add_reference_to_field(field)
+                self.assertEqual(row, field.row)
+
+    def test__add_field_at_index(self) -> None:
+        fields = create_fields(7, 1, 12, 7)
+        row = Row()
+        for field in fields[:-1]:
+            row._add_field_at_index(field, 0)
+        self.assertListEqual(list(reversed(fields[:-1])), row.fields)
+        row._add_field_at_index(fields[-1], 3)
+        self.assertEqual(fields[-1], row.fields[3])
+
+    def test_remove_field(self) -> None:
+        fields = create_fields(7, 1, 12, 7)
+        row = Row.from_fields(fields)
+        count = len(row.fields)
+        for i, field in enumerate(fields):
+            with self.subTest(i=i):
+                row.remove_field(field)
+                self.assertEqual(count - 1, len(row.fields))
+                with self.assertRaises(ValueError):
+                    row.fields.index(field)
+                count -= 1
+
+    def test_set_bbox_from_fields(self) -> None:
+        fields = create_fields(7, 1, 12, 7)
+        row = Row()
+        # BBox is not updated.
+        row._fields = fields
+        bbox = BBox()
+        self.assertEqual(bbox.x0, row.bbox.x0)
+        self.assertEqual(bbox.x1, row.bbox.x1)
+        self.assertEqual(bbox.y0, row.bbox.y0)
+        self.assertEqual(bbox.y1, row.bbox.y1)
+        row.set_bbox_from_fields()
+        self.assertEqual(fields[0].bbox.x0, row.bbox.x0)
+        self.assertEqual(fields[-1].bbox.x1, row.bbox.x1)
+        self.assertEqual(fields[0].bbox.y0, row.bbox.y0)
+        self.assertEqual(fields[-1].bbox.y1, row.bbox.y1)
+
+    def test_has_field_of_type(self) -> None:
+        fields = create_fields(8, 1, 19, 33)
+        row = Row()
+        Config.time_format = "%H:%M"
+        fields[0].text = "09:52"
+        row.add_field(fields[0])
+        self.assertTrue(row.has_field_of_type(FieldType.DATA))
+        row.update_type()
+        fields[1].text = "stop column super long"
+        col = Column.from_fields([fields[1]])
+        col.type = ColumnType.STOP
+        row.add_field(fields[1])
+        self.assertTrue(row.has_field_of_type(FieldType.STOP))
+        Config.header_values = {"header": "1"}
+        fields[2].text = "some text"
+        row.add_field(fields[2])
+        self.assertTrue(row.has_field_of_type(FieldType.OTHER))
+        fields[3].text = "header"
+        row.add_field(fields[3])
+        self.assertTrue(row.has_field_of_type(FieldType.HEADER))
+        Config.repeat_identifier = [["repeat", "min"]]
+        fields[4].text = "repeat"
+        row.add_field(fields[4])
+        self.assertTrue(row.has_field_of_type(FieldType.REPEAT))
+        Config.departure_identifier = ["ab"]
+        fields[5].text = "ab"
+        row.add_field(fields[5])
+        self.assertTrue(row.has_field_of_type(FieldType.STOP_ANNOT))
+        Config.annot_identifier = ["annotation"]
+        fields[6].text = "annotation"
+        row.add_field(fields[6])
+        self.assertTrue(row.has_field_of_type(FieldType.ROW_ANNOT))
+        Config.route_identifier = ["route"]
+        fields[7].text = "route"
+        row.add_field(fields[7])
+        self.assertTrue(row.has_field_of_type(FieldType.ROUTE_INFO))
 
 
 class TestColumn(P2GTestCase):
@@ -251,3 +318,114 @@ class TestColumn(P2GTestCase):
         bbox = BBox(fields[0].bbox.x0, fields[0].bbox.y0,
                     fields[-1].bbox.x1, fields[-1].bbox.y1)
         self.assertEqual(bbox, col.bbox)
+
+    def test_fields(self) -> None:
+        fields = create_fields(1, 16, 12, 7)
+        col = Column()
+        col.fields = fields
+        self.assertListEqual(fields, col.fields)
+        for i, field in enumerate(fields):
+            with self.subTest(i=i):
+                self.assertEqual(col, field.column)
+        self.assertEqual(fields[0].bbox.x0, col.bbox.x0)
+        self.assertEqual(fields[-1].bbox.x1, col.bbox.x1)
+        self.assertEqual(fields[0].bbox.y0, col.bbox.y0)
+        self.assertEqual(fields[-1].bbox.y1, col.bbox.y1)
+
+    def test_has_type(self) -> None:
+        col = Column()
+        self.assertFalse(col.has_type())
+        col._type = ColumnType.OTHER
+        self.assertTrue(col.has_type())
+        col._type = None
+        self.assertFalse(col.has_type())
+
+    def test_add_reference_to_field(self) -> None:
+        fields = create_fields(1, 16, 12, 7)
+        col = Column()
+        for i, field in enumerate(fields):
+            with self.subTest(i=i):
+                col.fields.append(field)
+                self.assertNotEqual(col, field.column)
+                col.add_reference_to_field(field)
+                self.assertEqual(col, field.column)
+
+    def test__add_field_at_index(self) -> None:
+        fields = create_fields(1, 16, 12, 7)
+        col = Column()
+        for field in fields[:-1]:
+            col._add_field_at_index(field, 0)
+        self.assertListEqual(list(reversed(fields[:-1])), col.fields)
+        col._add_field_at_index(fields[-1], 3)
+        self.assertEqual(fields[-1], col.fields[3])
+
+    def test_remove_field(self) -> None:
+        fields = create_fields(1, 16, 12, 7)
+        col = Column.from_fields(fields)
+        count = len(col.fields)
+        for i, field in enumerate(fields):
+            with self.subTest(i=i):
+                col.remove_field(field)
+                self.assertEqual(count - 1, len(col.fields))
+                with self.assertRaises(ValueError):
+                    col.fields.index(field)
+                count -= 1
+
+    def test_set_bbox_from_fields(self) -> None:
+        fields = create_fields(1, 16, 12, 7)
+        col = Column()
+        # BBox is not updated.
+        col._fields = fields
+        bbox = BBox()
+        self.assertEqual(bbox.x0, col.bbox.x0)
+        self.assertEqual(bbox.x1, col.bbox.x1)
+        self.assertEqual(bbox.y0, col.bbox.y0)
+        self.assertEqual(bbox.y1, col.bbox.y1)
+        col.set_bbox_from_fields()
+        self.assertEqual(fields[0].bbox.x0, col.bbox.x0)
+        self.assertEqual(fields[-1].bbox.x1, col.bbox.x1)
+        self.assertEqual(fields[0].bbox.y0, col.bbox.y0)
+        self.assertEqual(fields[-1].bbox.y1, col.bbox.y1)
+
+    def test_has_field_of_type(self) -> None:
+        fields = create_fields(1, 16, 12, 7)
+        col = Column()
+
+        Config.time_format = "%H:%M"
+        data_field = Field(BBox(), "09:52")
+        row = Row.from_fields([fields[0], data_field])
+        row.update_type()
+        self.assertEqual(RowType.DATA, row.type)
+
+        fields[0].text = "stop column super long"
+        col.add_field(fields[0])
+        _ = col.type
+        self.assertTrue(col.has_field_of_type(FieldType.STOP))
+
+        Config.time_format = "%H:%M"
+        fields[1].text = "09:52"
+        col.add_field(fields[1])
+        self.assertTrue(col.has_field_of_type(FieldType.DATA))
+        Config.header_values = {"header": "1"}
+        fields[2].text = "some text"
+        col.add_field(fields[2])
+        self.assertTrue(col.has_field_of_type(FieldType.OTHER))
+        fields[3].text = "header"
+        col.add_field(fields[3])
+        self.assertTrue(col.has_field_of_type(FieldType.HEADER))
+        Config.repeat_identifier = [["repeat", "min"]]
+        fields[4].text = "repeat"
+        col.add_field(fields[4])
+        self.assertTrue(col.has_field_of_type(FieldType.REPEAT))
+        Config.departure_identifier = ["ab"]
+        fields[5].text = "ab"
+        col.add_field(fields[5])
+        self.assertTrue(col.has_field_of_type(FieldType.STOP_ANNOT))
+        Config.annot_identifier = ["annotation"]
+        fields[6].text = "annotation"
+        col.add_field(fields[6])
+        self.assertTrue(col.has_field_of_type(FieldType.ROW_ANNOT))
+        Config.route_identifier = ["route"]
+        fields[7].text = "route"
+        col.add_field(fields[7])
+        self.assertTrue(col.has_field_of_type(FieldType.ROUTE_INFO))
