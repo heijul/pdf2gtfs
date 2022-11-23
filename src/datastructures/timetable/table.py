@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import cast
 
 from tabulate import tabulate
 
@@ -12,7 +11,7 @@ from config import Config
 from datastructures.pdftable.enums import ColumnType
 from datastructures.timetable.entries import (
     TimeTableEntry, TimeTableRepeatEntry, Weekdays)
-from datastructures.timetable.stops import DummyAnnotationStop, Stop, StopList
+from datastructures.timetable.stops import Stop, StopList
 
 
 logger = logging.getLogger(__name__)
@@ -153,18 +152,3 @@ class TimeTable:
     def clean_values(self) -> None:
         """ Clean all stops. """
         self.stops.clean()
-
-    def __str__(self) -> str:
-        # Entry columns + stop column
-        base_text = "{:30}" + "{:>6}" * len(self.entries)
-        texts = []
-        for stop in [cast(Stop, DummyAnnotationStop())] + self.stops.stops:
-            text = [str(stop)]
-            for entry in self.entries:
-                if isinstance(stop, DummyAnnotationStop):
-                    value = "".join(sorted(entry.annotations))
-                else:
-                    value = entry.get_value(stop)
-                text.append(value if value else "-")
-            texts.append(base_text.format(*text).strip())
-        return "TimeTable:\n\t" + "\n\t".join(texts)

@@ -35,16 +35,6 @@ class Stop:
         return f"'{str(self)}'"
 
 
-class DummyAnnotationStop(Stop):
-    """ Dummy used to properly print the TimeTable. """
-
-    def __init__(self) -> None:
-        super(DummyAnnotationStop, self).__init__("", 0)
-
-    def __str__(self) -> str:
-        return "ANNOTATIONS"
-
-
 class StopList:
     """ TimeTable stops, used to select which stops are actual stops
     and which are only connections from the previous stop. """
