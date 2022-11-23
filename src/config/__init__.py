@@ -3,6 +3,7 @@
 import logging
 import os.path
 import platform
+from argparse import Namespace
 from pathlib import Path
 from typing import Any
 
@@ -160,8 +161,10 @@ class _Config(InstanceDescriptorMixin):
                      f"exist or is not a proper file: '{path}'.")
         return False
 
-    def load_args(self, args: dict[str, Any]):
+    def load_args(self, args_ns: Namespace):
         """ Reads the program arguments in args. """
+        args = {arg: getattr(args_ns, arg)
+                for arg in dir(args_ns) if not arg.startswith("_")}
         for config_path in args.pop("config", []):
             path = Path(config_path).resolve()
             if path.is_dir():

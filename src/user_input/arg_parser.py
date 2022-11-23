@@ -2,30 +2,17 @@
 
 from argparse import ArgumentParser, Namespace
 
-from config import Config
 from datastructures.gtfs_output.routes import RouteType
 
 
-def parse_args(args: list | None = None):
-    """ Try to parse the given args and call update_config with the values. """
-    parser = get_parser()
-    args_ns = parser.parse_args(args)
-    update_config(args_ns)
-
-
-def get_parser() -> ArgumentParser:
-    """ Return a parser with all required and optional arguments. """
+def parse_args(args: list | None = None) -> Namespace:
+    """ Create an argument parser and try to parse the given args. """
+    # Create an argument parser with all arguments.
     parser = ArgumentParser("pdf2gtfs")
     _add_required_arguments(parser)
     _add_optional_arguments(parser)
-    return parser
 
-
-def update_config(args_ns: Namespace):
-    """ Update the config with all argument values. """
-    args = {arg: getattr(args_ns, arg)
-            for arg in dir(args_ns) if not arg.startswith("_")}
-    Config.load_args(args)
+    return parser.parse_args(args)
 
 
 def _add_required_arguments(parser: ArgumentParser):
@@ -71,8 +58,7 @@ def _add_optional_arguments(parser: ArgumentParser):
                         action="store_const", help=text)
 
     text = "Display the route in your webbrowser."
-    parser.add_argument("--display_route", const=True,
-                        action="store_const", help=text)
+    parser.add_argument("--display_route", type=int, help=text)
 
     text = "Disable the detection of the location of the stops."
     parser.add_argument("--disable_location_detection", const=True,

@@ -53,7 +53,7 @@ def detect_locations(gtfs_handler: GTFSHandler) -> None:
 def main() -> None:
     """ Main function. """
     start = time()
-    parse_args()
+    Config.load_args(parse_args())
     initialize_logging(logging.INFO)
 
     if not create_output_directory():
