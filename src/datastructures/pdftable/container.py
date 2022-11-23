@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import re
 from abc import ABC, abstractmethod
-from datetime import datetime
 from statistics import mean
 from typing import Callable, Generic, Iterator, TYPE_CHECKING, TypeVar
 
@@ -288,7 +287,7 @@ class Column(FieldContainer):
     def _get_repeat_intervals(self, start: str, end: str) -> list[str]:
         """ Finds all repeat intervals, if this is a repeat column. """
         start_regex = rf".*{re.escape(start)}\s*"
-        value_regex = r"(\d{1,3}[-,.]\d{1,3}|\d{1,3})"
+        value_regex = r"(\d{1,3}[-,]\ *\d{1,3}|\d{1,3})"
         end_regex = rf"\s*{re.escape(end)}.*"
         regex = start_regex + value_regex + end_regex
 
@@ -301,11 +300,10 @@ class Column(FieldContainer):
         repeat_identifier in
         our fields. If both exist, try to get the repeat interval.
         """
+        intervals = []
         for start, end in Config.repeat_identifier:
-            interval = self._get_repeat_intervals(start, end)
-            if interval:
-                return interval
-        return []
+            intervals += self._get_repeat_intervals(start, end)
+        return intervals
 
     def has_repeat_interval(self) -> bool:
         """ Check if the column contains at least one interval. """
