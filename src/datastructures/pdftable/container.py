@@ -349,6 +349,7 @@ class Column(FieldContainer):
             return False
 
         if _merge_into_fields():
+            self.set_bbox_from_fields()
             return
         self._add_field(new_field, "y")
 
