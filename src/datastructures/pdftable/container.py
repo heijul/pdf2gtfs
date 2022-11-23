@@ -74,6 +74,7 @@ class FieldContainer(BBoxObject):
         for field in fields:
             self.add_reference_to_field(field)
         self._fields = fields
+        self.set_bbox_from_fields()
 
     @property
     def table(self) -> TableT:
@@ -127,21 +128,6 @@ class FieldContainer(BBoxObject):
             index += 1
         self._add_field_at_index(new_field, index)
 
-    def _contains_time_data(self) -> bool:
-        """ Check if any field contains time data.
-
-        This may rarely return True,
-        e.g. if the field is an annotation with the text "nicht am 05.06.".
-        """
-        field_texts = [str(field.text).strip() for field in self.fields]
-        for field_text in field_texts:
-            try:
-                datetime.strptime(field_text, Config.time_format)
-                return True
-            except ValueError:
-                pass
-        return False
-
     def _split_at(self, splitters: list[FieldContainer],
                   next_idx: Callable[[FieldContainer, Field], bool]
                   ) -> list[ContainerT]:
@@ -149,7 +135,6 @@ class FieldContainer(BBoxObject):
         which takes the next available splitter and returns True,
         if the index should be incremented.
         """
-        idx = 0
         fields_list: list[list[Field]] = [[]]
         splitters_iter = iter(splitters)
         current_splitter = next(splitters_iter)
@@ -341,17 +326,16 @@ class Column(FieldContainer):
             :returns: True if the field was merged, False otherwise.
             """
             for field in self.fields:
-                if field.row == new_field.row:
+                if field.row and field.row == new_field.row:
                     if (new_field.bbox.x0 - field.bbox.x1) != 0:
                         new_field.text = " " + new_field.text
                     field.merge(new_field)
                     return True
             return False
 
-        if _merge_into_fields():
-            self.set_bbox_from_fields()
-            return
-        self._add_field(new_field, "y")
+        if not _merge_into_fields():
+            self._add_field(new_field, "y")
+        self.set_bbox_from_fields()
 
     def __repr__(self) -> str:
         fields_repr = ", ".join(repr(f) for f in self.fields)
