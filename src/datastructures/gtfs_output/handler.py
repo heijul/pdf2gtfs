@@ -126,7 +126,7 @@ class GTFSHandler:
     def add_timetable_stops(self, timetable: TimeTable) -> None:
         """ Create the stops for the given timetables. """
         for stop in timetable.stops.stops:
-            self.stops.add(stop.normalized_name)
+            self.stops.add(stop.name)
 
     def generate_routes(self, timetable: TimeTable) -> None:
         """ Generate the routes for the given timetable. """
