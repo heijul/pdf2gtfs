@@ -11,7 +11,6 @@ from time import time
 from typing import Any, Iterator, TypeAlias
 
 import pandas as pd
-from ghostscript import GhostscriptError
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfdocument import PDFDocument
@@ -245,7 +244,7 @@ class Reader:
         if not _preprocess_check():
             return
 
-        from ghostscript import Ghostscript
+        from ghostscript import Ghostscript, GhostscriptError
 
         logger.info("Beginning preprocessing...")
         start = time()

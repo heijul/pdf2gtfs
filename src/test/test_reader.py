@@ -2,7 +2,6 @@ import sys
 from filecmp import cmp
 from pathlib import Path
 
-from ghostscript import GhostscriptError
 from pdfminer.pdfparser import PDFSyntaxError
 
 from config import Config
@@ -115,6 +114,11 @@ class TestReader(P2GTestCase):
         self.assertFalse(Path(reader.tempfile.name).exists())
 
     def test_preprocess(self) -> None:
+        if not _preprocess_check():
+            self.skipTest("No ghostscript installed")
+
+        from ghostscript import GhostscriptError
+
         reader = Reader()
         try:
             reader.preprocess()

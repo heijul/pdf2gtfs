@@ -9,7 +9,9 @@ from datastructures.pdftable.bbox import BBox
 from datastructures.pdftable.container import Row
 from datastructures.pdftable.field import Field
 from datastructures.pdftable.pdftable import split_rows_into_tables, Tables
-from reader import dataframe_to_rows, get_chars_dataframe, Reader
+from reader import (
+    _preprocess_check, dataframe_to_rows, get_chars_dataframe,
+    Reader)
 from test import get_data_gen, get_test_src_dir, P2GTestCase
 
 
@@ -84,6 +86,8 @@ class TestTable(P2GTestCase):
         cls.get_data_func = get_data_gen(__file__, cls.__name__)
 
     def test_generate_data_columns_from_rows(self) -> None:
+        if not _preprocess_check():
+            self.skipTest("No ghostscript installed")
         rows = dataframe_to_rows(self.char_df)
         table = split_rows_into_tables(rows)[1]
         table.generate_columns_from_rows()

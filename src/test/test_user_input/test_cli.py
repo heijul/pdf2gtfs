@@ -14,8 +14,8 @@ def get_path_with_insufficient_permissions() -> str:
     not enough permissions for.
     """
     if platform.system().lower() == "windows":
-        return "C:/Windows/pdf2gtfs/"
-    return "/pdf2gtfs/"
+        return "C:/Windows/pdf2gtfs_test/"
+    return "/pdf2gtfs_test"
 
 
 def create_agency(path: Path, num: int, url: str = None, tz: str = None
