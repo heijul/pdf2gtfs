@@ -139,7 +139,7 @@ keys, each used to describe how the node is related to the given key.
 # 2. Implementation
 
 The problem of getting from a timetable in a PDF to a valid GTFS feed can
-roughly be split into three sub-problems. 
+roughly be split into three sub-problems.
 First, we extract the data from the input file.
 Next, using the schedule data, we create the GTFS files in memory.
 Lastly, we search for the stop locations and, after adding the stop
@@ -253,8 +253,8 @@ that have a BBox, to make e.g. merging of two BBoxObjects easier.
 Each of the objects Row, Column and Field have their own type, which is
 later used, e.g. to detect which columns contain information about stops or
 whether a stop describes a vehicles arrival or its departure.\
-For example, Field objects are of type DataField, if (and only if) they contain 
-data that can be parsed by `strftime()` using the specified time format. 
+For example, Field objects are of type DataField, if (and only if) they contain
+data that can be parsed by `strftime()` using the specified time format.
 A Row or Column, on the other hand,
 is of type DataRow or DataColumn respectively, if any of its Fields is
 of type DataField. There is also the type OtherField/-Row/-Column, in case the
@@ -269,13 +269,13 @@ Rows/Columns of a specific type.\
 To put simply, each PDFTable should have only a single HeaderRow
 and a single StopColumn. If not, it will be split into multiple PDFTables.
 In the same manner, if there are two PDFTable `P1` and `P2`, and `P2` does not
-have a HeaderRow, then `P2` is merged into `P1`, if `P2` is below `P1` 
+have a HeaderRow, then `P2` is merged into `P1`, if `P2` is below `P1`
 and has similar columns.
 
 To create the PDFTables, we first need to create the Fields, Rows and Columns.\
 A Field is a continuous stream of characters on the same line.
-Concretely, this means, that each character's `x0` (i.e. left) coordinate is 
-close to the previous one's `x1` (i.e. right) coordinate (= continuous) and 
+Concretely, this means, that each character's `x0` (i.e. left) coordinate is
+close to the previous one's `x1` (i.e. right) coordinate (= continuous) and
 each character of the Field has the same `y0` coordinates (= same
 line).\
 Essentially, in order to create the Fields, we sort the DataFrame
@@ -372,7 +372,7 @@ them
 the same Stop occurs, the one before having the arrival annotation and the one
 after having the departure annotation.
 
-> In case a Stop is served multiple times or when the route is a round-trip, 
+> In case a Stop is served multiple times or when the route is a round-trip,
 > this can be disabled by setting `min_connection_count = 0`.
 
 ###### TimeTable
@@ -380,7 +380,7 @@ after having the departure annotation.
 Turning a PDFTable into a TimeTable is pretty straight-forward. First, the
 Column with type StopColumn is used to create the StopList. Then, the other
 Columns
-of the PDFTable are iterated over, while creating a single TimeTableEntry for 
+of the PDFTable are iterated over, while creating a single TimeTableEntry for
 each of them.
 Finally the Stops that are connections are determined and the TimeTable is
 ready to use in the next step.
@@ -426,7 +426,7 @@ already used by some existing GTFS-file, it will not be used.
 ### Repeating stop times
 
 If a trip is repeated every X minutes, the transit agency oftentimes
-uses what we call "repeated columns/entries". In the figure below is an example 
+uses what we call "repeated columns/entries". In the figure below is an example
 of such a column ("alle 6 Min.").
 
 <figure id="repeated_columns">
@@ -606,8 +606,8 @@ faster.\
 Also note that, because we do check for full equality, but instead
 only if the stops name is *contained* in the locations names, some
 locations may occur multiple times in the DataFrame.
-For example, if there is a location `L` with the name "Freiburg Bahnhof" and 
-we have a route with two stops `S1` and `S2` with names "Bahnhof" and 
+For example, if there is a location `L` with the name "Freiburg Bahnhof" and
+we have a route with two stops `S1` and `S2` with names "Bahnhof" and
 "Freiburg Bahnhof", respectively, the DataFrame will contain `L` twice:
 Once with the stop_id and name_cost for `S1` and once with the stop_id and
 name_cost for `S2`.
@@ -643,9 +643,9 @@ For example, given a location with the names
 
 The detection of the best combination of locations can be specified as a
 shortest path problem in a directed, weighted graph.
-For this, every possible location is a node (for a specific stop) and each 
-node `N1` is connected with a directed edge, with weight `T`, to another node 
-`N2`, iff `N1` is a node for the preceeding stop of `N2`. `T` is defined as 
+For this, every possible location is a node (for a specific stop) and each
+node `N1` is connected with a directed edge, with weight `T`, to another node
+`N2`, iff `N1` is a node for the preceeding stop of `N2`. `T` is defined as
 the sum of the node-, name- and travel cost of the target node `N2`.\
 We use Dijkstra's algorithm to find the shortest path.
 
@@ -868,7 +868,7 @@ The program fulfills the project requirements.\
 However, more work needs to be done, in particular to widen the support for
 different timetable formats and to improve the location detection if the
 names in OpenStreetMap and the input PDF differ.
-The program also needs to be more tolerant to deviations in the timetable 
+The program also needs to be more tolerant to deviations in the timetable
 format.
 
 ## Future plans
@@ -906,7 +906,7 @@ of the stop names and width of the page.\
 To mitigate this and allow longer routes, the characters/words are typically
 written at an angle (usually between 30 and 90 degrees).
 To enable extraction of tables with rotated stopnames, we need to first detect
-their position. Afterwards, given the rotated characters and the calculated 
+their position. Afterwards, given the rotated characters and the calculated
 angle, we can reconstruct the actual stop name.
 
 ### Font-based context
