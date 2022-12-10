@@ -7,7 +7,7 @@ It was created as a bachelor's project at the chair of 'Algorithms and
 Datastructures'
 of the Freiburg University.
 
-A blogpost, detailing it usage can be found [here](https://ad-blog.informatik.uni-freiburg.de/post/transform-pdf-timetables-into-gtfs).
+A blogpost, detailing its usage can be found [here](https://ad-blog.informatik.uni-freiburg.de/post/transform-pdf-timetables-into-gtfs).
 
 ## Getting started
 
