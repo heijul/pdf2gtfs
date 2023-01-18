@@ -141,6 +141,7 @@ header_values: {
   "samstag": "5",
   "sonntag": "6",
   "sonn- und feiertag": "6,h",
+  "sonn- / feiertag": "6,h",
 }
 
 # Set the minimum number of stops for a cycle to be recognized as connection.

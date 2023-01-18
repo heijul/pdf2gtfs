@@ -7,7 +7,8 @@ It was created as a bachelor's project at the chair of 'Algorithms and
 Datastructures'
 of the Freiburg University.
 
-A blogpost, detailing its usage can be found [here](https://ad-blog.informatik.uni-freiburg.de/post/transform-pdf-timetables-into-gtfs).
+A blogpost, detailing its usage can be
+found [here](https://ad-blog.informatik.uni-freiburg.de/post/transform-pdf-timetables-into-gtfs).
 
 ## Getting started
 
@@ -47,6 +48,18 @@ For more information on how to configure pdf2gtfs, check out the
 ## Usage
 
 `python src/main.py [options]... path/to/pdffile.pdf`
+
+## Examples
+
+The following examples can be run from the pdf2gtfs directory.
+
+### Example 1: Line 1 of the VAG in Freiburg
+
+`python src/main.py --config=examples/vag_1.conf examples/vag_1.pdf`
+
+### Example 2: Line S1 of the KVV in Karlsruhe
+
+`python src/main.py --config=examples/kvv_s1.conf examples/kvv_s1.pdf`
 
 ## Detailed description
 

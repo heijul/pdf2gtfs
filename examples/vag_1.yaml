@@ -1,0 +1,6 @@
+output_path: "./examples/out"
+non_interactive: True
+gtfs_routetype: "Tram"
+display_route: 1
+output_pp: True
+simple_travel_cost_calculation: True
