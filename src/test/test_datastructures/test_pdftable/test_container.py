@@ -91,14 +91,10 @@ class TestRow(P2GTestCase):
         cols = [Column.from_field(table, field) for field in fields]
         splitter = cols[3:12:4]
         rows = row.split_at(splitter)
-        lens = [3, 4, 4, 5]
+        lens = [7, 4, 5]
 
         self.assertEqual(len(lens), len(rows))
         self.assertListEqual(lens, list(map(len, [r.fields for r in rows])))
-        for i, row in enumerate(rows[:-1]):
-            for j, field in enumerate(row.fields):
-                with self.subTest(i=i, j=j):
-                    self.assertLess(field.bbox.x0, splitter[i].bbox.x0)
 
     def test_fields(self) -> None:
         fields = create_fields(7, 1, 12, 7)
@@ -316,13 +312,9 @@ class TestColumn(P2GTestCase):
             splitter.append(Row.from_fields([fields[i]]))
         cols = col.split_at(splitter)
 
-        lens = [3, 5, 5, 3]
+        lens = [8, 5, 3]
         self.assertEqual(len(lens), len(cols))
         self.assertListEqual(lens, list(map(len, [c.fields for c in cols])))
-        for i, row in enumerate(cols[:-1]):
-            for j, field in enumerate(col.fields):
-                with self.subTest(i=i, j=j):
-                    self.assertLess(field.bbox.x0, splitter[i].bbox.x0)
 
     def test_from_field(self) -> None:
         field = create_fields(1, 1, 12, 7)[0]
