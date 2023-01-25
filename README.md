@@ -55,11 +55,11 @@ The following examples can be run from the pdf2gtfs directory.
 
 ### Example 1: Line 1 of the VAG in Freiburg
 
-`python src/main.py --config=examples/vag_1.conf examples/vag_1.pdf`
+`python src/main.py --config=examples/vag_1.yaml examples/vag_1.pdf`
 
 ### Example 2: Line S1 of the KVV in Karlsruhe
 
-`python src/main.py --config=examples/kvv_s1.conf examples/kvv_s1.pdf`
+`python src/main.py --config=examples/kvv_s1.yaml examples/kvv_s1.pdf`
 
 ## Detailed description
 
