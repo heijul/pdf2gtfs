@@ -1,6 +1,2 @@
-output_path: "./examples/out"
-non_interactive: True
 gtfs_routetype: "Rail"
-display_route: 1
-output_pp: True
 max_row_distance: 2

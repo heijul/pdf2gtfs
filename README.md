@@ -51,15 +51,40 @@ For more information on how to configure pdf2gtfs, check out the
 
 ## Examples
 
-The following examples can be run from the pdf2gtfs directory.
+The following examples can be run from the pdf2gtfs directory and show
+how some config values change the accuracy of the detected locations, as well
+as whether the pdf can be read at all. The `base.yaml` config only contains
+some basic output settings, used by all examples.
 
-### Example 1: Line 1 of the VAG in Freiburg
+### Example 1: Tram Line 1 of the VAG
 
-`python src/main.py --config=examples/vag_1.yaml examples/vag_1.pdf`
+Uses the default configuration, with the exception of the routetype.
+`python src/main.py --config=examples/base.yaml --config=examples/vag_1.yaml examples/vag_1.pdf`
 
-### Example 2: Line S1 of the KVV in Karlsruhe
+### Example 2: Subway Line S1 of the KVV
 
-`python src/main.py --config=examples/kvv_s1.yaml examples/kvv_s1.pdf`
+The `max_row_distance` needs to be adjusted, to read this PDF properly.
+`python src/main.py --config=examples/base.yaml --config=examples/kvv_s1.yaml examples/kvv_s1.pdf`
+
+### Example 3: RegionalExpress Lines RE2/RE3 of the GVH
+
+The `close_node_check`, needs to be disabled, because it incorrectly disregards
+valid locations, that seem too far away.
+`python src/main.py --config=examples/base.yaml --config=examples/gvh_re2_re3.yaml examples/gvh_re2_re3.pdf`
+
+### Example 4: Bus Line 680 of the Havelbus
+
+Here, disabling the `close_node_check` leads to far better results as well.
+Note that the config also contains some other settings, which lead to a
+similar result.
+`python src/main.py --config=examples/base.yaml --config=examples/havelbus_680.yaml examples/havelbus_680.pdf`
+
+### Example 5: Line G10 of the RMV
+
+Reading of page 4 currently fails and reading more than one page leads to
+worse results in the location detection. This may sometimes happen, because
+the average of all locations for a specific stop is used.
+`python src/main.py --config=examples/base.yaml --config=examples/rmv_g10.yaml examples/rmv_g10.pdf`
 
 ## Detailed description
 

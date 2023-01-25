@@ -1,0 +1,9 @@
+gtfs_routetype: "Bus"
+disable_close_node_check: True
+
+# A similar (slightly worse) improvement can be achieved using the following
+#  settings, while leaving the close_node_check enabled.
+
+# average_speed: 50
+# min_travel_distance: 10
+# average_travel_distance_offset: 5
