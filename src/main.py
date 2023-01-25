@@ -23,7 +23,12 @@ logger = logging.getLogger(__name__)
 
 def get_timetables() -> list["TimeTable"]:
     """ Returns all timetables in the pdf within the given pages. """
-    logger.info(f"Reading the following pages: {Config.pages.pages}.")
+    pages = Config.pages.pages
+    page_str = "page" if pages == [1] else "pages"
+    page_msg = f"Reading the following {page_str}: {pages}."
+    if not pages:
+        page_msg = "Reading all pages."
+    logger.info(page_msg)
     reader = Reader()
     timetables = reader.read()
     # TODO: Should be done in timetable creation.
