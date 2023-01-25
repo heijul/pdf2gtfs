@@ -29,11 +29,9 @@ def get_timetables() -> list["TimeTable"]:
     if not pages:
         page_msg = "Reading all pages."
     logger.info(page_msg)
+
     reader = Reader()
     timetables = reader.read()
-    # TODO: Should be done in timetable creation.
-    for timetable in timetables:
-        timetable.clean_values()
     return timetables
 
 
