@@ -43,7 +43,7 @@ if it exists. Files which are read at a later point overwrite any values set
 in previous configuration files.
 
 For more information on how to configure pdf2gtfs, check out the
-[default configuration](config.template.yaml).
+[default configuration](src/config.template.yaml).
 
 ## Usage
 

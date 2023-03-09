@@ -236,7 +236,7 @@ class _Config(InstanceDescriptorMixin):
     def default_config_path(self) -> Path:
         """ Return the path to the default configuration. Usually it is
         contained in the base directory of the repository. """
-        return self.p2g_dir.joinpath("config.template.yaml")
+        return self.p2g_dir.joinpath("src/config.template.yaml")
 
     def _create_config_dir(self) -> None:
         if self.config_dir.exists():
