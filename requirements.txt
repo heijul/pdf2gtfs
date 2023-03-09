@@ -5,3 +5,9 @@ holidays~=0.13
 folium~=0.12.1.post1
 requests~=2.27.1
 pdfminer.six==20220319
+
+# Install pdf2gtfs in editable/develop mode.
+-e .
+
+# Local packages. These will need to be installed manually first.
+custom-conf

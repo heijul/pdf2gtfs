@@ -1,0 +1,3 @@
+[submodule "custom_conf"]
+	path = custom_conf
+	url = git@github.com:heijul/custom_conf.git
