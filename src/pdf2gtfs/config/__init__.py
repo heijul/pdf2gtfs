@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 class P2GConfig(BaseConfig):
+    def __init__(self, load_default=True, load_all=True) -> None:
+        super().__init__(load_default, load_all)
+
     @property
     def output_dir(self) -> Path:
         if self.output_path.name.endswith(".zip"):
