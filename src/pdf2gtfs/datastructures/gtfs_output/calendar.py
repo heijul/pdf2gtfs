@@ -80,8 +80,8 @@ class GTFSCalendarEntry(BaseDataClass):
     friday: DayIsActive = DayIsActive(False)
     saturday: DayIsActive = DayIsActive(False)
     sunday: DayIsActive = DayIsActive(False)
-    start_date: ServiceDay = StartDate()
-    end_date: ServiceDay = EndDate()
+    start_date: ServiceDay = None
+    end_date: ServiceDay = None
 
     def __init__(self, days: list[str] = None, annots: set[str] = None,
                  service_id: str = None):

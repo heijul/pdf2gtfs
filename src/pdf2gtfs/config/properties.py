@@ -1,233 +1,39 @@
-""" Descriptors for the properties of the Config.
-
-This is to enable a 'Config.some_property'-lookup, without the
-need to hard-code each property.
-"""
-
 from __future__ import annotations
 
 import datetime as dt
 import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import UnionType
-from typing import (
-    Any, get_args, get_origin, Iterable, TYPE_CHECKING, TypeVar, Union)
+from typing import Any, TYPE_CHECKING
 from zipfile import ZipFile
 
+from custom_conf.errors import (
+    INVALID_CONFIG_EXIT_CODE, InvalidPropertyTypeError)
 from holidays.utils import list_supported_countries
 
-import pdf2gtfs.config.errors as err
+from custom_conf.properties.property import CType, Property
+from custom_conf.properties.bounded_property import IntBoundedProperty
+from custom_conf.properties.nested_property import NestedTypeProperty
+
 from pdf2gtfs.datastructures.gtfs_output.routes import (
     get_route_type, get_route_type_gtfs_value)
+from pdf2gtfs.config.errors import (
+    InvalidDateBoundsError, InvalidHeaderDaysError,
+    InvalidHolidayCodeError, InvalidOutputPathError,
+    InvalidRepeatIdentifierError, InvalidRouteTypeValueError)
 
 
 if TYPE_CHECKING:
     from pdf2gtfs.config import InstanceDescriptorMixin  # noqa: F401
 
 logger = logging.getLogger(__name__)
-CType = TypeVar("CType", bound="InstanceDescriptorMixin")
-
-
-class Property:
-    """ Base class for config properties. """
-
-    def __init__(self, cls: CType, attr: str, attr_type: type) -> None:
-        self._register(cls, attr)
-        self.attr = "__" + attr
-        self.type = attr_type
-
-    def _register(self, cls: CType, attr: str) -> None:
-        """ Ensure the instance using this property knows of its existence. """
-        self.cls = cls
-        self.cls.properties.append(attr)
-
-    def __get__(self, obj: CType, objtype=None) -> Any:
-        try:
-            return getattr(obj, self.attr)
-        except AttributeError:
-            raise err.MissingRequiredPropertyError
-
-    def validate(self, value: Any) -> None:
-        """ Checks if there are any obvious errors with the value. """
-        self._validate_type(value)
-
-    def _raise_type_error(self, typ: type) -> None:
-        logger.error(
-            f"Invalid config type for {self.attr[2:]}. "
-            f"Expected '{self.type}', got '{typ}' instead.")
-        raise err.InvalidPropertyTypeError
-
-    def _validate_type(self, value: Any) -> None:
-        if isinstance(value, self.type):
-            return
-        self._raise_type_error(type(value))
-
-    def __set__(self, obj, value: Any):
-        self.validate(value)
-        setattr(obj, self.attr, value)
-
-
-class BoundsProperty(Property):
-    """ Used for properties with bounded values. """
-
-    def __init__(self, cls, attr, attr_type: type, lower=None, upper=None
-                 ) -> None:
-        super().__init__(cls, attr, attr_type)
-        if lower:
-            self._validate_type(lower)
-        if upper:
-            self._validate_type(upper)
-        self.lower = lower
-        self.upper = upper
-
-    def validate(self, value: Any) -> None:
-        """ Checks if the value is within bounds. """
-        super().validate(value)
-        self._validate_within_bounds(value)
-
-    def _validate_within_bounds(self, value: Any):
-        upper_oob = self.upper and value > self.upper
-        lower_oob = self.lower and value < self.lower
-        # TODO: Needs proper errors, if oob.
-        if upper_oob or lower_oob:
-            raise err.OutOfBoundsPropertyError
-
-
-class FloatBoundsProperty(BoundsProperty):
-    """ Bounded property of type float. """
-
-    def __init__(self, cls, attr, lower: float = None, upper: float = None
-                 ) -> None:
-        super().__init__(cls, attr, float, lower, upper)
-
-
-class IntBoundsProperty(BoundsProperty):
-    """ Bounded property of type int. """
-
-    def __init__(self, cls, attr, lower: int = None, upper: int = None
-                 ) -> None:
-        super().__init__(cls, attr, int, lower, upper)
-
-
-def value_to_generic(base_value: Any) -> type:
-    """ Returns the generic type of a given value. """
-
-    def get_dict_item_types() -> tuple[slice]:
-        """ Return the types of the base_value, if base_value is a dict. """
-        item_types: dict[type: type] = {}
-        for key, value in base_value.items():
-            key_type = value_to_generic(key)
-            value_type = value_to_generic(value)
-            item_types.setdefault(key_type, value_type)
-            item_types[key_type] |= value_type
-        return tuple([slice(key, value) for key, value in item_types.items()])
-
-    def get_iter_item_types() -> Union[type]:
-        """ Return the types of the base_value, if base_value is a list. """
-        item_types: set[type] = set()
-        for value in base_value:
-            item_types.add(value_to_generic(value))
-        typ = item_types.pop()
-        for item_type in item_types:
-            typ |= item_type
-        return typ
-
-    base_type = type(base_value)
-    # Need to check str first, because it is an Iterable but not a Generic.
-    if base_type is str:
-        return base_type
-    if base_type is dict:
-        return base_type.__class_getitem__(get_dict_item_types())
-    if isinstance(base_value, Iterable) and base_value:
-        return base_type.__class_getitem__(get_iter_item_types())
-    return base_type
-
-
-class NestedTypeProperty(Property):
-    """ Base class used by properties, which have a nested or generic type.
-    This is necessary, because isinstance does not work with Generics. """
-
-    def _validate_type(self, value: Any) -> None:
-        try:
-            self._validate_generic_type(value, self.type)
-        except err.InvalidPropertyTypeError:
-            self._raise_type_error(value_to_generic(value))
-
-    def _validate_generic_type(self, value: Any, typ: type) -> None:
-        if typ is None:
-            return
-        origin = get_origin(typ)
-        if origin is None:
-            if not isinstance(value, typ):
-                raise err.InvalidPropertyTypeError
-            return
-        if origin not in [Union, UnionType]:
-            self._validate_generic_type(value, origin)
-        if origin is dict:
-            self._validate_generic_dict(value, typ)
-        elif isinstance(origin, Iterable):
-            self._validate_generic_iterable(value, typ)
-        else:
-            self._validate_generic_type_args(value, typ)
-
-    def _validate_generic_dict(self, value: Any, typ: type) -> None:
-        args = get_args(typ)
-        for key, val in value.items():
-            valid = False
-            for arg in args:
-                try:
-                    if isinstance(arg, slice):
-                        self._validate_generic_type(key, arg.start)
-                        self._validate_generic_type(val, arg.stop)
-                        valid = True
-                        continue
-                    self._validate_generic_type(key, arg)
-                    self._validate_generic_type(val, arg)
-                    valid = True
-                except err.InvalidPropertyTypeError:
-                    pass
-            if not valid:
-                raise err.InvalidPropertyTypeError
-
-    def _validate_generic_iterable(self, value: Any, typ: type) -> bool:
-        args = get_args(typ)
-        for key, val in value:
-            valid = True
-            for arg in args:
-                if isinstance(arg, slice):
-                    valid |= self._validate_generic_type(val, arg.start)
-                    valid |= self._validate_generic_type(val, arg.start)
-                    continue
-                valid |= self._validate_generic_type(val, arg)
-            if not valid:
-                return False
-
-    def _validate_generic_type_args(self, value: Any, typ: type) -> None:
-        args = get_args(typ)
-        if not args:
-            return
-        try:
-            for val in value:
-                valid = False
-                for arg in args:
-                    try:
-                        self._validate_generic_type(val, arg)
-                        valid = True
-                        break
-                    except err.InvalidPropertyTypeError:
-                        pass
-                if not valid:
-                    raise err.InvalidPropertyTypeError
-        except TypeError:
-            pass
 
 
 class RepeatIdentifierProperty(NestedTypeProperty):
     """ Property for the repeat_identifier. """
 
-    def __init__(self, cls: CType, attr: str) -> None:
-        super().__init__(cls, attr, list[list[str]])
+    def __init__(self, name: str) -> None:
+        super().__init__(name, list[list[str]])
 
     def validate(self, value: Any) -> None:
         """ Checks if the value has the correct length. """
@@ -240,14 +46,14 @@ class RepeatIdentifierProperty(NestedTypeProperty):
                 logger.error(f"Every entry in '{self.attr}' needs to "
                              f"be a list of two strings. See the "
                              f"config.template.yaml for more details.")
-                raise err.InvalidRepeatIdentifierError
+                raise InvalidRepeatIdentifierError
 
 
 class HeaderValuesProperty(NestedTypeProperty):
     """ Property for the header_values. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, dict[str: str | list[str]])
+    def __init__(self, name: str) -> None:
+        super().__init__(name, dict[str: str | list[str]])
 
     def validate(self, value: Any):
         """ Validates the given value.
@@ -263,7 +69,7 @@ class HeaderValuesProperty(NestedTypeProperty):
         def _raise_invalid_header_error() -> None:
             logger.error(
                 f"Invalid value for '{self.attr}': {{'{ident}': '{day}'}}")
-            raise err.InvalidHeaderDaysError
+            raise InvalidHeaderDaysError
 
         for ident, days in value.items():
             if isinstance(days, str):
@@ -289,8 +95,8 @@ class HeaderValuesProperty(NestedTypeProperty):
 class HolidayCodeProperty(NestedTypeProperty):
     """ Property for the holiday code. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, dict[str: str])
+    def __init__(self, name) -> None:
+        super().__init__(name, dict[str: str])
 
     def validate(self, value: dict[str, str]):
         """ Checks if the holidays library knows the given
@@ -310,13 +116,13 @@ class HolidayCodeProperty(NestedTypeProperty):
         if country not in supported_countries:
             logger.warning(f"Invalid country code '{country}' "
                            f"for {self.attr} entry.")
-            raise err.InvalidHolidayCodeError
+            raise InvalidHolidayCodeError
         sub = value.get("subdivision", "").lower()
         if not sub or sub in supported_countries[country]:
             return
         logger.warning(f"Invalid subdivision code '{sub}' for valid "
                        f"country '{country}' of {self.attr} entry.")
-        raise err.InvalidHolidayCodeError
+        raise InvalidHolidayCodeError
 
     def __set__(self, obj, raw_value: dict):
         self.validate(raw_value)
@@ -393,7 +199,7 @@ class Pages:
             self.pages.remove(page)
         if not self.pages:
             logger.error("No valid pages given. Check the log for more info.")
-            quit(err.INVALID_CONFIG_EXIT_CODE)
+            quit(INVALID_CONFIG_EXIT_CODE)
 
     def __str__(self) -> str:
         return "all" if self.all else str(list(self.pages))
@@ -402,8 +208,8 @@ class Pages:
 class PagesProperty(Property):
     """ Property used to define the pages, that should be read. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, Pages)
+    def __init__(self, name) -> None:
+        super().__init__(name, Pages)
 
     def __set__(self, obj: CType, value: str | Pages) -> None:
         if isinstance(value, str):
@@ -427,8 +233,8 @@ class FilenameProperty(Property):
 class RouteTypeProperty(Property):
     """ Property for the gtfs_routetype. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, str)
+    def __init__(self, name) -> None:
+        super().__init__(name, str)
 
     def validate(self, value: str) -> None:
         """ Checks if there are any obvious errors with the value. """
@@ -439,7 +245,7 @@ class RouteTypeProperty(Property):
     def _validate_route_type(value: str) -> None:
         route_type = get_route_type(value)
         if route_type is None:
-            raise err.InvalidRouteTypeValueError
+            raise InvalidRouteTypeValueError
 
     def __set__(self, obj, value: str) -> None:
         self.validate(value)
@@ -450,8 +256,8 @@ class RouteTypeProperty(Property):
 class OutputPathProperty(Property):
     """ Property for the output directory. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, Path)
+    def __init__(self, name) -> None:
+        super().__init__(name, Path)
 
     @staticmethod
     def _validate_path(path: Path) -> None:
@@ -460,7 +266,7 @@ class OutputPathProperty(Property):
         if path.exists() and path.is_file() and not is_zip_name:
             logger.error("The given output path already exists, "
                          "but is not a .zip file.")
-            raise err.InvalidOutputPathError
+            raise InvalidOutputPathError
 
         if is_zip_name:
             dir_path = path.parent
@@ -487,8 +293,8 @@ class OutputPathProperty(Property):
 class DateBoundsProperty(Property):
     """ Property for the start-/end dates of the gtfs calendar. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, list)
+    def __init__(self, name) -> None:
+        super().__init__(name, list)
 
     @staticmethod
     def clean_value(value: str | list[str | dt.date]
@@ -499,7 +305,7 @@ class DateBoundsProperty(Property):
             if value == "":
                 value = ["", ""]
             if len(value) != 2:
-                raise err.InvalidDateBoundsError
+                raise InvalidDateBoundsError
             if value[0] == "":
                 value[0] = f"{year}0101"
             if value[1] == "":
@@ -507,7 +313,7 @@ class DateBoundsProperty(Property):
             return [dt.datetime.strptime(value[0], "%Y%m%d"),
                     dt.datetime.strptime(value[1], "%Y%m%d")]
         except (TypeError, KeyError, IndexError, ValueError):
-            raise err.InvalidDateBoundsError
+            raise InvalidDateBoundsError
 
     def __set__(self, obj, value: list[str | dt.date]):
         super().__set__(obj, self.clean_value(value))
@@ -516,8 +322,8 @@ class DateBoundsProperty(Property):
 class AbbrevProperty(NestedTypeProperty):
     """ Property used by the abbreviations. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, dict[str: str])
+    def __init__(self, name) -> None:
+        super().__init__(name, dict[str: str])
 
     @staticmethod
     def clean_value(value: dict[str: str]) -> dict[str: str]:
@@ -536,11 +342,11 @@ class AbbrevProperty(NestedTypeProperty):
         super().__set__(obj, self.clean_value(value))
 
 
-class AverageSpeedProperty(IntBoundsProperty):
+class AverageSpeedProperty(IntBoundedProperty):
     """ Property for the average_speed. If set to 0, return a sane default. """
 
-    def __init__(self, cls, attr) -> None:
-        super().__init__(cls, attr, 0, 200)
+    def __init__(self, name) -> None:
+        super().__init__(name, 0, 200)
 
     def __get__(self, obj: CType, objtype=None) -> Any:
         # Override get instead of set, to autodetect the speed. Otherwise,
@@ -558,9 +364,9 @@ class AverageSpeedProperty(IntBoundsProperty):
 class InputProperty(NestedTypeProperty):
     """ Property for providing GTFS-feeds or files. """
 
-    def __init__(self, cls: CType, attr: str) -> None:
+    def __init__(self, name: str) -> None:
         self.temp_dir = None
-        super().__init__(cls, attr, dict[str: list[Path]])
+        super().__init__(name, dict[str: list[Path]])
 
     def __del__(self) -> None:
         if self.temp_dir is None:
@@ -569,7 +375,7 @@ class InputProperty(NestedTypeProperty):
 
     def __set__(self, obj, value: Any) -> None:
         if not isinstance(value, list):
-            raise err.InvalidPropertyTypeError
+            raise InvalidPropertyTypeError
 
         paths = []
         for path_str in value:
