@@ -1,0 +1,380 @@
+# Default configuration. You should not change this file directly, as your
+#   changes may prevent pdf2gtfs from running, if you ever update it.
+# Instead create a new .yaml file either in the config_dir
+#   ('~/.config/pdf2gtfs/' for linux, '%PROGRAMDATA%/pdf2gtfs/' for windows).
+
+# This default configuration will always be read first,
+#   after which all other .yaml/.yml files in the config_dir will be
+#   read in lexicographic order, overriding any default values. Lastly the
+#   command line arguments will override any values set in the config files.
+
+# Info for string values: leading/trailing whitespace will be stripped.
+#   This also applies to stringlists (e.g. "1,2, 3" is equal to "1,2,3").
+#   They will also be made lowercase, unless they are part of a format spec.
+
+
+#############
+#  General  #
+#############
+
+# Routetype.
+#   See https://developers.google.com/transit/gtfs/reference#routestxt
+#
+# Type: str or int
+gtfs_routetype: "Tram"
+
+# Disable interactive mode. This will result in no user
+#   interaction necessary and may be useful, when run in a script.
+#
+# Type: bool
+non_interactive: False
+
+# Start-/Enddate used for services in calendar.txt. Defaults to "",
+#   which will use [YYYY0101, YYYY1231], where YYYY is the current year.
+#
+# Type: list of dates in YYYYMMDD format or empty string
+gtfs_date_bounds: ""
+
+# The locations of the stops can be displayed in a webbrowser.
+# To decide what should be displayed, sum the values of the things you want:
+#      - display final locations: 1
+#      - display intermediate locations based on route: 2
+#      - display all nodes with names similar to the stops for each route: 4
+#
+# Note: The color of the markers shows the type of the node. Missing nodes are
+#   red, existing ones in the stops.txt are blue and the located ones green.
+#
+# Type: int between 0 and 7
+display_route: 1
+
+# Days after which the cache should be marked as stale, forcing its rebuild.
+# Note: The cache will be rebuilt regardless of this setting,
+#   if the value of name_abbreviations or allowed_stop_chars is changed.
+#
+# Type: Non-negative int
+stale_cache_days: 7
+
+
+####################
+#  Input / Output  #
+####################
+
+# Each path p specified here will be used in the GTFS-feed, if the following
+#   conditions are met:
+#     1. If the filename of p is equal to one of the GTFS files, it will be
+#        prepended to the output of the respective GTFS file.
+#        For agency.txt/stops.txt: The entries will be used to select an
+#        agency or enhance the location detection, respectively.
+#     2. If p is a .zip archive, it will be unpacked to a temporary directory
+#        and each .txt file is handled, as described in 1.
+#     3. If p is a path to a directory, all .txt files will be handled,
+#        as described in 1.
+#
+# Note: Right now, there is put in absolutely no effort to ensure neither, that
+#   all input files use unique IDs, nor that the entries itself are unique.
+#   The IDs for newly created entries will still be unique. However, if two
+#   different input files define e.g. two different agencies with the same
+#   agency_id, both will be added to the output agency.txt, without updating
+#   the IDs, resulting in an invalid GTFS-feed. In the same way, if two input
+#   files define the same agency, both will be added, as well.
+#   In such cases, manual intervention is necessary.
+#
+# Type: list of str
+input_files: [ ]
+
+# The path the GTFS-feed is written to.
+# If this is a directory, the feed will be exported into that directory and
+#   the name of the feed will be set to
+#   'pdf2gtfs_[input_file]_[date]_[time].zip', where [input_file] is the name
+#   of the input pdf (without extension), date/time is the current date/time
+#   in YYYYMMDD/HHMMSS format, respectively.
+# If the path ends in '.zip' and the file exists, you will be asked whether
+#   it should be overwritten.
+# If the given path does not exist and does not end in '.zip', a directory
+#   with the given name will be created.
+#
+# Type: str
+output_path: "./out"
+
+# Whether the preprocessed PDF should be saved. If true, the PDF will be saved
+#   to the same directory as the GTFS-feed. This might be useful, to check if
+#   the preprocessing altered the PDF in unintended ways.
+# Setting this when 'preprocess' is false has no effect.
+#
+# Type: bool
+output_pp: True
+
+
+######################
+#  Table extraction  #
+######################
+
+# Which pages to consider for extraction. Defaults to 'all' for all pages.
+# Example: "1-3,6,8-9" extracts the tables from the pages 1, 2, 3, 6, 8, 9.
+#
+# Type: String of comma-separated ints or ranges of ints, or 'all'.
+pages: "all"
+
+# Whether or not the pdf should be preprocessed. This will remove all objects
+#   from the pdf, which are not text (i.e. all images and vector graphics).
+#   Greatly reduces processing time, but may alter the pdf in some unexpected ways.
+#
+# Type: bool
+preprocess: True
+
+# The format of the times given in the table.
+#
+# Type: String in strftime format
+# For more info:
+#  https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+time_format: "%H.%M"
+
+# The names of the "headers" of the table and their respective weekday index.
+#   Keys will be turned to all lowercase internally.
+#   Weekday index between "0" and "6", where "0" stands for monday.
+#   "h" is used for holidays. If "h" is given as an index,
+#   holiday_code has to be set as well.
+#
+# Type: Mapping of string to either string or list of char
+header_values: {
+  "montag - freitag": "0,1,2,3,4",
+  "samstag": "5",
+  "sonntag": "6",
+  "sonn- und feiertag": "6,h",
+  "sonn- / feiertag": "6,h",
+}
+
+# Set the minimum number of stops for a cycle to be recognized as connection.
+# Usually, any stops between two stops A and B are not added to the output,
+#   iff A and B have the same name and A/B are not the start/end of the route.
+#   This may however result in valid stops being discarded,
+#   if the route serves the same stop multiple times.
+# Setting this to 0 disables the detection of connections entirely.
+# Example: Given a route with the stops [A, B, C, A, D], the stops B and C in
+#   the cycle A-B-C-A would be detected as connections if this setting was
+#   set to 1 or 2, but not if it was set to 0 or any number higher than 2.
+#
+# Type: int
+min_connection_count: 1
+
+# Identifies rows, which add special meaning to some columns.
+#
+# Type: List of strings
+annot_identifier: [ "Verkehrshinweis", "Verkehrsbeschränkung" ]
+
+# Identifies rows, which hold information about the specific route the
+#   column is part of.
+# E.g. If a table has a row starting with this identifier, try to match the
+#   data columns with the entries of that row.
+#
+# Type: List of strings
+route_identifier: [ "Linie", "Zugnummer" ]
+
+# If a column does not hold any time data and contains the given identifier,
+#   try to expand the repeat interval.
+# For example, if a table contains a column (B) containing
+#   "Alle 5 min."/"Every 5 min.", meaning: Between the times of the column
+#   left (A) and right (C) of B, the times should be repeated every 5 minutes.
+# The repeat_identifier are used to identify these columns and each should be
+#   a list of 2 strings, where the first is the repeat start identifier and
+#   the second the repeat end identifier. In the example above, these
+#   would be ["alle", "min"] or ["every", "min"].
+# Note: The matching is both case insensitive and greedy, i.e. ["every", "min"]
+#   would match both "every 5 min" as well as "every 5 minutes".
+# Note: The current implementation only works with minutes, so if a repeat
+#   column contains the value "Alle 2 Stunden"/"Every 2 hours", it would
+#   falsely be detected as every 2 minutes.
+#
+# Type: List of strings
+repeat_identifier: [
+  [ "alle", "min" ],
+]
+
+# Some columns hold information, on whether the stop on the corresponding row
+#   is an arrival or a departure. The identifiers given here are used to
+#   identify these columns.
+#
+# Type: List of strings
+arrival_identifier: [ "an" ]
+departure_identifier: [ "ab" ]
+
+# The country + subdivision (state/province) code used to get the holidays.
+# See https://pypi.org/project/holidays/ for a list of possible values.
+# If no subdivision exists for a country, simply do not set subdivision or
+#    set it to the empty string.
+# If you don't wish to automatically change service on holidays, simply
+#    set this to an empty dictionary.
+#
+# Type: dict of string to string
+holiday_code:
+  country: "DE"
+  subdivision: "BW"
+
+# How to expand the repeating column, if the repeating times occur in a range.
+# Example: Given a repeat column with the content "Alle 7-8 min." and strategy
+#   "cycle" would alternate between using 7 and 8 minutes, while
+#   "mean" would always use 7.5 minutes.
+#
+# Type: String. Either "cycle" or "mean".
+repeat_strategy: "cycle"
+
+# Maximum vertical distance in points between two rows, to be considered on
+#   the same table. Basically checks if (with origin being the top-left corner):
+#     ((y_max of current row) - (y_min of next row)) <= max_row_distance
+#
+# Type: non-negative int
+max_row_distance: 3
+
+# Maximum horizontal distance in points between two characters, to be
+#   considered part of the same Field.
+#
+# Type: Non-negative float
+max_char_distance: 0.01
+
+# The minimum number of consecutive (i.e. distance to next line <= max_row_distance)
+#   lines required, for something to be recognized as a table.
+#
+# Type: non-negative int
+min_row_count: 5
+
+
+########################
+#  Location detection  #
+########################
+
+# Average speed of the public transport vehicle in km per hour.
+# This is used to reduce the search radius for the locations of the stops.
+# Note: If set to 0, it will use the following defaults, depending on routetype:
+#   - Tram/StreetCar/Light rail: 25
+#   - Subway/Metro: 35
+#   - Rail: 50
+#   - Bus: 15
+#   - Ferry: 20
+#   - CableTram: 10
+#   - AerialLift: 10
+#   - SuspendedCableCar: 10
+#   - Funicular: 10
+#   - Trolleybus: 15
+#   - Monorail: 35
+#
+# Type: Integer between 0 and 200.
+average_speed: 0
+
+# Stop names are stripped of all characters which are not letters/numbers
+#   or whitelisted.
+#
+# Type: list of str
+allowed_stop_chars: [ " " ]  # ["-", "/", ".", " "]
+
+# When searching for the stop locations, the abbreviations listed here will be
+#   replaced by their respective full form, when searching for stop locations.
+#   This may help with finding the proper location for a stop, in case the
+#   transit agency uses names with these abbreviations.
+#
+# Essentially the following regex is created for keys not ending with a dot:
+#     "(\bstr\.)|(\bstr\b)"
+#  If the key ends with a dot, the regex instead looks like this:
+#     "(\bstr\.)|(\bstr\b)|(str\.)"
+#
+# Example:
+#   - Given the following name_abbreviations:
+#       "str.": "strasse"
+#       "bf.": "BAHNHOF"
+#       "HBF": "hauptbahnhof"
+#   - would result in the following changes to some example stop names:
+#       "hbf"             ->  "hauptbahnhof"
+#       "hbf."            ->  "hauptbahnhof"
+#       "Frankfurthbf."   ->  "frankfurthbahnhof" (!)
+#       "Bahnhofsstr."    ->  "bahnhofsstrasse"
+#   Note the line with (!): The "[...]hbf." is replaced by "[...]hbahnhof"
+#   instead of "hauptbahnhof", because the key "hbf" does not end with a dot.
+#
+# Notes:
+# - This will not affect the stop_name in the 'stops.txt'.
+# - All keys/values will be .lower()ed and .casefold()ed.
+#
+# Type: dict of string to string
+name_abbreviations:
+  "a.": "am"
+  "rh.": "rhein"
+  "ffm": "frankfurt"
+  "st.": "sankt"
+  "hbf": "hauptbahnhof"
+  "bf": "bahnhof"
+  "str.": "strasse"
+  "ka": "karlsruhe"
+
+# Disable the detection of the stop locations.
+#
+# Type: bool
+disable_location_detection: False
+
+# If True, any locations, that were not found, will be interpolated using the
+#   locations, that were found. These locations will be added to the output,
+#   depending on this setting.
+# If this is set to False and the location of a stop was not found, the
+#   stops' location will have a latitude/longitude of 0.
+#
+# Note: Need at least 2 valid locations, to interpolate.
+#
+# Type: bool
+interpolate_missing_locations: True
+
+# Locations for a stop are ignored, if they are closer (in m) than this value.
+# Note: This is the direct (geodesic) distance, taking neither the
+#   actual path of the streets/rail/..., nor the terrain into account.
+#
+# Type: Non-negative int
+min_travel_distance: 30
+
+# The offset in minutes, used for the lower/upper bounds, when calculating the
+#   lower/upper average travel distances. Distances closer/farther,
+#   respectively, are punished with a higher cost.
+#
+# Type: Positive int
+average_travel_distance_offset: 2
+
+# Enable/Disable simple travel cost calculation.
+# If enabled, higher travel distance will equate higher travel cost.
+# If disabled, the expected travel distance will be taken into account as well.
+# Note: Setting this to True may decrease the speed of location detection a bit.
+#
+# Type: Bool
+simple_travel_cost_calculation: False
+
+# The node cost of missing nodes. Changing this may improve the speed and
+#   accuracy of location detection.
+# As reference, node costs for normal nodes are between 0 and 20.
+#
+# Type: Non-negative int
+missing_node_cost: 500
+
+# Do not check if a nodes' neighbors are close.
+# Setting this to True may help improve location accuracy at times, when few
+#   locations were found, if e.g. average sped is highly varying on the route.
+#   It may also improve the performance, in cases where a very broad term
+#   (e.g. "Hauptbahnhof"/"central station") is used as the sole stop name.
+#
+# Type: Boolean
+disable_close_node_check: False
+
+
+#########################
+#  QLever and OSM data  #
+#########################
+
+# The path to the cache directory. If this is empty or not a valid path, the
+# default path will be selected based on the system:
+#   - linux: ~/.config/pdf2gtfs/
+#   - windows: %APPDATALOCAL%/pdf2gtfs/
+# The /path/to/pdf2gtfs/ directory will be used as fallback.
+#
+# Type: str
+cache_directory: ""
+
+# The full url to the QLever endpoint.
+# Note: Set this to e.g. https://qlever.cs.uni-freiburg.de/api/osm-planet/?
+#   to get locations from the whole world (slower), instead of just germany.
+#
+# Type: url str
+qlever_endpoint_url: "https://qlever.cs.uni-freiburg.de/api/osm-germany/?"
