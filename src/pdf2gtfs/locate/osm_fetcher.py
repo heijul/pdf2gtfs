@@ -19,11 +19,11 @@ from pdf2gtfs.utils import normalize_series
 logger = getLogger(__name__)
 KEYS = ["lat", "lon", "public_transport"]
 # Keys are case-sensitive.
-KEYS_OPTIONAL = ["railway", "bus", "tram", "train", "subway", "monorail",
-                 "light_rail", "ref:IFOPT"]
+CAT_KEYS = ["railway", "bus", "tram",
+            "train", "subway", "monorail", "light_rail"]
 # Valid python identifiers for some keys.
-KEYS_TRANS = {"ref:IFOPT": "ref_ifopt"}
-NAMES_OPTIONALS = [KEYS_TRANS.get(key, key) for key in KEYS_OPTIONAL]
+OPT_OSM_KEYS = {"ref_ifopt": "ref:IFOPT"}
+OPT_KEYS = ["ref_ifopt"]
 NAME_KEYS = ["name", "alt_name", "ref_name",
              "short_name", "official_name", "loc_name"]
 
@@ -238,7 +238,7 @@ def get_qlever_query() -> str:
 
     def get_selection() -> list[str]:
         """ Return the select clause. """
-        identifier = map(_to_identifier, KEYS + NAMES_OPTIONALS)
+        identifier = map(_to_identifier, KEYS + CAT_KEYS + OPT_KEYS)
         group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\"|\") AS ?names)"
         variables = " ".join(identifier) + group_concat
         return ["SELECT {} WHERE {{".format(variables)]
@@ -263,13 +263,13 @@ def get_qlever_query() -> str:
     def get_optionals() -> list[str]:
         """ Get the clause for all optional keys. """
         fmt = "OPTIONAL {{ ?stop osmkey:{} ?{} . }}"
-        return [fmt.format(key, KEYS_TRANS.get(key, key))
-                for key in KEYS_OPTIONAL]
+        return ([fmt.format(key, key) for key in CAT_KEYS]
+                + [fmt.format(OPT_OSM_KEYS.get(k, k), k) for k in OPT_KEYS])
 
     def get_group_by() -> list[str]:
         """ Group-by statement, grouping by optional and mandatory keys. """
         fmt = "GROUP BY {}"
-        identifier = " ".join(map(_to_identifier, KEYS + NAMES_OPTIONALS))
+        identifier = " ".join(map(_to_identifier, KEYS + CAT_KEYS + OPT_KEYS))
         return [fmt.format(identifier)]
 
     pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
@@ -312,13 +312,13 @@ def read_data(path_or_stream: Path | BytesIO) -> pd.DataFrame:
 
     dtype = {"lat": float, "lon": float,
              "public_transport": str, "names": str}
-    for key in NAMES_OPTIONALS:
+    for key in CAT_KEYS + OPT_KEYS:
         dtype[key] = str
 
     return pd.read_csv(
         path_or_stream,
         sep="\t",
-        names=KEYS + NAMES_OPTIONALS + ["names"],
+        names=KEYS + CAT_KEYS + OPT_KEYS + ["names"],
         dtype=dtype,
         keep_default_na=False,
         header=0,

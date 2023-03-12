@@ -8,6 +8,7 @@ from math import inf
 from time import time
 from typing import TYPE_CHECKING, TypeAlias
 
+import numpy as np
 import pandas as pd
 
 from pdf2gtfs.config import Config
@@ -16,7 +17,7 @@ from pdf2gtfs.locate.finder import find_stop_nodes, update_missing_locations
 from pdf2gtfs.locate.finder.loc_nodes import display_nodes, MNode, Node
 from pdf2gtfs.locate.finder.location import Location
 from pdf2gtfs.locate.finder.osm_values import get_all_cat_scores
-from pdf2gtfs.locate.osm_fetcher import NAMES_OPTIONALS, OSMFetcher
+from pdf2gtfs.locate.osm_fetcher import CAT_KEYS, OPT_KEYS, OSMFetcher
 from pdf2gtfs.utils import normalize_name
 
 
@@ -200,7 +201,7 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     # Apply cat scores
     goods, bads = get_all_cat_scores()
     df = raw_df.copy()
-    for key in NAMES_OPTIONALS:
+    for key in CAT_KEYS:
         good = goods.get(key, {})
         bad = bads.get(key, {})
         df[key] = df[key].apply(_get_score)
@@ -210,7 +211,13 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
 
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     """ Calculate the integer score based on KEYS_OPTIONAL. """
-    return full_df[NAMES_OPTIONALS].min(axis=1) ** 2 // 20
+    # Penalize nodes with fewer optional keys.
+    # TODO: This will need to be adjusted, once more optional keys were added.
+    power = full_df[OPT_KEYS].where(full_df[OPT_KEYS] != "").isna().sum(axis=1)
+    power = (power / 10 + 1) * 2
+    power = power ** power
+    min_cat = full_df[CAT_KEYS].min(axis=1)
+    return np.log2((min_cat + 1 * power) ** power).round()
 
 
 def select_best_nodes(stops_nodes: dict[str: list[Node]]) -> dict[str: Node]:
