@@ -3,7 +3,9 @@ from dataclasses import fields
 import pandas as pd
 
 from pdf2gtfs.config import Config
-from pdf2gtfs.datastructures.gtfs_output.stop import GTFSStopEntry, GTFSStops
+from pdf2gtfs.datastructures.gtfs_output.stop import (
+    GTFSStopEntry, GTFSStops,
+    WHEELCHAIR_TO_INT, WheelchairBoarding)
 from test.test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
@@ -66,21 +68,24 @@ class TestGTFSStopEntry(GTFSOutputBaseClass):
 
     def test_from_series(self) -> None:
         index = [f.name for f in fields(GTFSStopEntry)]
-        values = ["stop_id_1", "stop 1", "32.31", "-12.98", "testdesc"]
+        values = ["stop_id_1", "stop 1", "32.31", "-12.98", "testdesc", "1"]
         entry = GTFSStopEntry.from_series(pd.Series(values, index=index))
         self.assertEqual(values[0], entry.stop_id)
         self.assertEqual(values[1], entry.stop_name)
         self.assertEqual(float(values[2]), entry.stop_lat)
         self.assertEqual(float(values[3]), entry.stop_lon)
         self.assertEqual(values[4], entry.stop_desc)
+        self.assertEqual(WHEELCHAIR_TO_INT[WheelchairBoarding.yes],
+                         int(entry.wheelchair_boarding))
 
-        values = ["stop_id_1", "stop 1", "", "", ""]
+        values = ["stop_id_1", "stop 1", "", "", "", ""]
         entry = GTFSStopEntry.from_series(pd.Series(values, index=index))
         self.assertEqual(values[0], entry.stop_id)
         self.assertEqual(values[1], entry.stop_name)
         self.assertEqual(None, entry.stop_lat)
         self.assertEqual(None, entry.stop_lon)
         self.assertEqual(values[4], entry.stop_desc)
+        self.assertEqual(0, WHEELCHAIR_TO_INT[entry.wheelchair_boarding])
 
 
 class TestGTFSStops(GTFSOutputBaseClass):

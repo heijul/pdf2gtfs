@@ -82,6 +82,7 @@ class Node:
     def set_extra_values(self, values: StopPosition) -> None:
         if valid_ifopt(values.ref_ifopt):
             self.extra_values["ifopt"] = values.ref_ifopt
+        self.extra_values["wheelchair"] = values.wheelchair
 
     def get_close_neighbors(self) -> list[Node]:
         """ Return all neighbors of node that are close to node. """
@@ -348,7 +349,7 @@ class Nodes:
         stop: Stop = parent.stop.next
         values: StopPosition = StopPosition(
             self.next_missing_node_idx, stop.name, stop.name,
-            0, 0, Config.missing_node_cost, 0, "")
+            0, 0, Config.missing_node_cost, 0, "", "")
         neighbor = self._create_missing_node(stop, values)
         self.next_missing_node_idx -= 1
         neighbor.update_parent_if_better(parent)
@@ -365,11 +366,14 @@ class Nodes:
     def filter_df_by_stop(self, stop: Stop) -> DF:
         """ Return a dataframe containing only
         entries with the given stop's stop_id. """
+        from pdf2gtfs.locate import OPT_KEYS
+
         df = self.df.loc[self.df["stop_id"] == stop.stop_id]
         if df.empty:
             data = {"idx": self.next_missing_node_idx, "stop_id": stop.stop_id,
                     "names": stop.name, "lat": 0, "lon": 0,
                     "node_cost": 0, "name_cost": 0}
+            data.update({key: "" for key in OPT_KEYS})
             index = pd.Index([self.next_missing_node_idx])
             df = pd.DataFrame(data, index=index, columns=df.columns)
             self.next_missing_node_idx -= 1

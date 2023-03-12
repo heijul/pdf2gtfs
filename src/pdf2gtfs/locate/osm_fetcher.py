@@ -23,7 +23,7 @@ CAT_KEYS = ["railway", "bus", "tram",
             "train", "subway", "monorail", "light_rail"]
 # Valid python identifiers for some keys.
 OPT_OSM_KEYS = {"ref_ifopt": "ref:IFOPT"}
-OPT_KEYS = ["ref_ifopt"]
+OPT_KEYS = ["ref_ifopt", "wheelchair"]
 NAME_KEYS = ["name", "alt_name", "ref_name",
              "short_name", "official_name", "loc_name"]
 

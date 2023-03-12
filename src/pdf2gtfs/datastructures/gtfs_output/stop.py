@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, Field
+from enum import IntEnum
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +18,36 @@ MAX_EDIT_DISTANCE = 3
 logger = logging.getLogger(__name__)
 
 
+def get_wheelchair_boarding(value: str) -> WheelchairBoarding:
+    value = value.strip().lower()
+    try:
+        wheelchair = int(value)
+        for wc_b, wc_b_int in WHEELCHAIR_TO_INT.items():
+            if wc_b_int == wheelchair:
+                return wc_b
+    except ValueError:
+        pass
+    try:
+        return WheelchairBoarding[value]
+    except KeyError:
+        pass
+    return WheelchairBoarding.unknown
+
+
+class WheelchairBoarding(IntEnum):
+    unknown = 0
+    yes = 1
+    limited = 1
+    no = 2
+
+    def to_output(self) -> str:
+        return str(WHEELCHAIR_TO_INT[self])
+
+
+WHEELCHAIR_TO_INT = {WheelchairBoarding.yes: 1, WheelchairBoarding.limited: 1,
+                     WheelchairBoarding.unknown: 0, WheelchairBoarding.no: 2}
+
+
 @dataclass(init=False)
 class GTFSStopEntry(BaseDataClass):
     """ A single stop. """
@@ -25,6 +56,7 @@ class GTFSStopEntry(BaseDataClass):
     stop_lat: float | None
     stop_lon: float | None
     stop_desc: str
+    wheelchair_boarding: WheelchairBoarding
 
     def __init__(self, name: str, stop_id: str = None) -> None:
         super().__init__(stop_id)
@@ -35,6 +67,7 @@ class GTFSStopEntry(BaseDataClass):
         self.stop_lon = None
         self.stop_desc = ""
         self.used_in_timetable = False
+        self.wheelchair_boarding = WheelchairBoarding.unknown
 
     @property
     def valid(self) -> bool:
@@ -75,6 +108,8 @@ class GTFSStopEntry(BaseDataClass):
             lon = None
         stop.set_location(lat, lon, False)
         stop.stop_desc = s.get("stop_desc")
+        stop.wheelchair_boarding = get_wheelchair_boarding(
+            s.get("wheelchair_boarding"))
         return stop
 
 

@@ -8,7 +8,6 @@ from math import inf
 from time import time
 from typing import TYPE_CHECKING, TypeAlias
 
-import numpy as np
 import pandas as pd
 
 from pdf2gtfs.config import Config
@@ -80,9 +79,10 @@ def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
     t = time()
     # Calculate node score.
     full_df = node_score_strings_to_int(df)
+    full_df["opts_value"] = opt_keys_to_int(full_df[OPT_KEYS])
     df.loc[:, "node_cost"] = get_node_cost(full_df)
     df = df.loc[:, ["lat", "lon", "names",
-                    "node_cost", "stop_id", "idx", "name_cost", "ref_ifopt"]]
+                    "node_cost", "stop_id", "idx", "name_cost"] + OPT_KEYS]
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     return df
@@ -209,15 +209,25 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def opt_keys_to_int(full_df: pd.DataFrame) -> pd.DataFrame:
+    def evaluate_ifopt(value: str) -> int:
+        return 5 * int(value == "")
+
+    def evaluate_wheelchair(value: str) -> int:
+        return 3 * int(value not in ["yes", "no", "limited"])
+
+    opts_value = (full_df["ref_ifopt"].apply(evaluate_ifopt)
+                  + full_df["wheelchair"].apply(evaluate_wheelchair))
+    return opts_value
+
+
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     """ Calculate the integer score based on KEYS_OPTIONAL. """
     # Penalize nodes with fewer optional keys.
     # TODO: This will need to be adjusted, once more optional keys were added.
-    power = full_df[OPT_KEYS].where(full_df[OPT_KEYS] != "").isna().sum(axis=1)
-    power = (power / 10 + 1) * 2
-    power = power ** power
     min_cat = full_df[CAT_KEYS].min(axis=1)
-    return np.log2((min_cat + 1 * power) ** power).round()
+    node_cost = (min_cat + full_df["opts_value"]) ** 2 // 20
+    return node_cost
 
 
 def select_best_nodes(stops_nodes: dict[str: list[Node]]) -> dict[str: Node]:

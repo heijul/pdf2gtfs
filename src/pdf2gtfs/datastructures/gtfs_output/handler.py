@@ -22,7 +22,9 @@ from pdf2gtfs.datastructures.gtfs_output.calendar import (
 from pdf2gtfs.datastructures.gtfs_output.calendar_dates import \
     GTFSCalendarDates
 from pdf2gtfs.datastructures.gtfs_output.routes import GTFSRoutes
-from pdf2gtfs.datastructures.gtfs_output.stop import GTFSStopEntry, GTFSStops
+from pdf2gtfs.datastructures.gtfs_output.stop import (
+    GTFSStopEntry, GTFSStops,
+    WheelchairBoarding)
 from pdf2gtfs.datastructures.gtfs_output.stop_times import (
     GTFSStopTimes, GTFSStopTimesEntry, Time)
 from pdf2gtfs.datastructures.gtfs_output.trips import GTFSTrips
@@ -401,6 +403,16 @@ class GTFSHandler:
             stop.stop_id = ifopt
             UIDGenerator.skip(ifopt)
 
+    def _add_wheelchair_boarding(self, locations: dict[str: Node]) -> None:
+        for stop, loc_node in locations.items():
+            stop = self.stops.get_by_stop_id(stop)
+            wheelchair = loc_node.extra_values.get("wheelchair")
+            try:
+                stop.wheelchair_boarding = WheelchairBoarding[wheelchair]
+            except KeyError:
+                pass
+
     def update_stop_ids(self, locations: dict[str: Node]) -> None:
         """ Adds additional information to the stops, based on the nodes. """
+        self._add_wheelchair_boarding(locations)
         self._add_ifopt_as_id(locations)
