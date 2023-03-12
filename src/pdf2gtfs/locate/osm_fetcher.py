@@ -18,8 +18,12 @@ from pdf2gtfs.utils import normalize_series
 
 logger = getLogger(__name__)
 KEYS = ["lat", "lon", "public_transport"]
-KEYS_OPTIONAL = ["railway", "bus", "tram",
-                 "train", "subway", "monorail", "light_rail"]
+# Keys are case-sensitive.
+KEYS_OPTIONAL = ["railway", "bus", "tram", "train", "subway", "monorail",
+                 "light_rail", "ref:IFOPT"]
+# Valid python identifiers for some keys.
+KEYS_TRANS = {"ref:IFOPT": "ref_ifopt"}
+NAMES_OPTIONALS = [KEYS_TRANS.get(key, key) for key in KEYS_OPTIONAL]
 NAME_KEYS = ["name", "alt_name", "ref_name",
              "short_name", "official_name", "loc_name"]
 
@@ -234,7 +238,7 @@ def get_qlever_query() -> str:
 
     def get_selection() -> list[str]:
         """ Return the select clause. """
-        identifier = map(_to_identifier, KEYS + KEYS_OPTIONAL)
+        identifier = map(_to_identifier, KEYS + NAMES_OPTIONALS)
         group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\"|\") AS ?names)"
         variables = " ".join(identifier) + group_concat
         return ["SELECT {} WHERE {{".format(variables)]
@@ -258,13 +262,14 @@ def get_qlever_query() -> str:
 
     def get_optionals() -> list[str]:
         """ Get the clause for all optional keys. """
-        fmt = "OPTIONAL {{ ?stop osmkey:{0} ?{0} . }}"
-        return [fmt.format(key) for key in KEYS_OPTIONAL]
+        fmt = "OPTIONAL {{ ?stop osmkey:{} ?{} . }}"
+        return [fmt.format(key, KEYS_TRANS.get(key, key))
+                for key in KEYS_OPTIONAL]
 
     def get_group_by() -> list[str]:
         """ Group-by statement, grouping by optional and mandatory keys. """
         fmt = "GROUP BY {}"
-        identifier = " ".join(map(_to_identifier, KEYS + KEYS_OPTIONAL))
+        identifier = " ".join(map(_to_identifier, KEYS + NAMES_OPTIONALS))
         return [fmt.format(identifier)]
 
     pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
@@ -294,6 +299,7 @@ def raw_osm_data_to_dataframe(raw_data: bytes) -> pd.DataFrame:
     logger.info(f"Done. Took {time() - t:.2f}s.")
     # Remove entries with empty name.
     df = df[df["names"] != ""]
+    # TODO: Add info how many were dropped.
     logger.info("Dropped locations with empty names from the dataframe.")
     return df
 
@@ -306,13 +312,13 @@ def read_data(path_or_stream: Path | BytesIO) -> pd.DataFrame:
 
     dtype = {"lat": float, "lon": float,
              "public_transport": str, "names": str}
-    for key in KEYS_OPTIONAL:
+    for key in NAMES_OPTIONALS:
         dtype[key] = str
 
     return pd.read_csv(
         path_or_stream,
         sep="\t",
-        names=KEYS + KEYS_OPTIONAL + ["names"],
+        names=KEYS + NAMES_OPTIONALS + ["names"],
         dtype=dtype,
         keep_default_na=False,
         header=0,

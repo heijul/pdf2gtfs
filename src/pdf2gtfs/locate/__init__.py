@@ -16,7 +16,7 @@ from pdf2gtfs.locate.finder import find_stop_nodes, update_missing_locations
 from pdf2gtfs.locate.finder.loc_nodes import display_nodes, MNode, Node
 from pdf2gtfs.locate.finder.location import Location
 from pdf2gtfs.locate.finder.osm_values import get_all_cat_scores
-from pdf2gtfs.locate.osm_fetcher import KEYS_OPTIONAL, OSMFetcher
+from pdf2gtfs.locate.osm_fetcher import NAMES_OPTIONALS, OSMFetcher
 from pdf2gtfs.utils import normalize_name
 
 
@@ -41,7 +41,7 @@ def search_locations_for_all_routes(
     return nodes
 
 
-def find_location_nodes(gtfs_handler: GTFSHandler) -> dict[str: Location]:
+def find_location_nodes(gtfs_handler: GTFSHandler) -> dict[str: Node]:
     """ Return a dictionary of all stops and their locations. """
 
     fetcher = OSMFetcher()
@@ -81,7 +81,7 @@ def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
     full_df = node_score_strings_to_int(df)
     df.loc[:, "node_cost"] = get_node_cost(full_df)
     df = df.loc[:, ["lat", "lon", "names",
-                    "node_cost", "stop_id", "idx", "name_cost"]]
+                    "node_cost", "stop_id", "idx", "name_cost", "ref_ifopt"]]
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     return df
@@ -200,7 +200,7 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     # Apply cat scores
     goods, bads = get_all_cat_scores()
     df = raw_df.copy()
-    for key in KEYS_OPTIONAL:
+    for key in NAMES_OPTIONALS:
         good = goods.get(key, {})
         bad = bads.get(key, {})
         df[key] = df[key].apply(_get_score)
@@ -210,7 +210,7 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
 
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     """ Calculate the integer score based on KEYS_OPTIONAL. """
-    return full_df[KEYS_OPTIONAL].min(axis=1) ** 2 // 20
+    return full_df[NAMES_OPTIONALS].min(axis=1) ** 2 // 20
 
 
 def select_best_nodes(stops_nodes: dict[str: list[Node]]) -> dict[str: Node]:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import sys
 import webbrowser
 from math import inf, log, sqrt
@@ -23,6 +24,22 @@ from pdf2gtfs.locate.finder.types import DF, StopPosition
 logger = logging.getLogger(__name__)
 
 
+def valid_ifopt(ifopt_str: str) -> bool:
+    """ Check that the given value is a valid ifopt string of
+    the form: 'aa:bbbbb:cccc:dd:ee'.
+    """
+    # Check https://wiki.openstreetmap.org/wiki/Key:ref:IFOPT
+    # TODO: Add a check if public_transport has the correct value?
+    # The use of this tag seems to be somewhat lawless/arbitrary.
+    # We assume the following:
+    #   - The country code is a ISO 3166-1 alpha-2 code
+    #   - The following parts are all either left-padded with zeros or
+    #   - The following two colon separated values consist only of digits.
+    #     The first of the two has
+    regex = r"^[a-z]{2,3}:?\d*:?\d*:?\d*:?\d*"
+    return re.match(regex, ifopt_str) is not None
+
+
 class Node:
     """ Provide comparable Nodes, which combine stops, locs, and costs. """
     nodes: Nodes = None
@@ -38,6 +55,7 @@ class Node:
         self.cost: Cost = cost
         self.visited = False
         self.stop.nodes.append(self)
+        self.extra_values = {}
         if Node.nodes is None:
             raise Exception("Node.nodes needs to be set, "
                             "before creating a Node.")
@@ -60,6 +78,10 @@ class Node:
 
     def __hash__(self) -> int:
         return id(self)
+
+    def set_extra_values(self, values: StopPosition) -> None:
+        if valid_ifopt(values.ref_ifopt):
+            self.extra_values["ifopt"] = values.ref_ifopt
 
     def get_close_neighbors(self) -> list[Node]:
         """ Return all neighbors of node that are close to node. """
@@ -296,6 +318,7 @@ class Nodes:
         loc = Location(values.lat, values.lon)
         cost = Cost(inf, values.node_cost, values.name_cost, None)
         node = Node(stop, values.idx, values.names, loc, cost)
+        node.set_extra_values(values)
         self._add(node)
         return node
 
@@ -325,7 +348,7 @@ class Nodes:
         stop: Stop = parent.stop.next
         values: StopPosition = StopPosition(
             self.next_missing_node_idx, stop.name, stop.name,
-            0, 0, Config.missing_node_cost, 0)
+            0, 0, Config.missing_node_cost, 0, "")
         neighbor = self._create_missing_node(stop, values)
         self.next_missing_node_idx -= 1
         neighbor.update_parent_if_better(parent)

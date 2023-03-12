@@ -14,4 +14,5 @@ DF: TypeAlias = pd.DataFrame
 StopPosition = NamedTuple("StopPosition",
                           [("idx", int), ("stop", str), ("names", str),
                            ("lat", float), ("lon", float),
-                           ("node_cost", float), ("name_cost", float)])
+                           ("node_cost", float), ("name_cost", float),
+                           ("ref_ifopt", str)])

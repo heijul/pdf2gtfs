@@ -31,6 +31,7 @@ from pdf2gtfs.datastructures.timetable.entries import (
 from pdf2gtfs.locate.finder.loc_nodes import ENode, MNode, Node
 from pdf2gtfs.user_input.cli import (
     ask_overwrite_existing_file, handle_annotations, select_agency)
+from pdf2gtfs.utils import UIDGenerator
 
 
 if TYPE_CHECKING:
@@ -382,3 +383,24 @@ class GTFSHandler:
         route_ids: list[str] = [r.route_id for r in self.routes.entries]
         return sorted(route_ids, reverse=True,
                       key=lambda r: len(self.get_stops_of_route(r)))
+
+    def _add_ifopt_as_id(self, locations: dict[str: Node]) -> None:
+        """ Update stops using the locations, such that each stop uses its
+        nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
+        for stop_id, loc_node in locations.items():
+            stop = self.stops.get_by_stop_id(stop_id)
+            ifopt = loc_node.extra_values.get("ifopt")
+            # Check if ID is already used elsewhere already.
+            if not ifopt or UIDGenerator.is_used(ifopt):
+                continue
+            # Update stop_times.
+            for stop_time in self.stop_times:
+                if stop_time.stop_id == stop.id:
+                    stop_time.stop_id = ifopt
+            # Update stop.
+            stop.stop_id = ifopt
+            UIDGenerator.skip(ifopt)
+
+    def update_stop_ids(self, locations: dict[str: Node]) -> None:
+        """ Adds additional information to the stops, based on the nodes. """
+        self._add_ifopt_as_id(locations)
