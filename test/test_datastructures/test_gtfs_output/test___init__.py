@@ -4,14 +4,10 @@ from test import P2GTestCase
 
 
 class TestBaseDataClass(P2GTestCase):
-    # TODO: Check how we can test this. BaseDataClass has no fields...
-    #  Maybe test it in the subclasses, instead?
     ...
 
 
 class TestBaseContainer(P2GTestCase):
-    # TODO: Check how we can test this. BaseContainer needs an entry_type...
-    #  Maybe test it in the subclasses, instead?
     ...
 
 

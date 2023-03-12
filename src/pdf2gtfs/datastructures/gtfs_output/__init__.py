@@ -65,7 +65,6 @@ class BaseContainer:
             logger.warning(f"The following exception occurred, when trying "
                            f"to read the input file '{path}':\n{e}")
             return []
-        # FEATURE: Check if the IDs are still unique.
         entries = self.entries_from_df(df)
         return entries
 
@@ -129,7 +128,6 @@ class BaseContainer:
             return False
         if len(self.entries) != len(other.entries):
             return False
-        # TODO: Sort the entries in some meaningful manner.
         for entry1, entry2 in zip(self.entries, other.entries):
             for field in fields1:
                 if (entry1.get_field_value(field)

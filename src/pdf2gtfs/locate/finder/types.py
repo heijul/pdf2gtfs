@@ -1,5 +1,4 @@
 """ Types used by the locate. """
-# TODO NOW: Merge with p2g_types?
 
 from typing import NamedTuple, TYPE_CHECKING, TypeAlias
 

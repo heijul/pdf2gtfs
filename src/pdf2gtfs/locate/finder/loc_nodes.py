@@ -29,7 +29,6 @@ def valid_ifopt(ifopt_str: str) -> bool:
     the form: 'aa:bbbbb:cccc:dd:ee'.
     """
     # Check https://wiki.openstreetmap.org/wiki/Key:ref:IFOPT
-    # TODO: Add a check if public_transport has the correct value?
     # The use of this tag seems to be somewhat lawless/arbitrary.
     # We assume the following:
     #   - The country code is a ISO 3166-1 alpha-2 code
@@ -92,7 +91,6 @@ class Node:
 
     def dist_exact(self, node: Node) -> float:
         """ Return our exact distance (up to a few m) to the given node. """
-        # TODO NOW: Use geopy.
         lat_mid = mean((self.loc.lat, node.loc.lat))
         distance_per_lon_deg = get_distance_per_lon_deg(lat_mid)
         lat_dist = abs(self.loc.lat - node.loc.lat) * DISTANCE_IN_M_PER_LAT_DEG
@@ -448,8 +446,6 @@ def display_nodes(nodes: list[Node]) -> None:
         except StatisticsError:
             return 0, 0
 
-    # FEATURE: Add info about missing nodes.
-    # FEATURE: Adjust zoom/location depending on lat-/lon-minimum
     location = get_map_location()
     if location == (0, 0):
         logger.warning("Nothing to display, route is empty.")

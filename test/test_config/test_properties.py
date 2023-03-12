@@ -141,12 +141,10 @@ class TestBoundsProperty(PropertyTestCase):
 
 
 class TestNestedTypeProperty(PropertyTestCase):
-    # TODO: Probably need to test the other validate_x methods as well...
     def get_property(self, name: str) -> p.BoundsProperty | None:
         return super().get_property(name)
 
     def test__validate_type(self) -> None:
-        # TODO: More types.
         types = [dict[str: tuple[int, float]]]
         valids = [
             {}, {"test": tuple()}, {"test": (1, 3.3)}, {"test": (1.1, 3)}]

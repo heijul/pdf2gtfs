@@ -37,7 +37,6 @@ def search_locations_for_all_routes(
         stop_nodes = find_stop_nodes(handler, route_id, route, df)
         for stop_id, node in stop_nodes.items():
             nodes.setdefault(stop_id, []).append(node)
-        # TODO: Add search for reversed as well.
     return nodes
 
 
@@ -192,7 +191,6 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
         if value in bad:
             return bad_value
         try:
-            # STYLE: Adjust osm scores instead of doing this?
             return good[value] * 5
         except KeyError:
             return 20
@@ -224,7 +222,6 @@ def opt_keys_to_int(full_df: pd.DataFrame) -> pd.DataFrame:
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     """ Calculate the integer score based on KEYS_OPTIONAL. """
     # Penalize nodes with fewer optional keys.
-    # TODO: This will need to be adjusted, once more optional keys were added.
     min_cat = full_df[CAT_KEYS].min(axis=1)
     node_cost = (min_cat + full_df["opts_value"]) ** 2 // 20
     return node_cost
@@ -244,8 +241,6 @@ def select_best_nodes(stops_nodes: dict[str: list[Node]]) -> dict[str: Node]:
         node_with_max_count = max(nodes, key=nodes_count.get)
         return node_with_max_count
 
-    # TODO: Needs to recalculate the cost of each node. This may also have
-    #  unexpected results, if some route is detached from the rest.
     best_nodes: dict[str: Node] = {}
     for stop_id, stop_nodes in stops_nodes.items():
         best_nodes[stop_id] = select_best_node_of_stop()

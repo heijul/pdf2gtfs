@@ -14,9 +14,6 @@ from pdf2gtfs.datastructures.gtfs_output import (
     BaseContainer, BaseDataClass, str_wrap)
 
 
-# TODO: Simply use tuple of int instead of DayIsActive
-
-
 @dataclass
 class DayIsActive:
     """ Simple dataclass used by calendar entries, to turn booleans

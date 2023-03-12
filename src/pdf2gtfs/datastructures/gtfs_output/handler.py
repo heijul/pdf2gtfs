@@ -115,7 +115,6 @@ class GTFSHandler:
 
     def timetable_to_gtfs(self, timetable: TimeTable):
         """ Add the entries of the timetable. """
-        # TODO: Add timetable.is_valid property.
         if not timetable.stops.stops:
             return
         self.add_timetable_stops(timetable)
@@ -140,7 +139,6 @@ class GTFSHandler:
                 continue
             self.routes.add_from_entry(entry)
 
-    # TODO: Split and cleanup.
     def generate_stop_times(self, entries: list[TimeTableEntry]
                             ) -> list[GTFSStopTimes]:
         """ Generate the full stoptimes of the given entries.
@@ -218,9 +216,6 @@ class GTFSHandler:
 
     def generate_calendar_dates(self) -> None:
         """ Create a new CalendarDateEntry for each holiday. """
-        # CHECK: Should not disable service for sundays on holidays which
-        #  fall on sundays... Will only make a difference if there are
-        #  different timetables for sundays/holidays... right?
 
         if Config.holiday_code[0] is None:
             return
@@ -250,8 +245,6 @@ class GTFSHandler:
         if not annots:
             return
 
-        # TODO: If multiple annotations which are active on the same service
-        #  have different defaults, default=off will take precedence.
         annot_exceptions = handle_annotations(annots)
         for annot, (default, dates) in annot_exceptions.items():
             services = self.calendar.get_with_annot(annot)
@@ -262,7 +255,6 @@ class GTFSHandler:
                     service.service_id, dates, not default)
 
     def _remove_unused_routes(self) -> None:
-        # TODO: Check if this is even needed.
         used_route_ids = set([trip.route_id for trip in self.trips.entries])
         for route in list(self.routes.entries):
             if route.route_id in used_route_ids:

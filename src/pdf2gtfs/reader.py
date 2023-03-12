@@ -104,8 +104,6 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
 def sniff_page_count(file: str | Path) -> int:
     """ Return the number of pages in the given PDF. """
 
-    # TODO: Add error handling, though if this one fails, the whole reading
-    #  will probably fail as well.
     with open(file, "rb") as file:
         parser = PDFParser(file)
         document = PDFDocument(parser)
@@ -254,7 +252,6 @@ class Reader:
         # GS can't use open files as outfiles (may be system dependent).
         self.tempfile.close()
 
-        # FEATURE: Allow custom args
         gs_args = ["gs", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dFILTERIMAGE",
                    "-dFILTERVECTOR", "-dPRINTED=true", "-dFitPage",
                    "-dBlackText", "-q", "-dBATCH ",

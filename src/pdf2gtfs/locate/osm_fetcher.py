@@ -299,7 +299,6 @@ def raw_osm_data_to_dataframe(raw_data: bytes) -> pd.DataFrame:
     logger.info(f"Done. Took {time() - t:.2f}s.")
     # Remove entries with empty name.
     df = df[df["names"] != ""]
-    # TODO: Add info how many were dropped.
     logger.info("Dropped locations with empty names from the dataframe.")
     return df
 

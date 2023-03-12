@@ -14,9 +14,6 @@ GoodValues: TypeAlias = dict[OSMKey: dict[str: int]]
 BadValues: TypeAlias = dict[OSMKey: list[str]]
 
 
-# TODO: This works but is done waaay too complicated.
-
-
 def get_all_cat_scores() -> tuple[GoodValues, BadValues]:
     """ Return all values, which make a node a good or bad match. """
     osm_value = get_osm_values()[Config.gtfs_routetype]()
@@ -66,7 +63,6 @@ class Tram(OSMValue):
 
 class StreetCar(Tram):
     """ StreetCars are very closely related to trams. """
-    # TODO: Add both Tram and LightRail?
     pass
 
 
@@ -152,14 +148,12 @@ class CableTram(OSMValue):
 
 class AerialLift(OSMValue):
     """ AerialLift has no specific keys/values. """
-    # TODO: Not correct. Uses key 'aerialway'
     pass
 
 
 class SuspendedCableCar(AerialLift):
     """ SuspendedCableCar has no specific keys/values,
     but is similar to an AerialLift. """
-    # TODO: Not correct. Uses key 'aerialway'
     pass
 
 
