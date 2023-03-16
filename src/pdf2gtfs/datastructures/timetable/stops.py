@@ -8,17 +8,11 @@ class Stop:
     """ The stop of a TimeTableEntry. """
 
     def __init__(self, name: str, raw_row_id: int):
-        self.name = name
+        self.name = name.strip()
         self.normalized_name = normalize_name(name)
         self.raw_row_id = raw_row_id
         self.annotation = ""
         self.is_connection = False
-
-    def clean(self) -> None:
-        """ Removes surrounding whitespace. """
-        # TODO NOW: Remove all parentheses and double spaces,
-        #  and all chars except ',.-+/&'
-        self.name = self.name.strip()
 
     def __eq__(self, other) -> bool:
         return self.name == other.name and self.annotation == other.annotation
@@ -68,8 +62,3 @@ class StopList:
         if stop_id is not None:
             stop = self.get_from_id(stop_id)
         stop.annotation = text
-
-    def clean(self) -> None:
-        """ Clean all stops. """
-        for stop in self._stops:
-            stop.clean()

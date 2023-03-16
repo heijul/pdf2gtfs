@@ -75,8 +75,6 @@ class P2GTestCase(TestCase):
         cls.temp_dir = None
         cls.temp_path = None
         if create_temp_dir:
-            # TODO: Create a single pdf2gtfs temp dir, where all
-            #  test temp_dirs are located.
             cls.temp_dir = TemporaryDirectory(prefix="pdf2gtfs_test_")
             cls.temp_path = Path(cls.temp_dir.name)
         if disable_logging:

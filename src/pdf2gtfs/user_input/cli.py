@@ -98,7 +98,6 @@ def ask_overwrite_existing_file(filename: str | Path):
 
     msg = (f"The file '{filename}' already exists.\n"
            f"Do you want to overwrite it? [y]es [n]o")
-    # FEATURE: Extend to overwrite all/none/overwrite/skip
     answer = _get_input(msg, ["y", "n"])
     return answer == "y"
 

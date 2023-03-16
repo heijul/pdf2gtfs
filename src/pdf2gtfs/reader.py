@@ -185,7 +185,6 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
             continue
         table.fix_split_stopnames()
         timetable = table.to_timetable()
-        timetable.clean_values()
         timetables.append(timetable)
     return timetables
 

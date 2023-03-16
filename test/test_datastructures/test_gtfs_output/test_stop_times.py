@@ -336,8 +336,6 @@ class TestGTFSStopTimes(GTFSOutputBaseClass):
         self.assertGreater(stop_times1, stop_times2)
         self.assertLessEqual(stop_times2, stop_times2)
         self.assertGreaterEqual(stop_times2, stop_times2)
-        # TODO: Test with different stop lengths.
-        # TODO: Needs fix for st3 > st1 (see comments)
 
     def test_get_with_stop_id(self) -> None:
         times = {self.stops[0]: "23.42",

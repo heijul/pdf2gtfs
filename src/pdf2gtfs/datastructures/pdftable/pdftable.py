@@ -186,8 +186,6 @@ def split_rows_into_tables(rows: Rows) -> Tables:
 
     def log_skipped_rows() -> None:
         """ Log the rows that are dropped. """
-        # FEATURE: Should not drop the table,
-        #  but use it to enhance the others
         row_str = ",\n\t\t  ".join([str(r) for r in current_rows])
         logger.debug(f"Dropped rows:\n\tDistance: {y_distance:.2f}"
                      f"\n\tRows: {row_str}")
@@ -224,7 +222,6 @@ def cleanup_tables(tables: Tables) -> Tables:
     tables = split_tables_with_multiple_header_rows(tables)
     for table in tables:
         table.generate_columns_from_rows()
-    # TODO NOW: Handle tables which have no header row; Ask user?
     return split_tables_with_multiple_stop_columns(tables)
 
 

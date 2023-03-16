@@ -61,7 +61,6 @@ class TimeTableRepeatEntry(TimeTableEntry):
         self.intervals = None
         intervals = list(set(intervals))
         if len(intervals) > 1:
-            # FEATURE: Add user_input to ask for stops and interval.
             logger.warning("Multiple different repeat intervals found for a "
                            "single column. Cannot discern which interval is "
                            "active between which stops. "

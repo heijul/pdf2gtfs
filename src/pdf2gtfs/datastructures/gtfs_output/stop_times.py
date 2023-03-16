@@ -175,7 +175,6 @@ def get_repeat_deltas(deltas: list[int]) -> cycle[Time]:
     return cycle([Time.from_minutes(delta) for delta in deltas])
 
 
-# TODO: Needs to be split for single
 class GTFSStopTimes(BaseContainer):
     """ Used to create the 'stop_times.txt.'. """
     entries: list[GTFSStopTimesEntry]

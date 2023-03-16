@@ -112,5 +112,4 @@ class BBoxObject:
 
     def is_next_to(self, other: BBoxObject) -> bool:
         """ Checks if the objects' bboxes are next to each other. """
-        # TODO: Should take font size into account.
         return self.bbox.is_next_to(other.bbox)

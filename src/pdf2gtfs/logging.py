@@ -27,7 +27,6 @@ def initialize_logging(level: int):
     disable_pdfminer_logger()
     stdout_handler = logging.StreamHandler(stream=sys.stdout)
     logging.basicConfig(level=level, handlers=[stdout_handler])
-    # FEATURE: Style the log output
 
 
 def flush_all_loggers() -> None:

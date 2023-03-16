@@ -3,12 +3,6 @@ from test import P2GTestCase
 
 
 class TestStop(P2GTestCase):
-    def test__clean(self) -> None:
-        s1 = Stop(" test a.-,# ", 1)
-        self.assertEqual(" test a.-,# ", s1.name)
-        s1.clean()
-        self.assertEqual("test a.-,#", s1.name)
-
     def test___eq(self) -> None:
         s1 = Stop("Frankfurt Hauptbahnhof", 1)
         s2 = Stop("Frankfurt Hauptbahnhof", 0)
@@ -59,21 +53,3 @@ class TestStopList(P2GTestCase):
             stop = Stop(f"stop {i}", i)
             stop_list.add_stop(stop)
             stops.append(stop)
-
-    def test_clean(self) -> None:
-        stop_list = StopList()
-        stops = []
-        for i in range(10):
-            stop = Stop(f" stop {i} ", i)
-            stop_list.add_stop(stop)
-            stops.append(stop)
-        for i in range(10):
-            with self.subTest(i=i):
-                self.assertTrue(stops[i].name.startswith(" "))
-                self.assertTrue(stops[i].name.endswith(" "))
-        stop_list.clean()
-        for i in range(10):
-            with self.subTest(i=i):
-                name = stops[i].name
-                stops[i].clean()
-                self.assertEqual(name, stops[i].name)

@@ -282,7 +282,6 @@ class Column(FieldContainer):
         if self.has_field_of_type(FieldType.STOP_ANNOT):
             # Update previous column if current is a stop annotation and
             #  previous' type was not detected properly.
-            # CHECK: If this makes sense.
             previous = self.table.columns.prev(self)
             if previous.has_type() and previous.type == ColumnType.OTHER:
                 previous.type = ColumnType.STOP

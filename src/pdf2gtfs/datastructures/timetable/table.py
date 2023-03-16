@@ -113,7 +113,3 @@ class TimeTable:
         if Config.min_connection_count > 0:
             table.detect_connection()
         return table
-
-    def clean_values(self) -> None:
-        """ Clean all stops. """
-        self.stops.clean()

@@ -14,7 +14,6 @@ from test.test_locate.test_finder import get_stops_from_stops_list
 
 class TestHelper(P2GTestCase):
     def test_get_travel_distance(self) -> None:
-        # TODO: Ignore for now cause we'd need a working handler + stop_times
         pass
 
 
