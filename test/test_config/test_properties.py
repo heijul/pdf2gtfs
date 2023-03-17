@@ -46,13 +46,6 @@ class DummyConfig(BaseConfig):
     def default_config_path(self) -> Path:
         return self.config_dir
 
-    def get_property(self, name: str) -> Property | None:
-        """ Return the property object with the given name or None. """
-        try:
-            return object.__getattribute__(self, name)
-        except AttributeError:
-            return None
-
 
 class TestRepeatIdentifierProperty(P2GQuietTestCase):
     def test__validate_length(self) -> None:
