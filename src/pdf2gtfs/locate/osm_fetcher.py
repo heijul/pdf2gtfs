@@ -291,15 +291,24 @@ def get_qlever_query() -> str:
 
 
 def raw_osm_data_to_dataframe(raw_data: bytes) -> pd.DataFrame:
-    """ Cleans the names and removes entries with no names. """
+    """ Reads the feed and normalizes the names. """
     t = time()
     logger.info("Normalizing the stop names...")
     df = read_data(BytesIO(raw_data))
     df["names"] = normalize_series(df["names"])
     logger.info(f"Done. Took {time() - t:.2f}s.")
-    # Remove entries with empty name.
+    return remove_entries_without_name(df)
+
+
+def remove_entries_without_name(df: pd.DataFrame) -> pd.DataFrame:
+    """ Remove all entries, that do not have a name. """
+    full_count = len(df)
     df = df[df["names"] != ""]
-    logger.info("Dropped locations with empty names from the dataframe.")
+    count = full_count - len(df)
+    if count == 0:
+        return df
+    loc_str = f"location" if count == 1 else "locations"
+    logger.info(f"Dropped {count} {loc_str} without name from the dataframe.")
     return df
 
 
