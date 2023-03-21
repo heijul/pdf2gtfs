@@ -4,8 +4,8 @@ import pandas as pd
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.stop_times import Time
-from pdf2gtfs.locate import Location
 from pdf2gtfs.locate.finder.cost import Cost
+from pdf2gtfs.locate.finder.location import Location
 from pdf2gtfs.locate.finder.loc_nodes import ENode, MNode, Node, Nodes
 from pdf2gtfs.locate.finder.stops import Stops
 from test import P2GTestCase

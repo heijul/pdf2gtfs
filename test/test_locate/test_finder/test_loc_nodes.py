@@ -1,11 +1,12 @@
 from math import inf
 
 from pdf2gtfs.config import Config
-from pdf2gtfs.locate import Location
 from pdf2gtfs.locate.finder import Stop, Stops
 from pdf2gtfs.locate.finder.cost import StartCost
+from pdf2gtfs.locate.finder.location import Location
 from pdf2gtfs.locate.finder.loc_nodes import HeapNode, Node, NodeHeap, Nodes
 from pdf2gtfs.locate.finder.types import StopPosition
+
 from test import P2GTestCase
 from test.test_locate.test_finder import (
     get_stops_and_dummy_df, get_stops_from_stops_list)

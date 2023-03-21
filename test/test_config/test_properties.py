@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from custom_conf.config import BaseConfig
-from custom_conf.properties.property import Property
 
 import pdf2gtfs.config.errors as err
 from pdf2gtfs.config import (
