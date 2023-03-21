@@ -33,7 +33,7 @@ class _UIDGenerator:
         self.id = self.__get_next_id()
         return str(self.id)
 
-    def is_used(self, id_: str) -> None:
+    def is_used(self, id_: str) -> bool:
         return id_ in self.skip_ids
 
 

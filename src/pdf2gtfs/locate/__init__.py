@@ -14,7 +14,6 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.stop import GTFSStopEntry
 from pdf2gtfs.locate.finder import find_stop_nodes, update_missing_locations
 from pdf2gtfs.locate.finder.loc_nodes import display_nodes, MNode, Node
-from pdf2gtfs.locate.finder.location import Location
 from pdf2gtfs.locate.finder.osm_values import get_all_cat_scores
 from pdf2gtfs.locate.osm_fetcher import CAT_KEYS, OPT_KEYS, OSMFetcher
 from pdf2gtfs.utils import normalize_name

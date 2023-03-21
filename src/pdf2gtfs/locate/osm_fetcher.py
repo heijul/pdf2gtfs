@@ -307,7 +307,7 @@ def remove_entries_without_name(df: pd.DataFrame) -> pd.DataFrame:
     count = full_count - len(df)
     if count == 0:
         return df
-    loc_str = f"location" if count == 1 else "locations"
+    loc_str = "location" if count == 1 else "locations"
     logger.info(f"Dropped {count} {loc_str} without name from the dataframe.")
     return df
 
