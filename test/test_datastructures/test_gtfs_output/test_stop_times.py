@@ -318,9 +318,9 @@ class TestGTFSStopTimes(GTFSOutputBaseClass):
 
     def test__comparisons__(self) -> None:
         stop_times1 = GTFSStopTimes(self.temp_path)
-        times = {self.stops[0]: "22.42",  # 23.42
-                 self.stops[1]: "23.00",  # 00.00
-                 self.stops[2]: "23.26"}  # 00.26
+        times = {self.stops[0]: "22.42",
+                 self.stops[1]: "23.00",
+                 self.stops[2]: "23.26"}
         stop_times1.add_multiple("0", self.gtfs_stops, 0, times)
         stop_times2 = GTFSStopTimes(self.temp_path)
         times = {self.stops[0]: "00.14",
@@ -332,10 +332,18 @@ class TestGTFSStopTimes(GTFSOutputBaseClass):
                  self.stops[1]: "10.15",
                  self.stops[2]: "10.36"}
         stop_times3.add_multiple("1", self.gtfs_stops, 0, times)
+        stop_times4 = GTFSStopTimes(self.temp_path)
+        times = {self.stops[0]: "23.42",
+                 self.stops[1]: "00.00",
+                 self.stops[2]: "00.26"}
+        stop_times4.add_multiple("1", self.gtfs_stops, 0, times)
         self.assertLess(stop_times2, stop_times3)
         self.assertGreater(stop_times1, stop_times2)
         self.assertLessEqual(stop_times2, stop_times2)
-        self.assertGreaterEqual(stop_times2, stop_times2)
+        self.assertEqual(stop_times2, stop_times2)
+        self.assertGreater(stop_times4, stop_times3)
+        self.assertLess(stop_times1, stop_times4)
+        self.assertGreater(stop_times4, stop_times2)
 
     def test_get_with_stop_id(self) -> None:
         times = {self.stops[0]: "23.42",
