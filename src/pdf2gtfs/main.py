@@ -23,11 +23,13 @@ logger = logging.getLogger(__name__)
 
 def get_timetables() -> list["TimeTable"]:
     """ Returns all timetables in the pdf within the given pages. """
-    pages = Config.pages.pages
-    page_str = "page" if pages == [1] else "pages"
-    page_msg = f"Reading the following {page_str}: {pages}."
-    if not pages:
+    page_str = Config.pages.to_string()
+    if not page_str:
         page_msg = "Reading all pages."
+    elif "," in page_str or "-" in page_str:
+        page_msg = f"Reading the following pages: {page_str}"
+    else:
+        page_msg = f"Reading the following page: {page_str}"
     logger.info(page_msg)
 
     reader = Reader()

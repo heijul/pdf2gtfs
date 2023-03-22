@@ -5,14 +5,13 @@ msg="Some of the staged files contain flake8 errors.
 You need to fix these errors before committing."
 
 # All filenames that are staged and were added, copied, modified or renamed.
-FILES=$(git diff --name-only --staged --diff-filter=ACMR)
+changed_py_files=$(git diff --name-only --staged --diff-filter=ACMR | grep ".py$")
 
-changed_python_files=$(echo "$FILES" | grep ".py")
 if [ -z "$changed_python_files" ]; then
   exit 0
 fi
 
-if ! flake8 "$changed_python_files" > /dev/null; then
+if ! flake8 "$changed_python_files"; then
   echo "$msg"
   exit 1
 fi

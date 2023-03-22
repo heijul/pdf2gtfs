@@ -174,6 +174,18 @@ class TestPages(P2GQuietTestCase):
         with self.assertRaises(SystemExit):
             pages.remove_invalid_pages()
 
+    def test_to_string(self) -> None:
+        pages = Pages()
+        pages.all = False
+        pages.pages = list(range(1, 10))
+        self.assertEqual("1-9", pages.to_string())
+        pages.pages = [1, 2, 3, 5, 7, 8, 9]
+        self.assertEqual("1-3, 5, 7-9", pages.to_string())
+        pages.pages = list(range(1, 10, 2))
+        self.assertEqual("1, 3, 5, 7, 9", pages.to_string())
+        pages.all = True
+        self.assertEqual("", pages.to_string())
+
 
 class TestPage(P2GTestCase):
     def test_set(self) -> None:

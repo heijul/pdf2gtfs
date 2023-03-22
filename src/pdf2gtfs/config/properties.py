@@ -201,6 +201,31 @@ class Pages:
             logger.error("No valid pages given. Check the log for more info.")
             quit(INVALID_CONFIG_EXIT_CODE)
 
+    def to_string(self) -> str:
+        def page_range_to_string() -> list[str]:
+            """ Turns the page_range into either a range string (e.g. 1-5) or
+            a list of strings (e.g. 1, 2). """
+            if page_range[1] - page_range[0] >= 2:
+                return [f"{page_range[0]}-{page_range[1]}"]
+            return [str(i) for i in range(page_range[0], page_range[1] + 1)]
+
+        if self.all:
+            return ""
+        pages = []
+        page_range = [None, None]
+        for page in self.pages:
+            if page_range[0] is None:
+                page_range = [page, page]
+                continue
+            if page == page_range[1] + 1:
+                page_range[1] = page
+                continue
+            pages += page_range_to_string()
+            page_range = [page, page]
+        if page_range != [None, None]:
+            pages += page_range_to_string()
+        return ", ".join(map(str, pages))
+
     def __str__(self) -> str:
         return "all" if self.all else str(list(self.pages))
 
