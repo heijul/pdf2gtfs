@@ -57,55 +57,14 @@ class TimeTable:
     def from_pdf_table(pdf_table: pdftable.PDFTable) -> TimeTable:
         """ Creates a new TimeTable, given the pdttable. """
 
-        def get_annotations(column: pdftable.Column):
-            """ Return all annotations of the given columns. """
-            _annots = set()
-            for field in column.fields:
-                if field.row.type != pdftable.RowType.ANNOTATION:
-                    continue
-                # Splitting in case field has multiple annotations
-                _annots |= set(field.text.strip().split(" "))
-            return {a for a in _annots if a}
-
-        def get_route_name(column: pdftable.Column):
-            """ Return the route_name of the given column. """
-            for field in column.fields:
-                if field.row.type != pdftable.RowType.ROUTE_INFO:
-                    continue
-                return field.text
-            return ""
-
         table = TimeTable()
 
         for raw_column in list(pdf_table.columns):
             if raw_column.type == ColumnType.OTHER:
                 continue
-            raw_header_text = pdf_table.get_header_from_column(raw_column)
-            if raw_column.type == ColumnType.REPEAT:
-                entry = TimeTableRepeatEntry(
-                    raw_header_text, raw_column.get_repeat_intervals())
-            else:
-                entry = TimeTableEntry(raw_header_text)
-            entry.annotations = get_annotations(raw_column)
-            entry.route_name = get_route_name(raw_column)
+            entry = get_entry(raw_column)
             table.entries.append(entry)
-
-            for raw_field in raw_column:
-                row_id = pdf_table.rows.index(raw_field.row)
-                if raw_field.column.type == ColumnType.STOP:
-                    if raw_field.row.type == pdftable.RowType.DATA:
-                        stop = Stop(raw_field.text, row_id)
-                        table.stops.add_stop(stop)
-                    continue
-                if raw_field.row.type == pdftable.RowType.ROUTE_INFO:
-                    continue
-                if raw_field.row.type == pdftable.RowType.ANNOTATION:
-                    continue
-                if raw_field.column.type == ColumnType.STOP_ANNOTATION:
-                    table.stops.add_annotation(raw_field.text, stop_id=row_id)
-                elif raw_field.row.type == pdftable.RowType.DATA:
-                    stop = table.stops.get_from_id(row_id)
-                    table.entries[-1].set_value(stop, raw_field.text)
+            process_raw_column(table, raw_column)
             # Remove entries, in case raw_column is empty.
             if not table.entries[-1].values:
                 del table.entries[-1]
@@ -113,3 +72,55 @@ class TimeTable:
         if Config.min_connection_count > 0:
             table.detect_connection()
         return table
+
+
+def get_entry(raw_column: pdftable.Column) -> TimeTableEntry:
+    def get_annotations(column: pdftable.Column):
+        """ Return all annotations of the given columns. """
+        _annots = set()
+        for field in column.fields:
+            if field.row.type != pdftable.RowType.ANNOTATION:
+                continue
+            # Splitting in case field has multiple annotations
+            _annots |= set(field.text.strip().split(" "))
+        return {a for a in _annots if a}
+
+    def get_route_name(column: pdftable.Column):
+        """ Return the route_name of the given column. """
+        for field in column.fields:
+            if field.row.type != pdftable.RowType.ROUTE_INFO:
+                continue
+            return field.text
+        return ""
+
+    header_text = raw_column.table.get_header_from_column(raw_column)
+    if raw_column.type == ColumnType.REPEAT:
+        entry = TimeTableRepeatEntry(
+            header_text, raw_column.get_repeat_intervals())
+    else:
+        entry = TimeTableEntry(header_text)
+    entry.annotations = get_annotations(raw_column)
+    entry.route_name = get_route_name(raw_column)
+    return entry
+
+
+def process_raw_column(table: TimeTable, raw_column: pdftable.Column) -> None:
+    """ Updates the table, based on the type of the column and the type of
+    each column fields' row.
+    """
+    for raw_field in raw_column:
+        row_id = raw_field.row.index
+        # Only add stops for fields of stop columns where the row contains data
+        if raw_field.column.type == ColumnType.STOP:
+            if raw_field.row.type == pdftable.RowType.DATA:
+                stop = Stop(raw_field.text, row_id)
+                table.stops.add_stop(stop)
+            continue
+        if raw_field.row.type in [pdftable.RowType.ROUTE_INFO,
+                                  pdftable.RowType.ANNOTATION]:
+            continue
+        if raw_field.column.type == ColumnType.STOP_ANNOTATION:
+            table.stops.add_annotation(raw_field.text, stop_id=row_id)
+        elif raw_field.row.type == pdftable.RowType.DATA:
+            stop = table.stops.get_from_id(row_id)
+            table.entries[-1].set_value(stop, raw_field.text)

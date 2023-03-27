@@ -193,6 +193,11 @@ class Row(FieldContainer):
         row.set_bbox_from_fields()
         return row
 
+    @property
+    def index(self) -> int:
+        """ Return the index of this row in the table. """
+        return self.table.rows.index(self)
+
     def add_field(self, new_field: Field):
         """ Add new_field to our fields, maintaining proper order. """
         self._add_field(new_field, "x")
@@ -247,6 +252,11 @@ class Column(FieldContainer):
         super().__init__(table, bbox)
         self.fields: list[Field] = fields or []
         self.intervals = None
+
+    @property
+    def header_text(self) -> str:
+        """ Return the header text of the column, if it exists or "". """
+        return self.table.get_header_from_column(self)
 
     @property
     def type(self) -> ColumnType:
