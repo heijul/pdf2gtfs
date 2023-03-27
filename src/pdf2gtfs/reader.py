@@ -8,7 +8,7 @@ from pathlib import Path
 from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import time
-from typing import Any, Iterator, TypeAlias
+from typing import Iterator, TypeAlias
 
 import pandas as pd
 from pdfminer.high_level import extract_pages
@@ -34,7 +34,12 @@ Lines: TypeAlias = list[Line]
 
 
 def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
-    """ Returns a dataframe consisting of Chars. """
+    """ Returns a dataframe consisting of Chars.
+
+    We can't use LTTextLine because it depends on pdfminer's layout algorithm,
+    which merges fields of different columns, making it sometimes impossible,
+    to properly detect column annotations.
+    """
 
     def _fix_text(text: str) -> str:
         # Fix chars which were turned into codes during preprocessing.
@@ -47,58 +52,45 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
             logger.debug("Encountered charcode '{text}' with length "
                          "{len(text)}, but could not convert it to char.")
 
-    def cleanup_df(_df: pd.DataFrame) -> pd.DataFrame:
+    def cleanup_df(df: pd.DataFrame) -> pd.DataFrame:
         """ Cleanup the given dataframe.
 
         Rounds the coordinates and drops any entries outside of the page.
         """
         # Round to combat possible tolerances in the coordinates.
-        _df = _df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
+        df = df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
         # Skip objects which are not on the page.
-        return _df[(_df["x0"] < _df["x1"]) & (_df["y0"] < _df["y1"]) &
-                   (_df["x0"] >= page.x0) & (_df["x1"] <= page.x1) &
-                   (_df["y0"] >= page.y0) & (_df["y1"] <= page.y1)]
+        return df[(df["x0"] < df["x1"]) & (df["y0"] < df["y1"]) &
+                  (df["x0"] >= page.x0) & (df["x1"] <= page.x1) &
+                  (df["y0"] >= page.y0) & (df["y1"] <= page.y1)]
 
-    def _unpack_char(element: LTChar) -> dict[str: Any]:
-        return {"x0": element.x0,
-                "x1": element.x1,
-                "y0": page.y1 - element.y1,
-                "y1": page.y1 - element.y1 + element.height,
-                "text": _fix_text(element.get_text())
-                }
+    char_list = []
+    text_boxes = [box for box in page if isinstance(box, LTTextBox)]
+    text_lines = [line for text_box in text_boxes for line in text_box
+                  if isinstance(line, LTTextLine)]
+    text_chars = [char for line in text_lines for char in line
+                  if isinstance(char, LTChar)]
+    for text_char in text_chars:
+        char = {"x0": text_char.x0, "x1": text_char.x1,
+                "y0": page.y1 - text_char.y1,
+                "y1": page.y1 - text_char.y1 + text_char.height,
+                "text": _fix_text(text_char.get_text())}
+        # Ignore vertical text.
+        if not text_char.upright:
+            msg = ("Char(text='{text}', x0={x0:.2f}, "
+                   "y0={y0:.2f}, x1={x1:.2f}, y1={y1:.2f})")
+            logger.debug(f"Skipping vertical char:\n\t"
+                         f"{msg.format(**char)}")
+            continue
+        char_list.append(char)
 
-    def _get_char_list() -> list[dict]:
-        # Can't use LTTextLine because it depends on pdfminers layout
-        #  algorithm, which merges fields of different columns, making
-        #  it impossible at times to properly detect column annotations.
-        char_list = []
-        for page_element in page:
-            if not isinstance(page_element, LTTextBox):
-                continue
-            for textbox_element in page_element:
-                if not isinstance(textbox_element, LTTextLine):
-                    continue
-                for textline_element in textbox_element:
-                    if not isinstance(textline_element, LTChar):
-                        continue
-                    char = _unpack_char(textline_element)
-                    # Ignore vertical text
-                    if not textline_element.upright:
-                        msg = ("Char(text='{text}', x0={x0:.2f}, y0="
-                               "{y0:.2f}, x1={x1:.2f}, y1={y1:.2f})")
-                        logger.debug(f"Skipping vertical char:\n\t"
-                                     f"{msg.format(**char)}")
-                        continue
-                    char_list.append(_unpack_char(textline_element))
-        return char_list
-
-    df = cleanup_df(pd.DataFrame(_get_char_list()))
+    char_df = cleanup_df(pd.DataFrame(char_list))
 
     # Change type to reduce memory usage.
-    text_dtype = pd.CategoricalDtype(set(df["text"]))
-    df["text"] = df["text"].astype(text_dtype)
+    text_dtype = pd.CategoricalDtype(set(char_df["text"]))
+    char_df["text"] = char_df["text"].astype(text_dtype)
 
-    return df
+    return char_df
 
 
 def sniff_page_count(file: str | Path) -> int:
