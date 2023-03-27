@@ -12,7 +12,8 @@ import pandas as pd
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.stop import GTFSStopEntry
-from pdf2gtfs.locate.finder import find_stop_nodes, update_missing_locations
+from pdf2gtfs.locate.finder import (
+    find_stop_nodes, interpolate_missing_node_locations)
 from pdf2gtfs.locate.finder.loc_nodes import display_nodes, MNode, Node
 from pdf2gtfs.locate.finder.osm_values import get_all_cat_scores
 from pdf2gtfs.locate.osm_fetcher import CAT_KEYS, OPT_KEYS, OSMFetcher
@@ -55,7 +56,7 @@ def find_location_nodes(gtfs_handler: GTFSHandler) -> dict[str: Node]:
     best_nodes = select_best_nodes(route_stop_nodes)
     logger.info(f"Done. Took {time() - t:.2f}s")
 
-    update_missing_locations(list(best_nodes.values()), True)
+    interpolate_missing_node_locations(list(best_nodes.values()))
     if Config.display_route in [1, 3, 5, 7]:
         display_nodes(list(best_nodes.values()))
     return best_nodes

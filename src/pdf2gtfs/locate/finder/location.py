@@ -75,6 +75,12 @@ class Location:
                             f"not {type(other)}")
         return Location(self.lat - other.lat, self.lon - other.lon)
 
+    def __rmul__(self, other) -> Location:
+        if not isinstance(other, int):
+            raise TypeError("Can only multiply Location with an integer,"
+                            f"not {type(other)}.")
+        return Location(self.lat * other, self.lon * other)
+
     def __str__(self) -> str:
         return f"({self.lat:> 9.5f}, {self.lon:> 9.5f})"
 
