@@ -153,56 +153,55 @@ class OSMFetcher:
         return dataframe
 
 
+def get_cache_dir(fallback_dir: Path) -> Path:
+    """ Return the system dependent path to the cache directory.
+
+If system is not one of linux or windows, return None instead.
+"""
+    if Config.cache_directory:
+        return Config.cache_directory
+    system = platform.system().lower()
+    if system == "windows":
+        return Path(os.path.expandvars("%LOCALAPPDATA%/pdf2gtfs/")).resolve()
+    if system == "linux":
+        return Path(os.path.expanduser("~/.cache/pdf2gtfs/")).resolve()
+
+    fallback_msg = f"Using fallback cache directory ({fallback_dir})."
+    logger.warning("Could not determine system platform. " + fallback_msg)
+    return fallback_dir
+
+
+def create_cache_dir(path: Path, fallback_dir: Path) -> Path:
+    """ Tries to create the cache directory.
+
+If creation fails, use the fallback cache directory.
+"""
+    fallback_msg = f"Using fallback cache directory ({fallback_dir})."
+    if path.exists():
+        if path.is_dir():
+            return path
+        logger.warning(f"Cache directory '{path}' appears to be a file. "
+                       f"You need to move or remove that file to use the "
+                       f"default system cache. " + fallback_msg)
+        return fallback_dir
+    try:
+        os.makedirs(path, exist_ok=True)
+        return path
+    except OSError as e:
+        logger.warning(f"Cache directory could not be created. "
+                       f"Reason: '{e}'\n" + fallback_msg)
+        return fallback_dir
+
+
 def get_and_create_cache_dir() -> Path:
     """ Get the cache directory path. Create it, if it does not exist.
 
     If this fails at any point, the src directory will be used as fallback.
     """
 
-    def _get_cache_dir() -> Path | None:
-        """ Return the system dependent path to the cache directory.
-
-        If system is not one of linux or windows, return None instead.
-        """
-        if Config.cache_directory:
-            return Config.cache_directory
-        system = platform.system().lower()
-        if system == "windows":
-            return Path(os.path.expandvars("%LOCALAPPDATA%/pdf2gtfs/")
-                        ).resolve()
-        if system == "linux":
-            return Path(os.path.expanduser("~/.cache/pdf2gtfs/")).resolve()
-        return None
-
-    def _create_cache_dir() -> Path:
-        """ Tries to create the cache directory.
-
-        If creation fails, use the fallback cache directory.
-        """
-        if path.exists():
-            if path.is_dir():
-                return path
-            logger.warning(f"Cache directory '{path}' appears to be a file. "
-                           f"You need to move or remove that file to use the "
-                           f"default system cache. " + fallback_msg)
-            return fallback_dir
-        try:
-            os.makedirs(path, exist_ok=True)
-            return path
-        except OSError as e:
-            logger.warning(f"Cache directory could not be created. "
-                           f"Reason: '{e}'\n" + fallback_msg)
-            return fallback_dir
-
-    path = _get_cache_dir()
     fallback_dir = Config.p2g_dir
-    fallback_msg = f"Using fallback cache directory ({Config.p2g_dir})."
-
-    if path is None:
-        logger.warning("Could not determine system platform. " + fallback_msg)
-        return fallback_dir
-
-    path = _create_cache_dir()
+    path = get_cache_dir(fallback_dir)
+    path = create_cache_dir(path, fallback_dir)
     return path
 
 
