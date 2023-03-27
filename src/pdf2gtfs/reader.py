@@ -280,7 +280,12 @@ class Reader:
             return
 
         pages = Config.pages.pages
-        count = sniff_page_count(self.filepath)
+        try:
+            count = sniff_page_count(self.filepath)
+        except (OSError, PermissionError, PDFSyntaxError):
+            logger.error("Could not determine number of pages. Is this PDF "
+                         "valid and readable?")
+            sys.exit(PDF_READ_ERROR_CODE)
         oob_page_ids = [page_id for page_id in page_ids if page_id > count]
         # No pages are out of bounds.
         if not oob_page_ids:
