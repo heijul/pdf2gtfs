@@ -8,13 +8,17 @@ from pathlib import Path
 from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import time
-from typing import Iterator, TypeAlias
+from typing import Iterator, Optional, Tuple, TypeAlias, Union
 
 import pandas as pd
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
+from pdfminer.pdfcolor import PDFColorSpace
 from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdffont import PDFFont
+from pdfminer.pdfinterp import PDFGraphicState
 from pdfminer.pdfparser import PDFParser, PDFSyntaxError
+from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
@@ -22,6 +26,31 @@ from pdf2gtfs.datastructures.pdftable.field import Field
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables)
 from pdf2gtfs.datastructures.timetable.table import TimeTable
+
+
+def ltchar_monkeypatch__init__(
+        self,
+        matrix: Matrix,
+        font: PDFFont,
+        fontsize: float,
+        scaling: float,
+        rise: float,
+        text: str,
+        textwidth: float,
+        textdisp: Union[float, Tuple[Optional[float], float]],
+        ncs: PDFColorSpace,
+        graphicstate: PDFGraphicState,
+        ) -> None:
+    """ This monkeypatch is required, to keep access to the font/fontsize. """
+    self.font = font
+    self.fontsize = fontsize
+    return self.default_init(matrix, font, fontsize, scaling, rise, text,
+                             textwidth, textdisp, ncs, graphicstate)
+
+
+# noinspection PyTypeChecker
+LTChar.default_init = LTChar.__init__
+LTChar.__init__ = ltchar_monkeypatch__init__
 
 
 PDF_READ_ERROR_CODE = 2
