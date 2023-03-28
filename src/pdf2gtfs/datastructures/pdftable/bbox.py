@@ -98,14 +98,6 @@ class BBoxObject:
     def bbox(self, bbox: BBox | None) -> None:
         self._bbox = BBox() if bbox is None else bbox.copy()
 
-    def merge(self, other: BBoxObject | BBox):
-        """ Convenience method to enable merging of BBox and BBoxObject. """
-        other_bbox = other if isinstance(other, BBox) else other.bbox
-        self.bbox.x0 = min(self.bbox.x0, other_bbox.x0)
-        self.bbox.y0 = min(self.bbox.y0, other_bbox.y0)
-        self.bbox.x1 = max(self.bbox.x1, other_bbox.x1)
-        self.bbox.y1 = max(self.bbox.y1, other_bbox.y1)
-
     def _set_bbox_from_list(self, bbox_objects: list[BBoxObject]):
         bbox = bbox_objects[0].bbox.copy() if bbox_objects else None
         for bbox_object in bbox_objects[1:]:

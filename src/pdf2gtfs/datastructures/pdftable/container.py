@@ -328,9 +328,9 @@ class Column(FieldContainer):
     def merge(self, other: Column):
         """ Merge self with other, such that self contains all fields and its
         bbox contains all field bboxes. """
-        self.bbox.merge(other.bbox)
         for field in other.fields:
             self.add_field(field)
+        self.set_bbox_from_fields()
 
     def add_field(self, new_field: Field):
         """ Add new_field, merging it with fields of the same row. """

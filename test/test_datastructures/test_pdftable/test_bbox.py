@@ -77,14 +77,6 @@ class TestBBoxObject(P2GTestCase):
         self.obj1 = BBoxObject()
         self.obj2 = BBoxObject(BBox(5, 10, 10, 20))
 
-    def test_merge(self) -> None:
-        bbox1 = self.obj1.bbox.copy()
-        bbox2 = self.obj2.bbox.copy()
-
-        self.obj1.merge(self.obj2)
-        bbox1.merge(bbox2)
-        self.assertEqual(repr(bbox1), repr(self.obj1.bbox))
-
     def test__set_bbox_from_list(self) -> None:
         bboxes = []
         for i in range(1, 6):

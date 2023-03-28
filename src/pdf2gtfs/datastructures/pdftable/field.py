@@ -58,13 +58,13 @@ class Field(BBoxObject):
     def append_char(self, char: Char) -> None:
         """ Add the char to the field. No effort is spent to put the char at
         the correct position (bbox-wise), it is simply appended. """
-        super().merge(BBox.from_char(char))
+        self.bbox.merge(BBox.from_char(char))
         self.text += char.text
 
     def merge(self, other: Field):
         """ Merge the two fields, merging their bbox and
         appending other's text to self. """
-        super().merge(other)
+        self.bbox.merge(other.bbox)
         self.text += other.text
 
     def _contains_time_data(self) -> bool:
