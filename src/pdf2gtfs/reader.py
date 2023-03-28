@@ -239,7 +239,9 @@ class Reader:
 
         logger.info("Beginning preprocessing...")
         start = time()
-        self.tempfile = NamedTemporaryFile(delete=False)
+        prefix = f"p2g_preprocess_{self.filepath.stem}_"
+        self.tempfile = NamedTemporaryFile(
+            delete=False, prefix=prefix, suffix=".pdf")
         # GS can't use open files as outfiles (may be system dependent).
         self.tempfile.close()
 
