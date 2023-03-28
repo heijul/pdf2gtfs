@@ -70,6 +70,9 @@ class BBox:
         Completely ignores the y components.
         """
         left, right = sorted((self, other), key=attrgetter("x0"))
+        # Overlapping bboxes are always next to each other.
+        if right.x0 <= left.x1:
+            return True
         return abs(right.x0 - left.x1) <= Config.max_char_distance
 
     def __eq__(self, other: BBox):
