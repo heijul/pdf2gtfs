@@ -7,7 +7,7 @@ from operator import attrgetter
 from pathlib import Path
 from shutil import copyfile
 from tempfile import NamedTemporaryFile
-from time import time
+from time import strptime, time
 from typing import Iterator, Optional, Tuple, TypeAlias, Union
 
 import pandas as pd
@@ -22,6 +22,7 @@ from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
+from pdf2gtfs.datastructures.pdftable.datafields import DataField, DataFields
 from pdf2gtfs.datastructures.pdftable.field import Field
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables)
@@ -48,6 +49,7 @@ def ltchar_monkeypatch__init__(
                              textwidth, textdisp, ncs, graphicstate)
 
 
+# TODO NOW: Use a class instead, to enable code completion?
 # noinspection PyTypeChecker
 LTChar.default_init = LTChar.__init__
 LTChar.__init__ = ltchar_monkeypatch__init__
@@ -62,6 +64,28 @@ Line: TypeAlias = list[Char]
 Lines: TypeAlias = list[Line]
 
 
+def _fix_cid_text(text: str) -> str:
+    """ Fix chars which were turned into codes during preprocessing. """
+    # TODO NOW: This should be done using LTChar.font
+    if len(text) == 1:
+        return text
+    try:
+        # Broken chars have this format: 'cid(x)' where x is a number.
+        return chr(int(text[5:-1]))
+    except TypeError:
+        logger.debug("Encountered charcode '{text}' with length "
+                     "{len(text)}, but could not convert it to char.")
+
+
+def lt_char_to_dict(lt_char: LTChar, page_height: float
+                    ) -> dict[str: str | float]:
+    char = {"x0": round(lt_char.x0, 2), "x1": round(lt_char.x1, 2),
+            "y0": round(page_height - lt_char.y1, 2),
+            "y1": round(page_height - lt_char.y1 + lt_char.height, 2),
+            "text": _fix_cid_text(lt_char.get_text())}
+    return char
+
+
 def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     """ Returns a dataframe consisting of Chars.
 
@@ -69,17 +93,6 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     which merges fields of different columns, making it sometimes impossible,
     to properly detect column annotations.
     """
-
-    def _fix_text(text: str) -> str:
-        # Fix chars which were turned into codes during preprocessing.
-        if len(text) == 1:
-            return text
-        try:
-            # Broken chars have this format: 'cid(x)' where x is a number.
-            return chr(int(text[5:-1]))
-        except TypeError:
-            logger.debug("Encountered charcode '{text}' with length "
-                         "{len(text)}, but could not convert it to char.")
 
     def cleanup_df(df: pd.DataFrame) -> pd.DataFrame:
         """ Cleanup the given dataframe.
@@ -100,10 +113,7 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     text_chars = [char for line in text_lines for char in line
                   if isinstance(char, LTChar)]
     for text_char in text_chars:
-        char = {"x0": text_char.x0, "x1": text_char.x1,
-                "y0": page.y1 - text_char.y1,
-                "y1": page.y1 - text_char.y1 + text_char.height,
-                "text": _fix_text(text_char.get_text())}
+        char = lt_char_to_dict(text_char, page.y1)
         # Ignore vertical text.
         if not text_char.upright:
             msg = ("Char(text='{text}', x0={x0:.2f}, "
@@ -120,6 +130,50 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     char_df["text"] = char_df["text"].astype(text_dtype)
 
     return char_df
+
+
+def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
+    # Create lists of chars, that each belong to the same word.
+    words: list[list[LTChar]] = []
+    for char in line:
+        not_a_char = not isinstance(char, LTChar)
+        if char.get_text() in (" ", "\n") or not words or not_a_char:
+            words.append([])
+        if not_a_char:
+            continue
+        words[-1].append(char)
+    return words
+
+
+def get_datafields(line: LTTextLine, height: float) -> list[DataField]:
+    words = split_line_into_words(line)
+    data_words = []
+    for word in words:
+        try:
+            time_string = "".join([char.get_text() for char in word])
+            strptime(time_string, Config.time_format)
+            data_words.append(word)
+        except ValueError:
+            continue
+
+    fields = [DataField(word, height) for word in data_words]
+    return fields
+
+
+def page_to_datafields(page: LTPage) -> DataFields:
+    text_boxes = [box for box in page if isinstance(box, LTTextBox)]
+    text_lines = [line for text_box in text_boxes for line in text_box
+                  if isinstance(line, LTTextLine)]
+    fields = []
+    for line in text_lines:
+        fields += get_datafields(line, page.y1)
+    datafields = DataFields.from_list(fields)
+    return datafields
+
+
+def get_pdf_tables_from_datafields(datafields: DataFields) -> list[PDFTable]:
+    pass
+    return []
 
 
 def sniff_page_count(file: str | Path) -> int:
@@ -210,10 +264,17 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
     return timetables
 
 
-def page_to_timetables(page: LTPage) -> list[TimeTable]:
+def page_to_timetables(
+        page: LTPage,
+        use_datafields: bool = True,
+        ) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
-    char_df = get_chars_dataframe(page)
-    pdf_tables = get_pdf_tables_from_df(char_df)
+    if use_datafields:
+        datafields = page_to_datafields(page)
+        pdf_tables = get_pdf_tables_from_datafields(datafields)
+    else:
+        char_df = get_chars_dataframe(page)
+        pdf_tables = get_pdf_tables_from_df(char_df)
     tables = pdf_tables_to_timetables(pdf_tables)
 
     logger.info(f"Number of tables found: {len(tables)}")
