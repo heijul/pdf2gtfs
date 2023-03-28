@@ -53,6 +53,8 @@ class P2GConfig(BaseConfig):
     def _initialize_config_properties(self) -> None:
         self.time_format = Property("time_format", str)
         self.header_values = HeaderValuesProperty("header_values")
+        self.negative_header_values = \
+            NestedTypeProperty("negative_header_values", list[str])
         self.holiday_code = HolidayCodeProperty("holiday_code")
         self.repeat_identifier = RepeatIdentifierProperty("repeat_identifier")
         self.repeat_strategy = Property("repeat_strategy", str)

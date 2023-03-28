@@ -144,6 +144,14 @@ header_values: {
   "sonn- / feiertag": "6,h",
 }
 
+# Sometimes, the header values are abbreviations (e.g. Mo-Su), which are
+#  explained in a legend somewhere outside the table. This could lead to
+#  the legend falsely being identified as a header. To prevent this,
+#  a row containing these values will not be identified as a header.
+#
+# Type: List of string
+negative_header_values: [":", "="]
+
 # Set the minimum number of stops for a cycle to be recognized as connection.
 # Usually, any stops between two stops A and B are not added to the output,
 #   iff A and B have the same name and A/B are not the start/end of the route.

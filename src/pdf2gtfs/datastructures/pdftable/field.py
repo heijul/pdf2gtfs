@@ -88,7 +88,8 @@ class Field(BBoxObject):
         if item == FieldValue.TIME_DATA:
             return self._contains_time_data()
         if item == FieldValue.HEADER:
-            return self._contains(Config.header_values)
+            return (self._contains(Config.header_values)
+                    and not self._contains(Config.negative_header_values))
         if item == FieldValue.ROUTE_INFO:
             return self._contains(Config.route_identifier)
         if item == FieldValue.REPEAT:
