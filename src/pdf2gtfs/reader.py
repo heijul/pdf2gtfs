@@ -314,7 +314,7 @@ class Reader:
         for page in self.get_pages():
             page_num = Config.pages.page_num(page.pageid)
             logger.info(f"Basic reading of page {page_num} took: "
-                        f"{time() - start:.2} seconds.")
+                        f"{time() - start:.2f} seconds.")
             timetables += page_to_timetables(page)
             start = time()
 
