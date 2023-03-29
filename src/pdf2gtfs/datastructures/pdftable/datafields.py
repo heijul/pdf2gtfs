@@ -8,6 +8,9 @@ from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
 
 
+Size: TypeAlias = tuple[int, int]
+
+
 class DataField(BBoxObject):
     def __init__(self, chars: list[LTChar], page_height: float) -> None:
         super().__init__(None)
@@ -45,19 +48,19 @@ class DataField(BBoxObject):
         # Need to actually calculate the overlap.
         return abs(getattr(one.bbox, f"{d}1") - getattr(two.bbox, f"{d}0"))
 
-    def voverlap(self, other: DataField) -> float:
+    def v_overlap(self, other: DataField) -> float:
         """ Return how much self and other overlap vertically, in pixel. """
         return self._overlap(other, "x")
 
-    def hoverlap(self, other: DataField) -> float:
+    def h_overlap(self, other: DataField) -> float:
         """ Return how much self and other overlap horizontally, in pixel. """
         return self._overlap(other, "y")
 
-    def is_voverlap(self, other: DataField) -> bool:
-        return self.voverlap(other) >= 0.5 * self.bbox.size[0]
+    def is_v_overlap(self, other: DataField) -> bool:
+        return self.v_overlap(other) >= 0.5 * self.bbox.size[0]
 
-    def is_hoverlap(self, other: DataField) -> bool:
-        return self.hoverlap(other) >= 0.5 * self.bbox.size[1]
+    def is_h_overlap(self, other: DataField) -> bool:
+        return self.h_overlap(other) >= 0.5 * self.bbox.size[1]
 
     def __repr__(self) -> str:
         return (f"DataField(row={self.row:>3},"
@@ -67,41 +70,16 @@ class DataField(BBoxObject):
 class DataFields:
     def __init__(self) -> None:
         self.grid: list[DataField] = []
-        self._grid_size: tuple[float, float] = 0, 0
+        self._grid_size: Size = 0, 0
 
-    @property  # TODO NOW: Cache this instead of using _grid_size
-    def grid_size(self) -> tuple[float, float]:
+    @property
+    def grid_size(self) -> Size:
         """ Width/Height of the grid. """
-        if not self.grid:
-            return 0, 0
         return self._grid_size
 
-    @staticmethod
-    def from_list(fields: list[DataField]) -> DataFields:
-        datafields = DataFields()
-        # Set the column id of the fields
-        fields = sorted(fields, key=attrgetter("bbox.x0", "bbox.y0"))
-        column_starter = fields[0]
-        col = 0
-        for field in fields:
-            if not column_starter.is_voverlap(field):
-                column_starter = field
-                col += 1
-            field.datafields = datafields
-            field.col = col
-        max_col = col
-        # Set the row id of the fields.
-        row = 0
-        fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
-        row_starter = fields[0]
-        for field in fields:
-            if not row_starter.is_hoverlap(field):
-                row_starter = field
-                row += 1
-            field.row = row
-        max_row = row
-        datafields._grid_size = max_col + 1, max_row + 1
-        # Fill the grid with None, where there is no DataField.
+    def set_grid_from_fields(
+            self, fields: list[DataField], size: Size) -> None:
+        """ Creates a full grid, where positions without a field are None. """
         fields = sorted(fields, key=attrgetter("row", "col"))
         prev = fields[0]
         grid = [prev]
@@ -112,7 +90,38 @@ class DataFields:
                 grid.append(None)
             grid.append(field)
             prev = field
-        while len(grid) < datafields._grid_size[0] * datafields._grid_size[1]:
+        while len(grid) < size[0] * size[1]:
             grid.append(None)
 
-        datafields.grid = grid
+        self.grid = grid
+
+    def update_fields(self, fields: list[DataField]) -> Size:
+        """ Sets the datafields, row and column of each field. """
+        # Set the column id of the fields
+        fields = sorted(fields, key=attrgetter("bbox.x0", "bbox.y0"))
+        column_starter = fields[0]
+        col = 0
+        for field in fields:
+            if not column_starter.is_v_overlap(field):
+                column_starter = field
+                col += 1
+            field.datafields = self
+            field.col = col
+        # Set the row id of the fields.
+        row = 0
+        fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
+        row_starter = fields[0]
+        for field in fields:
+            if not row_starter.is_h_overlap(field):
+                row_starter = field
+                row += 1
+            field.row = row
+        return col + 1, row + 1
+
+    @staticmethod
+    def from_list(fields: list[DataField]) -> DataFields:
+        datafields = DataFields()
+        size = datafields.update_fields(fields)
+        datafields._grid_size = size
+        datafields.set_grid_from_fields(fields, size)
+        return datafields
