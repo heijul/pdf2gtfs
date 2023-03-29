@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from operator import attrgetter
+from typing import TypeAlias
 
 from pdfminer.layout import LTChar
 
@@ -85,7 +86,12 @@ class DataFields:
         grid = [prev]
         for field in fields[1:]:
             new_line = field.row == prev.row + 1
-            count = field.col if new_line else field.col - (prev.col + 1)
+            count = field.col - (prev.col + 1)
+            if new_line:
+                count = field.col
+                # Previous field was not in the last column.
+                if prev.col + 1 < size[0]:
+                    count += size[0] - 1 - prev.col
             for _ in range(count):
                 grid.append(None)
             grid.append(field)
@@ -125,3 +131,14 @@ class DataFields:
         datafields._grid_size = size
         datafields.set_grid_from_fields(fields, size)
         return datafields
+
+    def print_as_table(self) -> None:
+        msg = ""
+        for row_id in range(self.grid_size[1]):
+            msg += "\n"
+            for col_id in range(self.grid_size[0]):
+                field = self.grid[col_id + self.grid_size[0] * row_id]
+                msg += "|"
+                msg += f"{field.text: >5}" if field else "     "
+                msg += "|"
+        print(msg)
