@@ -148,21 +148,6 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
     return [word for word in words if word]
 
 
-def split_ltline_into_fields(line: LTTextLine, height: float) -> list[Field]:
-    words = split_line_into_words(line)
-    fields = []
-    for word in words:
-        field = Field.from_char(Char(**lt_char_to_dict(word[0], height)))
-        for word_char in word[1:]:
-            char = Char(**lt_char_to_dict(word_char, height))
-            field.merge(Field.from_char(char))
-        # No need to add empty fields.
-        if not field.text:
-            continue
-        fields.append(field)
-    return fields
-
-
 def get_datafields(line: LTTextLine, height: float
                    ) -> tuple[list[DataField], list[TableField]]:
     words = split_line_into_words(line)
@@ -183,16 +168,6 @@ def get_datafields(line: LTTextLine, height: float
     fields = [f for f in fields if f.text]
     other_fields = [f for f in other_fields if f.text]
     return fields, other_fields
-
-
-def page_to_fields(page: LTPage) -> list[Field]:
-    text_boxes = [box for box in page if isinstance(box, LTTextBox)]
-    text_lines = [line for text_box in text_boxes for line in text_box
-                  if isinstance(line, LTTextLine)]
-    fields = []
-    for line in text_lines:
-        fields += split_ltline_into_fields(line, page.y1)
-    return fields
 
 
 def create_table_factory_from_page(page: LTPage) -> TableFactory:
@@ -314,12 +289,6 @@ def get_pdf_tables_from_df(char_df: pd.DataFrame) -> list[PDFTable]:
     return pdf_tables
 
 
-def get_pdf_tables_from_fields(fields: list[Field]) -> list[PDFTable]:
-    rows = fields_to_rows(fields)
-    pdf_tables = cleanup_tables(split_rows_into_tables(rows))
-    return pdf_tables
-
-
 def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
     """ Create TimeTables using the PDFTables"""
     timetables = []
@@ -335,15 +304,11 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
 def page_to_timetables(
         page: LTPage,
         use_datafields: bool = True,
-        use_lines: bool = True
         ) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
     if use_datafields:
         datafields = create_table_factory_from_page(page)
         pdf_tables = get_pdf_tables_from_datafields(datafields)
-    elif use_lines:
-        fields = page_to_fields(page)
-        pdf_tables = get_pdf_tables_from_fields(fields)
     else:
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)
