@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from abc import ABC, abstractmethod
+from operator import attrgetter
 from statistics import mean
 from typing import Callable, Generic, Iterator, TYPE_CHECKING, TypeVar
 
@@ -189,7 +190,7 @@ class Row(FieldContainer):
     def from_fields(fields: list[Field]) -> Row:
         """ Creates a row containing all fields. """
         row = Row()
-        row.fields = fields
+        row.fields = sorted(fields, key=attrgetter("bbox.x0"))
         row.set_bbox_from_fields()
         return row
 

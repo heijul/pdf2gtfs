@@ -6,6 +6,7 @@ import sys
 from operator import attrgetter
 from pathlib import Path
 from shutil import copyfile
+from statistics import mean
 from tempfile import NamedTemporaryFile
 from time import strptime, time
 from typing import Iterator, Optional, Tuple, TypeAlias, Union
@@ -22,7 +23,8 @@ from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
-from pdf2gtfs.datastructures.pdftable.datafields import DataField, DataFields
+from pdf2gtfs.datastructures.pdftable.datafields import (
+    DataField, TableFactory, TableField)
 from pdf2gtfs.datastructures.pdftable.field import Field
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables)
@@ -142,36 +144,73 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
         if not_a_char:
             continue
         words[-1].append(char)
-    return words
+    # Drop empty words.
+    return [word for word in words if word]
 
 
-def get_datafields(line: LTTextLine, height: float) -> list[DataField]:
+def split_ltline_into_fields(line: LTTextLine, height: float) -> list[Field]:
+    words = split_line_into_words(line)
+    fields = []
+    for word in words:
+        field = Field.from_char(Char(**lt_char_to_dict(word[0], height)))
+        for word_char in word[1:]:
+            char = Char(**lt_char_to_dict(word_char, height))
+            field.merge(Field.from_char(char))
+        # No need to add empty fields.
+        if not field.text:
+            continue
+        fields.append(field)
+    return fields
+
+
+def get_datafields(line: LTTextLine, height: float
+                   ) -> tuple[list[DataField], list[TableField]]:
     words = split_line_into_words(line)
     data_words = []
+    other_words = []
     for word in words:
         try:
             time_string = "".join([char.get_text() for char in word])
             strptime(time_string, Config.time_format)
             data_words.append(word)
         except ValueError:
+            other_words.append(word)
             continue
 
     fields = [DataField(word, height) for word in data_words]
-    return fields
+    other_fields = [TableField(word, height) for word in other_words]
+    # Remove fields without text.
+    fields = [f for f in fields if f.text]
+    other_fields = [f for f in other_fields if f.text]
+    return fields, other_fields
 
 
-def page_to_datafields(page: LTPage) -> DataFields:
+def page_to_fields(page: LTPage) -> list[Field]:
     text_boxes = [box for box in page if isinstance(box, LTTextBox)]
     text_lines = [line for text_box in text_boxes for line in text_box
                   if isinstance(line, LTTextLine)]
     fields = []
     for line in text_lines:
-        fields += get_datafields(line, page.y1)
-    datafields = DataFields.from_list(fields)
-    return datafields
+        fields += split_ltline_into_fields(line, page.y1)
+    return fields
 
 
-def get_pdf_tables_from_datafields(datafields: DataFields) -> list[PDFTable]:
+def create_table_factory_from_page(page: LTPage) -> TableFactory:
+    text_boxes = [box for box in page if isinstance(box, LTTextBox)]
+    text_lines = [line for text_box in text_boxes for line in text_box
+                  if isinstance(line, LTTextLine)]
+    data_fields = []
+    other_fields = []
+    for line in text_lines:
+        new_fields = get_datafields(line, page.y1)
+        data_fields += new_fields[0]
+        other_fields += new_fields[1]
+    factory = TableFactory.from_datafields(data_fields)
+    factory.grow_west(other_fields)
+    return factory
+
+
+def get_pdf_tables_from_datafields(datafields: TableFactory) -> list[PDFTable]:
     pass
     return []
 
@@ -245,9 +284,38 @@ def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
     return rows
 
 
+def fields_to_rows(fields: list[Field]) -> list[Row]:
+    start = time()
+
+    y0 = 0
+    fields_rows = []
+    max_distance = mean([f.bbox.y1 - f.bbox.y0 for f in fields]) / 2
+    for field in sorted(fields, key=attrgetter("bbox.y0")):
+        if not field.text:
+            continue
+        new_line = abs(field.bbox.y0 - y0) > max_distance or not fields_rows
+        if new_line:
+            y0 = field.bbox.y0
+            fields_rows.append([])
+        fields_rows[-1].append(field)
+    rows = []
+    for fields_row in fields_rows:
+        rows.append(Row.from_fields(fields_row))
+
+    logger.info(f"Processing of rows took: "
+                f"{time() - start:.2f} seconds.")
+    return rows
+
+
 def get_pdf_tables_from_df(char_df: pd.DataFrame) -> list[PDFTable]:
     """ Create PDFTables using the char_df. """
     rows = dataframe_to_rows(char_df)
+    pdf_tables = cleanup_tables(split_rows_into_tables(rows))
+    return pdf_tables
+
+
+def get_pdf_tables_from_fields(fields: list[Field]) -> list[PDFTable]:
+    rows = fields_to_rows(fields)
     pdf_tables = cleanup_tables(split_rows_into_tables(rows))
     return pdf_tables
 
@@ -267,11 +335,15 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
 def page_to_timetables(
         page: LTPage,
         use_datafields: bool = True,
+        use_lines: bool = True
         ) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
     if use_datafields:
-        datafields = page_to_datafields(page)
+        datafields = create_table_factory_from_page(page)
         pdf_tables = get_pdf_tables_from_datafields(datafields)
+    elif use_lines:
+        fields = page_to_fields(page)
+        pdf_tables = get_pdf_tables_from_fields(fields)
     else:
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)

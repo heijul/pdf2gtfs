@@ -82,6 +82,38 @@ class BBox:
     def __repr__(self) -> str:
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
 
+    def _overlap(self, other: BBox, d: str) -> float:
+        """ Return how much self and other overlap, in points. """
+        assert d in ["x", "y"]
+        # Sort the two objects by the left/upper side, to have fewer cases.
+        one, two = sorted((self, other), key=attrgetter(f"{d}0"))
+
+        # The left/top of the righter/lower object is greater than the
+        #  right/bottom side of the lefter/upper object.
+        if getattr(one, f"{d}1") <= getattr(two, f"{d}0"):
+            return 0
+        # The righter/lower object is completely contained in the lefter/upper.
+        if getattr(one, f"{d}1") >= getattr(two, f"{d}1"):
+            return two.size[0] if d == "x" else two.size[1]
+        # Need to actually calculate the overlap.
+        return abs(getattr(one, f"{d}1") - getattr(two, f"{d}0"))
+
+    def h_overlap(self, other: BBox) -> float:
+        """ Return how much self and other overlap horizontally, in pixel. """
+        return self._overlap(other, "x")
+
+    def is_h_overlap(self, other: BBox, relative_amount: float = 0.5) -> bool:
+        max_overlap = min((self.size[0], other.size[0]))
+        return self.h_overlap(other) >= relative_amount * max_overlap
+
+    def v_overlap(self, other: BBox) -> float:
+        """ Return how much self and other overlap vertically, in pixel. """
+        return self._overlap(other, "y")
+
+    def is_v_overlap(self, other: BBox, relative_amount: float = 0.5) -> bool:
+        max_overlap = min((self.size[1], other.size[1]))
+        return self.v_overlap(other) >= relative_amount * max_overlap
+
 
 class BBoxObject:
     """ Baseclass for objects which have a bbox. """
