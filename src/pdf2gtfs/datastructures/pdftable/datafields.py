@@ -223,6 +223,14 @@ class Bounds:
         self._e = value
         self._update_hbox()
 
+    @property
+    def hbox(self) -> BBox | None:
+        return self._hbox
+
+    @property
+    def vbox(self) -> BBox | None:
+        return self._vbox
+
     def _update_hbox(self) -> None:
         if self.w is None or self.e is None:
             hbox = None
@@ -236,14 +244,6 @@ class Bounds:
         else:
             vbox = BBox(-1, self.n, -1, self.s)
         self._vbox = vbox
-
-    @property
-    def hbox(self) -> BBox | None:
-        return self._hbox
-
-    @property
-    def vbox(self) -> BBox | None:
-        return self._vbox
 
     def _within_h_bounds(self, bbox: BBox) -> bool:
         if self.hbox and self.hbox.is_h_overlap(bbox):
