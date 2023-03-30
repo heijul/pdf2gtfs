@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from functools import partial
 from operator import attrgetter
-from typing import Callable, TypeAlias
+from typing import TypeAlias
 
 from pdfminer.layout import LTChar
 
@@ -128,7 +127,7 @@ class TableFactory:
             fields.append(self.grid[field_id])
         return fields
 
-    def grow_west(self, fields: list[TableField]) -> None:
+    def grow_west(self, fields: list[TableField]) -> list[TableField]:
         # Only grow in a single direction at a time.
         first_fields = self.get_nth_field_of_row(0)
         bounds = get_west_bounds(first_fields, "w", "e")
@@ -177,31 +176,6 @@ def get_east_bounds(fields: list[TableField], ignore: str = "",
     outer_attrs = {"n": (min, "y0"), "w": (min, "x1"),
                    "s": (max, "y1"), "e": (max, "x1")}
     return _get_bounds(outer_attrs, fields, ignore, use_inner)
-
-
-def _filter_within_bounds(bounds: dict[str: TableField], field: TableField
-                          ) -> bool:
-    return ((not bounds.get("n") or field.bbox.y0 >= bounds["n"].bbox.y0) and
-            (not bounds.get("s") or field.bbox.y1 <= bounds["s"].bbox.y1) and
-            (not bounds.get("w") or field.bbox.x0 >= bounds["w"].bbox.x0) and
-            (not bounds.get("e") or field.bbox.x1 <= bounds["e"].bbox.x1))
-
-
-def filter_within_bounds(
-        bounds: dict[str: TableField]) -> Callable[[TableField], bool]:
-    """ Return a function, that can be used with filter() on a TableField list.
-
-    The returned function will return True iff the given TableField is within
-    the bounds. If a bound was not given, only the others are evaluated.
-    """
-    return partial(_filter_within_bounds, bounds)
-
-    return (
-        lambda field:
-        (not bounds.get("n") or field.bbox.y0 >= bounds["n"].bbox.y0) and
-        (not bounds.get("s") or field.bbox.y1 <= bounds["s"].bbox.y1) and
-        (not bounds.get("w") or field.bbox.x0 >= bounds["w"].bbox.x0) and
-        (not bounds.get("e") or field.bbox.x1 <= bounds["e"].bbox.x1))
 
 
 class Bounds:
