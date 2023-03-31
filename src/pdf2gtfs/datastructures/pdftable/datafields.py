@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from math import copysign
 from operator import attrgetter
-from typing import Callable, cast, Iterable, NamedTuple, TypeAlias, TypeVar
+from typing import (
+    Callable, cast, Iterable, NamedTuple, Type, TypeAlias, TypeVar)
 
 from pdfminer.layout import LTChar
 
@@ -118,23 +120,60 @@ class TableFactory:
     def get_column(self, col_id: int) -> list[DataField]:
         return list(filter(None, self.grid[col_id::self.grid_size[0]]))
 
-    def get_nth_field_of_row(self, col_id: int) -> list[DataField]:
+    def _get_nth_field_of_row(self, col_id: int) -> list[DataField]:
+        field_search_delta = int(copysign(1, col_id))
+        if col_id < 0:
+            col_id = self.grid_size[0] + col_id
         fields = []
         for field_id in range(col_id, len(self.grid), self.grid_size[0]):
             # No row/column can be empty.
             while self.grid[field_id] is None:
-                field_id += 1
+                field_id += field_search_delta
             fields.append(self.grid[field_id])
         return fields
 
-    def grow_west(self, fields: list[TableField]) -> list[TableField]:
+    def get_nth_field_of_col(self, row_id: int) -> list[DataField]:
+        col_count = self.grid_size[0]
+        field_search_delta = int(copysign(col_count, row_id))
+        if row_id < 0:
+            row_id = self.grid_size[1] + row_id
+        fields = []
+        start = row_id * col_count
+        end = min((len(self.grid), (row_id + 1) * col_count))
+        for field_id in range(start, end):
+            # No row/column can be empty.
+            while self.grid[field_id] is None:
+                field_id += field_search_delta
+            fields.append(self.grid[field_id])
+        return fields
+
+    @staticmethod
+    def _grow(bound_cls: Type[B], data_fields: list[DataField],
+              fields: list[TableField]) -> list[TableField]:
         # Only grow in a single direction at a time.
-        first_fields = self.get_nth_field_of_row(0)
-        bounds = WBounds.from_factory_fields(first_fields)
+        bounds = bound_cls.from_factory_fields(data_fields)
         fields = list(filter(bounds.within_bounds, fields))
+        if not fields:
+            return fields
         bounds.update_missing_bound(fields)
         fields = list(filter(bounds.within_bounds, fields))
         return fields
+
+    def grow_west(self, fields: list[TableField]) -> list[TableField]:
+        data_fields = self._get_nth_field_of_row(0)
+        return self._grow(WBounds, data_fields, fields)
+
+    def grow_east(self, fields: list[TableField]) -> list[TableField]:
+        data_fields = self._get_nth_field_of_row(-1)
+        return self._grow(EBounds, data_fields, fields)
+
+    def grow_north(self, fields: list[TableField]) -> list[TableField]:
+        data_fields = self.get_nth_field_of_col(0)
+        return self._grow(NBounds, data_fields, fields)
+
+    def grow_south(self, fields: list[TableField]) -> list[TableField]:
+        data_fields = self.get_nth_field_of_col(-1)
+        return self._grow(SBounds, data_fields, fields)
 
 
 # TODO NOW: EXPLAAIN

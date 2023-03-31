@@ -182,6 +182,9 @@ def create_table_factory_from_page(page: LTPage) -> TableFactory:
         other_fields += new_fields[1]
     factory = TableFactory.from_datafields(data_fields)
     factory.grow_west(other_fields)
+    factory.grow_east(other_fields)
+    factory.grow_north(other_fields)
+    factory.grow_south(other_fields)
     return factory
 
 
