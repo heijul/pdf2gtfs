@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from operator import attrgetter
-from typing import TypeAlias
+from typing import Callable, cast, Iterable, NamedTuple, TypeAlias, TypeVar
 
 from pdfminer.layout import LTChar
 
@@ -130,60 +130,28 @@ class TableFactory:
     def grow_west(self, fields: list[TableField]) -> list[TableField]:
         # Only grow in a single direction at a time.
         first_fields = self.get_nth_field_of_row(0)
-        bounds = get_west_bounds(first_fields, "w", "e")
+        bounds = WBounds.from_factory_fields(first_fields)
         fields = list(filter(bounds.within_bounds, fields))
-        bounds.w = get_west_bounds(fields, "nse", "w").w
+        bounds.update_missing_bound(fields)
         fields = list(filter(bounds.within_bounds, fields))
         return fields
 
 
-def _get_bounds(attrs: dict, fields: list[TableField],
-                ignore: str = "", use_inner: str = "") -> Bounds:
-    """ Returns the bounds for the cardinal directions.
-
-    Both ignore and use_inner should be a string containing one or multiple
-    of "n", "w", "s" and "e".
-    For ignore, the bounds will only be calculated for those directions not
-    specified.
-    For use_inner, when a direction is specified, it will use the inner bound,
-    i.e. the # TODO NOW:
-    """
-    # Only one coordinate can be the inner one in a single direction.
-    # TODO: Could allow this and swap or no swap?
-    assert (not ("n" in use_inner and "s" in use_inner) and
-            not ("w" in use_inner and "e" in use_inner))
-    # Remove ignored directions.
-    attrs = {key: value for key, value in attrs.items() if key not in ignore}
-    # Swap func, if we are looking for the inner bound instead of the outer.
-    func_conversion = {min: max, max: min}
-    for inner in use_inner:
-        func = attrs[inner][0]
-        attrs[inner] = (func_conversion[func], attrs[inner][1])
-
-    return Bounds({key: func(fields, key=attrgetter(f"bbox.{attr}")).bbox
-                   for key, (func, attr) in attrs.items()})
-
-
-def get_west_bounds(fields: list[TableField], ignore: str = "",
-                    use_inner: str = "") -> Bounds:
-    outer_attrs = {"n": (min, "y0"), "w": (min, "x0"),
-                   "s": (max, "y1"), "e": (max, "x0")}
-    return _get_bounds(outer_attrs, fields, ignore, use_inner)
-
-
-def get_east_bounds(fields: list[TableField], ignore: str = "",
-                    use_inner: str = "") -> Bounds:
-    outer_attrs = {"n": (min, "y0"), "w": (min, "x1"),
-                   "s": (max, "y1"), "e": (max, "x1")}
-    return _get_bounds(outer_attrs, fields, ignore, use_inner)
+# TODO NOW: EXPLAAIN
+B = TypeVar("B", bound="Bounds")
+F = TypeVar("F", bound=TableField)
+BoundArgs = NamedTuple("BoundArgs", [("func", Callable[[Iterable[F]], F]),
+                                     ("bbox_attr", str),
+                                     ("return_attr", str)])
 
 
 class Bounds:
-    def __init__(self, bounds: dict[str: BBox]) -> None:
-        self._n = bounds["n"].y0 if "n" in bounds and bounds["n"] else None
-        self._w = bounds["w"].x0 if "w" in bounds and bounds["w"] else None
-        self._s = bounds["s"].y1 if "s" in bounds and bounds["s"] else None
-        self._e = bounds["e"].x0 if "e" in bounds and bounds["e"] else None
+    def __init__(self, n: float | None, w: float | None,
+                 s: float | None, e: float | None) -> None:
+        self._n = n
+        self._w = w
+        self._s = s
+        self._e = e
         self._update_hbox()
         self._update_vbox()
 
@@ -270,3 +238,108 @@ class Bounds:
     def within_bounds(self, obj: TableField) -> bool:
         bbox = obj.bbox
         return self._within_h_bounds(bbox) and self._within_v_bounds(bbox)
+
+    def update(self, other: B) -> None:
+        """ Update the coordinates to the ones of other if they exist. """
+        for direction in ["n", "w", "s", "e"]:
+            new_value = getattr(other, direction)
+            if new_value is None:
+                continue
+            setattr(self, direction, new_value)
+
+    @staticmethod
+    def get_bound_from_fields(args: BoundArgs | None, fields: list[TableField]
+                              ) -> float | None:
+        if args is None:
+            return None
+        func, bbox_coordinate, return_coordinate = args
+        field = func(fields, key=attrgetter(f"bbox.{bbox_coordinate}"))
+        return cast(float, attrgetter(f"bbox.{return_coordinate}")(field))
+
+    @classmethod
+    def from_factory_fields(cls, fields: list[DataField], **kwargs) -> B:
+        bounds = {d: cls.get_bound_from_fields(kwargs.get(d), fields)
+                  for d in ["n", "w", "s", "e"]}
+        return cls(**bounds)
+
+    def _update_single_bound(
+            self, which: str, args: BoundArgs, fields: list[TableField]
+            ) -> None:
+        """ Update a single bound using the BoundArgs and the fields.
+
+        which can be one of "n", "w", "s", "e".
+        """
+        setattr(self, which, self.get_bound_from_fields(args, fields))
+
+    def __repr__(self) -> str:
+        cls_name = self.__class__.__name__
+        fmt = "{:>7.2f}"
+        n = fmt.format(self.n) if self.n is not None else "None"
+        w = fmt.format(self.w) if self.w is not None else "None"
+        s = fmt.format(self.s) if self.s is not None else "None"
+        e = fmt.format(self.e) if self.e is not None else "None"
+        return f"{cls_name}(n={n}, w={w}, s={s}, e={e})"
+
+
+class WBounds(Bounds):
+    @classmethod
+    def from_factory_fields(cls, fields: list[DataField], **_) -> WBounds:
+        kwargs = {"n": BoundArgs(min, "y0", "y0"),
+                  "s": BoundArgs(max, "y1", "y1"),
+                  "e": BoundArgs(min, "x0", "x0")}
+        return super().from_factory_fields(fields, **kwargs)
+
+    def update_missing_bound(self, fields: list[TableField]) -> None:
+        """
+        Update the western bound, which was not created using the datafields.
+        """
+        args: BoundArgs = BoundArgs(max, "x0", "x0")
+        self._update_single_bound("w", args, fields)
+
+
+class EBounds(Bounds):
+    @classmethod
+    def from_factory_fields(cls, fields: list[DataField], **_) -> EBounds:
+        kwargs = {"n": BoundArgs(min, "y0", "y0"),
+                  "s": BoundArgs(max, "y1", "y1"),
+                  "w": BoundArgs(max, "x1", "x1")}
+        return super().from_factory_fields(fields, **kwargs)
+
+    def update_missing_bound(self, fields: list[TableField]) -> None:
+        """
+        Update the eastern bound, which was not created using the datafields.
+        """
+        args: BoundArgs = BoundArgs(min, "x1", "x1")
+        self._update_single_bound("e", args, fields)
+
+
+class NBounds(Bounds):
+    @classmethod
+    def from_factory_fields(cls, fields: list[DataField], **_) -> NBounds:
+        kwargs = {"w": BoundArgs(min, "x0", "x0"),
+                  "s": BoundArgs(min, "y0", "y0"),
+                  "e": BoundArgs(max, "x1", "x1")}
+        return super().from_factory_fields(fields, **kwargs)
+
+    def update_missing_bound(self, fields: list[TableField]) -> None:
+        """
+        Update the eastern bound, which was not created using the datafields.
+        """
+        args: BoundArgs = BoundArgs(max, "y0", "y0")
+        self._update_single_bound("n", args, fields)
+
+
+class SBounds(Bounds):
+    @classmethod
+    def from_factory_fields(cls, fields: list[DataField], **_) -> SBounds:
+        kwargs = {"n": BoundArgs(max, "y1", "y1"),
+                  "w": BoundArgs(min, "x0", "x0"),
+                  "e": BoundArgs(max, "x1", "x1")}
+        return super().from_factory_fields(fields, **kwargs)
+
+    def update_missing_bound(self, fields: list[TableField]) -> None:
+        """
+        Update the eastern bound, which was not created using the datafields.
+        """
+        args: BoundArgs = BoundArgs(min, "y1", "y1")
+        self._update_single_bound("s", args, fields)
