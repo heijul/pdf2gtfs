@@ -154,9 +154,9 @@ def get_datafields(line: LTTextLine, height: float
     data_words = []
     other_words = []
     for word in words:
+        word_text = "".join([char.get_text() for char in word]).strip()
         try:
-            time_string = "".join([char.get_text() for char in word])
-            strptime(time_string, Config.time_format)
+            strptime(word_text, Config.time_format)
             data_words.append(word)
         except ValueError:
             other_words.append(word)
@@ -185,6 +185,7 @@ def create_table_factory_from_page(page: LTPage) -> TableFactory:
     factory.grow_east(other_fields)
     factory.grow_north(other_fields)
     factory.grow_south(other_fields)
+    factory.get_contained_fields(other_fields)
     return factory
 
 

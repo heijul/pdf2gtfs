@@ -120,7 +120,7 @@ class TableFactory:
     def get_column(self, col_id: int) -> list[DataField]:
         return list(filter(None, self.grid[col_id::self.grid_size[0]]))
 
-    def _get_nth_field_of_row(self, col_id: int) -> list[DataField]:
+    def get_nth_field_of_row(self, col_id: int) -> list[DataField]:
         field_search_delta = int(copysign(1, col_id))
         if col_id < 0:
             col_id = self.grid_size[0] + col_id
@@ -160,11 +160,11 @@ class TableFactory:
         return fields
 
     def grow_west(self, fields: list[TableField]) -> list[TableField]:
-        data_fields = self._get_nth_field_of_row(0)
+        data_fields = self.get_nth_field_of_row(0)
         return self._grow(WBounds, data_fields, fields)
 
     def grow_east(self, fields: list[TableField]) -> list[TableField]:
-        data_fields = self._get_nth_field_of_row(-1)
+        data_fields = self.get_nth_field_of_row(-1)
         return self._grow(EBounds, data_fields, fields)
 
     def grow_north(self, fields: list[TableField]) -> list[TableField]:
@@ -174,6 +174,19 @@ class TableFactory:
     def grow_south(self, fields: list[TableField]) -> list[TableField]:
         data_fields = self.get_nth_field_of_col(-1)
         return self._grow(SBounds, data_fields, fields)
+
+    def get_contained_fields(self, fields: list[TableField]
+                             ) -> list[TableField]:
+        bounds = WBounds.from_factory_fields(self.get_nth_field_of_row(0))
+        bounds.expand(
+            EBounds.from_factory_fields(self.get_nth_field_of_row(-1)))
+        bounds.expand(
+            NBounds.from_factory_fields(self.get_nth_field_of_col(0)))
+        bounds.expand(
+            SBounds.from_factory_fields(self.get_nth_field_of_col(-1)))
+        print(bounds)
+        fields = list(filter(bounds.within_bounds, fields))
+        return fields
 
 
 # TODO NOW: EXPLAAIN
@@ -278,12 +291,18 @@ class Bounds:
         bbox = obj.bbox
         return self._within_h_bounds(bbox) and self._within_v_bounds(bbox)
 
-    def update(self, other: B) -> None:
+    def expand(self, other: B) -> None:
         """ Update the coordinates to the ones of other if they exist. """
+        comp = {"n": "__le__", "s": "__ge__",
+                "w": "__le__", "e": "__ge__"}
         for direction in ["n", "w", "s", "e"]:
             new_value = getattr(other, direction)
             if new_value is None:
                 continue
+            old_value = getattr(self, direction)
+            if old_value is not None:
+                if getattr(old_value, comp[direction])(new_value):
+                    continue
             setattr(self, direction, new_value)
 
     @staticmethod
