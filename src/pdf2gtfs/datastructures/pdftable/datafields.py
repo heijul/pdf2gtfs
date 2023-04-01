@@ -12,34 +12,64 @@ from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
 
 
 Size: TypeAlias = tuple[int, int]
+# TODO NOW: EXPLAAIN
+T = TypeVar("T")
+B = TypeVar("B", bound="Bounds")
+F = TypeVar("F", bound="TableField")
+BoundArgs = NamedTuple("BoundArgs", [("func", Callable[[Iterable[F]], F]),
+                                     ("bbox_attr", str),
+                                     ("return_attr", str)])
 
 
 class TableField(BBoxObject):
     def __init__(self, chars: list[LTChar], page_height: float) -> None:
         super().__init__(None)
         self.chars = chars
-        self.set_bbox_from_chars(page_height)
+        self.page_height = page_height
+        self.set_bbox_from_chars()
         self.owner = None
         self.col = -1
         self.row = -1
         self.text = "".join([c.get_text() for c in self.chars]).strip()
 
-    def set_bbox_from_chars(self, page_height: float) -> None:
+    def set_bbox_from_chars(self) -> None:
         from pdf2gtfs.reader import lt_char_to_dict
+
         bbox = BBox.from_char(
-            Char(**lt_char_to_dict(self.chars[0], page_height)))
+            Char(**lt_char_to_dict(self.chars[0], self.page_height)))
         self.bbox = bbox
         for ltchar in self.chars:
-            char = Char(**lt_char_to_dict(ltchar, page_height))
+            char = Char(**lt_char_to_dict(ltchar, self.page_height))
             self.bbox.merge(BBox.from_char(char))
+
+    def to_subtype(self, subtype: Type[T]) -> T:
+        return subtype(self.chars, self.page_height)
 
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}(row={self.row:>3},"
                 f" col={self.col:>3}, text='{self.text}')")
 
 
+class DataAnnotField(TableField):
+    def __init__(self, chars: list[LTChar], page_height: float) -> None:
+        super().__init__(chars, page_height)
+        self.data_field: DataField | None = None
+
+
 class DataField(TableField):
-    pass
+    def __init__(self, chars: list[LTChar], page_height: float) -> None:
+        super().__init__(chars, page_height)
+        self._annotations: list[DataAnnotField] = []
+
+    @property
+    def annotations(self) -> list[DataAnnotField]:
+        return self._annotations
+
+    @annotations.setter
+    def annotations(self, fields: list[DataAnnotField]) -> None:
+        for field in fields:
+            field.data_field = self
+        self._annotations = fields
 
 
 class TableFactory:
@@ -187,14 +217,6 @@ class TableFactory:
         print(bounds)
         fields = list(filter(bounds.within_bounds, fields))
         return fields
-
-
-# TODO NOW: EXPLAAIN
-B = TypeVar("B", bound="Bounds")
-F = TypeVar("F", bound=TableField)
-BoundArgs = NamedTuple("BoundArgs", [("func", Callable[[Iterable[F]], F]),
-                                     ("bbox_attr", str),
-                                     ("return_attr", str)])
 
 
 class Bounds:
