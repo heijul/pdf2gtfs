@@ -170,6 +170,39 @@ def get_datafields(line: LTTextLine, height: float
     return fields, other_fields
 
 
+def merge_other_fields(fields: list[TableField]) -> list[TableField]:
+    # Split fields into rows, using the respective vertical overlap.
+    fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
+    rows = []
+    row = [fields[0]]
+    for field in fields[1:]:
+        if not row[0].bbox.is_v_overlap(field.bbox, 0.9):
+            rows.append(row)
+            row = []
+        row.append(field)
+    rows.append(row)
+    merged_fields = []
+    for row in rows:
+        row = sorted(row, key=attrgetter("bbox.x0"))
+        prev = row[0]
+        for field in row[1:]:
+            # Fields of different fonts indicate different meaning.
+            other_font = (prev.fontsize != field.fontsize
+                          and prev.font.fontname != field.font.fontname)
+            space_width = prev.font.string_width(" ".encode()) * 1.25
+            space_width *= prev.fontsize
+            if other_font or abs(prev.bbox.x1 - field.bbox.x0) > space_width:
+                merged_fields.append(prev)
+                prev = field
+                continue
+            # Actual merging (BBox, text,
+            prev.bbox.merge(field.bbox)
+            prev.chars += field.chars
+            prev.text += f" {field.text}"
+        merged_fields.append(prev)
+    return merged_fields
+
+
 def create_table_factory_from_page(page: LTPage) -> TableFactory:
     text_boxes = [box for box in page if isinstance(box, LTTextBox)]
     text_lines = [line for text_box in text_boxes for line in text_box
@@ -180,6 +213,8 @@ def create_table_factory_from_page(page: LTPage) -> TableFactory:
         new_fields = get_datafields(line, page.y1)
         data_fields += new_fields[0]
         other_fields += new_fields[1]
+    # Merge words of non-data fields
+    other_fields = merge_other_fields(other_fields)
     factory = TableFactory.from_datafields(data_fields)
     factory.grow_west(other_fields)
     factory.grow_east(other_fields)
