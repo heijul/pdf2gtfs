@@ -162,7 +162,7 @@ def get_datafields(line: LTTextLine, height: float
             other_words.append(word)
             continue
 
-    fields = [DataField(word, height) for word in data_words]
+    fields = [DataField(chars=word, page_height=height) for word in data_words]
     other_fields = [TableField(word, height) for word in other_words]
     # Remove fields without text.
     fields = [f for f in fields if f.text]
