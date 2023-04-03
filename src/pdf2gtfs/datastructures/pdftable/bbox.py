@@ -48,7 +48,7 @@ class BBox:
         """ Returns, whether other's x coordinates lie within self's. """
         return self.x0 <= bbox.x0 <= self.x1 and self.x0 <= bbox.x1 <= self.x1
 
-    def merge(self, other: BBox) -> None:
+    def merge(self, other: BBox) -> BBox:
         """ Merges other with self (inplace), such that:
         merged.contains(self) == merged.contains(other) == True,
         if merged = self.copy().merge(other). """
@@ -56,6 +56,7 @@ class BBox:
         self.y0 = min(self.y0, other.y0)
         self.x1 = max(self.x1, other.x1)
         self.y1 = max(self.y1, other.y1)
+        return self
 
     def y_distance(self, other: BBox) -> float:
         """ Return the absolute distance of self to other on axis. """
