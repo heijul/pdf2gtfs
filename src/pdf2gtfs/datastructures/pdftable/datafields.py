@@ -170,6 +170,10 @@ class TableFactory:
         """ Number of fields in each row. """
         return self._col_count
 
+    def set_counts_from_fields(self) -> None:
+        self._col_count = len(self.get_fields_in("h", self.first))
+        self._row_count = len(self.get_fields_in("v", self.first))
+
     def set_datafield_positions(self, fields: list[DataField]) -> None:
         """ Sets the owner, row and column of each datafield. """
         # Get the columns, based on how much a field overlaps horizontally
@@ -541,6 +545,66 @@ class TableFactory:
         if col is None:
             col = self.create_empty_col()
         self._insert(attr, self.get_fields_in("v", field), col)
+
+    @staticmethod
+    def _split(field_lists: list[list[F]], counts: slice,
+               create_func: Callable[[list[list[F]]], TableFactory]
+               ) -> list[TableFactory]:
+        """ Split the given field_lists into multiple lists, such that each
+        of them has a length of counts[1]. Afterwards creates a list of
+        TableFactory, using the fields and the create_func.
+        """
+        splits = []
+        for i in range(counts.start, counts.stop, counts.step):
+            splits.append(field_lists[i:i + counts.step])
+
+        factories = [create_func(split) for split in splits]
+        return factories
+
+    def split_horizontal(self, row_count: int) -> list[TableFactory]:
+        """ Split the table into multiple, such that each (except possibly
+        the last) have exactly row_count rows. """
+        first_col = self.get_fields_in("v", self.first)
+        rows = [self.get_fields_in("h", field) for field in first_col]
+        return self._split(
+            rows, slice(0, self.row_count, row_count), self.from_rows)
+
+    def split_vertical(self, col_count: int) -> list[TableFactory]:
+        """ Split the table into multiple, such that each (except possibly
+        the last) have exactly col_count columns. """
+        first_row = self.get_fields_in("h", self.first)
+        cols = [self.get_fields_in("v", field) for field in first_row]
+        return self._split(
+            cols, slice(0, self.col_count, col_count), self.from_cols)
+
+    @staticmethod
+    def _from_fields(field_lists: list[list[F]],
+                     clear_vals: list[tuple[int, str]]) -> TableFactory:
+        """ Creates a new valid factory, using the given field_lists,
+        which are either lists of cols or lists of rows. """
+        factory = TableFactory()
+        # Remove references to other fields.
+        for clear_id, clear_attr in clear_vals:
+            for field in field_lists[clear_id]:
+                setattr(field, clear_attr, None)
+        # Set owner to new factory.
+        for field_list in field_lists:
+            for field in field_list:
+                field.owner = factory
+        factory.first = field_lists[0][0]
+        factory.last = field_lists[-1][-1]
+        factory.set_counts_from_fields()
+        return factory
+
+    @staticmethod
+    def from_rows(rows: list[list[F]]) -> TableFactory:
+        """ Construct a new table, given the valid rows. """
+        return TableFactory._from_fields(rows, [(0, "above"), (-1, "below")])
+
+    @staticmethod
+    def from_cols(cols: list[list[F]]) -> TableFactory:
+        """ Construct a new table, given the valid cols. """
+        return TableFactory._from_fields(cols, [(0, "prev"), (-1, "next")])
 
     def get_contained_fields(self, fields: list[TableField]
                              ) -> list[TableField]:
