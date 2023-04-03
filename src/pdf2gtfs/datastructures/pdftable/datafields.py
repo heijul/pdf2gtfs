@@ -43,7 +43,11 @@ class TableField(BBoxObject):
         """ Ensure the neighbor is symmetric. """
         assert self != field
         assert attr.startswith("_") and not ref_attr.startswith("_")
+        old_field = getattr(self, attr)
         setattr(self, attr, field)
+        # Prevent dangling references.
+        if old_field:
+            setattr(old_field, ref_attr, None)
         if field is None or getattr(field, ref_attr) == self:
             return
         setattr(field, ref_attr, self)
