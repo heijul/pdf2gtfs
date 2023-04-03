@@ -23,6 +23,9 @@ class TableField(BBoxObject):
     def __init__(self, chars: list[LTChar], page_height: float) -> None:
         super().__init__(None)
         self.chars = chars
+        # TODO NOW: Move to _initialize; Check if chars are same font/fontsize.
+        self.font = self.chars[0].font if self.chars else None
+        self.fontsize = self.chars[0].fontsize if self.chars else None
         self.page_height = page_height
         self.owner = None
         self._next = None
@@ -38,6 +41,7 @@ class TableField(BBoxObject):
     def _set_neighbor(self, attr: str, ref_attr: str,
                       field: TableField | None) -> None:
         """ Ensure the neighbor is symmetric. """
+        assert self != field
         assert attr.startswith("_") and not ref_attr.startswith("_")
         setattr(self, attr, field)
         if field is None or getattr(field, ref_attr) == self:
@@ -147,8 +151,8 @@ class EmptyDataField(EmptyTableField, DataField):
 
 class TableFactory:
     def __init__(self) -> None:
-        self.first = None
-        self.last = None
+        self.first: TableField | None = None
+        self.last: TableField | None = None
         self._col_count = 0
         self._row_count = 0
 
@@ -239,30 +243,78 @@ class TableFactory:
         factory = TableFactory()
         factory.set_datafield_positions(fields)
         factory.link_datafields(factory.create_grid_from_datafield(fields))
-        factory.print_fields()
         return factory
 
-    def print_fields(self) -> None:
-        rows = []
-        row = []
-        line_start = self.first
-        current = self.first
-        while True:
-            if current is None:
-                line_start = line_start.below
-                if line_start is None:
-                    break
-                current = line_start
-                rows.append(row)
-                row = []
-                continue
-            row.append(current)
-            current = current.next
+    def print_fields(self, max_field_length: int = 5,
+                     max_line_length: int = 180) -> None:
+        def lin_len(field: TableField) -> int:
+            return max([len(f.text[:max_field_length])
+                        for f in self.get_fields_in("v", field)]) + 1
+
+        def orient(f: TableField) -> str:
+            if isinstance(f, DataField):
+                return ">"
+            return "<"
+
+        col = self.get_fields_in("v", self.first)
+        rows = [self.get_fields_in("h", field) for field in col]
         delim = " | "
+        lines = [delim.join(
+            [f"{f.text[:max_field_length]: {orient(f)}{lin_len(f)}}"
+             for f in row]) for row in rows]
         msg = f"{delim.rstrip()}\n{delim.lstrip()}".join(
-            [delim.join([f"{f.text: >5}" for f in row]) for row in rows])
+            [line[:max_line_length] for line in lines])
         msg = f"{delim.lstrip()}{msg}{delim.rstrip()}"
         print(msg)
+
+    @staticmethod
+    def get_row_or_column_of_field(lower_attr: str, upper_attr: str,
+                                   field: TableField) -> list[TableField]:
+        """ Return all fields of the row/column of field. """
+        # Move all the way left/up.
+        while getattr(field, lower_attr):
+            field = getattr(field, lower_attr)
+        # Add all fields in the linked list up to the end of the row/column.
+        fields = []
+        while field:
+            fields.append(field)
+            field = getattr(field, upper_attr)
+        return fields
+
+    def replace(self, old_field: TableField, new_field: TableField) -> None:
+        new_field.next = old_field.next
+        new_field.prev = old_field.prev
+        new_field.above = old_field.above
+        new_field.below = old_field.below
+        if old_field == self.first:
+            self.first = new_field
+        if old_field == self.last:
+            self.last = new_field
+
+    def get_fields_in(self, orientation: str, field: F) -> list[F]:
+        """ Return the row or column of field, based on orientation. """
+        assert orientation in ["v", "h", "below", "above", "next", "prev"]
+
+        if orientation in ["h", "next", "prev"]:
+            return self.get_row_or_column_of_field("prev", "next", field)
+        return self.get_row_or_column_of_field("above", "below", field)
+
+    def get_nonempty_fields(self, existing_field: F,
+                            search_direction: str) -> list[F]:
+        """ Return the first nonempty fields in the row/col of field,
+        in the given direction. """
+        # We need to have a column to search horizontally and a row
+        # to search vertically or non-empty fields.
+        fields = []
+        for field in self.get_fields_in("v", existing_field):
+            # We are looking for non-empty fields.
+            while field and isinstance(field, EmptyTableField):
+                field = getattr(field, search_direction)
+            # Reached end of row/column.
+            if field is None:
+                continue
+            fields.append(field)
+        return fields
 
     def get_nth_field_of_row(self, col_id: int) -> list[DataField]:
         field_search_delta = int(copysign(1, col_id))
@@ -291,32 +343,200 @@ class TableFactory:
         return fields
 
     @staticmethod
-    def _grow(bound_cls: Type[B], data_fields: list[DataField],
+    def _grow(bound_cls: Type[B], factory_fields: list[TableField],
               fields: list[TableField]) -> list[TableField]:
         # Only grow in a single direction at a time.
-        bounds = bound_cls.from_factory_fields(data_fields)
+        bounds = bound_cls.from_factory_fields(factory_fields)
         fields = list(filter(bounds.within_bounds, fields))
         if not fields:
             return fields
         bounds.update_missing_bound(fields)
-        fields = list(filter(bounds.within_bounds, fields))
-        return fields
+        # These are the fields that fit all bounds.
+        minimal_fields = list(filter(bounds.within_bounds, fields))
+        # Also try to add fields, that fit only three bounds, but are
+        # overlapping with fields, that fit all four.
+        overlap_func = ("is_h_overlap" if bound_cls in [WBounds, EBounds]
+                        else "is_v_overlap")
+        within_bounds_fields = []
+        for field in fields:
+            for min_field in minimal_fields:
+                if getattr(field.bbox, overlap_func)(min_field.bbox, 0.8):
+                    within_bounds_fields.append(field)
+                    break
+        return within_bounds_fields
 
-    def grow_west(self, fields: list[TableField]) -> list[TableField]:
-        data_fields = self.get_nth_field_of_row(0)
-        return self._grow(WBounds, data_fields, fields)
+    @staticmethod
+    def add_new_fields(new_fields: list[F], num: int,
+                       check_overlap: Callable[[int, F], bool],
+                       insert_between_existing: Callable[[int, F], bool],
+                       ) -> None:
+        new_fields.sort(reverse=True, key=attrgetter("bbox.y0", "bbox.x0"))
+        new_field = new_fields.pop()
 
-    def grow_east(self, fields: list[TableField]) -> list[TableField]:
-        data_fields = self.get_nth_field_of_row(-1)
-        return self._grow(EBounds, data_fields, fields)
+        i = 0
+        while i < num:
+            if not new_field:
+                break
+            if check_overlap(i, new_field):
+                new_field = new_fields.pop() if new_fields else None
+                continue
+            if insert_between_existing(i, new_field):
+                new_field = new_fields.pop() if new_fields else None
+                # If we inserted a new row/col, we need to check overlap again.
+                continue
+            i += 1
 
-    def grow_north(self, fields: list[TableField]) -> list[TableField]:
-        data_fields = self.get_nth_field_of_col(0)
-        return self._grow(NBounds, data_fields, fields)
+    def add_new_fields_horizontal(self, start: F, fields: list[F]) -> None:
+        """ Adds a new column, based on start and adds the fields.
 
-    def grow_south(self, fields: list[TableField]) -> list[TableField]:
-        data_fields = self.get_nth_field_of_col(-1)
-        return self._grow(SBounds, data_fields, fields)
+        For this, we add an empty column, which is updated using the fields.
+        """
+        def check_overlap(i: int, field: F) -> bool:
+            """ Check if the field overlaps vertically, with the first non-
+            empty field at i and replace the corresponding border field. """
+            if field and non_empty[i].bbox.is_v_overlap(field.bbox):
+                self.replace(border_fields[i], field)
+                return True
+            return False
+
+        def insert_between_existing(i: int, field: F) -> bool:
+            """ Inserts a new, empty row for the field, if necessary. """
+            if not field or non_empty[i].bbox.y0 + offset < field.bbox.y0:
+                return False
+            self.insert_row("above", border_fields[i])
+            self.replace(border_fields[i].above, field)
+            return True
+
+        assert start in (self.first, self.last)
+        offset = 0.5
+        if start == self.first:
+            args = ("next", "prev", "first")
+        else:
+            args = ("prev", "next", "last")
+
+        non_empty = self.get_nonempty_fields(start, args[0])
+        self.insert_col(args[1], start)
+        border_fields = self.get_fields_in("v", getattr(self, args[2]))
+
+        assert all((isinstance(f, EmptyTableField) for f in border_fields))
+        self.add_new_fields(
+            fields, self.row_count, check_overlap, insert_between_existing)
+
+    def add_new_fields_vertical(self, start: F, fields: list[F]) -> None:
+        def check_overlap(i: int, field: F) -> bool:
+            """ Check if the field overlaps horizontally, with the first non-
+            empty field at i and replace the corresponding border field. """
+            if field and non_empty[i].bbox.is_h_overlap(field.bbox):
+                self.replace(border_fields[i], field)
+                return True
+            return False
+
+        def insert_between_existing(i: int, field: F) -> bool:
+            """ Inserts a new, empty column for the field, if necessary. """
+            if not field or non_empty[i].bbox.x0 + offset < field.bbox.x0:
+                return False
+            self.insert_col("prev", border_fields[i])
+            self.replace(border_fields[i].prev, field)
+            return True
+
+        assert start in (self.first, self.last)
+        offset = 0.5
+        if start == self.first:
+            args = ("below", "above", "first")
+        else:
+            args = ("above", "below", "last")
+
+        non_empty = self.get_nonempty_fields(start, args[0])
+        self.insert_row(args[1], start)
+        border_fields = self.get_fields_in("h", getattr(self, args[2]))
+
+        assert all((isinstance(f, EmptyTableField) for f in border_fields))
+        self.add_new_fields(
+            fields, self.col_count, check_overlap, insert_between_existing)
+
+    def try_add_fields(self, bounds_cls: Type[B], start: F, fields: list[F],
+                       search_dir: str, add_func: Callable[[F, list[F]], None]
+                       ) -> bool:
+        data_fields = self.get_nonempty_fields(start, search_dir)
+        new_fields = self._grow(bounds_cls, data_fields, fields)
+        if not new_fields:
+            return False
+
+        add_func(start, new_fields)
+        # Remove newly added fields.
+        for field in new_fields:
+            fields.remove(field)
+        return True
+
+    def grow_west(self, fields: list[TableField]) -> bool:
+        """ Tries to insert the fields, if they are left of the table. """
+        return self.try_add_fields(WBounds, self.first, fields, "next",
+                                   self.add_new_fields_horizontal)
+
+    def grow_east(self, fields: list[TableField]) -> bool:
+        """ Tries to insert the fields, if they are right of the table. """
+        return self.try_add_fields(EBounds, self.last, fields, "prev",
+                                   self.add_new_fields_horizontal)
+
+    def grow_north(self, fields: list[TableField]) -> bool:
+        """ Tries to insert the fields, if they are above the table. """
+        return self.try_add_fields(NBounds, self.first, fields, "below",
+                                   self.add_new_fields_vertical)
+
+    def grow_south(self, fields: list[TableField]) -> bool:
+        """ Tries to insert the fields, if they are below the table. """
+        return self.try_add_fields(SBounds, self.last, fields, "above",
+                                   self.add_new_fields_vertical)
+
+    @staticmethod
+    def link_fields(attr: str, fields: list[F]) -> None:
+        """ Link the fields in the list, such that f[i].attr = f[i + 1]. """
+        prev = fields[0]
+        for field in fields[1:]:
+            setattr(field, attr, prev)
+            prev = field
+
+    def create_empty_row(self) -> list[EmptyTableField]:
+        """ Creates a row containing only empty fields. """
+        row = [EmptyTableField() for _ in range(self.col_count)]
+        self.link_fields("prev", row)
+        return row
+
+    def create_empty_col(self) -> list[EmptyTableField]:
+        """ Creates a column containing only empty fields. """
+        col = [EmptyTableField() for _ in range(self.row_count)]
+        self.link_fields("above", col)
+        return col
+
+    def _insert(self, attr: str, existing: list[F], new: list[F]) -> None:
+        """ Insert the new fields adjacent (defined by attr), to existing. """
+        assert attr in ["above", "below", "next", "prev"]
+
+        for exist_field, new_field in zip(existing, new, strict=True):
+            setattr(new_field, attr, getattr(exist_field, attr))
+            setattr(exist_field, attr, new_field)
+        # Update the first/last field of the table, if necessary.
+        if attr in ["above", "prev"] and getattr(self.first, attr):
+            self.first = getattr(self.first, attr)
+        if attr in ["below", "next"] and getattr(self.last, attr):
+            self.last = getattr(self.last, attr)
+        # Table size has increased.
+        if attr in ["above", "below"]:
+            self._row_count += 1
+            return
+        self._col_count += 1
+
+    def insert_row(self, attr: str, field: F, row: list[F] = None) -> None:
+        """ Insert row above/below of field, based on attr. """
+        if row is None:
+            row = self.create_empty_row()
+        self._insert(attr, self.get_fields_in("h", field), row)
+
+    def insert_col(self, attr: str, field: F, col: list[F] = None) -> None:
+        """ Insert col next/right of field, based on attr. """
+        if col is None:
+            col = self.create_empty_col()
+        self._insert(attr, self.get_fields_in("v", field), col)
 
     def get_contained_fields(self, fields: list[TableField]
                              ) -> list[TableField]:
@@ -450,7 +670,7 @@ class Bounds:
         return cast(float, attrgetter(f"bbox.{return_coordinate}")(field))
 
     @classmethod
-    def from_factory_fields(cls, fields: list[DataField], **kwargs) -> B:
+    def from_factory_fields(cls, fields: list[TableField], **kwargs) -> B:
         bounds = {d: cls.get_bound_from_fields(kwargs.get(d), fields)
                   for d in ["n", "w", "s", "e"]}
         return cls(**bounds)
