@@ -23,8 +23,9 @@ from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
-from pdf2gtfs.datastructures.pdftable.datafields import (
-    DataField, TableFactory, TableField)
+from pdf2gtfs.datastructures.table.table import (
+    TableFactory)
+from pdf2gtfs.datastructures.table.fields import DataField, TableField
 from pdf2gtfs.datastructures.pdftable.field import Field
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables)
@@ -216,7 +217,26 @@ def create_table_factory_from_page(page: LTPage) -> TableFactory:
     # Merge words of non-data fields
     other_fields = merge_other_fields(other_fields)
     factory = TableFactory.from_datafields(data_fields)
-    factory.grow_west(other_fields)
+    factory.print_fields()
+    factory.split_at_contained_rows(other_fields)
+    factory.print_fields()
+    fs = factory.split_horizontal(23)
+    for f in fs:
+        print(f)
+        f.print_fields()
+        for q in f.split_vertical(10):
+            print(q)
+            q.print_fields()
+    factory.print_fields()
+    while any([factory.grow_west(other_fields),
+               factory.grow_north(other_fields),
+               factory.grow_east(other_fields),
+               factory.grow_south(other_fields)]):
+        pass
+    factory.print_fields(50)
+    factory.grow_east(other_fields)
+    factory.grow_east(other_fields)
+    factory.grow_east(other_fields)
     factory.grow_east(other_fields)
     factory.grow_north(other_fields)
     factory.grow_south(other_fields)
