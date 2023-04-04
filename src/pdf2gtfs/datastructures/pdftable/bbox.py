@@ -115,6 +115,26 @@ class BBox:
         max_overlap = min((self.size[1], other.size[1]))
         return self.v_overlap(other) >= relative_amount * max_overlap
 
+    def is_overlap(self, orientation: str = "v", *args, **kwargs) -> bool:
+        assert orientation in "vh"
+        if orientation == "v":
+            return self.is_v_overlap(*args, **kwargs)
+        return self.is_h_overlap(*args, **kwargs)
+
+    def relative_pos_v(self, other: BBox) -> int:
+        """ Basically does compare(self.x0, other.x0). """
+        return (self.x0 < other.x0) - (self.x0 > other.x0)
+
+    def relative_pos_h(self, other: BBox) -> int:
+        """ Basically does compare(self.y0, other.y0). """
+        return (self.y0 < other.y0) - (self.y0 > other.y0)
+
+    def relative_pos(self, orientation: str, *args, **kwargs) -> int:
+        assert orientation in "vh"
+        if orientation == "v":
+            return self.relative_pos_v(*args, **kwargs)
+        return self.relative_pos_h(*args, **kwargs)
+
 
 class BBoxObject:
     """ Baseclass for objects which have a bbox. """
