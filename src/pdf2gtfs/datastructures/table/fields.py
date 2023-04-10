@@ -7,8 +7,9 @@ from pdfminer.layout import LTChar
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
 from pdf2gtfs.datastructures.table.nodes import QuadNode
-from pdf2gtfs.datastructures.table.orientation import H, Orientation, V
-from pdf2gtfs.datastructures.table.direction import E, N, S, W
+from pdf2gtfs.datastructures.table.direction import (
+    E, H, N, Orientation, S, V, W,
+    )
 
 
 logger = logging.getLogger(__name__)

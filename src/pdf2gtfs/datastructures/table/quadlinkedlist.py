@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from typing import (
-    Generator, Generic, Iterator, Optional, Type, TypeAlias, TypeVar)
+    Generator, Generic, Iterator, Optional, Type, TypeAlias, TypeVar,
+    )
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
-from pdf2gtfs.datastructures.table.direction import Direction, E, N, S, W
+from pdf2gtfs.datastructures.table.direction import (
+    Direction, E, N, Orientation, S, W,
+    )
+
 from pdf2gtfs.datastructures.table.nodes import OQN, QN
-from pdf2gtfs.datastructures.table.orientation import Orientation
 
 
 QLL = TypeVar("QLL", bound="QuadLinkedList")

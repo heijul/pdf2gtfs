@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Generator, Generic, Optional, TypeVar
+from typing import Generator, Generic, Optional, TYPE_CHECKING, TypeVar
 
-from pdf2gtfs.datastructures.table.direction import Direction, E, N, S, W
-from pdf2gtfs.datastructures.table.quadlinkedlist import OQLL
-from pdf2gtfs.datastructures.table.orientation import Orientation
+from pdf2gtfs.datastructures.table.direction import (
+    Direction, E, N, Orientation, S, W,
+    )
+
+if TYPE_CHECKING:
+    from pdf2gtfs.datastructures.table.quadlinkedlist import OQLL
 
 
 QN = TypeVar("QN", bound="QuadNode")

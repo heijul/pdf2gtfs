@@ -9,13 +9,14 @@ from more_itertools import peekable, split_before, spy
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import WBounds
 from pdf2gtfs.datastructures.table.fields import (
-    EmptyDataField, EmptyField,
-    F, Fs, OF)
-from pdf2gtfs.datastructures.table.quadlinkedlist import (
-    QuadLinkedList
+    EmptyDataField, EmptyField, F, Fs, OF,
     )
-from pdf2gtfs.datastructures.table.orientation import H, Orientation, V
-from pdf2gtfs.datastructures.table.direction import Direction, E, S, W
+from pdf2gtfs.datastructures.table.quadlinkedlist import (
+    QuadLinkedList,
+    )
+from pdf2gtfs.datastructures.table.direction import (
+    Direction, E, H, Orientation, S, V, W,
+    )
 
 
 Col = TypeVar("Col")

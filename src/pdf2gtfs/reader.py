@@ -13,6 +13,7 @@ from time import strptime, time
 from typing import Iterator, Optional, Tuple, TypeAlias, Union
 
 import pandas as pd
+from more_itertools import flatten, map_if, partition
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfcolor import PDFColorSpace
@@ -24,10 +25,12 @@ from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
-from pdf2gtfs.datastructures.table.fields import DataField, Field
+from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
+from pdf2gtfs.datastructures.table.fields import DataField, F, Field
 from pdf2gtfs.datastructures.table.table import Table
 from pdf2gtfs.datastructures.pdftable.pdftable import (
-    cleanup_tables, PDFTable, Row, split_rows_into_tables)
+    cleanup_tables, PDFTable, Row, split_rows_into_tables,
+    )
 from pdf2gtfs.datastructures.timetable.table import TimeTable
 
 
@@ -137,7 +140,16 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
 
 
 def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
-    # Create lists of chars, that each belong to the same word.
+    """ Create lists of chars, that each belong to the same word.
+
+    Iteratively check if a whitespace char (or LTAnnot) is between two
+    consecutive chars, to decide if they belong to the same word.
+
+    :param line: The line to split.
+    :type line: LTTextLine
+    :return: A list of words (= LTChar lists)
+    :rtype: List[List[LTChar]]
+    """
     words: list[list[LTChar]] = []
     for char in line:
         not_a_char = not isinstance(char, LTChar)
@@ -148,6 +160,15 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
         words[-1].append(char)
     # Drop empty words.
     return [word for word in words if word]
+
+
+def word_contains_time_data(word: list[LTChar]) -> bool:
+    word_text = "".join([char.get_text() for char in word])
+    try:
+        strptime(word_text, Config.time_format)
+    except ValueError:
+        return False
+    return True
 
 
 def get_datafields(line: LTTextLine, height: float
@@ -173,7 +194,7 @@ def get_datafields(line: LTTextLine, height: float
     return fields, other_fields
 
 
-def merge_other_fields(fields: list[Field]) -> list[Field]:
+def merge_other_fields(fields: Iterator[Field]) -> list[Field]:
     # Split fields into rows, using the respective vertical overlap.
     fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
     rows = []
@@ -206,18 +227,40 @@ def merge_other_fields(fields: list[Field]) -> list[Field]:
     return merged_fields
 
 
+def get_fields_from_page(page: LTPage) -> tuple[list[DataField], list[F]]:
+    """ Create an object for each word on the page.
+
+    :param page: A single page of a PDF.
+    :type page: LTPage
+    :return: Two lists, where the first contains all data fields of the page
+     and the second contains all non-data fields of the page.
+    :rtype: tuple[list[DataField], list[F]]
+    """
+    # Get all lines of the page that are LTTextLines.
+    text_boxes = filter(lambda box: isinstance(box, LTTextBox), page)
+    text_lines = filter(lambda line: isinstance(line, LTTextLine),
+                        flatten(text_boxes))
+
+    # Get all words in the given page from its lines.
+    words = flatten(map(split_line_into_words, text_lines))
+    # Create a Field/DataField, based on whether each word contains time data.
+    page_height = page.y1
+    fields = map_if(
+        words, word_contains_time_data,
+        lambda chars: DataField(chars=chars, page_height=page_height),
+        lambda chars: Field(chars=chars, page_height=page_height))
+    # Remove empty fields, i.e. fields that do not contain any visible text.
+    fields = filter(lambda f: f.text, fields)
+    # Split the fields based on their type.
+    data_fields, non_data_fields = partition(
+        lambda f: not isinstance(f, DataField), fields)
+    non_data_fields = merge_other_fields(non_data_fields)
+
+    return list(data_fields), non_data_fields
+
+
 def create_table_factory_from_page(page: LTPage) -> Table:
-    text_boxes = [box for box in page if isinstance(box, LTTextBox)]
-    text_lines = [line for text_box in text_boxes for line in text_box
-                  if isinstance(line, LTTextLine)]
-    data_fields = []
-    other_fields = []
-    for line in text_lines:
-        new_fields = get_datafields(line, page.y1)
-        data_fields += new_fields[0]
-        other_fields += new_fields[1]
-    # Merge words of non-data fields
-    other_fields = merge_other_fields(other_fields)
+    data_fields, other_fields = get_fields_from_page(page)
     t = Table.from_fields(data_fields)
     t.print()
     t.expand_west(other_fields)
@@ -250,7 +293,7 @@ def get_pages(file: str | Path) -> Iterator[LTPage]:
         file, laparams=laparams, page_numbers=Config.pages.page_ids)
 
 
-def split_line_into_fields(line: Line) -> list[Field]:
+def split_line_into_fields(line: Line) -> list[PDFField]:
     """ Split the given chars into fields,
     merging multiple fields, based on their x coordinates. """
     fields = []
@@ -260,7 +303,7 @@ def split_line_into_fields(line: Line) -> list[Field]:
     # Fields are semi-continuous streams of chars. May not be strictly
     #  continuous, because we rounded the coordinates.
     for char in sorted(line, key=attrgetter("x0")):
-        char_field = Field.from_char(char)
+        char_field = PDFField.from_char(char)
         new_field = not fields or not fields[-1].is_next_to(char_field)
         if new_field:
             fields.append(char_field)
