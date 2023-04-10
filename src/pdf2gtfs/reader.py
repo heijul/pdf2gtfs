@@ -1,4 +1,5 @@
 """ Used to read the pdf file. """
+from __future__ import annotations
 
 import logging
 import os
@@ -23,9 +24,9 @@ from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
+from pdf2gtfs.datastructures.table import fields2, table2
 from pdf2gtfs.datastructures.table.table import (
-    TableFactory)
-from pdf2gtfs.datastructures.table.fields import DataField, TableField
+    Table, TableFactory)
 from pdf2gtfs.datastructures.pdftable.field import Field
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables)
@@ -56,6 +57,8 @@ def ltchar_monkeypatch__init__(
 # noinspection PyTypeChecker
 LTChar.default_init = LTChar.__init__
 LTChar.__init__ = ltchar_monkeypatch__init__
+LTChar.font = None
+LTChar.fontsize = None
 
 
 PDF_READ_ERROR_CODE = 2
@@ -100,7 +103,7 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     def cleanup_df(df: pd.DataFrame) -> pd.DataFrame:
         """ Cleanup the given dataframe.
 
-        Rounds the coordinates and drops any entries outside of the page.
+        Rounds the coordinates and drops any entries outside the page.
         """
         # Round to combat possible tolerances in the coordinates.
         df = df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
@@ -150,7 +153,7 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
 
 
 def get_datafields(line: LTTextLine, height: float
-                   ) -> tuple[list[DataField], list[TableField]]:
+                   ) -> tuple[list[fields2.DataField], list[fields2.Field]]:
     words = split_line_into_words(line)
     data_words = []
     other_words = []
@@ -163,15 +166,16 @@ def get_datafields(line: LTTextLine, height: float
             other_words.append(word)
             continue
 
-    fields = [DataField(chars=word, page_height=height) for word in data_words]
-    other_fields = [TableField(word, height) for word in other_words]
+    fields = [fields2.DataField(chars=word, page_height=height)
+              for word in data_words]
+    other_fields = [fields2.Field(word, height) for word in other_words]
     # Remove fields without text.
     fields = [f for f in fields if f.text]
     other_fields = [f for f in other_fields if f.text]
     return fields, other_fields
 
 
-def merge_other_fields(fields: list[TableField]) -> list[TableField]:
+def merge_other_fields(fields: list[fields2.Field]) -> list[fields2.Field]:
     # Split fields into rows, using the respective vertical overlap.
     fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
     rows = []
@@ -216,7 +220,16 @@ def create_table_factory_from_page(page: LTPage) -> TableFactory:
         other_fields += new_fields[1]
     # Merge words of non-data fields
     other_fields = merge_other_fields(other_fields)
+    t = table2.Table.from_fields(data_fields)
+    t.print()
+    t.expand_west(other_fields)
+    t.expand_west(other_fields)
+    t.expand_west(other_fields)
+    t.expand_west(other_fields)
     factory = TableFactory.from_datafields(data_fields)
+    factory.print_fields()
+    table = Table(factory.rows, factory.cols)
+    table.expand_w(other_fields)
     factory.print_fields()
     factory.split_at_contained_rows(other_fields)
     factory.print_fields()
@@ -428,7 +441,7 @@ class Reader:
         prefix = f"p2g_preprocess_{self.filepath.stem}_"
         self.tempfile = NamedTemporaryFile(
             delete=False, prefix=prefix, suffix=".pdf")
-        # GS can't use open files as outfiles (may be system dependent).
+        # GS can't use an open file as outfile (maybe system dependent).
         self.tempfile.close()
 
         gs_args = ["gs", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dFILTERIMAGE",

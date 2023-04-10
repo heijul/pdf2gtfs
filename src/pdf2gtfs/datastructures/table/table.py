@@ -1,138 +1,206 @@
 from __future__ import annotations
 
-from operator import attrgetter
-from typing import Callable, Type
+from operator import attrgetter, methodcaller
+from typing import Callable, Type, TypeAlias
 
-from more_itertools import windowed
+from more_itertools import pad_none, partition, peekable, spy, windowed
 
 from pdf2gtfs.datastructures.table.bounds import (
-    B, EBounds, NBounds, SBounds,
-    WBounds)
+    B, EBounds, NBounds, SBounds, WBounds)
+from pdf2gtfs.datastructures.table.container import C, Col, Cols, Row, Rows
 from pdf2gtfs.datastructures.table.fields import (
     DataField, EmptyDataField, EmptyTableField, F,
     RepeatTextField, RepeatValueField, TableField)
 
 
-# TODO NOW: EXPLAAIN THESE
+class Table:
+    """ A single table, defined by its rows and columns. """
+    def __init__(self, rows: Rows, cols: Cols) -> None:
+        self.rows: Rows = rows
+        self.cols: Cols = cols
+
+    def expand(self, bounds_cls: Type[B], row_or_col: C, fields: list[F]
+               ) -> None:
+        adjacent_fields = bounds_cls.select_adjacent_fields(row_or_col, fields)
+
+        # Remove added fields from the list of potential fields.
+        for field in adjacent_fields:
+            fields.remove(field)
+
+    def expand_w(self, fields: list[F]) -> None:
+        """ Add those fields to the table, that are adjacent to it.
+
+        :param fields: Fields that are not part of the table and may
+         or may not be adjacent to it.
+        """
+        col = self.cols.first
+        adj_fields = WBounds.select_adjacent_fields(col, fields)
+        if not adj_fields:
+            return
+        # Remove added fields from the list of potential fields.
+        for field in adj_fields:
+            fields.remove(field)
+
+        func = methodcaller("bbox.is_v_overlap", relative_amount=0.66)
+        in_between_fields, overlapping_fields = partition(func, adj_fields)
+        new_col = col.construct_from_overlapping_fields(overlapping_fields)
+        self.cols.prepend(self.cols.first, node=new_col)
 
 
 class TableFactory:
+    """ A factory, that uses the ability to rigidly detect datafields in a
+    table, in order to create one or more tables. """
     def __init__(self) -> None:
-        self.first: TableField | None = None
-        self.last: TableField | None = None
-        self._col_count = 0
-        self._row_count = 0
+        self.rows: Rows = Rows()
+        self.cols: Cols = Cols()
 
     @property
     def row_count(self) -> int:
         """ Number of fields in each column. """
-        return self._row_count
+        return len(self.rows)
 
     @property
     def col_count(self) -> int:
         """ Number of fields in each row. """
-        return self._col_count
+        return len(self.cols)
 
-    def set_counts_from_fields(self) -> None:
-        self._col_count = len(self.get_fields_in("h", self.first))
-        self._row_count = len(self.get_fields_in("v", self.first))
+    @staticmethod
+    def set_datafield_positions(fields: list[DataField]) -> tuple[int, int]:
+        """ Calculate the row- and column-ids of each datafield.
 
-    def set_datafield_positions(self, fields: list[DataField]) -> None:
-        """ Sets the owner, row and column of each datafield. """
+        :param fields:
+        :return: The number of columns and rows.
+        """
         # Get the columns, based on how much a field overlaps horizontally
         # with the first (= left-most) field of each column.
         fields = sorted(fields, key=attrgetter("bbox.x0", "bbox.y0"))
         column_starter = fields[0]
-        col = 0
+        col_id = 0
         for field in fields:
             # If a field does not overlap horizontally, start a new column.
             if not column_starter.bbox.is_h_overlap(field.bbox):
                 column_starter = field
-                col += 1
-            field.owner = self
-            field.col = col
-        self._col_count = col + 1
+                col_id += 1
+            field.col_id = col_id
+        col_count = col_id + 1
         # Get the rows, based on how much a field overlaps vertically
         # with the first (= highest) field in each row.
-        row = 0
+        row_id = 0
         fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
         row_starter = fields[0]
         for field in fields:
             # If a field does not overlap vertically, start a new row.
             if not row_starter.bbox.is_v_overlap(field.bbox):
                 row_starter = field
-                row += 1
-            field.row = row
-        self._row_count = row + 1
+                row_id += 1
+            field.row_id = row_id
+        row_count = row_id + 1
+        return col_count, row_count
 
-    def create_grid_from_datafield(self, fields: list[DataField]
-                                   ) -> list[DataField]:
-        """ Creates a full grid, where positions without a field are None. """
-        fields = sorted(fields, key=attrgetter("row", "col"))
-        prev = fields[0]
-        grid = [prev]
-        for field in fields[1:]:
-            new_line = field.row > prev.row
-            # Fill empty fields at the end of the previous row.
-            if new_line:
-                for col in range(prev.col + 1, self.col_count):
-                    grid.append(EmptyDataField(prev.row, col))
-            # Fill empty fields between previous field/start of row and field.
-            start = 0 if new_line else prev.col + 1
-            end = field.col
-            for col in range(start, end):
-                grid.append(EmptyDataField(field.row, col))
+    @staticmethod
+    def fill_grid(fields: list[DataField], col_count: int) -> list[F]:
+        """ Add empty fields to the list of fields, such that each column has
+        col_count fields, while maintaining the structure (i.e. the relative
+        position of fields to each other) of the table.
+
+        :param fields: The fields containing the time data.
+        :param col_count: The number of columns the table should have.
+        :return: A list of DataField/EmptyDataField, which is roughly
+         equivalent to flattening a list of columns.
+        """
+        (head,), fields = spy(
+            sorted(fields, key=attrgetter("row_id", "col_id")))
+        peeker = peekable(fields)
+        # Add fields, in case the first field is not in the first column.
+        grid: list[DataField] = [EmptyDataField() for _ in range(head.col_id)]
+        for field in peeker:
             grid.append(field)
-            prev = field
-        # Add emtpy fields at the end, in case the last row is not full.
-        last_field = grid[-1]
-        for col in range(last_field.col + 1, self.col_count):
-            grid.append(EmptyDataField(last_field.row, col))
+            next_field = peeker.peek(None)
+            if next_field is None:
+                # We need to add fields at the end, if the
+                # last field is not in the last column.
+                count = col_count - field.col_id
+            elif next_field.row_id > field.row_id:
+                # We need to add fields after field, if it is not in the last
+                # column and before next_field, if it is not in the first.
+                count = col_count + next_field.col_id - field.col_id
+            else:
+                # We only need to add fields in between.
+                count = next_field.col_id - field.col_id
+            for _ in range(count - 1):
+                grid.append(EmptyDataField())
+            # These are only required for the initial table creation.
+            del field.row_id
+            del field.col_id
         return grid
 
-    def link_datafields(self, grid: list[DataField]) -> None:
-        """ Link each field to each of its neighbors. """
-        prev = None
-        for i, field in enumerate(grid):
-            if not self.first:
-                self.first = field
-            if i >= self.col_count:
-                pos = field.row * self.col_count + field.col
-                field.above = grid[pos - self.col_count]
-            # field.prev/.next are always on the same line.
-            new_line = i % self.col_count == 0
-            if not new_line and prev is not None:
-                prev.next = field
-            prev = field
-            self.last = field
-            # These are only required for grid creation.
-            del field.row
-            del field.col
+    def create_container_from_grid(self, grid: list[DataField],
+                                   row_count: int, col_count: int) -> None:
+        """ Create the cols/rows for this TableFactory.
+
+        :param grid: A complete list, containing all DataFields. Its length
+         should be row_count * col_count.
+        :param row_count: The number of rows the table should have.
+        :param col_count: The number of cols the table should have.
+        """
+        for i in range(col_count):
+            fields = grid[i:col_count * row_count:col_count]
+            self.cols.append(Col.from_objects(fields))
+        for i in range(row_count):
+            fields = grid[i * col_count:i * col_count + col_count]
+            self.rows.append(Row.from_objects(fields))
 
     @staticmethod
     def from_datafields(fields: list[DataField]) -> TableFactory:
+        """ Uses the provided fields to create a tablefactory.
+
+        :param fields: All
+        :return: A tablefactory, that contains only
+         DataFields and EmptyDataFields.
+        """
         factory = TableFactory()
-        factory.set_datafield_positions(fields)
-        factory.link_datafields(factory.create_grid_from_datafield(fields))
+        col_count, row_count = factory.set_datafield_positions(fields)
+        grid = factory.fill_grid(fields, col_count)
+        factory.create_container_from_grid(grid, row_count, col_count)
+        # This needs to be done, even if it has been done while adding an
+        # empty field, because the bboxes of the rows/cols may have changed.
+        for row in factory.rows:
+            row.set_empty_field_bboxes()
         return factory
 
     def print_fields(self, max_field_length: int = 5,
                      max_line_length: int = 180) -> None:
-        def lin_len(field: TableField) -> int:
-            return max([len(f.text[:max_field_length])
-                        for f in self.get_fields_in("v", field)]) + 1
+        """ Print the table in a human-readable way to stdout.
 
-        def orient(f: TableField) -> str:
-            if isinstance(f, DataField):
+        :param max_field_length: The maximum length of a field,
+         before it is truncated.
+        :param max_line_length: The maximum length of a line,
+         before it is truncated
+        """
+        def col_width(col: Col) -> int:
+            """ Calculate the width of a column, such that it can contain all
+            of its fields' texts.
+
+            :param col: The column in question.
+            :return: The number of chars the column has to contain.
+            """
+            return max([len(field.text[:max_field_length])
+                        for field in col])
+
+        def alignment(field: TableField) -> str:
+            """ Decide how to align the fields' text, based on its type.
+
+            :param field: The field in question.
+            :return: Right-align DataFields and left-align all other fields.
+            """
+            if isinstance(field, DataField):
                 return ">"
             return "<"
 
-        col = self.get_fields_in("v", self.first)
-        rows = [self.get_fields_in("h", field) for field in col]
         delim = " | "
         lines = [delim.join(
-            [f"{f.text[:max_field_length]: {orient(f)}{lin_len(f)}}"
-             for f in row]) for row in rows]
+            [f"{f.text[:max_field_length]: {alignment(f)}{col_width(f.col)}}"
+             for f in row]) for row in self.rows]
         msg = f"{delim.rstrip()}\n{delim.lstrip()}".join(
             [line[:max_line_length] for line in lines])
         msg = f"{delim.lstrip()}{msg}{delim.rstrip()}"
@@ -151,16 +219,6 @@ class TableFactory:
             fields.append(field)
             field = getattr(field, upper_attr)
         return fields
-
-    def replace(self, old_field: TableField, new_field: TableField) -> None:
-        new_field.next = old_field.next
-        new_field.prev = old_field.prev
-        new_field.above = old_field.above
-        new_field.below = old_field.below
-        if old_field == self.first:
-            self.first = new_field
-        if old_field == self.last:
-            self.last = new_field
 
     def get_fields_in(self, orientation: str, field: F) -> list[F]:
         """ Return the row or column of field, based on orientation. """
@@ -209,6 +267,41 @@ class TableFactory:
                     within_bounds_fields.append(field)
                     break
         return within_bounds_fields
+
+    def grow_west2(self, fields: list[F]) -> bool:
+        new_fields = self._grow(WBounds, list(self.cols[0]), fields)
+        if not new_fields:
+            return False
+        self.cols.insert(0, self.cols[0].create_before_from_fields(new_fields))
+        return True
+
+    def add_fields_left(self, new_fields: list[F]) -> None:
+        fields = []
+        new_fields = pad_none(new_fields)
+        new_field = next(new_fields)
+        i = 0
+        while i < len(self.rows):
+            row = self.rows[i]
+            if new_field and row.bbox.is_v_overlap(new_field.bbox):
+                fields.append(new_field)
+                # The next new_field may be in the same row.
+                new_field = next(new_fields)
+                continue
+            if new_field and row.comes_after(new_field):
+                # Using insert here, will use the current row in
+                # the next iteration as well.
+                row = row.create_from_field(new_field)
+                self.rows.insert(i, row)
+                new_field = next(new_fields)
+                continue
+            e_field = EmptyTableField()
+            e_field.row = row
+            fields.append(e_field)
+            # Only increment, if we add an empty field, in case two
+            # consecutive fields overlap the same row or are between two rows.
+            i += 1
+
+        self.cols[0].create_above_from_fields(fields)
 
     @staticmethod
     def add_new_fields(new_fields: list[F], num: int,
@@ -430,13 +523,8 @@ class TableFactory:
         for clear_id, clear_attr in clear_vals:
             for field in field_lists[clear_id]:
                 setattr(field, clear_attr, None)
-        # Set owner to new factory.
-        for field_list in field_lists:
-            for field in field_list:
-                field.owner = factory
         factory.first = field_lists[0][0]
         factory.last = field_lists[-1][-1]
-        factory.set_counts_from_fields()
         return factory
 
     @staticmethod
@@ -452,10 +540,10 @@ class TableFactory:
     def get_contained_fields(self, fields: list[F]) -> list[F]:
         non_empty_col = self.get_fields_in("v", self.first)
         bounds = WBounds.from_factory_fields(non_empty_col)
-        bounds.expand(EBounds.from_factory_fields(non_empty_col))
+        bounds.merge(EBounds.from_factory_fields(non_empty_col))
         non_empty_row = self.get_fields_in("h", self.first)
-        bounds.expand(NBounds.from_factory_fields(non_empty_row))
-        bounds.expand(SBounds.from_factory_fields(non_empty_row))
+        bounds.merge(NBounds.from_factory_fields(non_empty_row))
+        bounds.merge(SBounds.from_factory_fields(non_empty_row))
         print(bounds)
         fields = list(filter(bounds.within_bounds, fields))
         return fields
@@ -549,3 +637,6 @@ class TableFactory:
         # Split the table at the splitfields.
         ...
         return self.split_horizontal(11)
+
+
+T: TypeAlias = TableFactory
