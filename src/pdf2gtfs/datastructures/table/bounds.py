@@ -9,7 +9,7 @@ from itertools import cycle
 from typing import Callable, cast, Iterable, Iterator, NamedTuple, TypeVar
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
-from pdf2gtfs.datastructures.table.fields2 import F, Fs
+from pdf2gtfs.datastructures.table.fields import F, Fs
 
 
 B = TypeVar("B", bound="Bounds")
@@ -182,7 +182,7 @@ class Bounds:
     def select_adjacent_fields(cls, border: Fs, fields: Iterator[F]) -> Fs:
         """ Select those fields, that are adjacent to factory fields.
 
-        :param row_or_col: The Row/Col, that is used to determine if a field
+        :param border: The Row/Col, that is used to determine if a field
          is adjacent to the table.
         :param fields: The fields that are checked.
         :return: Those items of fields, which are adjacent to the table.

@@ -1,6 +1,7 @@
 from unittest import TestCase
 
-from pdf2gtfs.datastructures.table.linked_list2 import E, N, QuadNode, S, W
+from pdf2gtfs.datastructures.table.nodes import QuadNode
+from pdf2gtfs.datastructures.table.direction import E, N, S, W
 
 
 class TestQuadNode(TestCase):

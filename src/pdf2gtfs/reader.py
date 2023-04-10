@@ -24,10 +24,8 @@ from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
-from pdf2gtfs.datastructures.table import fields2, table2
-from pdf2gtfs.datastructures.table.table import (
-    Table, TableFactory)
-from pdf2gtfs.datastructures.pdftable.field import Field
+from pdf2gtfs.datastructures.table.fields import DataField, Field
+from pdf2gtfs.datastructures.table.table import Table
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables)
 from pdf2gtfs.datastructures.timetable.table import TimeTable
@@ -153,7 +151,7 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
 
 
 def get_datafields(line: LTTextLine, height: float
-                   ) -> tuple[list[fields2.DataField], list[fields2.Field]]:
+                   ) -> tuple[list[DataField], list[Field]]:
     words = split_line_into_words(line)
     data_words = []
     other_words = []
@@ -166,16 +164,16 @@ def get_datafields(line: LTTextLine, height: float
             other_words.append(word)
             continue
 
-    fields = [fields2.DataField(chars=word, page_height=height)
+    fields = [DataField(chars=word, page_height=height)
               for word in data_words]
-    other_fields = [fields2.Field(word, height) for word in other_words]
+    other_fields = [Field(word, height) for word in other_words]
     # Remove fields without text.
     fields = [f for f in fields if f.text]
     other_fields = [f for f in other_fields if f.text]
     return fields, other_fields
 
 
-def merge_other_fields(fields: list[fields2.Field]) -> list[fields2.Field]:
+def merge_other_fields(fields: list[Field]) -> list[Field]:
     # Split fields into rows, using the respective vertical overlap.
     fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
     rows = []
@@ -208,7 +206,7 @@ def merge_other_fields(fields: list[fields2.Field]) -> list[fields2.Field]:
     return merged_fields
 
 
-def create_table_factory_from_page(page: LTPage) -> TableFactory:
+def create_table_factory_from_page(page: LTPage) -> Table:
     text_boxes = [box for box in page if isinstance(box, LTTextBox)]
     text_lines = [line for text_box in text_boxes for line in text_box
                   if isinstance(line, LTTextLine)]
@@ -220,44 +218,16 @@ def create_table_factory_from_page(page: LTPage) -> TableFactory:
         other_fields += new_fields[1]
     # Merge words of non-data fields
     other_fields = merge_other_fields(other_fields)
-    t = table2.Table.from_fields(data_fields)
+    t = Table.from_fields(data_fields)
     t.print()
     t.expand_west(other_fields)
     t.expand_west(other_fields)
     t.expand_west(other_fields)
     t.expand_west(other_fields)
-    factory = TableFactory.from_datafields(data_fields)
-    factory.print_fields()
-    table = Table(factory.rows, factory.cols)
-    table.expand_w(other_fields)
-    factory.print_fields()
-    factory.split_at_contained_rows(other_fields)
-    factory.print_fields()
-    fs = factory.split_horizontal(23)
-    for f in fs:
-        print(f)
-        f.print_fields()
-        for q in f.split_vertical(10):
-            print(q)
-            q.print_fields()
-    factory.print_fields()
-    while any([factory.grow_west(other_fields),
-               factory.grow_north(other_fields),
-               factory.grow_east(other_fields),
-               factory.grow_south(other_fields)]):
-        pass
-    factory.print_fields(50)
-    factory.grow_east(other_fields)
-    factory.grow_east(other_fields)
-    factory.grow_east(other_fields)
-    factory.grow_east(other_fields)
-    factory.grow_north(other_fields)
-    factory.grow_south(other_fields)
-    factory.get_contained_fields(other_fields)
-    return factory
+    return t
 
 
-def get_pdf_tables_from_datafields(datafields: TableFactory) -> list[PDFTable]:
+def get_pdf_tables_from_datafields(table: Table) -> list[PDFTable]:
     pass
     return []
 
