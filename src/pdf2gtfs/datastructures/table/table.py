@@ -112,14 +112,22 @@ class Table(QuadLinkedList[F, OF]):
     def expand_south(self, fields: Fs) -> bool:
         return self.expand(S, fields)
 
-    def print(self) -> None:
+    def print(self, max_len=360) -> None:
+        def _get_text_align(f) -> str:
+            return ">" if isinstance(f, EmptyField) else "<"
+
         first_column = self.get_list(V, self.left)
         rows = [self.get_list(H, field) for field in first_column]
+        cols = [self.get_list(V, field) for field in rows[0]]
+        col_len = [max(map(len, map(attrgetter("text"), col))) for col in cols]
+
         delim = " | "
         lines = []
         for row in rows:
+            field_texts = [f"{f.text: {_get_text_align(f)}{col_len[i]}}"
+                           for i, f in enumerate(row)]
             lines += [delim.lstrip()
-                      + delim.join([f"{f.text: >5}" for f in row])
+                      + delim.join(field_texts[:max_len])
                       + delim.rstrip()]
 
         print("\n".join(lines))
