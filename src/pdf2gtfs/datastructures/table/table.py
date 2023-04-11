@@ -103,8 +103,14 @@ class Table(QuadLinkedList[F, OF]):
     def expand_west(self, fields: Fs) -> bool:
         return self.expand(W, fields)
 
+    def expand_east(self, fields: Fs) -> bool:
+        return self.expand(E, fields)
+
     def expand_north(self, fields: Fs) -> bool:
         return self.expand(N, fields)
+
+    def expand_south(self, fields: Fs) -> bool:
+        return self.expand(S, fields)
 
     def print(self) -> None:
         first_column = self.get_list(V, self.left)
