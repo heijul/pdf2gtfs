@@ -263,8 +263,8 @@ def create_table_factory_from_page(page: LTPage) -> Table:
     data_fields, other_fields = get_fields_from_page(page)
     t = Table.from_fields(data_fields)
     t.print()
-    t.expand_west(other_fields)
-    t.expand_west(other_fields)
+    t.expand_north(other_fields)
+    t.expand_north(other_fields)
     t.expand_west(other_fields)
     t.expand_west(other_fields)
     return t

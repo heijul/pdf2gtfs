@@ -38,7 +38,7 @@ class QuadLinkedList(Generic[QN, OQN]):
     @property
     def left(self) -> OQN:
         """ One of the nodes in the left-most column. """
-        return self._get_end_node(d=W)
+        return self.get_end_node(d=W)
 
     @left.setter
     def left(self, node: OQN) -> None:
@@ -47,7 +47,7 @@ class QuadLinkedList(Generic[QN, OQN]):
     @property
     def right(self) -> OQN:
         """ One of the nodes in the right-most column. """
-        return self._get_end_node(d=E)
+        return self.get_end_node(d=E)
 
     @right.setter
     def right(self, node: OQN) -> None:
@@ -56,7 +56,7 @@ class QuadLinkedList(Generic[QN, OQN]):
     @property
     def top(self) -> OQN:
         """ One of the nodes in the top row. """
-        return self._get_end_node(d=N)
+        return self.get_end_node(d=N)
 
     @top.setter
     def top(self, node: OQN) -> None:
@@ -65,7 +65,7 @@ class QuadLinkedList(Generic[QN, OQN]):
     @property
     def bot(self) -> OQN:
         """ One of the nodes in the bottom column. """
-        return self._get_end_node(d=S)
+        return self.get_end_node(d=S)
 
     @bot.setter
     def bot(self, node: OQN) -> None:
@@ -81,7 +81,7 @@ class QuadLinkedList(Generic[QN, OQN]):
         """
         return getattr(self, d_attr)
 
-    def _get_end_node(self, d: Direction, *, node: OQN = None) -> OQN:
+    def get_end_node(self, d: Direction, *, node: OQN = None) -> OQN:
         """ Return one of the end nodes in the given direction.
 
         :param d: The direction to look for the end node in.
@@ -90,8 +90,8 @@ class QuadLinkedList(Generic[QN, OQN]):
             node: OQN = self._get_saved_node(d.p_end)
         if not node.get_neighbor(d):
             return node
-        self._update_end_node(d)
-        return self._get_end_node(d)
+        self._update_end_node(d, node)
+        return self.get_end_node(d)
 
     def _set_end_node(self, d: Direction, node: OQN) -> None:
         """ Store the last node in the given direction to node.
@@ -127,7 +127,7 @@ class QuadLinkedList(Generic[QN, OQN]):
          None, the first/top node will be used instead.
         """
         if not node:
-            node = self._get_end_node(o.lower)
+            node = self.get_end_node(o.lower)
         if not node:
             # TODO NOW: This should not happen? Unless the QLL is empty.
             raise
@@ -177,16 +177,13 @@ class QuadLinkedList(Generic[QN, OQN]):
         o = d.default_orientation
         normal = o.normal
 
-        # Ensure the nodes do not have any neighbors in the normal orientation.
-        # TODO NOW: This will prevent merging of two QLLs.
-        assert new_node.qll
-        new_nodes: list[QN] = new_node.qll.get_list(normal)
-        for node in new_nodes:
-            assert node.has_neighbors(o=normal)
+        # TODO NOW: Check that each new_node only has neighbors,
+        #  that are in new_nodes
+        new_nodes = list(new_node.iter(normal.upper))
         # If we want to insert a column (i.e. vertical) at the beginning/end,
         # we need a row (i.e. horizontal) to get the first/last column.
         if rel_node is None:
-            rel_node = self._get_end_node(normal.lower)
+            rel_node = self.get_end_node(normal.lower)
         rel_nodes = self.get_list(normal, rel_node)
 
         # Strict, to ensure the same number of nodes.
@@ -241,7 +238,7 @@ class QuadLinkedList(Generic[QN, OQN]):
             first col/row.
         :return: An iterator over the nodes.
         """
-        node = self._get_end_node(d.opposite, node=node)
+        node = self.get_end_node(d.opposite, node=node)
         while node:
             yield node
             node = node.get_neighbor(d)

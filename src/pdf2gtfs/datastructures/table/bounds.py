@@ -6,9 +6,12 @@ from __future__ import annotations
 from _operator import attrgetter
 from functools import partial
 from itertools import cycle
-from typing import Callable, cast, Iterable, Iterator, NamedTuple, TypeVar
+from typing import (
+    Callable, cast, Iterable, Iterator, NamedTuple, TypeVar,
+    )
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
+from pdf2gtfs.datastructures.table.direction import Direction, E, N, S, W
 from pdf2gtfs.datastructures.table.fields import F, Fs
 
 
@@ -275,3 +278,22 @@ class SBounds(Bounds):
         """
         args: BoundArgs = BoundArgs(min, "y1", "y1")
         self._update_single_bound("s", args, fields)
+
+
+def select_adjacent_fields(d: Direction, ref_fields: Fs, fields: Fs) -> Fs:
+    bound_cls = {N: NBounds, W: WBounds, S: SBounds, E: EBounds}[d]
+    adjacent_fields = bound_cls.select_adjacent_fields(ref_fields, fields)
+
+    normal = d.default_orientation.normal
+    # Remove fields that are not overlapping with any reference field.
+    starter_id = 0
+    for adj_field in adjacent_fields:
+        for i, field in enumerate(ref_fields[starter_id:], starter_id):
+            if adj_field.is_overlap(normal, field, 0.8):
+                break
+        else:
+            adjacent_fields.remove(adj_field)
+            break
+        fields.remove(adj_field)
+        starter_id = i
+    return adjacent_fields
