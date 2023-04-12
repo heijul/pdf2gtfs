@@ -62,10 +62,31 @@ class Field(QuadNode[F, OF], BBoxObject):
         """
         return self.qll.row(self)
 
+    def any_overlap(self, o: Orientation, field: F) -> float:
+        if o is V:
+            return self.bbox.v_overlap(field) > 0
+        return self.bbox.h_overlap(field) > 0
+
     def is_overlap(self, o: Orientation, field: F, *args) -> bool:
         if o is V:
             return self.bbox.is_v_overlap(field.bbox, *args)
         return self.bbox.is_h_overlap(field.bbox, *args)
+
+    def merge(self, field: F, *, merge_char: str = " ") -> None:
+        self.chars += field.chars
+        self.bbox.merge(field.bbox)
+        self.text += f"{merge_char}{field.text}"
+        for d in [N, S, W, E]:
+            # Remove field as a neighbor
+            self_neighbor = self.get_neighbor(d.opposite)
+            if self_neighbor == field:
+                self.set_neighbor(d.opposite, None)
+            # Add fields neighbors as our own neighbors.
+            field_neighbor = field.get_neighbor(d)
+            if not field_neighbor or field_neighbor == self:
+                continue
+            assert not self_neighbor
+            self.set_neighbor(d, field_neighbor)
 
     def __repr__(self) -> str:
         neighbors = ", ".join([f"{d.name}='{n.text}'"

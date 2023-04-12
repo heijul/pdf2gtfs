@@ -267,6 +267,7 @@ def create_table_factory_from_page(page: LTPage) -> Table:
     t.expand_north(other_fields)
     t.expand_west(other_fields)
     t.expand_west(other_fields)
+    t.expand_south(other_fields)
     return t
 
 

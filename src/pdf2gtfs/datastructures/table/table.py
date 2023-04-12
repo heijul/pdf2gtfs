@@ -25,6 +25,39 @@ Cols = TypeVar("Cols")
 Rows = TypeVar("Rows")
 
 
+def merge_small_fields(o: Orientation, ref_fields: Fs, fields: Fs
+                       ) -> None:
+    if len(fields) < 2:
+        return
+    n = o.normal
+    overlaps = {}
+    first_ref_id = 0
+    for field in fields:
+        field_overlaps = []
+        for i, ref_field in enumerate(ref_fields[first_ref_id:], first_ref_id):
+            if ref_field.is_overlap(n, field, 0.8):
+                if not field_overlaps:
+                    first_ref_id = i
+                field_overlaps.append(ref_field)
+                continue
+            if field_overlaps:
+                break
+        overlaps[id(field)] = field_overlaps
+
+    f1 = fields[0]
+    f2 = fields[1]
+    while f2:
+        same_overlap = any([o2 in overlaps[id(f1)] for o2 in overlaps[id(f2)]])
+        if not same_overlap:
+            f1 = f2
+            f2 = f2.get_neighbor(n.upper)
+            continue
+        f1.merge(f2)
+        fields.remove(f2)
+        # f1 has all neighbors of f2 after merge.
+        f2 = f1.get_neighbor(n.upper)
+
+
 class Table(QuadLinkedList[F, OF]):
     def __init__(self, first_node: F, last_node: F):
         super().__init__(first_node, last_node)
@@ -81,21 +114,9 @@ class Table(QuadLinkedList[F, OF]):
         if not adjacent_fields:
             return False
 
-        # Merge adjacent fields, that are overlapping with the same ref_field.
-        merged = []
-        for ref_field in ref_fields:
-            for f1, f2 in pairwise(adjacent_fields):
-                if not ref_field.is_overlap(normal, f1):
-                    continue
-                if ref_field.is_overlap(normal, f2):
-                    f1.bbox.merge(f2.bbox)
-                    f1.chars += f2.chars
-                    f1.text += f" {f2.text}"
-                    merged.append(f2)
-        for field in merged:
-            adjacent_fields.remove(field)
-
         link_nodes(normal.upper, adjacent_fields)
+        merge_small_fields(d.default_orientation, ref_fields, adjacent_fields)
+
         head = self.insert_empty_fields_from_map(
             normal, ref_fields, adjacent_fields)
         self.insert(d, ref_fields[0], head)
@@ -127,7 +148,7 @@ class Table(QuadLinkedList[F, OF]):
             field_texts = [f"{f.text: {_get_text_align(f)}{col_len[i]}}"
                            for i, f in enumerate(row)]
             lines += [delim.lstrip()
-                      + delim.join(field_texts[:max_len])
+                      + delim.join(field_texts)[:max_len]
                       + delim.rstrip()]
 
         print("\n".join(lines))
