@@ -4,7 +4,7 @@ from itertools import pairwise
 from operator import attrgetter
 from typing import Callable, TypeVar
 
-from more_itertools import peekable, split_before, spy
+from more_itertools import peekable, split_when, spy
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_fields
@@ -154,44 +154,32 @@ class Table(QuadLinkedList[F, OF]):
         print("\n".join(lines))
 
 
-def group_fields_by(fields: Fs, func: Callable[[F, F], bool],
-                    pre_sorter: str, group_sorter: str) -> list[Fs]:
+def group_fields_by2(fields: Fs, same_group_func: Callable[[F, F], bool],
+                     pre_sorter: str, group_sorter: str) -> list[Fs]:
     """ Group the given fields using the given function.
 
     :param fields: The fields that should be grouped.
-    :param func: A function taking two fields and returning, whether they
-     are in the same group.
+    :param same_group_func: A function taking two fields and returning True,
+      if they are in the same group, False otherwise.
     :param pre_sorter: Sort the fields before grouping using this as key.
     :param group_sorter: Each group will be sorted using this as key.
     :return: A list of groups of fields.
     """
-    def splitter_func(field: F) -> bool:
-        """ Wraps func, so it can be used in split_before.
-
-        :param field: The field used, to decide whether to split.
-        :return: Whether to split.
-        """
-        return func(f, field)
-
     groups: list[Fs] = []
-    p = peekable(sorted(fields, key=attrgetter(pre_sorter)))
-    f = p.peek()
-    for group in split_before(p, splitter_func):
+    fields = sorted(fields, key=attrgetter(pre_sorter))
+    for group in split_when(fields, same_group_func):
         groups.append(sorted(group, key=attrgetter(group_sorter)))
-        f = p.peek(None)
-        if f is None:
-            break
 
     return groups
 
 
 def datafields_to_cols(data_fields: Fs) -> Cols:
     """ Turns the datafields into a collection of columns. """
-    def _group_func(field1: F, field2: F) -> bool:
+    def _same_col(field1: F, field2: F) -> bool:
         """ Two fields are in the same column if they overlap horizontally. """
         return not field1.bbox.is_h_overlap(field2.bbox)
 
-    cols = group_fields_by(data_fields, _group_func, "bbox.x0", "bbox.y0")
+    cols = group_fields_by2(data_fields, _same_col, "bbox.x0", "bbox.y0")
     for col in cols:
         link_nodes(S, col)
     return cols
@@ -199,12 +187,11 @@ def datafields_to_cols(data_fields: Fs) -> Cols:
 
 def datafields_to_rows(data_fields: Fs) -> Rows:
     """ Turns the datafields into a collection of rows. """
-    def _group_func(field1: F, field2: F) -> bool:
+    def _same_row(field1: F, field2: F) -> bool:
         """ Two fields are in the same row if they overlap vertically. """
         return not field1.bbox.is_v_overlap(field2.bbox)
 
-    data_fields = sorted(data_fields, key=attrgetter("bbox.y0"))
-    rows = group_fields_by(data_fields, _group_func, "bbox.y0", "bbox.x0")
+    rows = group_fields_by2(data_fields, _same_row, "bbox.y0", "bbox.x0")
     for row in rows:
         link_nodes(E, row)
     return rows
