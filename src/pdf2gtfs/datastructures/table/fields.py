@@ -10,6 +10,7 @@ from pdf2gtfs.datastructures.table.nodes import QuadNode
 from pdf2gtfs.datastructures.table.direction import (
     E, H, N, Orientation, S, V, W,
     )
+from pdf2gtfs.datastructures.table.quadlinkedlist import QLL
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class Field(QuadNode[F, OF], BBoxObject):
         self.chars = chars
         self.page_height = page_height
         self.font = self.chars[0].font if self.chars else None
+        self.fontname = self.chars[0].fontname if self.chars else None
         self.fontsize = self.chars[0].fontsize if self.chars else None
         self._initialize()
 
@@ -78,14 +80,14 @@ class Field(QuadNode[F, OF], BBoxObject):
         self.text += f"{merge_char}{field.text}"
         for d in [N, S, W, E]:
             # Remove field as a neighbor
-            self_neighbor = self.get_neighbor(d.opposite)
+            self_neighbor = self.get_neighbor(d)
             if self_neighbor == field:
-                self.set_neighbor(d.opposite, None)
+                self.set_neighbor(d, None)
             # Add fields neighbors as our own neighbors.
             field_neighbor = field.get_neighbor(d)
             if not field_neighbor or field_neighbor == self:
                 continue
-            assert not self_neighbor
+            assert not self_neighbor or self_neighbor == field
             self.set_neighbor(d, field_neighbor)
 
     def __repr__(self) -> str:
@@ -102,22 +104,33 @@ class EmptyField(Field, BBoxObject):
         # An empty field can never contain any characters.
         kwargs.update(dict(chars=[], page_height=0))
         super().__init__(**kwargs)
+        self._bbox = None
 
     def set_bbox_from_chars(self) -> None:
         pass
+
+    @QuadNode.qll.setter
+    def qll(self, value: QLL) -> None:
+        if value:
+            self._bbox = None
+        QuadNode.qll.fset(self, value)
 
     @property
     def bbox(self) -> BBox:
         if self.qll:
             return self.qll.get_empty_field_bbox(self)
-        logger.warning("Tried to get the bbox of an empty field, that "
-                       "is not part of a table.")
-        return BBox()
+        if self._bbox:
+            return self._bbox
+        logger.warning("Tried to get the bbox of an empty field "
+                       "that is not part of a table.")
 
     @bbox.setter
-    def bbox(self, _: BBox | None) -> None:
-        logger.warning("Tried to set the bbox of an empty field.")
-        pass
+    def bbox(self, bbox: BBox | None) -> None:
+        if not self.qll:
+            self._bbox = bbox
+            return
+        logger.warning("Tried to set the bbox of an empty field "
+                       "that is part of a table.")
 
     def _initialize(self) -> None:
         self.text = ""
