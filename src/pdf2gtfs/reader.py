@@ -166,7 +166,7 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
 
 
 def word_contains_time_data(word: list[LTChar]) -> bool:
-    word_text = "".join([char.get_text() for char in word])
+    word_text = "".join([char.get_text().strip() for char in word])
     try:
         strptime(word_text, Config.time_format)
     except ValueError:
