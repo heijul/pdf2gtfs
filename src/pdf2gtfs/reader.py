@@ -4,16 +4,16 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from itertools import pairwise
 from operator import attrgetter
 from pathlib import Path
 from shutil import copyfile
-from statistics import mean
 from tempfile import NamedTemporaryFile
 from time import strptime, time
 from typing import Iterator, Optional, Tuple, TypeAlias, Union
 
 import pandas as pd
-from more_itertools import flatten, map_if, partition
+from more_itertools import flatten, map_if, partition, peekable
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfcolor import PDFColorSpace
@@ -26,8 +26,11 @@ from pdfminer.utils import Matrix
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
-from pdf2gtfs.datastructures.table.fields import DataField, F, Field
-from pdf2gtfs.datastructures.table.table import Table
+from pdf2gtfs.datastructures.table.fields import DataField, F, Field, Fs
+from pdf2gtfs.datastructures.table.table import (
+    fields_to_rows,
+    group_fields_by, Table,
+    )
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables,
     )
@@ -194,37 +197,39 @@ def get_datafields(line: LTTextLine, height: float
     return fields, other_fields
 
 
-def merge_other_fields(fields: Iterator[Field]) -> list[Field]:
-    # Split fields into rows, using the respective vertical overlap.
-    fields = sorted(fields, key=attrgetter("bbox.y0", "bbox.x0"))
-    rows = []
-    row = [fields[0]]
-    for field in fields[1:]:
-        if not row[0].bbox.is_v_overlap(field.bbox, 0.9):
-            rows.append(row)
-            row = []
-        row.append(field)
-    rows.append(row)
-    merged_fields = []
-    for row in rows:
-        row = sorted(row, key=attrgetter("bbox.x0"))
-        prev = row[0]
-        for field in row[1:]:
-            # Fields of different fonts indicate different meaning.
-            other_font = (prev.fontsize != field.fontsize
-                          and prev.font.fontname != field.font.fontname)
-            space_width = prev.font.string_width(" ".encode()) * 1.25
-            space_width *= prev.fontsize
-            if other_font or abs(prev.bbox.x1 - field.bbox.x0) > space_width:
-                merged_fields.append(prev)
-                prev = field
+def merge_other_fields(fields: Iterator[Field]) -> Fs:
+    def _same_font(field1: F, field2: F) -> bool:
+        return not (field1.fontname == field2.fontname
+                    and field1.fontsize == field2.fontsize)
+
+    same_font_groups = group_fields_by(
+        fields, _same_font, ("fontname", "fontsize"), None)
+    merged = []
+    for same_font_group in same_font_groups:
+        rows = fields_to_rows(same_font_group, link_rows=False)
+        for row in rows:
+            if len(row) == 1:
+                merged.append(row[0])
+            field_pairs = peekable(pairwise(row))
+            if not field_pairs.peek(None):
                 continue
-            # Actual merging (BBox, text,
-            prev.bbox.merge(field.bbox)
-            prev.chars += field.chars
-            prev.text += f" {field.text}"
-        merged_fields.append(prev)
-    return merged_fields
+            first = field_pairs.peek()[0]
+            # Same font/fontsize for each field in a row.
+            space_width = first.font.string_width(" ".encode()) * 1.35
+            space_width *= first.fontsize
+
+            for f1, f2 in field_pairs:
+                if abs(f1.bbox.x1 - f2.bbox.x0) > space_width:
+                    merged.append(f1)
+                    continue
+                f1.merge(f2)
+                try:
+                    _, f2 = next(field_pairs)
+                except StopIteration:
+                    merged.append(f1)
+                    continue
+                field_pairs.prepend((f1, f2))
+    return merged
 
 
 def get_fields_from_page(page: LTPage) -> tuple[list[DataField], list[F]]:
@@ -262,7 +267,7 @@ def get_fields_from_page(page: LTPage) -> tuple[list[DataField], list[F]]:
 def create_table_factory_from_page(page: LTPage) -> Table:
     data_fields, other_fields = get_fields_from_page(page)
     t = Table.from_fields(data_fields)
-    t.print()
+    t.print(175)
     t.expand_north(other_fields)
     t.expand_north(other_fields)
     t.expand_west(other_fields)
@@ -339,29 +344,6 @@ def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
     for line in split_df_into_lines(char_df):
         row = Row.from_fields(split_line_into_fields(line))
         rows.append(row)
-
-    logger.info(f"Processing of rows took: "
-                f"{time() - start:.2f} seconds.")
-    return rows
-
-
-def fields_to_rows(fields: list[Field]) -> list[Row]:
-    start = time()
-
-    y0 = 0
-    fields_rows = []
-    max_distance = mean([f.bbox.y1 - f.bbox.y0 for f in fields]) / 2
-    for field in sorted(fields, key=attrgetter("bbox.y0")):
-        if not field.text:
-            continue
-        new_line = abs(field.bbox.y0 - y0) > max_distance or not fields_rows
-        if new_line:
-            y0 = field.bbox.y0
-            fields_rows.append([])
-        fields_rows[-1].append(field)
-    rows = []
-    for fields_row in fields_rows:
-        rows.append(Row.from_fields(fields_row))
 
     logger.info(f"Processing of rows took: "
                 f"{time() - start:.2f} seconds.")
