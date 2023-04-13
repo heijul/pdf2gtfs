@@ -8,7 +8,7 @@ from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
 from pdf2gtfs.datastructures.table.nodes import QuadNode
 from pdf2gtfs.datastructures.table.direction import (
-    E, H, N, Orientation, S, V, W,
+    E, N, Orientation, S, V, W,
     )
 from pdf2gtfs.datastructures.table.quadlinkedlist import QLL
 
@@ -134,16 +134,6 @@ class EmptyField(Field, BBoxObject):
 
     def _initialize(self) -> None:
         self.text = ""
-
-    def set_bbox_from_col_and_row(self) -> None:
-        """ Use the x/y of the col/row respectively, to set the bbox. """
-        assert self.qll
-        row = self.qll.get_list(H)
-        row_bbox = self.qll.get_bbox_of(row)
-        col = self.qll.get_list(V)
-        col_bbox = self.qll.get_bbox_of(col)
-        assert row and col
-        self.bbox = BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
 
 
 class DataAnnotField(Field):

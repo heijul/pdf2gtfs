@@ -172,10 +172,12 @@ class Table(QuadLinkedList[F, OF]):
         def _both_overlap(field: F) -> bool:
             return (bbox.is_v_overlap(field.bbox, 0.8) and
                     bbox.is_h_overlap(field.bbox, 0.8))
+
         bbox = BBox.from_bboxes([self.get_bbox_of(self.col(self.left)),
                                  self.get_bbox_of(self.col(self.right)),
                                  self.get_bbox_of(self.row(self.top)),
                                  self.get_bbox_of(self.row(self.bot))])
+
         fields = list(filter(_both_overlap, fields))
         return fields
 

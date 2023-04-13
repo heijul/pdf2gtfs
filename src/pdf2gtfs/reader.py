@@ -278,13 +278,16 @@ def create_table_factory_from_page(page: LTPage) -> Table:
     t.print(175)
     other_fields = non_data_fields
     t.transform_repeat_fields(other_fields)
-    t.split_on_contained_splitter(other_fields)
+    # t.split_on_contained_splitter(other_fields)
     t.print(175)
     t.expand_north(other_fields)
     t.expand_north(other_fields)
+    t.expand_north(other_fields)
+    t.expand_west(other_fields)
     t.expand_west(other_fields)
     t.expand_west(other_fields)
     t.expand_south(other_fields)
+    t.print()
     return t
 
 

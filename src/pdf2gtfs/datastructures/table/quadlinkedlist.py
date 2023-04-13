@@ -81,14 +81,15 @@ class QuadLinkedList(Generic[QN, OQN]):
         """
         return getattr(self, d_attr)
 
-    def get_end_node(self, d: Direction, *, node: OQN = None) -> OQN:
+    def get_end_node(self, d: Direction) -> OQN:
         """ Return one of the end nodes in the given direction.
 
         :param d: The direction to look for the end node in.
         """
-        if node is None:
-            node: OQN = self._get_saved_node(d.p_end)
-        if not node.get_neighbor(d):
+        node: OQN = self._get_saved_node(d.p_end)
+        o = d.default_orientation
+        d2 = o.normal.lower if d == o.lower else o.normal.upper
+        if not node.has_neighbors(d=d) and not node.has_neighbors(d=d2):
             return node
         self._update_end_node(d, node)
         return self.get_end_node(d)
@@ -104,20 +105,28 @@ class QuadLinkedList(Generic[QN, OQN]):
         assert node.get_neighbor(d) is None
         setattr(self, d.p_end, node)
 
-    def _update_end_node(self, d: Direction, node: QN = None) -> None:
+    def _update_end_node(self, d: Direction, start: QN) -> None:
         """ Update the end node in the given direction to the farthest/last
         node in that direction.
 
+        Always ensures that the end node in the lower direction of an
+        orientation is also the end node in the lower direction of the
+        orientation's normal orientation. That is, if d is N (i.e. V.lower)
+        the end node the same as when d is W (i.e. H.lower). Analogous for S/E.
+
         :param d: The direction to look for the last node.
+        :param start: The node to use to look for the end node in d.
         """
-        if node is None:
-            node = self._get_saved_node(d.p_end)
-        while node:
-            neighbor = node.get_neighbor(d)
-            if not neighbor:
-                self._set_end_node(d, node)
-                break
-            node = neighbor
+        o = d.default_orientation
+        node = self.get_first(d, start)
+        d2 = o.normal.lower if d == o.lower else o.normal.upper
+        node = self.get_first(d2, node)
+        self._set_end_node(d, node)
+
+    def get_first(self, d: Direction, node: QN) -> QN:
+        while node.has_neighbors(d=d):
+            node = node.get_neighbor(d)
+        return node
 
     def get_list(self, o: Orientation, node: OQN = None) -> list[QN]:
         """ Return the full list of nodes in the given orientation.
@@ -128,23 +137,7 @@ class QuadLinkedList(Generic[QN, OQN]):
         """
         if not node:
             node = self.get_end_node(o.lower)
-        if not node:
-            # TODO NOW: This should not happen? Unless the QLL is empty.
-            raise
-        # Go to the first node in the list in the given orientation.
-        while True:
-            neighbor = node.get_neighbor(o.lower)
-            if not neighbor:
-                break
-            node = neighbor
-        # Get all nodes in the given orientation.
-        nodes: list[QN] = []
-        while True:
-            nodes.append(node)
-            neighbor = node.get_neighbor(o.upper)
-            if not neighbor:
-                return nodes
-            node = neighbor
+        return list(self.iter(o.upper, node))
 
     @classmethod
     def from_objects(cls: Type[QLL], o: Orientation, nodes: list[QN]) -> QLL:
@@ -238,7 +231,7 @@ class QuadLinkedList(Generic[QN, OQN]):
             first col/row.
         :return: An iterator over the nodes.
         """
-        node = self.get_end_node(d.opposite, node=node)
+        node = self.get_first(d.opposite, node)
         while node:
             yield node
             node = node.get_neighbor(d)
