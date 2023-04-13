@@ -234,7 +234,8 @@ def merge_other_fields(fields: Iterator[Field]) -> Fs:
     return merged
 
 
-def get_fields_from_page(page: LTPage) -> tuple[list[DataField], list[F]]:
+def get_fields_from_page(page: LTPage
+                         ) -> tuple[list[DataField], list[F], list[F]]:
     """ Create an object for each word on the page.
 
     :param page: A single page of a PDF.
@@ -248,6 +249,8 @@ def get_fields_from_page(page: LTPage) -> tuple[list[DataField], list[F]]:
     text_lines = filter(lambda line: isinstance(line, LTTextLine),
                         flatten(text_boxes))
 
+    valid_chars, invalid_chars = partition(
+        lambda c: c.get_text().startswith("(cid:"), flatten(text_lines))
     # Get all words in the given page from its lines.
     words = flatten(map(split_line_into_words, text_lines))
     # Create a Field/DataField, based on whether each word contains time data.
@@ -261,14 +264,20 @@ def get_fields_from_page(page: LTPage) -> tuple[list[DataField], list[F]]:
     # Split the fields based on their type.
     data_fields, non_data_fields = partition(
         lambda f: not isinstance(f, DataField), fields)
+    # Some text may not have been read properly.
+    non_data_fields, invalid_fields = partition(
+        lambda f: f.text.startswith("(cid"), non_data_fields)
     non_data_fields = merge_other_fields(non_data_fields)
 
-    return list(data_fields), non_data_fields
+    return list(data_fields), non_data_fields, list(invalid_fields)
 
 
 def create_table_factory_from_page(page: LTPage) -> Table:
-    data_fields, other_fields = get_fields_from_page(page)
+    data_fields, non_data_fields, invalid_fields = get_fields_from_page(page)
     t = Table.from_fields(data_fields)
+    t.print(175)
+    other_fields = non_data_fields
+    t.transform_repeat_fields(other_fields)
     t.print(175)
     t.expand_north(other_fields)
     t.expand_north(other_fields)
