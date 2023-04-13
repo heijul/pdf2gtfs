@@ -196,6 +196,7 @@ route_identifier: [ "Linie", "Zugnummer" ]
 # Type: List of strings
 repeat_identifier: [
   [ "alle", "min" ],
+  [ "alle", "min." ],
 ]
 
 # Some columns hold information, on whether the stop on the corresponding row
