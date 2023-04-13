@@ -4,8 +4,12 @@ from itertools import pairwise
 from operator import attrgetter
 from typing import Callable, Iterable, TypeVar
 
-from more_itertools import always_iterable, peekable, split_when, spy
+from more_itertools import (
+    always_iterable, first_true, flatten, peekable, split_when, spy,
+    take, triplewise,
+    )
 
+from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_fields
 from pdf2gtfs.datastructures.table.fields import (
@@ -163,6 +167,65 @@ class Table(QuadLinkedList[F, OF]):
 
     def expand_south(self, fields: Fs) -> bool:
         return self.expand(S, fields)
+
+    def get_contained_fields(self, fields: Fs) -> Fs:
+        def _both_overlap(field: F) -> bool:
+            return (bbox.is_v_overlap(field.bbox, 0.8) and
+                    bbox.is_h_overlap(field.bbox, 0.8))
+        bbox = BBox.from_bboxes([self.get_bbox_of(self.col(self.left)),
+                                 self.get_bbox_of(self.col(self.right)),
+                                 self.get_bbox_of(self.row(self.top)),
+                                 self.get_bbox_of(self.row(self.bot))])
+        fields = list(filter(_both_overlap, fields))
+        return fields
+
+    def find_repeat_intervals(self, fields: Fs) -> list[tuple[F, F, F]]:
+        cols = fields_to_cols(fields, link_cols=False)
+        repeat_intervals = []
+        for col in cols:
+            triple = triplewise(col)
+            for f1, f2, f3 in triple:
+                repeat_text = [f1.text.lower(), f3.text.lower()]
+                if repeat_text not in Config.repeat_identifier:
+                    continue
+                if not f2.text.isnumeric():
+                    continue
+                repeat_intervals.append((f1, f2, f3))
+                # No need to check the next two triples.
+                take(2, triple)
+        return repeat_intervals
+
+    def get_containing_col(self, field: F) -> Fs:
+        for col_field in self.left.iter(E):
+            if col_field.is_overlap(V, field, 0.8):
+                return list(col_field.iter(S))
+
+    def get_col_left_of(self, field: F) -> Fs:
+        return list(self.col(
+            first_true(self.left.iter(E), default=self.right,
+                       pred=lambda f: f.bbox.x0 > field.bbox.x0).prev))
+
+    def transform_repeat_fields(self, fields: Fs) -> None:
+        contained_fields = self.get_contained_fields(fields)
+        repeat_intervals = self.find_repeat_intervals(contained_fields)
+        if not repeat_intervals:
+            return
+        # TODO NOW: Transform the intervals into proper RepeatFields.
+        repeat_fields = list(flatten(repeat_intervals))
+        for field in repeat_fields:
+            fields.remove(field)
+        # Group repeat fields by col
+        repeat_groups = fields_to_cols(repeat_fields)
+        # Insert a new column for each repeat group.
+        for group in repeat_groups:
+            # TODO NOW: Use any column to insert empty fields
+            # TODO NOW: Add replace_empty_with(field: F) function,
+            #  in case the repeat_col overlaps with an existing column
+            col = self.get_containing_col(group[0])
+            if not col:
+                col = self.get_col_left_of(group[0])
+            head = insert_empty_fields_from_map(V, col, group)
+            self.insert(E, col[0], head)
 
     def print(self, max_len=360) -> None:
         def _get_text_align(f) -> str:
