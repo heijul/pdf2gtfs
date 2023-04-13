@@ -221,13 +221,15 @@ def merge_other_fields(fields: Iterator[Field]) -> Fs:
             for f1, f2 in field_pairs:
                 if abs(f1.bbox.x1 - f2.bbox.x0) > space_width:
                     merged.append(f1)
+                    if not field_pairs.peek(None):
+                        merged.append(f2)
                     continue
                 f1.merge(f2)
                 try:
                     _, f2 = next(field_pairs)
                 except StopIteration:
                     merged.append(f1)
-                    continue
+                    break
                 field_pairs.prepend((f1, f2))
     return merged
 
