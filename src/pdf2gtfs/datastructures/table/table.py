@@ -246,7 +246,7 @@ class Table(QuadLinkedList[F, OF]):
                       + delim.join(field_texts)[:max_len]
                       + delim.rstrip()]
 
-        print("\n".join(lines))
+        print("\n".join(lines) + "\n")
 
     def replace_field(self, which: F, replace_with: F) -> None:
         # New node should not have any neighbors
