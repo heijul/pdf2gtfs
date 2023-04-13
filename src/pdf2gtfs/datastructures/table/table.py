@@ -197,8 +197,8 @@ class Table(QuadLinkedList[F, OF]):
 
     def get_containing_col(self, field: F) -> Fs:
         for col_field in self.left.iter(E):
-            if col_field.is_overlap(V, field, 0.8):
-                return list(col_field.iter(S))
+            if col_field.is_overlap(H, field, 0.8):
+                return list(self.col(col_field))
 
     def get_col_left_of(self, field: F) -> Fs:
         return list(self.col(
@@ -214,16 +214,17 @@ class Table(QuadLinkedList[F, OF]):
         repeat_fields = list(flatten(repeat_intervals))
         for field in repeat_fields:
             fields.remove(field)
-        # Group repeat fields by col
+
+        # Group repeat fields by col and link them.
         repeat_groups = fields_to_cols(repeat_fields)
         # Insert a new column for each repeat group.
         for group in repeat_groups:
-            # TODO NOW: Use any column to insert empty fields
-            # TODO NOW: Add replace_empty_with(field: F) function,
-            #  in case the repeat_col overlaps with an existing column
             col = self.get_containing_col(group[0])
-            if not col:
-                col = self.get_col_left_of(group[0])
+            if col:
+                unlink_nodes(S, group)
+                self.insert_fields_in(V, col, group)
+                continue
+            col = self.get_col_left_of(group[0])
             head = insert_empty_fields_from_map(V, col, group)
             self.insert(E, col[0], head)
 
@@ -246,6 +247,28 @@ class Table(QuadLinkedList[F, OF]):
                       + delim.rstrip()]
 
         print("\n".join(lines))
+
+    def replace_field(self, which: F, replace_with: F) -> None:
+        # New node should not have any neighbors
+        assert not replace_with.has_neighbors(o=V)
+        assert not replace_with.has_neighbors(o=H)
+        for d in [N, S, W, E]:
+            neighbor = which.get_neighbor(d)
+            if not neighbor:
+                continue
+            which.set_neighbor(d, None)
+            neighbor.set_neighbor(d.opposite, replace_with)
+
+    def insert_fields_in(self, o: Orientation, col: Fs, fields: Fs) -> None:
+        last_id = 0
+        for field in fields:
+            for i, col_field in enumerate(col[last_id:], last_id):
+                if not col_field.is_overlap(o, field, 0.8):
+                    continue
+                assert col_field.is_overlap(o.normal, field, 0.8)
+                self.replace_field(col_field, field)
+                last_id = i + 1
+                break
 
 
 def group_fields_by(fields: Iterable[F],
@@ -307,6 +330,11 @@ def link_nodes(d: Direction, fields: Fs) -> None:
     p = peekable(fields)
     for field in p:
         field.set_neighbor(d, p.peek(None))
+
+
+def unlink_nodes(d: Direction, fields: Fs) -> None:
+    for field in fields:
+        field.set_neighbor(d, None)
 
 
 def link_rows_and_cols(rows: list[Fs], cols: list[Fs]) -> None:
