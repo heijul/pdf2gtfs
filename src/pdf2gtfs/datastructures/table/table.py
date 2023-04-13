@@ -270,6 +270,48 @@ class Table(QuadLinkedList[F, OF]):
                 last_id = i + 1
                 break
 
+    def split_on_contained_splitter(self, fields: Fs) -> list[Table]:
+        contained_fields = self.get_contained_fields(fields)
+        if not contained_fields:
+            return [self]
+        rows = fields_to_rows(contained_fields, link_rows=False)
+        splitter = []
+        row_id = 0
+        col = list(self.iter(S, self.top))
+        for row in rows:
+            row_bbox = BBox.from_bboxes([f.bbox for f in row])
+            for i, table_row_field in enumerate(col[row_id:], row_id):
+                table_row_bbox = self.get_bbox_of(self.row(table_row_field))
+                if table_row_bbox.is_overlap("v", row_bbox):
+                    row_id = i
+                    break
+                if table_row_bbox.y0 > row_bbox.y0:
+                    splitter.append(row)
+                    row_id = i
+                    break
+        if not splitter:
+            return [self]
+        table_fields = self.split_at_row_fields(splitter)
+        tables = []
+        for fields in table_fields:
+            head = fields[0]
+            if head.qll != self:
+                continue
+            field = None
+            # Unlink last row.
+            for field in self.iter(E, fields[-1]):
+                field.set_neighbor(S, None)
+            tables.append(Table(head, field))
+        # TODO NOW: Remove empty cols.
+        return tables
+
+    def split_at_row_fields(self, row_fields: Fs) -> list[Fs]:
+        def _same_table(field1: F, field2: F) -> bool:
+            return field1.qll != field2.qll
+
+        fields = list(self.top.iter(S)) + list(flatten(row_fields))
+        return group_fields_by(fields, _same_table, "bbox.y0", None)
+
 
 def group_fields_by(fields: Iterable[F],
                     same_group_func: Callable[[F, F], bool],
