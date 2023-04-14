@@ -157,8 +157,8 @@ class Bounds:
         return cast(float, attrgetter(f"bbox.{args.return_attr}")(field))
 
     @classmethod
-    def from_factory_fields(cls, fields: Iterable[F],
-                            *, n=None, w=None, s=None, e=None) -> B:
+    def from_fields(cls, fields: Iterable[F],
+                    *, n=None, w=None, s=None, e=None) -> B:
         """ Create new bounds from the fields, setting only the
         provided bounds. """
         func = partial(cls.get_bound_from_fields, fields=fields)
@@ -191,7 +191,7 @@ class Bounds:
         :return: Those items of fields, which are adjacent to the table.
         """
         # Get the three basic bounds, which are dictated by row_or_col.
-        bounds = cls.from_factory_fields(list(border))
+        bounds = cls.from_fields(list(border))
         fields = list(filter(bounds.within_bounds, fields))
         if not fields:
             return fields
@@ -215,11 +215,11 @@ class Bounds:
 class WBounds(Bounds):
     """ The western outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_factory_fields(cls, fields: list[F], **_) -> WBounds:
+    def from_fields(cls, fields: list[F], **_) -> WBounds:
         n = BoundArgs(min, "y0", "y0")
         s = BoundArgs(max, "y1", "y1")
         e = BoundArgs(min, "x0", "x0")
-        return super().from_factory_fields(fields, n=n, s=s, e=e)
+        return super().from_fields(fields, n=n, s=s, e=e)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
@@ -232,11 +232,11 @@ class WBounds(Bounds):
 class EBounds(Bounds):
     """ The eastern outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_factory_fields(cls, fields: list[F], **_) -> EBounds:
+    def from_fields(cls, fields: list[F], **_) -> EBounds:
         n = BoundArgs(min, "y0", "y0")
         s = BoundArgs(max, "y1", "y1")
         w = BoundArgs(max, "x1", "x1")
-        return super().from_factory_fields(fields, n=n, w=w, s=s)
+        return super().from_fields(fields, n=n, w=w, s=s)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
@@ -249,11 +249,11 @@ class EBounds(Bounds):
 class NBounds(Bounds):
     """ The northern outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_factory_fields(cls, fields: list[F], **_) -> NBounds:
+    def from_fields(cls, fields: list[F], **_) -> NBounds:
         w = BoundArgs(min, "x0", "x0")
         s = BoundArgs(min, "y0", "y0")
         e = BoundArgs(max, "x1", "x1")
-        return super().from_factory_fields(fields, w=w, s=s, e=e)
+        return super().from_fields(fields, w=w, s=s, e=e)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
@@ -266,11 +266,11 @@ class NBounds(Bounds):
 class SBounds(Bounds):
     """ The southern outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_factory_fields(cls, fields: list[F], **_) -> SBounds:
+    def from_fields(cls, fields: list[F], **_) -> SBounds:
         n = BoundArgs(max, "y1", "y1")
         w = BoundArgs(min, "x0", "x0")
         e = BoundArgs(max, "x1", "x1")
-        return super().from_factory_fields(fields, n=n, w=w, e=e)
+        return super().from_fields(fields, n=n, w=w, e=e)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
@@ -281,6 +281,13 @@ class SBounds(Bounds):
 
 
 def select_adjacent_fields(d: Direction, ref_fields: Fs, fields: Fs) -> Fs:
+    """ Get all fields adjacent in d to the given reference fields.
+
+    :param d: The direction to check for adjacency in.
+    :param ref_fields: The fields used to check for adjacency.
+    :param fields: The fields that are checked for adjacency.
+    :return: The fields that are adjacent to ref_fields.
+    """
     bound_cls = {N: NBounds, W: WBounds, S: SBounds, E: EBounds}[d]
     adjacent_fields = bound_cls.select_adjacent_fields(ref_fields, fields)
 

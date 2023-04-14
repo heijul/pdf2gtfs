@@ -26,6 +26,7 @@ from pdfminer.utils import Matrix
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
+from pdf2gtfs.datastructures.table.direction import N, S, W
 from pdf2gtfs.datastructures.table.fields import DataField, F, Field, Fs
 from pdf2gtfs.datastructures.table.table import (
     fields_to_rows,
@@ -276,18 +277,18 @@ def create_table_factory_from_page(page: LTPage) -> Table:
     data_fields, non_data_fields, invalid_fields = get_fields_from_page(page)
     t = Table.from_fields(data_fields)
     other_fields = non_data_fields
-    t.transform_repeat_fields(other_fields)
+    t.insert_repeat_fields(other_fields)
     t.print(175)
     tables = t.max_split(other_fields)
     for t in tables:
         t.print(175)
-        t.expand_north(other_fields)
-        t.expand_north(other_fields)
-        t.expand_north(other_fields)
-        t.expand_west(other_fields)
-        t.expand_west(other_fields)
-        t.expand_west(other_fields)
-        t.expand_south(other_fields)
+        t.expand(N, other_fields)
+        t.expand(N, other_fields)
+        t.expand(N, other_fields)
+        t.expand(W, other_fields)
+        t.expand(W, other_fields)
+        t.expand(W, other_fields)
+        t.expand(S, other_fields)
         t.print(175)
     return t
 

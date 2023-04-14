@@ -64,17 +64,36 @@ class Field(QuadNode[F, OF], BBoxObject):
         """
         return self.qll.get_series(V, self)
 
-    def any_overlap(self, o: Orientation, field: F) -> float:
+    def any_overlap(self, o: Orientation, field: F) -> bool:
+        """ Returns if there is any overlap between self and field in o.
+
+        :param o: The orientation to check for overlap in.
+        :param field: The field that is checked.
+        :return: Whether there is any overlap between the field and self.
+        """
         if o is V:
             return self.bbox.v_overlap(field) > 0
         return self.bbox.h_overlap(field) > 0
 
     def is_overlap(self, o: Orientation, field: F, *args) -> bool:
+        """ Run is_v_overlap or is_h_overlap on field based on o.
+
+        :param o: The orientation used to determine which method to run.
+        :param field: The field passed to the method.
+        :param args: Args to the method.
+        :return: The output of the run method.
+        """
         if o is V:
             return self.bbox.is_v_overlap(field.bbox, *args)
         return self.bbox.is_h_overlap(field.bbox, *args)
 
     def merge(self, field: F, *, merge_char: str = " ") -> None:
+        """ Merge field's contents to ours. The neighbors of the field will
+            be our neighbors after merging.
+
+        :param field: The field that will be merged.
+        :param merge_char: The char used when merging the field text.
+        """
         self.chars += field.chars
         self.bbox.merge(field.bbox)
         self.text += f"{merge_char}{field.text}"
@@ -108,6 +127,15 @@ class EmptyField(Field, BBoxObject):
 
     def set_bbox_from_chars(self) -> None:
         pass
+
+    def set_bbox_from_reference_fields(self, x_axis: F, y_axis: F) -> None:
+        """ Set the bbox based on the two given fields.
+
+        :param x_axis: This fields bbox's x-coordinates are used.
+        :param y_axis: This fields bbox's y-coordinates are used.
+        """
+        self.bbox = BBox(x_axis.bbox.x0, y_axis.bbox.y0,
+                         x_axis.bbox.x1, y_axis.bbox.y1)
 
     @QuadNode.qll.setter
     def qll(self, value: QLL) -> None:

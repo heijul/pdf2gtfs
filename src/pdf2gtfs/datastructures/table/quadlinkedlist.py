@@ -124,6 +124,13 @@ class QuadLinkedList(Generic[QN, OQN]):
         self._set_end_node(d, node)
 
     def get_first(self, d: Direction, node: QN) -> QN:
+        """ Return the final node in the given direction, starting at node.
+
+        :param d: The direction to get the final node in.
+        :param node: The node to start the search at.
+        :return: Either node, if it is the last node or a node that is an
+            extended neighbor (i.e. neighbor/neighbors neighbor/...).
+        """
         while node.has_neighbors(d=d):
             node = node.get_neighbor(d)
         return node

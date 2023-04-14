@@ -1,3 +1,5 @@
+""" The new table, that is able to detect tables regardless of orientation. """
+
 from __future__ import annotations
 
 from itertools import pairwise
@@ -5,7 +7,7 @@ from operator import attrgetter
 from typing import Callable, Iterable, TypeVar
 
 from more_itertools import (
-    always_iterable, collapse, first_true, flatten, peekable, split_when, spy,
+    always_iterable, collapse, first_true, flatten, peekable, split_when,
     take, triplewise,
     )
 
@@ -13,7 +15,7 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_fields
 from pdf2gtfs.datastructures.table.fields import (
-    EmptyDataField, EmptyField, F, Fs, OF,
+    DataField, EmptyField, F, Fs, OF,
     )
 from pdf2gtfs.datastructures.table.quadlinkedlist import (
     QuadLinkedList,
@@ -29,19 +31,19 @@ Cols = TypeVar("Cols")
 Rows = TypeVar("Rows")
 
 
-def merge_overlapping_fields(o: Orientation, fields: Fs) -> None:
-    if o == V:
-        groups = fields_to_rows(fields, link_rows=False)
-    else:
-        groups = fields_to_cols(fields, link_cols=False)
-    for group in groups:
-        field = group[0]
-        for field2 in group[1:]:
-            field.merge(field2)
+def merge_small_fields(o: Orientation, ref_fields: Fs, fields: Fs) -> None:
+    """ Merge fields, that are overlapping with the same ref_field.
 
+    Only the first overlapping field is checked. That is, if a field of fields
+        is overlapping with multiple ref_fields, only the first one matters
+        for the purpose of merging.
+    If more than two fields are overlapping with the same ref_field, they
+        are all merged into a single field.
 
-def merge_small_fields(o: Orientation, ref_fields: Fs, fields: Fs
-                       ) -> None:
+    :param o: The orientation used to get the overlap.
+    :param ref_fields: The fields used as reference.
+    :param fields: The fields that might be merged.
+    """
     if len(fields) < 2:
         return
     n = o.normal
@@ -75,6 +77,16 @@ def merge_small_fields(o: Orientation, ref_fields: Fs, fields: Fs
 
 def insert_empty_fields_from_map(
         o: Orientation, ref_fields: Fs, fields: Fs) -> F:
+    """ Insert EmptyFields as neighbors of the fields, until fields and
+    ref_fields can be mapped (i.e. can be neighbors)
+
+    :param o: V or H. If V, ref_fields should be a column of a table;
+        if H, a row instead.
+    :param ref_fields: The fields used as reference.
+    :param fields: The fields that are used as starting point. All of these
+        will be part of the linked field list.
+    :return: The (possibly new, empty) first field.
+    """
     # Add fields at the start and between other fields.
     i = 0
     field_count = 0
@@ -88,11 +100,9 @@ def insert_empty_fields_from_map(
             continue
         e = EmptyField()
         if o == H:
-            e.bbox = BBox(ref_field.bbox.x0, field.bbox.y0,
-                          ref_field.bbox.x1, field.bbox.y1)
+            e.set_bbox_from_reference_fields(ref_field, field)
         else:
-            e.bbox = BBox(field.bbox.x0, ref_field.bbox.y0,
-                          field.bbox.x1, ref_field.bbox.y1)
+            e.set_bbox_from_reference_fields(field, ref_field)
 
         field.set_neighbor(o.lower, e)
 
@@ -102,11 +112,9 @@ def insert_empty_fields_from_map(
         e = EmptyField()
         ref_field = ref_fields[field_count]
         if o == H:
-            e.bbox = BBox(ref_field.bbox.x0, field.bbox.y0,
-                          ref_field.bbox.x1, field.bbox.y1)
+            e.set_bbox_from_reference_fields(ref_field, field)
         else:
-            e.bbox = BBox(field.bbox.x0, ref_field.bbox.y0,
-                          field.bbox.x1, ref_field.bbox.y1)
+            e.set_bbox_from_reference_fields(field, ref_field)
         field.set_neighbor(o.upper, e)
         field_count += 1
         field = e
@@ -119,6 +127,9 @@ def insert_empty_fields_from_map(
 
 
 class Table(QuadLinkedList[F, OF]):
+    """ Table representation using Fields mapped in all four directions
+        (= QuadLinkedList). Able to expand in all directions.
+    """
     def __init__(self, first_node: F, last_node: F):
         super().__init__(first_node, last_node)
 
@@ -135,12 +146,27 @@ class Table(QuadLinkedList[F, OF]):
         t = Table(cols[0][0], rows[-1][-1])
         return t
 
-    def get_empty_field_bbox(self, node: EmptyField) -> BBox:
-        row_bbox = self.get_bbox_of(self.get_series(H, node))
-        col_bbox = self.get_bbox_of(self.get_series(V, node))
+    def get_empty_field_bbox(self, field: EmptyField) -> BBox:
+        """ The bbox of an empty field is defined as its row's x-coordinates
+        and its col's y-coordinates.
+
+        :param field: The EmptyField the bbox was requested for.
+        :return: A bbox, that is contained by both the row/col, while having
+            the row's height and the col's width.
+        """
+        row_bbox = self.get_bbox_of(self.get_series(H, field))
+        col_bbox = self.get_bbox_of(self.get_series(V, field))
         return BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
 
     def expand(self, d: Direction, fields: Fs) -> bool:
+        """ Expand the table in the given direction using the given fields.
+
+        :param d: The direction the expansion is done towards.
+        :param fields: A subset (or all) of these will be used in the
+            expansion, if they are adjacent to the tables bordering fields
+            in the given direction.
+        :return: Whether any fields were added.
+        """
         normal = d.default_orientation.normal
         ref_fields = list(self.iter(normal.upper, self.get_end_node(d)))
         adjacent_fields = select_adjacent_fields(d, ref_fields, fields)
@@ -156,19 +182,13 @@ class Table(QuadLinkedList[F, OF]):
             normal, ref_fields, adjacent_fields)
         self.insert(d, ref_fields[0], head)
 
-    def expand_west(self, fields: Fs) -> bool:
-        return self.expand(W, fields)
-
-    def expand_east(self, fields: Fs) -> bool:
-        return self.expand(E, fields)
-
-    def expand_north(self, fields: Fs) -> bool:
-        return self.expand(N, fields)
-
-    def expand_south(self, fields: Fs) -> bool:
-        return self.expand(S, fields)
-
     def get_contained_fields(self, fields: Fs) -> Fs:
+        """ Get all fields, that are within the tables' fields' combined bbox.
+
+        :param fields: The fields that might be contained by the table.
+        :return: A list of all fields of the given fields, that have a bbox
+            that is contained in the tables bbox.
+        """
         def _both_overlap(field: F) -> bool:
             return (bbox.is_v_overlap(field.bbox, 0.8) and
                     bbox.is_h_overlap(field.bbox, 0.8))
@@ -183,6 +203,13 @@ class Table(QuadLinkedList[F, OF]):
         return fields
 
     def find_repeat_intervals(self, fields: Fs) -> list[tuple[F, F, F]]:
+        """ Given the fields, find all subsets, that are full repeat intervals.
+
+        :param fields: The fields to be checked for repeat intervals for.
+        :return: All detected intervals as tuples. The first and last item
+            are the text portion of the intervals, while the second item
+            is the actual numerical value of the interval.
+        """
         cols = fields_to_cols(fields, link_cols=False)
         repeat_intervals = []
         for col in cols:
@@ -198,12 +225,28 @@ class Table(QuadLinkedList[F, OF]):
                 take(2, triple)
         return repeat_intervals
 
-    def get_containing_col(self, field: F) -> Fs:
+    def get_containing_col(self, field: F) -> Fs | None:
+        """ Find the column that contains (via bbox-overlap) the field.
+
+        :param field: The field, we want to know the column of.
+        :return: The column, that contains the field or None if no
+            such column exists.
+        """
         for col_field in self.left.iter(E):
             if col_field.is_overlap(H, field, 0.8):
                 return list(self.get_series(V, col_field))
+        return None
 
     def get_col_left_of(self, field: F) -> Fs:
+        """ Get the last column left of the field.
+
+        That is, the column right of whichever column this function returns
+        (if any) either contains the field or is located right of the field.
+
+        :param field: The field we are using as reference.
+        :return: The last column left of the field or None, if no such
+            column exists.
+        """
         def _is_left_of_field(f: F) -> bool:
             return f.bbox.x0 > field.bbox.x0
 
@@ -212,7 +255,12 @@ class Table(QuadLinkedList[F, OF]):
                                       ).prev
         return list(self.get_series(V, first_left_field))
 
-    def transform_repeat_fields(self, fields: Fs) -> None:
+    def insert_repeat_fields(self, fields: Fs) -> None:
+        """ Find the fields that are part of a repeat interval and add
+            them to the table.
+
+        :param fields: The fields that are checked for repeat intervals.
+        """
         contained_fields = self.get_contained_fields(fields)
         repeat_intervals = self.find_repeat_intervals(contained_fields)
         if not repeat_intervals:
@@ -229,33 +277,47 @@ class Table(QuadLinkedList[F, OF]):
             col = self.get_containing_col(group[0])
             if col:
                 unlink_nodes(S, group)
-                self.insert_fields_in(V, col, group)
+                self.insert_fields_in_col(col, group)
                 continue
             col = self.get_col_left_of(group[0])
             head = insert_empty_fields_from_map(V, col, group)
             self.insert(E, col[0], head)
 
-    def print(self, max_len=360) -> None:
-        def _get_text_align(f) -> str:
-            return ">" if isinstance(f, EmptyField) else "<"
+    def print(self, max_line_length=360) -> None:
+        """ Print the table to stdout.
+
+        :param max_line_length: The number of characters each line can have.
+        """
+        def get_text_align(f) -> str:
+            """ Right align all data fields; left align everything else.
+            :param f: This fields text is checked.
+            :return: The format char used for alignment.
+            """
+            return ">" if isinstance(f, DataField) else "<"
 
         first_column = self.get_list(V, self.left)
         rows = [self.get_list(H, field) for field in first_column]
         cols = [self.get_list(V, field) for field in rows[0]]
+        # The maximum length of a fields text in each column.
         col_len = [max(map(len, map(attrgetter("text"), col))) for col in cols]
 
         delim = " | "
         lines = []
         for row in rows:
-            field_texts = [f"{f.text: {_get_text_align(f)}{col_len[i]}}"
+            field_texts = [f"{f.text: {get_text_align(f)}{col_len[i]}}"
                            for i, f in enumerate(row)]
             lines += [delim.lstrip()
-                      + delim.join(field_texts)[:max_len]
+                      + delim.join(field_texts)[:max_line_length]
                       + delim.rstrip()]
 
         print("\n".join(lines) + "\n")
 
     def replace_field(self, which: F, replace_with: F) -> None:
+        """ Replace one field by the other.
+
+        :param which: The field that will be replaced.
+        :param replace_with: The field that will be inserted instead.
+        """
         # New node should not have any neighbors
         assert not replace_with.has_neighbors(o=V)
         assert not replace_with.has_neighbors(o=H)
@@ -266,34 +328,48 @@ class Table(QuadLinkedList[F, OF]):
             which.set_neighbor(d, None)
             neighbor.set_neighbor(d.opposite, replace_with)
 
-    def insert_fields_in(self, o: Orientation, col: Fs, fields: Fs) -> None:
+    def insert_fields_in_col(self, col: Fs, fields: Fs) -> None:
+        """ Insert the fields into the given col, replacing existing fields.
+
+        :param col: The column the fields are inserted into.
+        :param fields: The fields that will be inserted into the column.
+        """
         last_id = 0
         for field in fields:
             for i, col_field in enumerate(col[last_id:], last_id):
-                if not col_field.is_overlap(o, field, 0.8):
+                if not col_field.is_overlap(V, field, 0.8):
                     continue
-                assert col_field.is_overlap(o.normal, field, 0.8)
+                assert col_field.is_overlap(H, field, 0.8)
                 self.replace_field(col_field, field)
                 last_id = i + 1
                 break
 
-    def split_at_fields(self, o: Orientation, fields: Fs) -> list[Table]:
-        if not fields:
+    def split_at_fields(self, o: Orientation, splitter: Fs) -> list[Table]:
+        """ Split the table at the given fields.
+
+        :param o: The orientation to split in.
+        :param splitter: The fields used to split the table.
+        :return: A list of tables, where each table contains only fields,
+            that are between the given splitter.
+        """
+        if not splitter:
             return [self]
-        table_fields = self._split_at_splitter(o, fields)
+        table_fields = self._split_at_splitter(o, splitter)
+
         tables = []
-        for fields in table_fields:
-            head = fields[0]
+        for table_field in table_fields:
+            head = table_field[0]
             # The splitter should not implicitly be part of the table.
             if head.qll != self:
                 continue
             field = None
             # Unlink last row/col of each table, based on o.
-            for field in self.get_series(o, fields[-1]):
+            for field in self.get_series(o, table_field[-1]):
                 field.set_neighbor(o.normal.upper, None)
             table = Table(head, field)
             table.remove_empty_series()
             tables.append(table)
+
         return tables
 
     def _get_splitting_series(self, o: Orientation, grouped_fields: Fs) -> Fs:
@@ -320,16 +396,38 @@ class Table(QuadLinkedList[F, OF]):
         return splitter
 
     def get_splitting_cols(self, contained_fields: Fs) -> Fs:
+        """ Return those fields, that split the table vertically,
+            i.e. none of these fields fit in any column of the table.
+
+        :param contained_fields: The fields to check. All of these should be
+            contained in the table.
+        :return: The fields that split the table vertically.
+        """
         cols = fields_to_cols(contained_fields, link_cols=False)
         splitter = self._get_splitting_series(V, cols)
         return splitter
 
     def get_splitting_rows(self, contained_fields: Fs) -> Fs:
+        """ Get the fields that split the table horizontally,
+            i.e. none of these fields fit in any row of the table.
+
+        :param contained_fields: The fields to check. All of these should
+            be contained in the table.
+        :return: The fields that split the table horizontally.
+        """
         rows = fields_to_rows(contained_fields, link_rows=False)
         splitter = self._get_splitting_series(H, rows)
         return splitter
 
     def max_split(self, fields: Fs) -> list[Table]:
+        """ Split the table horizontally (if appliccable) using the given
+            fields and then split each of those vertically (if appliccable).
+
+        The current table should not be used after it was split.
+
+        :param fields: The fields that may split the table in either direction.
+        :return: The list of tables.
+        """
         contained_fields = self.get_contained_fields(fields)
         if not contained_fields:
             return [self]
@@ -370,6 +468,7 @@ class Table(QuadLinkedList[F, OF]):
                 continue
 
     def remove_empty_series(self) -> None:
+        """ Remove all rows/columns that only contain EmptyFields. """
         self._remove_empty_series(H)
         self._remove_empty_series(V)
 
@@ -430,17 +529,37 @@ def fields_to_rows(fields: Fs, *, link_rows: bool = True) -> Rows:
 
 
 def link_nodes(d: Direction, fields: Fs) -> None:
+    """ Link the fielsd in the given direction.
+
+    The fields will be linked in the opposite direction implicitely.
+
+    :param d: The direction to link in.
+    :param fields: The fields that should be linked.
+    """
     p = peekable(fields)
     for field in p:
         field.set_neighbor(d, p.peek(None))
 
 
 def unlink_nodes(d: Direction, fields: Fs) -> None:
+    """ Remove the links to any other fields in the given direction.
+
+    The links that are removed can be linking to arbitrary fields.
+
+    :param d: The direction the fields' neighbors will be removed from.
+    :param fields: The fields to remove the links from.
+    """
     for field in fields:
         field.set_neighbor(d, None)
 
 
 def link_rows_and_cols(rows: list[Fs], cols: list[Fs]) -> None:
+    """ Link the rows and columns, such that each field can be reached using
+        any other fields and the fields' get_neighbor method.
+
+    :param rows: The list of fields representing the rows.
+    :param cols: The list of fields representing the cols.
+    """
     # Fill first column.
     first_field_of_rows = [row[0] for row in rows]
     head = insert_empty_fields_from_map(V, first_field_of_rows, cols[0])
@@ -457,71 +576,3 @@ def link_rows_and_cols(rows: list[Fs], cols: list[Fs]) -> None:
             f1.set_neighbor(E, f2)
     for row_id, field in enumerate(cols[0]):
         rows[row_id] = list(field.iter(E))
-
-
-def insert_missing_empty_fields(rows: list[Fs], cols: list[Fs]) -> None:
-    # Fill first column.
-    first_field_of_rows = [row[0] for row in rows]
-    (first_col,), cols = spy(cols)
-    row_id = 0
-    for field in first_col:
-        while field != first_field_of_rows[row_id]:
-            empty_field = EmptyDataField()
-            field.below = empty_field
-            first_field_of_rows[row_id].prev = empty_field
-            row_id += 1
-        row_id += 1
-    insert_empty_fields_from_map(V, first_field_of_rows, first_col)
-    cols_top = [col[0] for col in cols]
-    new_tops = {}
-    for field1, field2 in pairwise(cols_top):
-        field1 = new_tops.get(field1, field1)
-        field2 = new_tops.get(field2, field2)
-        new_field2 = insert_missing_fields_in_adjacent_col(field1, field2)
-        if field2 == new_field2:
-            continue
-        new_tops[field2] = new_field2
-
-
-def insert_missing_fields_in_adjacent_col_in_direction(
-        d: Direction, head1: F, head2: F, update_neighbor_in_d: bool = False
-        ) -> F:
-    o = d.default_orientation
-    on = o.normal
-    col1 = list(head1.iter(on.upper))
-    col2 = list(head2.iter(on.upper))
-    for i in range(len(col1)):
-        if i < len(col2) and col1[i].get_neighbor(d) == col2[i]:
-            if i > 0 and col2[i - 1].get_neighbor(on.lower) != col2[i]:
-                col2[i].set_neighbor(on.lower, col2[i - 1])
-            continue
-        empty_field = EmptyDataField()
-        col1[i].set_neighbor(d, empty_field)
-        if i > 0:
-            col2[i - 1].set_neighbor(on.upper, empty_field)
-        col2.insert(i, empty_field)
-
-    while True:
-        if not head2.get_neighbor(on.lower):
-            return head2
-        head2 = head2.get_neighbor(on.lower)
-
-
-def insert_missing_fields_in_adjacent_col(head1: F, head2: F) -> F:
-    col1 = list(head1.iter(S))
-    col2 = list(head2.iter(S))
-    for i in range(len(col1)):
-        if i < len(col2) and col1[i].next == col2[i]:
-            if i > 0 and col2[i - 1].below != col2[i]:
-                col2[i].above = col2[i - 1]
-            continue
-        empty_field = EmptyDataField()
-        col1[i].next = empty_field
-        if i > 0:
-            col2[i - 1].below = empty_field
-        col2.insert(i, empty_field)
-
-    while True:
-        if not head2.above:
-            return head2
-        head2 = head2.above
