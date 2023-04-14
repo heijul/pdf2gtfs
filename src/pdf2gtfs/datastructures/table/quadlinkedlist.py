@@ -8,7 +8,7 @@ from typing import (
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.direction import (
-    Direction, E, N, Orientation, S, W,
+    Direction, E, H, N, Orientation, S, V, W,
     )
 
 from pdf2gtfs.datastructures.table.nodes import OQN, QN
@@ -31,8 +31,8 @@ class QuadLinkedList(Generic[QN, OQN]):
         self._update_end_node(N, first_node)
         self._update_end_node(S, last_node)
         # Update qll on all nodes.
-        for row_field in self.row(self.top):
-            for col_field in self.col(row_field):
+        for row_field in self.get_series(H, self.top):
+            for col_field in self.get_series(V, row_field):
                 col_field.qll = self
 
     @property
@@ -184,21 +184,15 @@ class QuadLinkedList(Generic[QN, OQN]):
             rel_node.set_neighbor(d, new_node)
             new_node.qll = self
 
-    def row(self, node: QN) -> Generator[QN]:
-        """ The row the node resides in.
+    def get_series(self, o: Orientation, node: QN) -> Generator[QN]:
+        """ The row or column the node resides in.
 
+        :param o: The orientation of the series.
+            I.e. whether to return row or column.
         :param node: The node in question.
-        :return: A generator that yields all objects in the node's row.
+        :return: A generator that yields all objects in the series.
         """
-        return self.iter(E, node)
-
-    def col(self, node: QN) -> Generator[QN]:
-        """ The col the node resides in.
-
-        :param node: The node in question.
-        :return: A generator that yields all objects in the node's col.
-        """
-        return self.iter(S, node)
+        return self.iter(o.upper, node)
 
     def get_bbox_of(self, nodes: Iterator[QN]) -> BBox:
         """ Return the combined bbox of nodes.

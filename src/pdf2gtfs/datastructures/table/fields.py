@@ -8,7 +8,7 @@ from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
 from pdf2gtfs.datastructures.table.nodes import QuadNode
 from pdf2gtfs.datastructures.table.direction import (
-    E, N, Orientation, S, V, W,
+    E, H, N, Orientation, S, V, W,
     )
 from pdf2gtfs.datastructures.table.quadlinkedlist import QLL
 
@@ -54,7 +54,7 @@ class Field(QuadNode[F, OF], BBoxObject):
 
         :return: A generator over all objects in this fields' row.
         """
-        return self.qll.row(self)
+        return self.qll.get_series(H, self)
 
     @property
     def col(self) -> Generator[F, None, None]:
@@ -62,7 +62,7 @@ class Field(QuadNode[F, OF], BBoxObject):
 
         :return: A generator over all objects in this fields' column.
         """
-        return self.qll.row(self)
+        return self.qll.get_series(V, self)
 
     def any_overlap(self, o: Orientation, field: F) -> float:
         if o is V:

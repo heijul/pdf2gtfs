@@ -134,6 +134,7 @@ class BBox:
         return self.v_overlap(other) >= relative_amount * max_overlap
 
     def is_overlap(self, orientation: str = "v", *args, **kwargs) -> bool:
+        # TODO NOW: Use Orientation instead of str
         assert orientation in "vh"
         if orientation == "v":
             return self.is_v_overlap(*args, **kwargs)

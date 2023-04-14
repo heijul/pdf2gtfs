@@ -136,8 +136,8 @@ class Table(QuadLinkedList[F, OF]):
         return t
 
     def get_empty_field_bbox(self, node: EmptyField) -> BBox:
-        row_bbox = self.get_bbox_of(self.row(node))
-        col_bbox = self.get_bbox_of(self.col(node))
+        row_bbox = self.get_bbox_of(self.get_series(H, node))
+        col_bbox = self.get_bbox_of(self.get_series(V, node))
         return BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
 
     def expand(self, d: Direction, fields: Fs) -> bool:
@@ -173,10 +173,11 @@ class Table(QuadLinkedList[F, OF]):
             return (bbox.is_v_overlap(field.bbox, 0.8) and
                     bbox.is_h_overlap(field.bbox, 0.8))
 
-        bbox = BBox.from_bboxes([self.get_bbox_of(self.col(self.left)),
-                                 self.get_bbox_of(self.col(self.right)),
-                                 self.get_bbox_of(self.row(self.top)),
-                                 self.get_bbox_of(self.row(self.bot))])
+        bbox = BBox.from_bboxes(
+            [self.get_bbox_of(self.get_series(V, self.left)),
+             self.get_bbox_of(self.get_series(V, self.right)),
+             self.get_bbox_of(self.get_series(H, self.top)),
+             self.get_bbox_of(self.get_series(H, self.bot))])
 
         fields = list(filter(_both_overlap, fields))
         return fields
@@ -200,12 +201,16 @@ class Table(QuadLinkedList[F, OF]):
     def get_containing_col(self, field: F) -> Fs:
         for col_field in self.left.iter(E):
             if col_field.is_overlap(H, field, 0.8):
-                return list(self.col(col_field))
+                return list(self.get_series(V, col_field))
 
     def get_col_left_of(self, field: F) -> Fs:
-        return list(self.col(
-            first_true(self.left.iter(E), default=self.right,
-                       pred=lambda f: f.bbox.x0 > field.bbox.x0).prev))
+        def _is_left_of_field(f: F) -> bool:
+            return f.bbox.x0 > field.bbox.x0
+
+        first_left_field = first_true(self.left.iter(E), default=self.right,
+                                      pred=_is_left_of_field
+                                      ).prev
+        return list(self.get_series(V, first_left_field))
 
     def transform_repeat_fields(self, fields: Fs) -> None:
         contained_fields = self.get_contained_fields(fields)
@@ -283,7 +288,8 @@ class Table(QuadLinkedList[F, OF]):
         for row in rows:
             row_bbox = BBox.from_bboxes([f.bbox for f in row])
             for i, table_row_field in enumerate(col[row_id:], row_id):
-                table_row_bbox = self.get_bbox_of(self.row(table_row_field))
+                table_row_bbox = self.get_bbox_of(
+                    self.get_series(H, table_row_field))
                 if table_row_bbox.is_overlap("v", row_bbox):
                     row_id = i
                     break
