@@ -277,48 +277,78 @@ class Table(QuadLinkedList[F, OF]):
                 last_id = i + 1
                 break
 
-    def split_on_contained_splitter(self, fields: Fs) -> list[Table]:
-        contained_fields = self.get_contained_fields(fields)
-        if not contained_fields:
+    def split_at_fields(self, o: Orientation, fields: Fs) -> list[Table]:
+        if not fields:
             return [self]
-        rows = fields_to_rows(contained_fields, link_rows=False)
-        splitter = []
-        row_id = 0
-        col = list(self.iter(S, self.top))
-        for row in rows:
-            row_bbox = BBox.from_bboxes([f.bbox for f in row])
-            for i, table_row_field in enumerate(col[row_id:], row_id):
-                table_row_bbox = self.get_bbox_of(
-                    self.get_series(H, table_row_field))
-                if table_row_bbox.is_overlap("v", row_bbox):
-                    row_id = i
-                    break
-                if table_row_bbox.y0 > row_bbox.y0:
-                    splitter.append(row)
-                    row_id = i
-                    break
-        if not splitter:
-            return [self]
-        table_fields = self.split_at_row_fields(splitter)
+        table_fields = self._split_at_splitter(o, fields)
         tables = []
         for fields in table_fields:
             head = fields[0]
+            # The splitter should not implicitly be part of the table.
             if head.qll != self:
                 continue
             field = None
-            # Unlink last row.
-            for field in self.iter(E, fields[-1]):
-                field.set_neighbor(S, None)
+            # Unlink last row/col of each table, based on o.
+            for field in self.get_series(o, fields[-1]):
+                field.set_neighbor(o.normal.upper, None)
             tables.append(Table(head, field))
         # TODO NOW: Remove empty cols.
         return tables
 
-    def split_at_row_fields(self, row_fields: Fs) -> list[Fs]:
+    def _get_splitting_series(self, o: Orientation, grouped_fields: Fs) -> Fs:
+        splitter = []
+        idx = 0
+        n = o.normal
+        table_fields = list(self.get_series(n, self.get_end_node(n.upper)))
+        bound = "y0" if o == H else "x0"
+        for group in grouped_fields:
+            group_bbox = BBox.from_bboxes([f.bbox for f in group])
+            for i, table_field in enumerate(table_fields[idx:], idx):
+                table_bbox = self.get_bbox_of(self.get_series(o, table_field))
+                # Fields that are overlapping in the given orientation
+                #  can' split the table.
+                if table_bbox.is_overlap(o.normal.name.lower(), group_bbox):
+                    idx = i
+                    break
+                # We can be sure the group splits the table, only when
+                #  encountering a series right/below of group.
+                if getattr(table_bbox, bound) > getattr(group_bbox, bound):
+                    splitter.append(group)
+                    idx = i
+                    break
+        return splitter
+
+    def get_splitting_cols(self, contained_fields: Fs) -> Fs:
+        cols = fields_to_cols(contained_fields, link_cols=False)
+        splitter = self._get_splitting_series(V, cols)
+        return splitter
+
+    def get_splitting_rows(self, contained_fields: Fs) -> Fs:
+        rows = fields_to_rows(contained_fields, link_rows=False)
+        splitter = self._get_splitting_series(H, rows)
+        return splitter
+
+    def max_split(self, fields: Fs) -> list[Table]:
+        contained_fields = self.get_contained_fields(fields)
+        if not contained_fields:
+            return [self]
+        col_splitter = self.get_splitting_cols(contained_fields)
+        row_splitter = self.get_splitting_rows(contained_fields)
+
+        col_tables = self.split_at_fields(V, col_splitter)
+        tables = []
+        for table in col_tables:
+            tables += table.split_at_fields(H, row_splitter)
+        return list(flatten(tables))
+
+    def _split_at_splitter(self, o: Orientation, splitter: Fs) -> list[Fs]:
         def _same_table(field1: F, field2: F) -> bool:
             return field1.qll != field2.qll
 
-        fields = list(self.top.iter(S)) + list(flatten(row_fields))
-        return group_fields_by(fields, _same_table, "bbox.y0", None)
+        fields = list(self.get_series(o.normal, self.get_end_node(o.upper)))
+        fields += list(flatten(splitter))
+        pre_sorter = "bbox.y0" if o == H else "bbox.x0"
+        return group_fields_by(fields, _same_table, pre_sorter, None)
 
 
 def group_fields_by(fields: Iterable[F],
