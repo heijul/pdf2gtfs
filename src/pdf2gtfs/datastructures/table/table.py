@@ -5,7 +5,7 @@ from operator import attrgetter
 from typing import Callable, Iterable, TypeVar
 
 from more_itertools import (
-    always_iterable, first_true, flatten, peekable, split_when, spy,
+    always_iterable, collapse, first_true, flatten, peekable, split_when, spy,
     take, triplewise,
     )
 
@@ -291,8 +291,9 @@ class Table(QuadLinkedList[F, OF]):
             # Unlink last row/col of each table, based on o.
             for field in self.get_series(o, fields[-1]):
                 field.set_neighbor(o.normal.upper, None)
-            tables.append(Table(head, field))
-        # TODO NOW: Remove empty cols.
+            table = Table(head, field)
+            table.remove_empty_series()
+            tables.append(table)
         return tables
 
     def _get_splitting_series(self, o: Orientation, grouped_fields: Fs) -> Fs:
@@ -339,7 +340,8 @@ class Table(QuadLinkedList[F, OF]):
         tables = []
         for table in col_tables:
             tables += table.split_at_fields(H, row_splitter)
-        return list(flatten(tables))
+
+        return list(collapse(tables))
 
     def _split_at_splitter(self, o: Orientation, splitter: Fs) -> list[Fs]:
         def _same_table(field1: F, field2: F) -> bool:
@@ -349,6 +351,27 @@ class Table(QuadLinkedList[F, OF]):
         fields += list(flatten(splitter))
         pre_sorter = "bbox.y0" if o == H else "bbox.x0"
         return group_fields_by(fields, _same_table, pre_sorter, None)
+
+    def _remove_empty_series(self, o: Orientation) -> None:
+        n = o.normal
+        for field in list(self.get_series(o, self.top)):
+            series = list(self.get_series(n, field))
+            if any([not isinstance(f, EmptyField) for f in series]):
+                continue
+            lower_neighbor = series[0].get_neighbor(o.lower)
+            upper_neighbor = series[0].get_neighbor(o.upper)
+            unlink_nodes(o.lower, series)
+            unlink_nodes(o.upper, series)
+            if lower_neighbor and upper_neighbor:
+                neighbors = (list(self.get_series(n, lower_neighbor)),
+                             list(self.get_series(n, upper_neighbor)))
+                for (lower_neighbor, upper_neighbor) in zip(*neighbors):
+                    lower_neighbor.set_neighbor(o.upper, upper_neighbor)
+                continue
+
+    def remove_empty_series(self) -> None:
+        self._remove_empty_series(H)
+        self._remove_empty_series(V)
 
 
 def group_fields_by(fields: Iterable[F],
