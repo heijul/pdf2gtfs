@@ -21,7 +21,7 @@ from pdf2gtfs.datastructures.table.quadlinkedlist import (
     QuadLinkedList,
     )
 from pdf2gtfs.datastructures.table.direction import (
-    Direction, E, H, N, Orientation, S, V, W,
+    D, Direction, E, H, Orientation, S, V
     )
 
 
@@ -159,10 +159,28 @@ class Table(QuadLinkedList[F, OF]):
             head = insert_empty_fields_from_map(V, col, group)
             self.insert(E, col[0], head)
 
-    def print(self, max_line_length=360) -> None:
+    def _print(self, getter_func: Callable[[F], str],
+               align_func: Callable[[F], str] = lambda _: "^",
+               col_count: int | None = None) -> None:
+        first_column = self.get_list(V, self.left)
+        rows = [self.get_list(H, field) for field in first_column]
+        cols = [self.get_list(V, field) for field in rows[0]]
+        # The maximum length of a fields text in each column.
+        col_len = [max(map(len, map(getter_func, col))) for col in cols]
+
+        delim = " | "
+        lines = []
+        for row in rows:
+            values = [f"{getter_func(f): {align_func(f)}{col_len[i]}}"
+                      for i, f in enumerate(row)][:col_count]
+            lines += [delim.lstrip() + delim.join(values) + delim.rstrip()]
+
+        print("\n".join(lines) + "\n")
+
+    def print(self, col_count: int | None = 8) -> None:
         """ Print the table to stdout.
 
-        :param max_line_length: The number of characters each line can have.
+        :param col_count: The number of characters each line can have.
         """
         def get_text_align(f) -> str:
             """ Right align all data fields; left align everything else.
@@ -171,22 +189,29 @@ class Table(QuadLinkedList[F, OF]):
             """
             return ">" if isinstance(f, DataField) else "<"
 
+        self._print(attrgetter("text"), get_text_align, col_count)
+
+    def print_types(self, col_count: int = None) -> None:
+        """ Print the inferred type of each field, instead of its text. """
+        def _get_type_name(f: F) -> str:
+            if isinstance(f, EmptyField):
+                return ""
+            return f.get_type().name
+
+        # Infer all types before printing them.
         first_column = self.get_list(V, self.left)
         rows = [self.get_list(H, field) for field in first_column]
-        cols = [self.get_list(V, field) for field in rows[0]]
-        # The maximum length of a fields text in each column.
-        col_len = [max(map(len, map(attrgetter("text"), col))) for col in cols]
-
-        delim = " | "
-        lines = []
+        # Doing this twice may be necessary, in case the type of
+        # a field has changed.
+        # TODO NOW: This does not seem very performant.
         for row in rows:
-            field_texts = [f"{f.text: {get_text_align(f)}{col_len[i]}}"
-                           for i, f in enumerate(row)]
-            lines += [delim.lstrip()
-                      + delim.join(field_texts)[:max_line_length]
-                      + delim.rstrip()]
+            for field in row:
+                field.type.infer_type_from_neighbors(field.get_neighbors())
+        for row in rows:
+            for field in row:
+                field.type.infer_type_from_neighbors(field.get_neighbors())
 
-        print("\n".join(lines) + "\n")
+        self._print(_get_type_name, col_count=col_count)
 
     def split_at_fields(self, o: Orientation, splitter: list[Fs]
                         ) -> list[Table]:
@@ -529,7 +554,7 @@ def replace_field(which: F, replace_with: F) -> None:
     # New node should not have any neighbors
     assert not replace_with.has_neighbors(o=V)
     assert not replace_with.has_neighbors(o=H)
-    for d in [N, S, W, E]:
+    for d in D:
         neighbor = which.get_neighbor(d)
         if not neighbor:
             continue

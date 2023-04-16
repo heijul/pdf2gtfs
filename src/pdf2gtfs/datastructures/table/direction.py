@@ -105,6 +105,7 @@ N = _N()
 S = _S()
 W = _W()
 E = _E()
+D = [N, W, S, E]
 
 
 class Orientation(ABC):

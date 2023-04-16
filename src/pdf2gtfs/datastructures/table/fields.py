@@ -6,9 +6,10 @@ from pdfminer.layout import LTChar
 
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
+from pdf2gtfs.datastructures.table.fieldtype import FieldType, T
 from pdf2gtfs.datastructures.table.nodes import QuadNode
 from pdf2gtfs.datastructures.table.direction import (
-    E, H, N, Orientation, S, V, W,
+    H, Orientation, V, D,
     )
 from pdf2gtfs.datastructures.table.quadlinkedlist import QLL
 
@@ -31,7 +32,21 @@ class Field(QuadNode[F, OF], BBoxObject):
         self.font = self.chars[0].font if self.chars else None
         self.fontname = self.chars[0].fontname if self.chars else None
         self.fontsize = self.chars[0].fontsize if self.chars else None
+        self.type = FieldType(self)
         self._initialize()
+
+    def get_type(self) -> T:
+        if self.type.inferred_type:
+            return self.type.inferred_type
+        return self.type.guess_type()
+
+    def has_type(self, typ: T) -> bool:
+        if not self.type.possible_types:
+            self.get_type()
+        return typ in self.type.possible_types
+
+    def get_neighbors(self) -> Fs:
+        return [n for n in [self.get_neighbor(d) for d in D] if n]
 
     def _initialize(self) -> None:
         self.set_bbox_from_chars()
@@ -97,7 +112,7 @@ class Field(QuadNode[F, OF], BBoxObject):
         self.chars += field.chars
         self.bbox.merge(field.bbox)
         self.text += f"{merge_char}{field.text}"
-        for d in [N, S, W, E]:
+        for d in D:
             # Remove field as a neighbor
             self_neighbor = self.get_neighbor(d)
             if self_neighbor == field:
@@ -111,7 +126,7 @@ class Field(QuadNode[F, OF], BBoxObject):
 
     def __repr__(self) -> str:
         neighbors = ", ".join([f"{d.name}='{n.text}'"
-                               for d in [N, S, W, E]
+                               for d in D
                                for n in [self.get_neighbor(d)]
                                if n])
         return f"{self.__class__.__name__}(text='{self.text}', {neighbors})"
