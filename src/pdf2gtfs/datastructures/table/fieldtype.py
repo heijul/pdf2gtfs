@@ -70,6 +70,20 @@ class FieldType:
         return self.inferred_type
 
 
+class EmptyFieldType(FieldType):
+    def __init__(self, field: F) -> None:
+        super().__init__(field)
+        self.possible_types = {T.Empty: 1}
+        self.inferred_types = {T.Empty: 1}
+        self.inferred_type = T.Empty
+
+    def guess_type(self) -> T:
+        return T.Empty
+
+    def infer_type_from_neighbors(self, _: Fs) -> T:
+        return T.Empty
+
+
 class T(Enum):
     Data = "data"
     Stop = "stop"
@@ -85,6 +99,7 @@ class T(Enum):
     LegendIdent = "legend.ident"
     LegendValue = "legend.value"
     Other = "other"
+    Empty = "empty"
 
 
 AbsIndicator: TypeAlias = Callable[[F], bool]

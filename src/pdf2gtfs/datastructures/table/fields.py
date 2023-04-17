@@ -6,7 +6,9 @@ from pdfminer.layout import LTChar
 
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
-from pdf2gtfs.datastructures.table.fieldtype import FieldType, T
+from pdf2gtfs.datastructures.table.fieldtype import (
+    EmptyFieldType, FieldType, T,
+    )
 from pdf2gtfs.datastructures.table.nodes import QuadNode
 from pdf2gtfs.datastructures.table.direction import (
     H, Orientation, V, D,
@@ -45,8 +47,20 @@ class Field(QuadNode[F, OF], BBoxObject):
             self.get_type()
         return typ in self.type.possible_types
 
-    def get_neighbors(self) -> Fs:
-        return [n for n in [self.get_neighbor(d) for d in D] if n]
+    def get_neighbors(self, *,
+                      allow_none: bool = False, allow_empty: bool = True
+                      ) -> Fs:
+        neighbors = {d: self.get_neighbor(d) for d in D}
+        # Find the next neighbor if the direct neighbor is an EmptyField.
+        if not allow_empty:
+            for d, neighbor in neighbors.items():
+                if neighbor is None or not isinstance(neighbor, EmptyField):
+                    continue
+                while neighbor and isinstance(neighbor, EmptyField):
+                    neighbor = neighbor.get_neighbor(d)
+                neighbors[d] = neighbor
+        # Remove neighbors that are None if allow_none is False.
+        return [n for n in neighbors.values() if allow_none or n is not None]
 
     def _initialize(self) -> None:
         self.set_bbox_from_chars()
@@ -138,6 +152,7 @@ class EmptyField(Field, BBoxObject):
         # An empty field can never contain any characters.
         kwargs.update(dict(chars=[], page_height=0))
         super().__init__(**kwargs)
+        self.type = EmptyFieldType(self)
         self._bbox = None
 
     def set_bbox_from_chars(self) -> None:
