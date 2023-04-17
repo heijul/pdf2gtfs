@@ -29,8 +29,7 @@ from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
 from pdf2gtfs.datastructures.table.direction import N, W
 from pdf2gtfs.datastructures.table.fields import DataField, F, Field, Fs
 from pdf2gtfs.datastructures.table.table import (
-    fields_to_rows,
-    group_fields_by, Table,
+    fields_to_rows, group_fields_by, Table,
     )
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables,
@@ -84,8 +83,8 @@ def _fix_cid_text(text: str) -> str:
         # Broken chars have this format: 'cid(x)' where x is a number.
         return chr(int(text[5:-1]))
     except TypeError:
-        logger.debug("Encountered charcode '{text}' with length "
-                     "{len(text)}, but could not convert it to char.")
+        logger.debug(f"Encountered charcode '{text}' with length "
+                     f"{len(text)}, but could not convert it to char.")
 
 
 def lt_char_to_dict(lt_char: LTChar, page_height: float
