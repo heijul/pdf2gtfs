@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import re
 from enum import Enum
+from functools import partial
 from time import strptime
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias, TypeVar
 
 from more_itertools import collapse
 
 from pdf2gtfs.config import Config
+from pdf2gtfs.datastructures.table.direction import H, V
 
 
 if TYPE_CHECKING:
@@ -60,7 +62,7 @@ class FieldType:
         inferred_types = {}
         for t, possibility in self.possible_types.items():
             ind = REL_INDICATORS.get(t, lambda *_: possibility)
-            value = ind(self.field, ref_fields)
+            value = ind(self.field)
             if not value:
                 continue
             inferred_types[t] = value * possibility
@@ -118,7 +120,7 @@ def is_time_data(field: F) -> bool:
     return True
 
 
-def is_wrapper(*args) -> Callable[[F], bool]:
+def is_wrapper(*args) -> AbsIndicator:
     def _is_any_wrapper(field: F) -> bool:
         return is_any(field, values)
 
@@ -155,78 +157,107 @@ ABS_INDICATORS: dict[T: AbsIndicator] = {
     }
 ABS_FALLBACK: list[T] = [T.Stop, T.RouteAnnotValue, T.RepeatValue,
                          T.EntryAnnotValue, T.DataAnnot, T.LegendValue]
-RelIndicator: TypeAlias = Callable[[F, Fs], float]
 
 
-def ref_field_has_type(_: F, ref_fields: Fs, typ: T) -> float:
-    return any(map(lambda f: f.has_type(typ), ref_fields))
+RelIndicator: TypeAlias = Callable[[F], float]
 
 
-def ref_field_has_type_wrapper(typ: T) -> RelIndicator:
-    def _ref_field_has_type(f: F, ref_fields: Fs) -> float:
-        return ref_field_has_type(f, ref_fields, typ)
+def field_has_type_wrapper(typ: T) -> Callable[[F], bool]:
+    def field_has_type(field: F) -> bool:
+        return field.has_type(typ)
 
-    return _ref_field_has_type
+    return field_has_type
 
 
-def multi_func_rel_wrapper(funcs) -> RelIndicator:
-    def _run(field: F, ref_fields: Fs) -> float:
-        return sum(func(field, ref_fields) for func in funcs) / len(funcs)
+def field_row_contains_type(field: F, typ: T) -> bool:
+    func = field_has_type_wrapper(typ)
+    return any(map(func, field.row))
+
+
+def field_col_contains_type(field: F, typ: T) -> bool:
+    func = field_has_type_wrapper(typ)
+    return any(map(func, field.col))
+
+
+def field_neighbor_has_type(field: F, typ: T, direct_neighbor: bool = False
+                            ) -> bool:
+    func = field_has_type_wrapper(typ)
+    return any(map(func, field.get_neighbors(allow_empty=not direct_neighbor)))
+
+
+def field_neighbor_has_type_wrapper(typ: T, direct_neighbor: bool = False
+                                    ) -> Callable[[F], bool]:
+    def _field_neighbor_has_type(field: F) -> bool:
+        return field_neighbor_has_type(field, typ, direct_neighbor)
+
+    return _field_neighbor_has_type
+
+
+def field_is_between_type(field: F, typ: T) -> bool:
+    func = field_has_type_wrapper(typ)
+    for o in (V, H):
+        lower = field.get_neighbor(o.lower)
+        upper = field.get_neighbor(o.upper)
+        if lower and func(lower) and upper and func(upper):
+            return True
+    return False
+
+
+def field_is_between_type_wrapper(typ: T) -> Callable[[F], bool]:
+    def _field_is_between_type(field: F) -> bool:
+        return field_is_between_type(field, typ)
+
+    return _field_is_between_type
+
+
+def rel_multiple_function_wrapper(funcs: tuple[Callable[[F], bool], ...]
+                                  ) -> RelIndicator:
+    def _run(field: F) -> float:
+        return sum(func(field) for func in funcs) / len(funcs)
 
     return _run
 
 
-def rel_indicator_stop(field: F, ref_fields: Fs) -> float:
-    funcs = (ref_field_has_type_wrapper(T.StopAnnot),
-             ref_field_has_type_wrapper(T.Stop),
-             true  # TODO NOW: BBox is roughly aligned if stop column
+def rel_indicator_stop(field: F) -> float:
+    funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
+             field_neighbor_has_type_wrapper(T.Stop),
              )
-    return multi_func_rel_wrapper(funcs)(field, ref_fields)
+    return rel_multiple_function_wrapper(funcs)(field) * 4
 
 
-def rel_indicator_stop_annot(field: F, ref_fields: Fs) -> float:
-    funcs = (ref_field_has_type_wrapper(T.StopAnnot),
-             ref_field_has_type_wrapper(T.Stop))
-    return multi_func_rel_wrapper(funcs)(field, ref_fields)
+def rel_indicator_stop_annot(field: F) -> float:
+    funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
+             field_neighbor_has_type_wrapper(T.Stop))
+    return rel_multiple_function_wrapper(funcs)(field)
 
 
-def field_is_wrapped_between_wrapper(typ: T) -> RelIndicator:
-    def field_is_between(field: F, _: Fs) -> float:
-        from pdf2gtfs.datastructures.table.direction import E, N, S, W
+def rel_indicator_repeat_ident(field: F) -> float:
+    required = field_is_between_type_wrapper(T.Data)
 
-        w_neighbor = field.get_neighbor(W)
-        e_neighbor = field.get_neighbor(E)
-        n_neighbor = field.get_neighbor(N)
-        s_neighbor = field.get_neighbor(S)
-        return ((e_neighbor is not None and e_neighbor.has_type(typ)
-                 and w_neighbor is not None and w_neighbor.has_type(typ))
-                or
-                (n_neighbor is not None and n_neighbor.has_type(typ)
-                 and s_neighbor is not None and s_neighbor.has_type(typ)))
-
-    return field_is_between
+    if not required(field):
+        return 0.
+    return 1. + field_neighbor_has_type(field, T.RepeatValue, True)
 
 
-def rel_indicator_repeat_ident(field: F, ref_fields: Fs) -> float:
-    required = field_is_wrapped_between_wrapper(T.Data)
+def rel_indicator_repeat_value(field: F) -> float:
+    funcs = (field_is_between_type_wrapper(T.Data),
+             field_is_between_type_wrapper(T.RepeatIdent))
 
-    if not required(field, ref_fields):
-        return 0
-    return ref_field_has_type(field, ref_fields, T.RepeatValue)
+    return (rel_multiple_function_wrapper(funcs)(field) == 1.0) * 2
 
 
-def rel_indicator_repeat_value(field: F, ref_fields: Fs) -> float:
-    required = (field_is_wrapped_between_wrapper(T.Data),
-                field_is_wrapped_between_wrapper(T.RepeatIdent))
-
-    return (multi_func_rel_wrapper(required)(field, ref_fields) == 1.0) * 2
+def rel_indicator_entry_annot_value(field: F) -> float:
+    funcs = (partial(field_row_contains_type, typ=T.EntryAnnotIdent),
+             partial(field_col_contains_type, typ=T.EntryAnnotIdent))
+    return rel_multiple_function_wrapper(funcs)(field) * 2
 
 
 REL_INDICATORS: dict[T: RelIndicator] = {
-    T.Data: ref_field_has_type_wrapper(T.Data),
+    T.Data: field_neighbor_has_type_wrapper(T.Data),
     T.Stop: rel_indicator_stop,
     T.StopAnnot: rel_indicator_stop_annot,
-    T.DataAnnot: ref_field_has_type_wrapper(T.Data),
+    T.DataAnnot: field_neighbor_has_type_wrapper(T.Data),
+    T.EntryAnnotValue: rel_indicator_entry_annot_value,
     T.RepeatIdent: rel_indicator_repeat_ident,
     T.RepeatValue: rel_indicator_repeat_value,
     T.Other: lambda *_: 0.1,
