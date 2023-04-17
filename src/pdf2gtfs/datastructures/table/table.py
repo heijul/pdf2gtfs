@@ -8,15 +8,14 @@ from typing import Callable, Iterable
 
 from more_itertools import (
     always_iterable, collapse, first_true, flatten, peekable, split_when,
-    take, triplewise,
     )
 
-from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_fields
 from pdf2gtfs.datastructures.table.fields import (
     DataField, EmptyField, F, Fs, OF,
     )
+from pdf2gtfs.datastructures.table.fieldtype import T
 from pdf2gtfs.datastructures.table.quadlinkedlist import (
     QuadLinkedList,
     )
@@ -138,11 +137,10 @@ class Table(QuadLinkedList[F, OF]):
         :param fields: The fields that are checked for repeat intervals.
         """
         contained_fields = self.get_contained_fields(fields)
-        repeat_intervals = find_repeat_intervals(contained_fields)
-        if not repeat_intervals:
+        repeat_fields = find_repeat_intervals(contained_fields)
+        if not repeat_fields:
             return
         # TODO NOW: Transform the intervals into proper RepeatFields.
-        repeat_fields = list(flatten(repeat_intervals))
         for field in repeat_fields:
             fields.remove(field)
 
@@ -580,7 +578,7 @@ def insert_fields_in_col(col: Fs, fields: Fs) -> None:
             break
 
 
-def find_repeat_intervals(fields: Fs) -> list[tuple[F, F, F]]:
+def find_repeat_intervals(fields: Fs) -> Fs:
     """ Given the fields, find all subsets, that are full repeat intervals.
 
     :param fields: The fields to be checked for repeat intervals for.
@@ -588,17 +586,5 @@ def find_repeat_intervals(fields: Fs) -> list[tuple[F, F, F]]:
         are the text portion of the intervals, while the second item
         is the actual numerical value of the interval.
     """
-    cols = fields_to_cols(fields, link_cols=False)
-    repeat_intervals = []
-    for col in cols:
-        triple = triplewise(col)
-        for f1, f2, f3 in triple:
-            repeat_text = [f1.text.lower(), f3.text.lower()]
-            if repeat_text not in Config.repeat_identifier:
-                continue
-            if not f2.text.isnumeric():
-                continue
-            repeat_intervals.append((f1, f2, f3))
-            # No need to check the next two triples.
-            take(2, triple)
-    return repeat_intervals
+    return [field for field in fields
+            if field.has_type(T.RepeatIdent) or field.has_type(T.RepeatValue)]
