@@ -42,10 +42,10 @@ class Field(QuadNode[F, OF], BBoxObject):
             return self.type.inferred_type
         return self.type.guess_type()
 
-    def has_type(self, typ: T) -> bool:
+    def has_type(self, *types: T) -> bool:
         if not self.type.possible_types:
             self.get_type()
-        return typ in self.type.possible_types
+        return any(typ in self.type.possible_types for typ in types)
 
     def get_neighbors(self, *,
                       allow_none: bool = False, allow_empty: bool = True

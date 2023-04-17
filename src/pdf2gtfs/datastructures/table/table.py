@@ -586,5 +586,4 @@ def find_repeat_intervals(fields: Fs) -> Fs:
         are the text portion of the intervals, while the second item
         is the actual numerical value of the interval.
     """
-    return [field for field in fields
-            if field.has_type(T.RepeatIdent) or field.has_type(T.RepeatValue)]
+    return [f for f in fields if f.has_type(T.RepeatIdent, T.RepeatValue)]
