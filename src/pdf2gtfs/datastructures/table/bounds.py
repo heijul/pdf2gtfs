@@ -4,7 +4,6 @@ of the same Row/Column. """
 from __future__ import annotations
 
 from _operator import attrgetter
-from functools import partial
 from itertools import cycle
 from typing import (
     Callable, cast, Iterable, Iterator, NamedTuple, TypeVar,
@@ -16,10 +15,8 @@ from pdf2gtfs.datastructures.table.fields import F, Fs
 
 
 B = TypeVar("B", bound="Bounds")
-# TODO: bbox_attr/return_attr appear to be always equal.
-BoundArgs = NamedTuple("BoundArgs", [("func", Callable[[Iterable[F]], F]),
-                                     ("bbox_attr", str),
-                                     ("return_attr", str)])
+BoundArgs = NamedTuple("BoundArgs",
+                       [("func", Callable[[Iterable[F]], F]), ("attr", str)])
 
 
 # TODO NOW: Subclass BBox <-> Change bounds into PartialBBox?
@@ -153,16 +150,26 @@ class Bounds:
         if args is None:
             return None
         fields = list(fields)
-        field = args.func(fields, key=attrgetter(f"bbox.{args.bbox_attr}"))
-        return cast(float, attrgetter(f"bbox.{args.return_attr}")(field))
+        field = args.func(fields, key=attrgetter(f"bbox.{args.attr}"))
+        return cast(float, attrgetter(f"bbox.{args.attr}")(field))
 
     @classmethod
-    def from_fields(cls, fields: Iterable[F],
-                    *, n=None, w=None, s=None, e=None) -> B:
-        """ Create new bounds from the fields, setting only the
+    def from_bboxes(cls, bboxes: list[BBox], *,
+                    n: BoundArgs | None = None, w: BoundArgs | None = None,
+                    s: BoundArgs | None = None, e: BoundArgs | None = None
+                    ) -> B:
+        """ Create new bounds from the bboxes, setting only the
         provided bounds. """
-        func = partial(cls.get_bound_from_fields, fields=fields)
-        return cls(n=func(n), w=func(w), s=func(s), e=func(e))
+        def _bbox_to_bound(args: BoundArgs | None) -> float | None:
+            if not args:
+                return None
+
+            minmax = args.func(bboxes, key=attrgetter(args.attr))
+
+            return cast(float, attrgetter(args.attr)(minmax))
+
+        return cls(n=_bbox_to_bound(n), w=_bbox_to_bound(w),
+                   s=_bbox_to_bound(s), e=_bbox_to_bound(e))
 
     def _update_single_bound(
             self, which: str, args: BoundArgs, fields: list[F]) -> None:
@@ -182,7 +189,8 @@ class Bounds:
         return f"{cls_name}(n={n}, w={w}, s={s}, e={e})"
 
     @classmethod
-    def select_adjacent_fields(cls, border: Fs, fields: Iterator[F]) -> Fs:
+    def select_adjacent_fields(cls, border: list[BBox], fields: Iterator[F]
+                               ) -> Fs:
         """ Select those fields, that are adjacent to factory fields.
 
         :param border: The Row/Col, that is used to determine if a field
@@ -191,7 +199,7 @@ class Bounds:
         :return: Those items of fields, which are adjacent to the table.
         """
         # Get the three basic bounds, which are dictated by row_or_col.
-        bounds = cls.from_fields(list(border))
+        bounds = cls.from_bboxes(list(border))
         fields = list(filter(bounds.within_bounds, fields))
         if not fields:
             return fields
@@ -215,88 +223,89 @@ class Bounds:
 class WBounds(Bounds):
     """ The western outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_fields(cls, fields: list[F], **_) -> WBounds:
-        n = BoundArgs(min, "y0", "y0")
-        s = BoundArgs(max, "y1", "y1")
-        e = BoundArgs(min, "x0", "x0")
-        return super().from_fields(fields, n=n, s=s, e=e)
+    def from_bboxes(cls, bboxes: list[BBox], **_) -> WBounds:
+        n = BoundArgs(min, "y0")
+        s = BoundArgs(max, "y1")
+        e = BoundArgs(min, "x0")
+        return super().from_bboxes(bboxes, n=n, s=s, e=e)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
         Update the western bound, which was not created using the datafields.
         """
-        args: BoundArgs = BoundArgs(max, "x0", "x0")
+        args: BoundArgs = BoundArgs(max, "x0")
         self._update_single_bound("w", args, fields)
 
 
 class EBounds(Bounds):
     """ The eastern outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_fields(cls, fields: list[F], **_) -> EBounds:
-        n = BoundArgs(min, "y0", "y0")
-        s = BoundArgs(max, "y1", "y1")
-        w = BoundArgs(max, "x1", "x1")
-        return super().from_fields(fields, n=n, w=w, s=s)
+    def from_bboxes(cls, bboxes: list[BBox], **_) -> EBounds:
+        n = BoundArgs(min, "y0")
+        s = BoundArgs(max, "y1")
+        w = BoundArgs(max, "x1")
+        return super().from_bboxes(bboxes, n=n, w=w, s=s)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
         Update the eastern bound, which was not created using the datafields.
         """
-        args: BoundArgs = BoundArgs(min, "x1", "x1")
+        args: BoundArgs = BoundArgs(min, "x1")
         self._update_single_bound("e", args, fields)
 
 
 class NBounds(Bounds):
     """ The northern outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_fields(cls, fields: list[F], **_) -> NBounds:
-        w = BoundArgs(min, "x0", "x0")
-        s = BoundArgs(min, "y0", "y0")
-        e = BoundArgs(max, "x1", "x1")
-        return super().from_fields(fields, w=w, s=s, e=e)
+    def from_bboxes(cls, bboxes: list[BBox], **_) -> NBounds:
+        w = BoundArgs(min, "x0")
+        s = BoundArgs(min, "y0")
+        e = BoundArgs(max, "x1")
+        return super().from_bboxes(bboxes, w=w, s=s, e=e)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
         Update the eastern bound, which was not created using the datafields.
         """
-        args: BoundArgs = BoundArgs(max, "y0", "y0")
+        args: BoundArgs = BoundArgs(max, "y0")
         self._update_single_bound("n", args, fields)
 
 
 class SBounds(Bounds):
     """ The southern outer bounds of a table. Used when growing a table. """
     @classmethod
-    def from_fields(cls, fields: list[F], **_) -> SBounds:
-        n = BoundArgs(max, "y1", "y1")
-        w = BoundArgs(min, "x0", "x0")
-        e = BoundArgs(max, "x1", "x1")
-        return super().from_fields(fields, n=n, w=w, e=e)
+    def from_bboxes(cls, bboxes: list[BBox], **_) -> SBounds:
+        n = BoundArgs(max, "y1")
+        w = BoundArgs(min, "x0")
+        e = BoundArgs(max, "x1")
+        return super().from_bboxes(bboxes, n=n, w=w, e=e)
 
     def update_missing_bound(self, fields: list[F]) -> None:
         """
         Update the eastern bound, which was not created using the datafields.
         """
-        args: BoundArgs = BoundArgs(min, "y1", "y1")
+        args: BoundArgs = BoundArgs(min, "y1")
         self._update_single_bound("s", args, fields)
 
 
-def select_adjacent_fields(d: Direction, ref_fields: Fs, fields: Fs) -> Fs:
+def select_adjacent_fields(d: Direction, bboxes: list[BBox], fields: Fs) -> Fs:
     """ Get all fields adjacent in d to the given reference fields.
 
     :param d: The direction to check for adjacency in.
-    :param ref_fields: The fields used to check for adjacency.
+    :param bboxes: The bboxes used to check for adjacency.
     :param fields: The fields that are checked for adjacency.
     :return: The fields that are adjacent to ref_fields.
     """
     bound_cls = {N: NBounds, W: WBounds, S: SBounds, E: EBounds}[d]
-    adjacent_fields = bound_cls.select_adjacent_fields(ref_fields, fields)
+
+    adjacent_fields = bound_cls.select_adjacent_fields(bboxes, fields)
 
     normal = d.default_orientation.normal
     # Remove fields that are not overlapping with any reference field.
     starter_id = 0
     for adj_field in adjacent_fields:
-        for i, field in enumerate(ref_fields[starter_id:], starter_id):
-            if adj_field.is_overlap(normal, field, 0.8):
+        for i, bbox in enumerate(bboxes[starter_id:], starter_id):
+            if adj_field.bbox.is_overlap(normal.name.lower(), bbox, 0.8):
                 break
         else:
             adjacent_fields.remove(adj_field)

@@ -66,14 +66,15 @@ class Table(QuadLinkedList[F, OF]):
         :return: Whether any fields were added.
         """
         normal = d.default_orientation.normal
-        ref_fields = list(self.iter(normal.upper, self.get_end_node(d)))
-        adjacent_fields = select_adjacent_fields(d, ref_fields, fields)
+        ref_fields = list(self.get_series(normal, self.get_end_node(d)))
+
+        bboxes = [self.get_bbox_of(self.get_series(d.default_orientation, f))
+                  for f in ref_fields]
+        adjacent_fields = select_adjacent_fields(d, bboxes, fields)
         if not adjacent_fields:
             return False
 
         link_nodes(normal.upper, adjacent_fields)
-        # merge_overlapping_fields(
-        #  d.default_orientation.normal, adjacent_fields)
         merge_small_fields(d.default_orientation, ref_fields, adjacent_fields)
 
         head = insert_empty_fields_from_map(
@@ -492,7 +493,9 @@ def merge_small_fields(o: Orientation, ref_fields: Fs, fields: Fs) -> None:
     for field in fields:
         field_overlaps = []
         for i, ref_field in enumerate(ref_fields[first_ref_id:], first_ref_id):
-            if ref_field.is_overlap(n, field, 0.8):
+            bbox = ref_field.qll.get_bbox_of(
+                ref_field.qll.get_series(o, ref_field))
+            if bbox.is_overlap(n.name.lower(), field.bbox, 0.8):
                 if not field_overlaps:
                     first_ref_id = i
                 field_overlaps.append(ref_field)
