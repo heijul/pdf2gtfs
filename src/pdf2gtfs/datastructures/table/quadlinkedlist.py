@@ -194,8 +194,8 @@ class QuadLinkedList(Generic[QN, OQN]):
     def get_series(self, o: Orientation, node: QN) -> Generator[QN]:
         """ The row or column the node resides in.
 
-        :param o: The orientation of the series.
-            I.e. whether to return row or column.
+        :param o: The orientation of the series, i.e. whether to return
+            row (H) or column (V).
         :param node: The node in question.
         :return: A generator that yields all objects in the series.
         """

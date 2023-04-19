@@ -276,24 +276,53 @@ def get_fields_from_page(page: LTPage
 
 
 def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
-    def get_next_lower(tables_: list[Table], idx: int, axis: str
-                       ) -> float | None:
+    """ Assign those fields to each table that can be used to expand.
+
+    A field F can be used to expand a table T1, if no other table T2
+    is between F and T1.
+
+    :param tables: All tables of the page.
+    :param fields: All fields of the page, that are neither Data nor
+        Repeat fields.
+    """
+    def get_next_lower(sorted_tables: list[Table], axis: str) -> float | None:
+        """ Return the upper bound of the next lower table, if it exists.
+
+        Lower means either left or above of the current table.
+
+        :param sorted_tables: The tables sorted beforehand, based on axis.
+        :param axis: The axis used to determine whether a table is
+            lower or not. Either 'x' or 'y'.
+        :return: The upper bound of the next lower table, if it exists.
+            Otherwise, None.
+        """
+        idx = sorted_tables.index(table)
         if idx == 0:
             return None
         getter1 = attrgetter(f"bbox.{axis}1")
         getter2 = attrgetter(f"bbox.{axis}0")
-        lower = first_true(tables_[idx - 1::-1],
+        lower = first_true(sorted_tables[idx - 1::-1],
                            pred=lambda t: getter1(t) < getter2(table))
         return cast(float, getter2(lower)) if lower else None
 
-    def get_next_upper(tables_: list[Table], idx: int, axis: str
-                       ) -> float | None:
-        if idx == len(tables_) - 1:
+    def get_next_upper(sorted_tables: list[Table], axis: str) -> float | None:
+        """ Return the lower bound of the next upper table, if it exists.
+
+        Upper means either right or below of the current table.
+
+        :param sorted_tables: The tables sorted beforehand, based on axis.
+        :param axis: The axis used to determine whether a table is
+            upper or not. Either 'x' or 'y'.
+        :return: The lower bound of the next upper table, if it exists.
+            Otherwise, None.
+        """
+        idx = sorted_tables.index(table)
+        if idx == len(sorted_tables) - 1:
             return None
         getter1 = attrgetter(f"bbox.{axis}0")
         getter2 = attrgetter(f"bbox.{axis}1")
         upper = first_true(
-            tables_[idx + 1:],
+            sorted_tables[idx + 1:],
             pred=lambda t: getter1(t) > getter2(table))
         return cast(float, getter1(upper)) if upper else None
 
@@ -302,14 +331,10 @@ def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
     tables_x0 = sorted(tables, key=attrgetter("bbox.x0"))
     tables_x1 = sorted(tables, key=attrgetter("bbox.x1"))
     for table in tables:
-        y0_idx = tables_y0.index(table)
-        y1_idx = tables_y1.index(table)
-        x0_idx = tables_x0.index(table)
-        x1_idx = tables_x1.index(table)
-        t_above = get_next_lower(tables_y0, y0_idx, "y")
-        t_below = get_next_upper(tables_y1, y1_idx, "y")
-        t_prev = get_next_lower(tables_x0, x0_idx, "x")
-        t_next = get_next_upper(tables_x1, x1_idx, "x")
+        t_above = get_next_lower(tables_y0, "y")
+        t_below = get_next_upper(tables_y1, "y")
+        t_prev = get_next_lower(tables_x0, "x")
+        t_next = get_next_upper(tables_x1, "x")
         bounds = Bounds(t_above, t_prev, t_below, t_next)
         table.other_fields = [f.duplicate() for f in fields
                               if bounds.within_bounds(f)]

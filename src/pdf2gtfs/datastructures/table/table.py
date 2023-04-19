@@ -176,6 +176,11 @@ class Table(QuadLinkedList[F, OF]):
             self.insert(E, col[0], head)
 
     def get_repeat_identifiers(self, fields: Fs) -> Fs:
+        """ Return those fields, that are repeat identifiers.
+
+        :param fields: The fields that may be identifiers.
+        :return: Those fields that are repeat identifiers.
+        """
         contained_fields = self.get_contained_fields(fields)
         repeat_identifiers = [f for f in contained_fields
                               if f.has_type(T.RepeatIdent)]
@@ -184,6 +189,12 @@ class Table(QuadLinkedList[F, OF]):
         return repeat_identifiers
 
     def get_repeat_values(self, identifiers: Fs, fields: Fs) -> Fs:
+        """ Given the identifiers, find those fields that are repeat values.
+
+        :param identifiers: The repeat identifiers.
+        :param fields: The fields that are evaluated.
+        :return: Those fields that are repeat values.
+        """
         contained_fields = self.get_contained_fields(fields)
         values = []
         repeat_groups = fields_to_cols(identifiers + values, link_cols=False)
