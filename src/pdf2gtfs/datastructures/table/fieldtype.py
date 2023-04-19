@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from functools import partial
 from time import strptime
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias, TypeVar
 
@@ -56,7 +55,7 @@ class FieldType:
 
         return get_max_key(self.possible_types)
 
-    def infer_type_from_neighbors(self, ref_fields: Fs) -> T:
+    def infer_type_from_neighbors(self) -> T:
         if not self.possible_types:
             self.guess_type()
         inferred_types = {}
@@ -82,7 +81,7 @@ class EmptyFieldType(FieldType):
     def guess_type(self) -> T:
         return T.Empty
 
-    def infer_type_from_neighbors(self, _: Fs) -> T:
+    def infer_type_from_neighbors(self) -> T:
         return T.Empty
 
 
@@ -164,7 +163,7 @@ RelIndicator: TypeAlias = Callable[[F], float]
 
 def field_has_type_wrapper(typ: T) -> Callable[[F], bool]:
     def field_has_type(field: F) -> bool:
-        return field.has_type(typ)
+        return field.get_type() == typ
 
     return field_has_type
 
@@ -186,9 +185,9 @@ def field_neighbor_has_type(field: F, typ: T, direct_neighbor: bool = False
 
 
 def field_neighbor_has_type_wrapper(typ: T, direct_neighbor: bool = False
-                                    ) -> Callable[[F], bool]:
-    def _field_neighbor_has_type(field: F) -> bool:
-        return field_neighbor_has_type(field, typ, direct_neighbor)
+                                    ) -> Callable[[F], float]:
+    def _field_neighbor_has_type(field: F) -> float:
+        return float(field_neighbor_has_type(field, typ, direct_neighbor))
 
     return _field_neighbor_has_type
 
@@ -222,7 +221,7 @@ def rel_indicator_stop(field: F) -> float:
     funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
              field_neighbor_has_type_wrapper(T.Stop),
              )
-    return rel_multiple_function_wrapper(funcs)(field) * 4
+    return bool(rel_multiple_function_wrapper(funcs)(field)) * 2.5
 
 
 def rel_indicator_stop_annot(field: F) -> float:
@@ -242,14 +241,22 @@ def rel_indicator_repeat_ident(field: F) -> float:
 def rel_indicator_repeat_value(field: F) -> float:
     funcs = (field_is_between_type_wrapper(T.Data),
              field_is_between_type_wrapper(T.RepeatIdent))
-
+    # Both are strictly required.
     return (rel_multiple_function_wrapper(funcs)(field) == 1.0) * 2
 
 
 def rel_indicator_entry_annot_value(field: F) -> float:
-    funcs = (partial(field_row_contains_type, typ=T.EntryAnnotIdent),
-             partial(field_col_contains_type, typ=T.EntryAnnotIdent))
-    return rel_multiple_function_wrapper(funcs)(field) * 2
+    mod = 0
+    # It is less likely for a field to be an annotation, if the col that
+    # contains the annotation identifier also contains Stops.
+    if field_col_contains_type(field, T.EntryAnnotIdent):
+        mod += (field_row_contains_type(field, T.Data)
+                - field_col_contains_type(field, T.Stop))
+    elif field_row_contains_type(field, T.EntryAnnotIdent):
+        mod += (field_col_contains_type(field, T.Data)
+                - field_row_contains_type(field, T.Stop))
+
+    return mod * 2
 
 
 REL_INDICATORS: dict[T: RelIndicator] = {
