@@ -181,7 +181,7 @@ class Bounds:
 
     def __repr__(self) -> str:
         cls_name = self.__class__.__name__
-        fmt = "{:>7.2f}"
+        fmt = "{: >7.2f}"
         n = fmt.format(self.n) if self.n is not None else "None"
         w = fmt.format(self.w) if self.w is not None else "None"
         s = fmt.format(self.s) if self.s is not None else "None"
