@@ -1,3 +1,5 @@
+""" Contains the field types, as well as the functions used to infer them. """
+
 from __future__ import annotations
 
 import re
@@ -22,10 +24,16 @@ A = TypeVar("A")
 
 
 def get_max_key(dict_: dict[A, Any]) -> A:
+    """ Given the dictionary, return the key for the maximal value.
+
+    :param dict_: The dictionary.
+    :return: The key for the maximal value.
+    """
     return max(dict_.items(), key=lambda item: item[1])[0]
 
 
 class FieldType:
+    """ Can be used to guess/infer the type of a field. """
     def __init__(self, field: F) -> None:
         self.field = field
         # Probabilities for the different types.
@@ -34,6 +42,13 @@ class FieldType:
         self.inferred_types: dict[T: float] = {}
 
     def guess_type(self) -> T:
+        """ Guesses the type of the field solely on its text contents.
+
+        Also stores all possible types, as these are necessary for the
+        type inference.
+
+        :return: The type that is most likely based on the fields contents.
+        """
         possible_types = {}
 
         for t, ind in ABS_INDICATORS.items():
@@ -56,6 +71,13 @@ class FieldType:
         return get_max_key(self.possible_types)
 
     def infer_type_from_neighbors(self) -> T:
+        """ Infer the type of the field based on other fields.
+
+        Other fields, in general, are the direct neighbors or the row/col.
+
+        :return: The type that has the highest probability of being the
+            "true" type, when considering both the content and other fields.
+        """
         if not self.possible_types:
             self.guess_type()
         inferred_types = {}
@@ -72,6 +94,7 @@ class FieldType:
 
 
 class EmptyFieldType(FieldType):
+    """ Used to "calculate" the type. Always returns the T.Empty type. """
     def __init__(self, field: F) -> None:
         super().__init__(field)
         self.possible_types = {T.Empty: 1}
@@ -79,13 +102,22 @@ class EmptyFieldType(FieldType):
         self.inferred_type = T.Empty
 
     def guess_type(self) -> T:
+        """ The type of empty fields is always the same.
+
+        :return: T.Empty
+        """
         return T.Empty
 
     def infer_type_from_neighbors(self) -> T:
+        """ The type of empty fields is always the same.
+
+        :return: T.Empty
+        """
         return T.Empty
 
 
 class T(Enum):
+    """ The different possible types for a field. """
     Data = "data"
     Stop = "stop"
     Days = "days"
@@ -106,11 +138,13 @@ class T(Enum):
 AbsIndicator: TypeAlias = Callable[[F], bool]
 
 
-def is_any(field: F, values: list[str]) -> bool:
-    return field.text.lower() in [v.lower() for v in values]
-
-
 def is_time_data(field: F) -> bool:
+    """  Check if the field contains text that can be converted to a time.
+
+    :param field: The field in question.
+    :return: True if the field's text can be parsed using strptime,
+        using Config.time_format.
+    """
     try:
         fieldtext = field.text
         strptime(fieldtext, Config.time_format)
@@ -120,27 +154,62 @@ def is_time_data(field: F) -> bool:
 
 
 def is_wrapper(*args) -> AbsIndicator:
-    def _is_any_wrapper(field: F) -> bool:
-        return is_any(field, values)
+    """ Simple wrapper around is_any.
+
+    :param args: Contains lists of strings or strings, used in is_any.
+    :return: Function, that takes only a field and returns if the
+        field's text is equal to any of the (collapsed) args.
+    """
+    def is_any(field: F) -> bool:
+        """ Checks if the field's text is equal to any of the values.
+
+        Also lowers both field text and each value.
+
+        :param field:  The field the text content is checked.
+        :return: True, if the field's text contains any of the values,
+            False otherwise.
+        """
+        return field.text.lower() in [v.lower() for v in values]
 
     values = list(collapse(args))
-    return _is_any_wrapper
+    return is_any
 
 
 def is_repeat_value(field: F) -> bool:
+    """ Check if the field contains text that could be a repeat value.
+
+    :param field: The field in question.
+    :return: True, if the text is either a number, two numbers
+        seperated by a hypen or two numbers seperated by a comma.
+        False, otherwise.
+    """
     # Match numbers, numbers seperated by hyphen and numbers seperated by comma
     return bool(re.match(r"^\d+$|^\d+\s?-\s?\d+$|\d+\s?,\s?\d+$", field.text))
 
 
 def is_legend(field: F) -> bool:
-    return bool(re.match(r"^.+\s?[:=].+$", field.text))
+    """ Checks if the field's text could be (part of) a legend.
+
+    :param field:  The field in question.
+    :return: True, if the field contains a non-empty string, followed by a
+        colon or equals, followed by another non-empty string.
+    """
+    return bool(re.match(r"^\S+\s?[:=]\s?\S+$", field.text))
 
 
 def true(*_) -> bool:
+    """ Always true.
+
+    :return: True, regardless of arguments.
+    """
     return True
 
 
 def false(*_) -> bool:
+    """ Always False.
+
+    :return: False, regardless of arguments.
+    """
     return False
 
 
@@ -161,31 +230,84 @@ ABS_FALLBACK: list[T] = [T.Stop, T.RouteAnnotValue, T.RepeatValue,
 RelIndicator: TypeAlias = Callable[[F], float]
 
 
-def field_has_type_wrapper(typ: T) -> Callable[[F], bool]:
-    def field_has_type(field: F) -> bool:
-        return field.get_type() == typ
+def field_has_type(field: F, typ: T, strict: bool = True) -> bool:
+    """ Check if the field has the given type.
 
-    return field_has_type
+    :param field: The field in question.
+    :param typ: The type the fields' type is checked against.
+    :param strict: If true, check only the most probable type.
+        Otherwise, all possible types are checked against.
+    :return:
+    """
+    if strict:
+        return field.get_type() == typ
+    return typ in field.type.possible_types
+
+
+def field_has_type_wrapper(typ: T, strict: bool = True
+                           ) -> Callable[[F], bool]:
+    """ Simple wrapper around has_type.
+
+    :param typ: The type passed to field_has_type.
+    :param strict: The strict argument passed to field_has_type.
+    :return: A function that takes a field and returns, whether the
+        field has the given type.
+    """
+    def _field_has_type(field: F) -> bool:
+        return field_has_type(field, typ, strict)
+
+    return _field_has_type
 
 
 def field_row_contains_type(field: F, typ: T) -> bool:
+    """ Check, if the field's row contains a field with the given typ.
+
+    :param field: The field used to get the row.
+    :param typ: The type the rows' fields are checked against.
+    :return: True, if there is at least one field with the given type.
+        False, otherwise.
+    """
     func = field_has_type_wrapper(typ)
     return any(map(func, field.row))
 
 
 def field_col_contains_type(field: F, typ: T) -> bool:
+    """ Check, if the field's col contains a field with the given typ.
+
+    :param field: The field used to get the col.
+    :param typ: The type the cols' fields are checked against.
+    :return: True, if there is at least one field with the given type.
+        False, otherwise.
+    """
     func = field_has_type_wrapper(typ)
     return any(map(func, field.col))
 
 
 def field_neighbor_has_type(field: F, typ: T, direct_neighbor: bool = False
                             ) -> bool:
+    """ Check, if the field has a neighbor with the given type.
+
+    :param field: The field in question.
+    :param typ: The type we check the neighbors against.
+    :param direct_neighbor: Whether, to only check direct neighbors, that is
+        neighbors that may be empty. If False, get the first neighbor in each
+        direction, that is not empty.
+    :return: True, if any of the fields neighbors is of the given type.
+        False, otherwise.
+    """
     func = field_has_type_wrapper(typ)
     return any(map(func, field.get_neighbors(allow_empty=not direct_neighbor)))
 
 
 def field_neighbor_has_type_wrapper(typ: T, direct_neighbor: bool = False
                                     ) -> Callable[[F], float]:
+    """ Simple wrapper around field_neighbor_has_type.
+
+    :param typ: The type passed to field_neighbor_has_type.
+    :param direct_neighbor: Passed to field_neighbor_has_type.
+    :return: A function that, when called with a field, returns if the
+        field has any (direct) neighbor of the given type.
+    """
     def _field_neighbor_has_type(field: F) -> float:
         return float(field_neighbor_has_type(field, typ, direct_neighbor))
 
@@ -193,6 +315,13 @@ def field_neighbor_has_type_wrapper(typ: T, direct_neighbor: bool = False
 
 
 def field_is_between_type(field: F, typ: T) -> bool:
+    """ Check if the field is 'sandwiched' between fields of the given type.
+
+    :param field: The field in question
+    :param typ: The type the two opposite, direct neighbors should both have.
+    :return: True, if any two opposite, direct neighbors are of the
+        given type. False, otherwise.
+    """
     func = field_has_type_wrapper(typ)
     for o in (V, H):
         lower = field.get_neighbor(o.lower)
@@ -203,14 +332,26 @@ def field_is_between_type(field: F, typ: T) -> bool:
 
 
 def field_is_between_type_wrapper(typ: T) -> Callable[[F], bool]:
+    """ Simple wrapper around field_is_between_type.
+
+    :param typ: The type passed to field_is_between_type.
+    :return: A function that, when passed a field, returns if the field
+        is 'sandwiched' between two fields of the given type.
+    """
     def _field_is_between_type(field: F) -> bool:
         return field_is_between_type(field, typ)
 
     return _field_is_between_type
 
 
-def rel_multiple_function_wrapper(funcs: tuple[Callable[[F], bool], ...]
+def rel_multiple_function_wrapper(funcs: tuple[RelIndicator, ...]
                                   ) -> RelIndicator:
+    """ A simple wrapper, running all the given indicator functions.
+
+    :param funcs: The functions that should be run.
+    :return: A function that, when passed a field, returns the average return
+        value of the given functions, when run with that field as argument.
+    """
     def _run(field: F) -> float:
         return sum(func(field) for func in funcs) / len(funcs)
 
@@ -218,6 +359,12 @@ def rel_multiple_function_wrapper(funcs: tuple[Callable[[F], bool], ...]
 
 
 def rel_indicator_stop(field: F) -> float:
+    """ The relative indicator for T.Stop.
+
+    :param field: The field that has its type evaluated.
+    :return: A value between 0 and 2.5, representing change in probability,
+        based on the funcs called.
+    """
     funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
              field_neighbor_has_type_wrapper(T.Stop),
              )
@@ -225,12 +372,25 @@ def rel_indicator_stop(field: F) -> float:
 
 
 def rel_indicator_stop_annot(field: F) -> float:
+    """ The relative indicator for T.StopAnnot.
+
+    :param field: The field that has its type evaluated.
+    :return: A value between 0 and 1, representing change in probability,
+        based on the results of the functions called.
+    """
     funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
              field_neighbor_has_type_wrapper(T.Stop))
     return rel_multiple_function_wrapper(funcs)(field)
 
 
 def rel_indicator_repeat_ident(field: F) -> float:
+    """ The relative indicator for T.RepeatIdent.
+
+    :param field: The field that has its type evaluated.
+    :return: A value between 0 and 2, representing change in probability,
+        based on the results of the functions called.
+    """
+    # TODO: Check if we should be checking non-direct neighbors here as well.
     required = field_is_between_type_wrapper(T.Data)
 
     if not required(field):
@@ -239,6 +399,12 @@ def rel_indicator_repeat_ident(field: F) -> float:
 
 
 def rel_indicator_repeat_value(field: F) -> float:
+    """ The relative indicator for T.RepeatValue.
+
+    :param field: The field that has its type evaluated.
+    :return: A value between 0 and 2, representing change in probability,
+        based on the results of the functions called.
+    """
     funcs = (field_is_between_type_wrapper(T.Data),
              field_is_between_type_wrapper(T.RepeatIdent))
     # Both are strictly required.
@@ -246,6 +412,12 @@ def rel_indicator_repeat_value(field: F) -> float:
 
 
 def rel_indicator_entry_annot_value(field: F) -> float:
+    """ The relative indicator for T.EntryAnnotValue.
+
+    :param field: The field that has its type evaluated.
+    :return: A value between 0 and 2, representing change in probability,
+        based on the results of the functions called.
+    """
     mod = 0
     # It is less likely for a field to be an annotation, if the col that
     # contains the annotation identifier also contains Stops.
