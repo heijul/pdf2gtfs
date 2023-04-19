@@ -30,6 +30,14 @@ class Table(QuadLinkedList[F, OF]):
     """
     def __init__(self, first_node: F, last_node: F):
         super().__init__(first_node, last_node)
+        self.other_fields = None
+
+    @property
+    def bbox(self) -> BBox:
+        """ The bbox, that contains every field of the table. """
+        # TODO NOW: This is not entirely true. It should be using
+        #  the col and row for all end nodes.
+        return self.get_bbox_of([self.left, self.right])
 
     @staticmethod
     def from_fields(fields: Fs) -> Table:
@@ -56,21 +64,21 @@ class Table(QuadLinkedList[F, OF]):
         col_bbox = self.get_bbox_of(self.get_series(V, field))
         return BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
 
-    def expand(self, d: Direction, fields: Fs) -> bool:
+    def expand(self, d: Direction) -> bool:
         """ Expand the table in the given direction using the given fields.
 
         :param d: The direction the expansion is done towards.
-        :param fields: A subset (or all) of these will be used in the
-            expansion, if they are adjacent to the tables bordering fields
-            in the given direction.
         :return: Whether any fields were added.
         """
+        if self.other_fields is None:
+            raise Exception("Other fields need to be added to this table,"
+                            "before trying to expand.")
         normal = d.default_orientation.normal
         ref_fields = list(self.get_series(normal, self.get_end_node(d)))
 
         bboxes = [self.get_bbox_of(self.get_series(d.default_orientation, f))
                   for f in ref_fields]
-        adjacent_fields = select_adjacent_fields(d, bboxes, fields)
+        adjacent_fields = select_adjacent_fields(d, bboxes, self.other_fields)
         if not adjacent_fields:
             return False
 
@@ -79,7 +87,17 @@ class Table(QuadLinkedList[F, OF]):
 
         head = insert_empty_fields_from_map(
             normal, ref_fields, adjacent_fields)
-        self.insert(d, ref_fields[0], head)
+        try:
+            self.insert(d, ref_fields[0], head)
+        except ValueError:
+            # Insertion has failed. This usually (hopefully) means that the
+            # adjacent fields are not part of the table.
+            unlink_nodes(d, ref_fields)
+            return False
+        # Only remove fields that were added.
+        for field in adjacent_fields:
+            self.other_fields.remove(field)
+        return True
 
     def get_contained_fields(self, fields: Fs) -> Fs:
         """ Get all fields, that are within the tables' fields' combined bbox.

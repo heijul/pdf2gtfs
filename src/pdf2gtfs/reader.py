@@ -10,10 +10,12 @@ from pathlib import Path
 from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import strptime, time
-from typing import Iterator, Optional, Tuple, TypeAlias, Union
+from typing import cast, Iterator, Optional, Tuple, TypeAlias, Union
 
 import pandas as pd
-from more_itertools import flatten, map_if, partition, peekable
+from more_itertools import (
+    first_true, flatten, map_if, partition, peekable,
+    )
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfcolor import PDFColorSpace
@@ -26,7 +28,8 @@ from pdfminer.utils import Matrix
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
-from pdf2gtfs.datastructures.table.direction import N, W
+from pdf2gtfs.datastructures.table.bounds import Bounds
+from pdf2gtfs.datastructures.table.direction import N, S, W
 from pdf2gtfs.datastructures.table.fields import DataField, F, Field, Fs
 from pdf2gtfs.datastructures.table.table import (
     fields_to_rows, group_fields_by, Table,
@@ -272,6 +275,46 @@ def get_fields_from_page(page: LTPage
     return list(data_fields), non_data_fields, list(invalid_fields)
 
 
+def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
+    def get_next_lower(tables_: list[Table], idx: int, axis: str
+                       ) -> float | None:
+        if idx == 0:
+            return None
+        getter1 = attrgetter(f"bbox.{axis}1")
+        getter2 = attrgetter(f"bbox.{axis}0")
+        lower = first_true(tables_[idx - 1::-1],
+                           pred=lambda t: getter1(t) < getter2(table))
+        return cast(float, getter2(lower)) if lower else None
+
+    def get_next_upper(tables_: list[Table], idx: int, axis: str
+                       ) -> float | None:
+        if idx == len(tables_) - 1:
+            return None
+        getter1 = attrgetter(f"bbox.{axis}0")
+        getter2 = attrgetter(f"bbox.{axis}1")
+        upper = first_true(
+            tables_[idx + 1:],
+            pred=lambda t: getter1(t) > getter2(table))
+        return cast(float, getter1(upper)) if upper else None
+
+    tables_y0 = sorted(tables, key=attrgetter("bbox.y0"))
+    tables_y1 = sorted(tables, key=attrgetter("bbox.y1"))
+    tables_x0 = sorted(tables, key=attrgetter("bbox.x0"))
+    tables_x1 = sorted(tables, key=attrgetter("bbox.x1"))
+    for table in tables:
+        y0_idx = tables_y0.index(table)
+        y1_idx = tables_y1.index(table)
+        x0_idx = tables_x0.index(table)
+        x1_idx = tables_x1.index(table)
+        t_above = get_next_lower(tables_y0, y0_idx, "y")
+        t_below = get_next_upper(tables_y1, y1_idx, "y")
+        t_prev = get_next_lower(tables_x0, x0_idx, "x")
+        t_next = get_next_upper(tables_x1, x1_idx, "x")
+        bounds = Bounds(t_above, t_prev, t_below, t_next)
+        table.other_fields = [f.duplicate() for f in fields
+                              if bounds.within_bounds(f)]
+
+
 def create_table_factory_from_page(page: LTPage) -> Table:
     data_fields, non_data_fields, invalid_fields = get_fields_from_page(page)
     t = Table.from_fields(data_fields)
@@ -279,15 +322,16 @@ def create_table_factory_from_page(page: LTPage) -> Table:
     t.insert_repeat_fields(other_fields)
     t.print(None)
     tables = t.max_split(other_fields)
+    assign_other_fields_to_tables(tables, other_fields)
     for t in tables:
         t.print(None)
-        t.expand(W, other_fields)
-        t.expand(W, other_fields)
-        t.expand(N, other_fields)
-        t.expand(N, other_fields)
-        t.expand(W, other_fields)
-        t.expand(W, other_fields)
-        # t.expand(S, other_fields)
+        t.expand(W)
+        t.expand(W)
+        t.expand(N)
+        t.expand(N)
+        t.expand(W)
+        t.expand(W)
+        t.expand(S)
         t.print(None)
         t.print_types()
     return t

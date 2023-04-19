@@ -37,6 +37,9 @@ class Field(QuadNode[F, OF], BBoxObject):
         self.type = FieldType(self)
         self._initialize()
 
+    def duplicate(self) -> F:
+        return Field(self.chars, self.page_height)
+
     def get_type(self) -> T:
         if self.type.inferred_type:
             return self.type.inferred_type

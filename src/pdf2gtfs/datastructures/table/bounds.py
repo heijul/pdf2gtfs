@@ -310,6 +310,5 @@ def select_adjacent_fields(d: Direction, bboxes: list[BBox], fields: Fs) -> Fs:
         else:
             adjacent_fields.remove(adj_field)
             break
-        fields.remove(adj_field)
         starter_id = i
     return adjacent_fields
