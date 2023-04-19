@@ -136,17 +136,16 @@ class Table(QuadLinkedList[F, OF]):
 
         :param fields: The fields that are checked for repeat intervals.
         """
-        contained_fields = self.get_contained_fields(fields)
-        repeat_fields = find_repeat_intervals(contained_fields)
-        if not repeat_fields:
+        identifiers = self.get_repeat_identifiers(fields)
+        if not identifiers:
             return
-        # TODO NOW: Transform the intervals into proper RepeatFields.
-        for field in repeat_fields:
+        values = self.get_repeat_values(identifiers, fields)
+        for field in identifiers + values:
             fields.remove(field)
-
+        # Add identifiers and their values to table.
         # Group repeat fields by col and link them.
-        repeat_groups = fields_to_cols(repeat_fields)
-        # Insert a new column for each repeat group.
+        repeat_groups = fields_to_cols(identifiers + values)
+        # Insert the repeat_groups each into a new or existing column.
         for group in repeat_groups:
             col = self.get_containing_col(group[0])
             if col:
@@ -156,6 +155,30 @@ class Table(QuadLinkedList[F, OF]):
             col = self.get_col_left_of(group[0])
             head = insert_empty_fields_from_map(V, col, group)
             self.insert(E, col[0], head)
+
+    def get_repeat_identifiers(self, fields: Fs) -> Fs:
+        contained_fields = self.get_contained_fields(fields)
+        repeat_identifiers = [f for f in contained_fields
+                              if f.has_type(T.RepeatIdent)]
+        if repeat_identifiers:
+            fields_to_cols(repeat_identifiers)
+        return repeat_identifiers
+
+    def get_repeat_values(self, identifiers: Fs, fields: Fs) -> Fs:
+        contained_fields = self.get_contained_fields(fields)
+        values = []
+        repeat_groups = fields_to_cols(identifiers + values, link_cols=False)
+        for group in repeat_groups:
+            for i1, i2 in pairwise(group):
+                overlaps = [f for f in contained_fields
+                            if f.is_overlap(H, i1, 0.8)
+                            and f.has_type(T.RepeatValue)]
+                # Only a single value is needed/possible.
+                for value in overlaps:
+                    if i1.bbox.y0 < value.bbox.y0 < i2.bbox.y0:
+                        values.append(value)
+                        break
+        return values
 
     def _print(self, getter_func: Callable[[F], str],
                align_func: Callable[[F], str] = lambda _: "^",
@@ -204,10 +227,10 @@ class Table(QuadLinkedList[F, OF]):
         # TODO NOW: This does not seem very performant.
         for row in rows:
             for field in row:
-                field.type.infer_type_from_neighbors(field.get_neighbors())
+                field.type.infer_type_from_neighbors()
         for row in rows:
             for field in row:
-                field.type.infer_type_from_neighbors(field.get_neighbors())
+                field.type.infer_type_from_neighbors()
 
         self._print(_get_type_name, col_count=col_count)
 
@@ -576,14 +599,3 @@ def insert_fields_in_col(col: Fs, fields: Fs) -> None:
             replace_field(col_field, field)
             last_id = i + 1
             break
-
-
-def find_repeat_intervals(fields: Fs) -> Fs:
-    """ Given the fields, find all subsets, that are full repeat intervals.
-
-    :param fields: The fields to be checked for repeat intervals for.
-    :return: All detected intervals as tuples. The first and last item
-        are the text portion of the intervals, while the second item
-        is the actual numerical value of the interval.
-    """
-    return [f for f in fields if f.has_type(T.RepeatIdent, T.RepeatValue)]
