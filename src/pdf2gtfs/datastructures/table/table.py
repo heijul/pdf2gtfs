@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from itertools import pairwise
 from operator import attrgetter
-from typing import Callable, Iterable
+from typing import Callable, Iterable, TYPE_CHECKING
 
 from more_itertools import (
     always_iterable, collapse, first_true, flatten, peekable, split_when,
@@ -22,6 +22,10 @@ from pdf2gtfs.datastructures.table.quadlinkedlist import (
 from pdf2gtfs.datastructures.table.direction import (
     D, Direction, E, H, Orientation, S, V
     )
+
+
+if TYPE_CHECKING:
+    from pdf2gtfs.datastructures.timetable.table import TimeTable
 
 
 class Table(QuadLinkedList[F, OF]):
@@ -394,6 +398,74 @@ class Table(QuadLinkedList[F, OF]):
         """ Remove all rows/columns that only contain EmptyFields. """
         self._remove_empty_series(H)
         self._remove_empty_series(V)
+
+    def to_timetable(self) -> TimeTable:
+        from pdf2gtfs.datastructures.timetable.table import TimeTable
+        from pdf2gtfs.datastructures.timetable.stops import Stop
+        from pdf2gtfs.datastructures.timetable.entries import (
+            TimeTableEntry, Weekdays,
+            )
+
+        t = TimeTable()
+        o, stops = self.find_stops()
+        n = o.normal
+        tt_stops = [Stop(stop.text, i) for i, stop in stops]
+        for stop in tt_stops:
+            t.stops.add_stop(stop)
+
+        entries = [TimeTableEntry("") for _ in self.get_series(n, self.left)]
+        non_empty_entries = set()
+
+        for stop_id, start in enumerate(self.get_series(o, self.left)):
+            pass
+            for e_id, field in enumerate(self.get_series(n, start)):
+                if field.get_type() in (T.Other, T.Empty, T.Stop):
+                    continue
+                if field.get_type() == T.Data:
+                    stop = t.stops.get_from_id(stop_id)
+                    entries[e_id].set_value(stop, field.text)
+                    non_empty_entries.add(e_id)
+                if field.get_type() == T.EntryAnnotValue:
+                    annots = set([a.strip() for a in field.text.split()])
+                    entries[e_id].annotations = annots
+                if field.get_type() == T.Days:
+                    entries[e_id].days = Weekdays(field.text)
+                if field.get_type() == T.RouteAnnotValue:
+                    entries[e_id].route_name = field.text
+                if field.get_type() == T.StopAnnot:
+                    stop = t.stops.get_from_id(stop_id)
+                    t.stops.add_annotation(field.text, stop=stop)
+        for e_id in non_empty_entries:
+            t.entries.append(entries[e_id])
+        return t
+
+    def find_stops(self) -> tuple[Orientation, list[tuple[int, F]]]:
+        """ Get the row/column, that contains the stops. """
+        def _find_stops(o: Orientation, start: F | None = None
+                        ) -> list[tuple[int, F]]:
+            for field in self.get_series(o.normal, start or self.left):
+                series = [(i, f)
+                          for i, f in enumerate(self.get_series(o, field))
+                          if f.get_type() == T.Stop]
+                if not series:
+                    continue
+                return series
+            return []
+
+        stops = _find_stops(V)
+        orientation = V
+        match len(stops):
+            case 0:
+                stops = _find_stops(H)
+                orientation = H
+            case 1:
+                orientation = H
+                stops = _find_stops(H, stops[0][1])
+            case _:
+                return orientation, stops
+        if len(stops) <= 2:
+            raise AssertionError("Each table needs at least 2 stops.")
+        return orientation, stops
 
 
 def group_fields_by(fields: Iterable[F],

@@ -340,7 +340,16 @@ def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
                               if bounds.within_bounds(f)]
 
 
-def create_table_factory_from_page(page: LTPage) -> Table:
+def create_tables_from_page(page: LTPage) -> list[Table]:
+    """ Use the fields on the page to create the tables.
+
+    :param page: An LTPage.
+    :return: A list of tables, where each table is minimal in the sense
+        that it can not be easily split into multiple tables where each
+        table still contains a stop col/row; they are also maximal, in
+        the sense that no other fields exist on the page, that can be
+        attributed to the table in a simple manner.
+    """
     data_fields, non_data_fields, invalid_fields = get_fields_from_page(page)
     t = Table.from_fields(data_fields)
     other_fields = non_data_fields
@@ -359,12 +368,15 @@ def create_table_factory_from_page(page: LTPage) -> Table:
         t.expand(S)
         t.print(None)
         t.print_types()
-    return t
+    return tables
 
 
-def get_pdf_tables_from_datafields(table: Table) -> list[PDFTable]:
-    pass
-    return []
+def get_pdf_tables_from_datafields(tables: list[Table]) -> list[TimeTable]:
+    timetables = []
+    for table in tables:
+        timetable = table.to_timetable()
+        timetables.append(timetable)
+    return timetables
 
 
 def sniff_page_count(file: str | Path) -> int:
@@ -461,12 +473,12 @@ def page_to_timetables(
         ) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
     if use_datafields:
-        datafields = create_table_factory_from_page(page)
-        pdf_tables = get_pdf_tables_from_datafields(datafields)
+        datafields = create_tables_from_page(page)
+        tables = get_pdf_tables_from_datafields(datafields)
     else:
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)
-    tables = pdf_tables_to_timetables(pdf_tables)
+        tables = pdf_tables_to_timetables(pdf_tables)
 
     logger.info(f"Number of tables found: {len(tables)}")
     return tables

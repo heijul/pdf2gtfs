@@ -296,7 +296,7 @@ def field_neighbor_has_type(field: F, typ: T, direct_neighbor: bool = False
         False, otherwise.
     """
     func = field_has_type_wrapper(typ)
-    return any(map(func, field.get_neighbors(allow_empty=not direct_neighbor)))
+    return any(map(func, field.get_neighbors(allow_empty=direct_neighbor)))
 
 
 def field_neighbor_has_type_wrapper(typ: T, direct_neighbor: bool = False
