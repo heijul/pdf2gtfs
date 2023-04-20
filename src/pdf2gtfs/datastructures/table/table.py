@@ -20,7 +20,7 @@ from pdf2gtfs.datastructures.table.quadlinkedlist import (
     QuadLinkedList,
     )
 from pdf2gtfs.datastructures.table.direction import (
-    D, Direction, E, H, Orientation, S, V
+    D, Direction, E, H, N, Orientation, S, V, W,
     )
 
 
@@ -372,7 +372,7 @@ class Table(QuadLinkedList[F, OF]):
         def _same_table(field1: F, field2: F) -> bool:
             return field1.qll != field2.qll
 
-        fields = list(self.get_series(o.normal, self.get_end_node(o.upper)))
+        fields = list(self.get_series(o.normal, self.get_end_node(o.lower)))
         fields += list(flatten(splitter))
         pre_sorter = "bbox.y0" if o == H else "bbox.x0"
         return group_fields_by(fields, _same_table, pre_sorter, None)
@@ -381,7 +381,7 @@ class Table(QuadLinkedList[F, OF]):
         n = o.normal
         for field in list(self.get_series(o, self.top)):
             series = list(self.get_series(n, field))
-            if any([not isinstance(f, EmptyField) for f in series]):
+            if any((not isinstance(f, EmptyField) for f in series)):
                 continue
             lower_neighbor = series[0].get_neighbor(o.lower)
             upper_neighbor = series[0].get_neighbor(o.upper)
@@ -393,6 +393,14 @@ class Table(QuadLinkedList[F, OF]):
                 for (lower_neighbor, upper_neighbor) in zip(*neighbors):
                     lower_neighbor.set_neighbor(o.upper, upper_neighbor)
                 continue
+            # Need to update saved nodes, in case we just removed one
+            # of the end nodes.
+            if not lower_neighbor:
+                self._update_end_node(N, upper_neighbor)
+                self._update_end_node(W, upper_neighbor)
+            if not upper_neighbor:
+                self._update_end_node(S, lower_neighbor)
+                self._update_end_node(E, lower_neighbor)
 
     def remove_empty_series(self) -> None:
         """ Remove all rows/columns that only contain EmptyFields. """
