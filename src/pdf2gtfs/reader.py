@@ -358,7 +358,6 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
     tables = t.max_split(other_fields)
     assign_other_fields_to_tables(tables, other_fields)
     for t in tables:
-        t.print(None)
         t.expand(W)
         t.expand(W)
         t.expand(N)
@@ -366,7 +365,9 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         t.expand(W)
         t.expand(W)
         t.expand(S)
+        logger.info("Found the following table:")
         t.print(None)
+        logger.info("With the following types:")
         t.print_types()
     return tables
 
@@ -375,6 +376,8 @@ def get_pdf_tables_from_datafields(tables: list[Table]) -> list[TimeTable]:
     timetables = []
     for table in tables:
         timetable = table.to_timetable()
+        if not timetable:
+            continue
         timetables.append(timetable)
     return timetables
 

@@ -416,6 +416,9 @@ class Table(QuadLinkedList[F, OF]):
 
         t = TimeTable()
         o, stops = self.find_stops()
+        # TODO NOW: Add to config min_stops
+        if len(stops) < 3:
+            return None
         n = o.normal
         tt_stops = [Stop(stop.text, i) for i, stop in stops]
         for stop in tt_stops:
@@ -472,6 +475,7 @@ class Table(QuadLinkedList[F, OF]):
             case _:
                 return orientation, stops
         if len(stops) <= 2:
+            return orientation, []
             raise AssertionError("Each table needs at least 2 stops.")
         return orientation, stops
 
