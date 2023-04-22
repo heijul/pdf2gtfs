@@ -38,7 +38,7 @@ class StopList:
 
     @property
     def all_stops(self) -> list[Stop]:
-        """ Returns both connections as well as normal stops. """
+        """ Returns both connections and normal stops. """
         return self._stops
 
     @property

@@ -71,7 +71,7 @@ class TimeTableRepeatEntry(TimeTableEntry):
 
     @staticmethod
     def interval_str_to_int_list(value_str: str) -> list[int]:
-        """ Turn the value_str to a list of ints, depending its format.
+        """ Turn the value_str to a list of ints, depending on its format.
         If it is of the form:
             - "x,y,..." it returns [x, y, ...]
             - "x-y" it returns [x, x1, ..., xn, y] where x1 = x + 1 if

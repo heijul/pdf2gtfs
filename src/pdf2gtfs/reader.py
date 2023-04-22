@@ -1,16 +1,21 @@
 """ Used to read the pdf file. """
+from __future__ import annotations
 
 import logging
 import os
 import sys
+from itertools import pairwise
 from operator import attrgetter
 from pathlib import Path
 from shutil import copyfile
 from tempfile import NamedTemporaryFile
-from time import time
-from typing import Iterator, Optional, Tuple, TypeAlias, Union
+from time import strptime, time
+from typing import cast, Iterator, Optional, Tuple, TypeAlias, Union
 
 import pandas as pd
+from more_itertools import (
+    first_true, flatten, map_if, partition, peekable,
+    )
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
 from pdfminer.pdfcolor import PDFColorSpace
@@ -22,9 +27,16 @@ from pdfminer.utils import Matrix
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
-from pdf2gtfs.datastructures.pdftable.field import Field
+from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
+from pdf2gtfs.datastructures.table.bounds import Bounds
+from pdf2gtfs.datastructures.table.direction import N, S, W
+from pdf2gtfs.datastructures.table.fields import DataField, F, Field, Fs
+from pdf2gtfs.datastructures.table.table import (
+    fields_to_rows, group_fields_by, Table,
+    )
 from pdf2gtfs.datastructures.pdftable.pdftable import (
-    cleanup_tables, PDFTable, Row, split_rows_into_tables)
+    cleanup_tables, PDFTable, Row, split_rows_into_tables,
+    )
 from pdf2gtfs.datastructures.timetable.table import TimeTable
 
 
@@ -48,9 +60,12 @@ def ltchar_monkeypatch__init__(
                              textwidth, textdisp, ncs, graphicstate)
 
 
+# TODO NOW: Use a class instead, to enable code completion?
 # noinspection PyTypeChecker
 LTChar.default_init = LTChar.__init__
 LTChar.__init__ = ltchar_monkeypatch__init__
+LTChar.font = None
+LTChar.fontsize = None
 
 
 PDF_READ_ERROR_CODE = 2
@@ -62,6 +77,28 @@ Line: TypeAlias = list[Char]
 Lines: TypeAlias = list[Line]
 
 
+def _fix_cid_text(text: str) -> str:
+    """ Fix chars which were turned into codes during preprocessing. """
+    # TODO NOW: This should be done using LTChar.font
+    if len(text) == 1:
+        return text
+    try:
+        # Broken chars have this format: 'cid(x)' where x is a number.
+        return chr(int(text[5:-1]))
+    except TypeError:
+        logger.debug(f"Encountered charcode '{text}' with length "
+                     f"{len(text)}, but could not convert it to char.")
+
+
+def lt_char_to_dict(lt_char: LTChar, page_height: float
+                    ) -> dict[str: str | float]:
+    char = {"x0": round(lt_char.x0, 2), "x1": round(lt_char.x1, 2),
+            "y0": round(page_height - lt_char.y1, 2),
+            "y1": round(page_height - lt_char.y1 + lt_char.height, 2),
+            "text": _fix_cid_text(lt_char.get_text())}
+    return char
+
+
 def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     """ Returns a dataframe consisting of Chars.
 
@@ -70,21 +107,10 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     to properly detect column annotations.
     """
 
-    def _fix_text(text: str) -> str:
-        # Fix chars which were turned into codes during preprocessing.
-        if len(text) == 1:
-            return text
-        try:
-            # Broken chars have this format: 'cid(x)' where x is a number.
-            return chr(int(text[5:-1]))
-        except TypeError:
-            logger.debug("Encountered charcode '{text}' with length "
-                         "{len(text)}, but could not convert it to char.")
-
     def cleanup_df(df: pd.DataFrame) -> pd.DataFrame:
         """ Cleanup the given dataframe.
 
-        Rounds the coordinates and drops any entries outside of the page.
+        Rounds the coordinates and drops any entries outside the page.
         """
         # Round to combat possible tolerances in the coordinates.
         df = df.round({"x0": 2, "x1": 2, "y0": 2, "y1": 2})
@@ -100,10 +126,7 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     text_chars = [char for line in text_lines for char in line
                   if isinstance(char, LTChar)]
     for text_char in text_chars:
-        char = {"x0": text_char.x0, "x1": text_char.x1,
-                "y0": page.y1 - text_char.y1,
-                "y1": page.y1 - text_char.y1 + text_char.height,
-                "text": _fix_text(text_char.get_text())}
+        char = lt_char_to_dict(text_char, page.y1)
         # Ignore vertical text.
         if not text_char.upright:
             msg = ("Char(text='{text}', x0={x0:.2f}, "
@@ -120,6 +143,243 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
     char_df["text"] = char_df["text"].astype(text_dtype)
 
     return char_df
+
+
+def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
+    """ Create lists of chars, that each belong to the same word.
+
+    Iteratively check if a whitespace char (or LTAnnot) is between two
+    consecutive chars, to decide if they belong to the same word.
+
+    :param line: The line to split.
+    :type line: LTTextLine
+    :return: A list of words (= LTChar lists)
+    :rtype: List[List[LTChar]]
+    """
+    words: list[list[LTChar]] = []
+    for char in line:
+        not_a_char = not isinstance(char, LTChar)
+        if char.get_text() in (" ", "\n") or not words or not_a_char:
+            words.append([])
+        if not_a_char:
+            continue
+        words[-1].append(char)
+    # Drop empty words.
+    return [word for word in words if word]
+
+
+def word_contains_time_data(word: list[LTChar]) -> bool:
+    word_text = "".join([char.get_text().strip() for char in word])
+    try:
+        strptime(word_text, Config.time_format)
+    except ValueError:
+        return False
+    return True
+
+
+def get_datafields(line: LTTextLine, height: float
+                   ) -> tuple[list[DataField], list[Field]]:
+    words = split_line_into_words(line)
+    data_words = []
+    other_words = []
+    for word in words:
+        word_text = "".join([char.get_text() for char in word]).strip()
+        try:
+            strptime(word_text, Config.time_format)
+            data_words.append(word)
+        except ValueError:
+            other_words.append(word)
+            continue
+
+    fields = [DataField(chars=word, page_height=height)
+              for word in data_words]
+    other_fields = [Field(word, height) for word in other_words]
+    # Remove fields without text.
+    fields = [f for f in fields if f.text]
+    other_fields = [f for f in other_fields if f.text]
+    return fields, other_fields
+
+
+def merge_other_fields(fields: Iterator[Field]) -> Fs:
+    def _same_font(field1: F, field2: F) -> bool:
+        return not (field1.fontname == field2.fontname
+                    and field1.fontsize == field2.fontsize)
+
+    same_font_groups = group_fields_by(
+        fields, _same_font, ("fontname", "fontsize"), None)
+    merged = []
+    for same_font_group in same_font_groups:
+        rows = fields_to_rows(same_font_group, link_rows=False)
+        for row in rows:
+            if len(row) == 1:
+                merged.append(row[0])
+            field_pairs = peekable(pairwise(row))
+            if not field_pairs.peek(None):
+                continue
+            first = field_pairs.peek()[0]
+            # Same font/fontsize for each field in a row.
+            space_width = first.font.string_width(" ".encode()) * 1.35
+            space_width *= first.fontsize
+
+            for f1, f2 in field_pairs:
+                if abs(f1.bbox.x1 - f2.bbox.x0) > space_width:
+                    merged.append(f1)
+                    if not field_pairs.peek(None):
+                        merged.append(f2)
+                    continue
+                f1.merge(f2)
+                try:
+                    _, f2 = next(field_pairs)
+                except StopIteration:
+                    merged.append(f1)
+                    break
+                field_pairs.prepend((f1, f2))
+    return merged
+
+
+def get_fields_from_page(page: LTPage
+                         ) -> tuple[list[DataField], list[F], list[F]]:
+    """ Create an object for each word on the page.
+
+    :param page: A single page of a PDF.
+    :type page: LTPage
+    :return: Two lists, where the first contains all data fields of the page
+     and the second contains all non-data fields of the page.
+    :rtype: tuple[list[DataField], list[F]]
+    """
+    # Get all lines of the page that are LTTextLines.
+    text_boxes = filter(lambda box: isinstance(box, LTTextBox), page)
+    text_lines = filter(lambda line: isinstance(line, LTTextLine),
+                        flatten(text_boxes))
+
+    valid_chars, invalid_chars = partition(
+        lambda c: c.get_text().startswith("(cid:"), flatten(text_lines))
+    # Get all words in the given page from its lines.
+    words = flatten(map(split_line_into_words, text_lines))
+    # Create a Field/DataField, based on whether each word contains time data.
+    page_height = page.y1
+    fields = map_if(
+        words, word_contains_time_data,
+        lambda chars: DataField(chars=chars, page_height=page_height),
+        lambda chars: Field(chars=chars, page_height=page_height))
+    # Remove empty fields, i.e. fields that do not contain any visible text.
+    fields = filter(lambda f: f.text, fields)
+    # Split the fields based on their type.
+    data_fields, non_data_fields = partition(
+        lambda f: not isinstance(f, DataField), fields)
+    # Some text may not have been read properly.
+    non_data_fields, invalid_fields = partition(
+        lambda f: f.text.startswith("(cid"), non_data_fields)
+    non_data_fields = merge_other_fields(non_data_fields)
+
+    return list(data_fields), non_data_fields, list(invalid_fields)
+
+
+def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
+    """ Assign those fields to each table that can be used to expand.
+
+    A field F can be used to expand a table T1, if no other table T2
+    is between F and T1.
+
+    :param tables: All tables of the page.
+    :param fields: All fields of the page, that are neither Data nor
+        Repeat fields.
+    """
+    def get_next_lower(sorted_tables: list[Table], axis: str) -> float | None:
+        """ Return the upper bound of the next lower table, if it exists.
+
+        Lower means either left or above of the current table.
+
+        :param sorted_tables: The tables sorted beforehand, based on axis.
+        :param axis: The axis used to determine whether a table is
+            lower or not. Either 'x' or 'y'.
+        :return: The upper bound of the next lower table, if it exists.
+            Otherwise, None.
+        """
+        idx = sorted_tables.index(table)
+        if idx == 0:
+            return None
+        getter1 = attrgetter(f"bbox.{axis}1")
+        getter2 = attrgetter(f"bbox.{axis}0")
+        lower = first_true(sorted_tables[idx - 1::-1],
+                           pred=lambda t: getter1(t) < getter2(table))
+        return cast(float, getter2(lower)) if lower else None
+
+    def get_next_upper(sorted_tables: list[Table], axis: str) -> float | None:
+        """ Return the lower bound of the next upper table, if it exists.
+
+        Upper means either right or below of the current table.
+
+        :param sorted_tables: The tables sorted beforehand, based on axis.
+        :param axis: The axis used to determine whether a table is
+            upper or not. Either 'x' or 'y'.
+        :return: The lower bound of the next upper table, if it exists.
+            Otherwise, None.
+        """
+        idx = sorted_tables.index(table)
+        if idx == len(sorted_tables) - 1:
+            return None
+        getter1 = attrgetter(f"bbox.{axis}0")
+        getter2 = attrgetter(f"bbox.{axis}1")
+        upper = first_true(
+            sorted_tables[idx + 1:],
+            pred=lambda t: getter1(t) > getter2(table))
+        return cast(float, getter1(upper)) if upper else None
+
+    tables_y0 = sorted(tables, key=attrgetter("bbox.y0"))
+    tables_y1 = sorted(tables, key=attrgetter("bbox.y1"))
+    tables_x0 = sorted(tables, key=attrgetter("bbox.x0"))
+    tables_x1 = sorted(tables, key=attrgetter("bbox.x1"))
+    for table in tables:
+        t_above = get_next_lower(tables_y0, "y")
+        t_below = get_next_upper(tables_y1, "y")
+        t_prev = get_next_lower(tables_x0, "x")
+        t_next = get_next_upper(tables_x1, "x")
+        bounds = Bounds(t_above, t_prev, t_below, t_next)
+        table.other_fields = [f.duplicate() for f in fields
+                              if bounds.within_bounds(f)]
+
+
+def create_tables_from_page(page: LTPage) -> list[Table]:
+    """ Use the fields on the page to create the tables.
+
+    :param page: An LTPage.
+    :return: A list of tables, where each table is minimal in the sense
+        that it can not be easily split into multiple tables where each
+        table still contains a stop col/row; they are also maximal, in
+        the sense that no other fields exist on the page, that can be
+        attributed to the table in a simple manner.
+    """
+    data_fields, non_data_fields, invalid_fields = get_fields_from_page(page)
+    t = Table.from_fields(data_fields)
+    other_fields = non_data_fields
+    t.insert_repeat_fields(other_fields)
+    t.print(None)
+    tables = t.max_split(other_fields)
+    assign_other_fields_to_tables(tables, other_fields)
+    for t in tables:
+        t.expand(W)
+        t.expand(W)
+        t.expand(N)
+        t.expand(N)
+        t.expand(W)
+        t.expand(W)
+        t.expand(S)
+        logger.info("Found the following table:")
+        t.print(None)
+        logger.info("With the following types:")
+        t.print_types()
+    return tables
+
+
+def get_pdf_tables_from_datafields(tables: list[Table]) -> list[TimeTable]:
+    timetables = []
+    for table in tables:
+        timetable = table.to_timetable()
+        if not timetable:
+            continue
+        timetables.append(timetable)
+    return timetables
 
 
 def sniff_page_count(file: str | Path) -> int:
@@ -140,7 +400,7 @@ def get_pages(file: str | Path) -> Iterator[LTPage]:
         file, laparams=laparams, page_numbers=Config.pages.page_ids)
 
 
-def split_line_into_fields(line: Line) -> list[Field]:
+def split_line_into_fields(line: Line) -> list[PDFField]:
     """ Split the given chars into fields,
     merging multiple fields, based on their x coordinates. """
     fields = []
@@ -150,7 +410,7 @@ def split_line_into_fields(line: Line) -> list[Field]:
     # Fields are semi-continuous streams of chars. May not be strictly
     #  continuous, because we rounded the coordinates.
     for char in sorted(line, key=attrgetter("x0")):
-        char_field = Field.from_char(char)
+        char_field = PDFField.from_char(char)
         new_field = not fields or not fields[-1].is_next_to(char_field)
         if new_field:
             fields.append(char_field)
@@ -210,11 +470,18 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
     return timetables
 
 
-def page_to_timetables(page: LTPage) -> list[TimeTable]:
+def page_to_timetables(
+        page: LTPage,
+        use_datafields: bool = True,
+        ) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
-    char_df = get_chars_dataframe(page)
-    pdf_tables = get_pdf_tables_from_df(char_df)
-    tables = pdf_tables_to_timetables(pdf_tables)
+    if use_datafields:
+        datafields = create_tables_from_page(page)
+        tables = get_pdf_tables_from_datafields(datafields)
+    else:
+        char_df = get_chars_dataframe(page)
+        pdf_tables = get_pdf_tables_from_df(char_df)
+        tables = pdf_tables_to_timetables(pdf_tables)
 
     logger.info(f"Number of tables found: {len(tables)}")
     return tables
@@ -271,7 +538,7 @@ class Reader:
         prefix = f"p2g_preprocess_{self.filepath.stem}_"
         self.tempfile = NamedTemporaryFile(
             delete=False, prefix=prefix, suffix=".pdf")
-        # GS can't use open files as outfiles (may be system dependent).
+        # GS can't use an open file as outfile (maybe system dependent).
         self.tempfile.close()
 
         gs_args = ["gs", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dFILTERIMAGE",

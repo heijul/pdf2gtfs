@@ -40,6 +40,20 @@ class BBox:
         if bbox has both x- and y-size, otherwise False. """
         return self.x0 < self.x1 and self.y0 < self.y1 and self.size > (0, 0)
 
+    @staticmethod
+    def from_bboxes(bboxes: list[BBox]) -> BBox:
+        """ Create a new bbox from the given bboxes.
+
+        :param bboxes: The bboxes to construct the bbox from.
+        :return: A bbox, that contains all other bboxes.
+        """
+        bbox = bboxes[0].copy()
+        bbox.x0 = min(map(attrgetter("x0"), bboxes))
+        bbox.y0 = min(map(attrgetter("y0"), bboxes))
+        bbox.x1 = max(map(attrgetter("x1"), bboxes))
+        bbox.y1 = max(map(attrgetter("y1"), bboxes))
+        return bbox
+
     def copy(self) -> BBox:
         """ Return a new BBox with the same coordinates. """
         return BBox(self.x0, self.y0, self.x1, self.y1)
@@ -48,7 +62,7 @@ class BBox:
         """ Returns, whether other's x coordinates lie within self's. """
         return self.x0 <= bbox.x0 <= self.x1 and self.x0 <= bbox.x1 <= self.x1
 
-    def merge(self, other: BBox) -> None:
+    def merge(self, other: BBox) -> BBox:
         """ Merges other with self (inplace), such that:
         merged.contains(self) == merged.contains(other) == True,
         if merged = self.copy().merge(other). """
@@ -56,6 +70,7 @@ class BBox:
         self.y0 = min(self.y0, other.y0)
         self.x1 = max(self.x1, other.x1)
         self.y1 = max(self.y1, other.y1)
+        return self
 
     def y_distance(self, other: BBox) -> float:
         """ Return the absolute distance of self to other on axis. """
@@ -82,12 +97,72 @@ class BBox:
     def __repr__(self) -> str:
         return f"BBox(x0={self.x0}, y0={self.y0}, x1={self.x1}, y1={self.y1})"
 
+    def _overlap(self, other: BBox | BBoxObject, d: str) -> float:
+        """ Return how much self and other overlap, in points. """
+        if not isinstance(other, BBox):
+            other = other.bbox
+        assert d in ["x", "y"]
+        # Sort the two objects by the left/upper side, to have fewer cases.
+        one, two = sorted((self, other), key=attrgetter(f"{d}0"))
+
+        # The left/top of the righter/lower object is greater than the
+        #  right/bottom side of the lefter/upper object.
+        if getattr(one, f"{d}1") <= getattr(two, f"{d}0"):
+            return 0
+        # The righter/lower object is completely contained in the lefter/upper.
+        if getattr(one, f"{d}1") >= getattr(two, f"{d}1"):
+            return two.size[0] if d == "x" else two.size[1]
+        # Need to actually calculate the overlap.
+        return abs(getattr(one, f"{d}1") - getattr(two, f"{d}0"))
+
+    def h_overlap(self, other: BBox | BBoxObject) -> float:
+        """ Return how much self and other overlap horizontally, in pixel. """
+        return self._overlap(other, "x")
+
+    def is_h_overlap(self, other: BBox | BBoxObject,
+                     relative_amount: float = 0.5) -> bool:
+        max_overlap = min((self.size[0], other.size[0]))
+        return self.h_overlap(other) >= relative_amount * max_overlap
+
+    def v_overlap(self, other: BBox | BBoxObject) -> float:
+        """ Return how much self and other overlap vertically, in pixel. """
+        return self._overlap(other, "y")
+
+    def is_v_overlap(self, other: BBox | BBoxObject,
+                     relative_amount: float = 0.5) -> bool:
+        max_overlap = min((self.size[1], other.size[1]))
+        return self.v_overlap(other) >= relative_amount * max_overlap
+
+    def is_overlap(self, orientation: str = "v", *args, **kwargs) -> bool:
+        # TODO NOW: Use Orientation instead of str
+        assert orientation in "vh"
+        if orientation == "v":
+            return self.is_v_overlap(*args, **kwargs)
+        return self.is_h_overlap(*args, **kwargs)
+
+    def relative_pos_v(self, other: BBox) -> int:
+        """ Basically does compare(self.x0, other.x0). """
+        return (self.x0 < other.x0) - (self.x0 > other.x0)
+
+    def relative_pos_h(self, other: BBox) -> int:
+        """ Basically does compare(self.y0, other.y0). """
+        return (self.y0 < other.y0) - (self.y0 > other.y0)
+
+    def relative_pos(self, orientation: str, *args, **kwargs) -> int:
+        assert orientation in "vh"
+        if orientation == "v":
+            return self.relative_pos_v(*args, **kwargs)
+        return self.relative_pos_h(*args, **kwargs)
+
+    def __hash__(self) -> int:
+        return hash(f"{self.x0},{self.y0},{self.x1},{self.y1}")
+
 
 class BBoxObject:
     """ Baseclass for objects which have a bbox. """
 
     def __init__(self, bbox: BBox | None = None) -> None:
-        self.bbox = bbox
+        self._bbox = BBox() if bbox is None else bbox.copy()
 
     @property
     def bbox(self) -> BBox:
