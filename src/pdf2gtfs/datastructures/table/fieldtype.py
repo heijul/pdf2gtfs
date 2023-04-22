@@ -368,6 +368,7 @@ def rel_indicator_stop(field: F) -> float:
     funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
              field_neighbor_has_type_wrapper(T.Stop),
              )
+    # TODO NOW: Stops (in general) share their Orientation.lower
     return bool(rel_multiple_function_wrapper(funcs)(field)) * 2.5
 
 

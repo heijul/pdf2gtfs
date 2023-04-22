@@ -407,7 +407,7 @@ class Table(QuadLinkedList[F, OF]):
         self._remove_empty_series(H)
         self._remove_empty_series(V)
 
-    def to_timetable(self) -> TimeTable:
+    def to_timetable(self) -> TimeTable | None:
         from pdf2gtfs.datastructures.timetable.table import TimeTable
         from pdf2gtfs.datastructures.timetable.stops import Stop
         from pdf2gtfs.datastructures.timetable.entries import (
@@ -474,9 +474,9 @@ class Table(QuadLinkedList[F, OF]):
                 stops = _find_stops(H, stops[0][1])
             case _:
                 return orientation, stops
+        # Ignore tables with too few stops. Usually these are false positives.
         if len(stops) <= 2:
             return orientation, []
-            raise AssertionError("Each table needs at least 2 stops.")
         return orientation, stops
 
 
