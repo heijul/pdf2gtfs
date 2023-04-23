@@ -33,6 +33,7 @@ class TestHandler(P2GTestCase):
         Config.output_path = cls.temp_path
         cls.timetables = get_timetables()
         cls.data_gen = get_data_gen(__file__, cls.__name__)
+        Config.gtfs_date_bounds = ["20220101", "20221231"]
 
     def setUp(self) -> None:
         self.handler = GTFSHandler()
@@ -123,21 +124,41 @@ class TestHandler(P2GTestCase):
                     j += 1
 
     def test_generate_calendar_dates(self) -> None:
-        Config.gtfs_date_bounds = ""
         Config.holiday_code = {"country": "DE", "subdivision": "BW"}
+        # Second table of the third page (contains only holiday).
         timetable = self.timetables[7]
         self.handler.add_timetable_stops(timetable)
         self.handler.generate_routes(timetable)
         stop_times = self.handler.generate_stop_times(timetable.entries)
-        # Add generated stoptimes to ours.
+        # Add generated StopTimes to ours.
         for times in stop_times:
             self.handler.stop_times.merge(times)
         self.handler.trips.remove_unused(self.handler.stop_times)
         self.assertEqual(0, len(self.handler.calendar_dates))
         self.handler.generate_calendar_dates()
-        holiday_count = len(country_holidays("DE", "BW", datetime.now().year))
+        holiday_count = len(country_holidays("DE", "BW", 2022))
         self.assertEqual(12, holiday_count)
+        # There is only a single calendar_dates entry.
         self.assertEqual(holiday_count, len(self.handler.calendar_dates))
+
+    def test_generate_calendar_dates2(self) -> None:
+        Config.holiday_code = {"country": "DE", "subdivision": "BW"}
+        # First table of the third page (contains both holiday/non-holiday).
+        timetable = self.timetables[6]
+        self.handler.add_timetable_stops(timetable)
+        self.handler.generate_routes(timetable)
+        stop_times = self.handler.generate_stop_times(timetable.entries)
+        # Add generated StopTimes to ours.
+        for times in stop_times:
+            self.handler.stop_times.merge(times)
+        self.handler.trips.remove_unused(self.handler.stop_times)
+        self.assertEqual(0, len(self.handler.calendar_dates))
+        self.handler.generate_calendar_dates()
+        holiday_count = len(country_holidays("DE", "BW", 2022))
+        self.assertEqual(12, holiday_count)
+        # There are five calendar entries ("Samstag", "Sonn- und Feiertag",
+        # and 3 more for the annotations).
+        self.assertEqual(holiday_count * 5, len(self.handler.calendar_dates))
 
     def test_generate_calendar_dates__no_holidays(self) -> None:
         Config.holiday_code = {}

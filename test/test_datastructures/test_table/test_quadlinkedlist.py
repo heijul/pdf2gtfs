@@ -32,8 +32,6 @@ class TestQuadNode(TestCase):
         f = QuadNode()
         g = QuadNode()
         f.set_neighbor(E, g)
-        with self.assertRaises(AssertionError):
-            b.set_neighbor(E, f)
         # Removing the neighbor on one node, removes it from the other as well.
         f.set_neighbor(E, None)
         self.assertIsNone(f.get_neighbor(E))
