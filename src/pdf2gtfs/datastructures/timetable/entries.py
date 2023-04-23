@@ -1,5 +1,7 @@
 """ Provide entries for the TimeTable. """
 
+from __future__ import annotations
+
 import logging
 
 from pdf2gtfs.config import Config
@@ -58,7 +60,16 @@ class TimeTableRepeatEntry(TimeTableEntry):
 
     def __init__(self, header_text: str, intervals: list[str]) -> None:
         super().__init__(header_text)
-        self.intervals = None
+        self._intervals = None
+        self.intervals = intervals
+
+    @property
+    def intervals(self) -> list[int]:
+        """ The (possibly) different intervals, service is repeated at. """
+        return self._intervals
+
+    @intervals.setter
+    def intervals(self, intervals: list[str]) -> None:
         intervals = list(set(intervals))
         if len(intervals) > 1:
             logger.warning("Multiple different repeat intervals found for a "
@@ -66,8 +77,7 @@ class TimeTableRepeatEntry(TimeTableEntry):
                            "active between which stops. "
                            "Repeat column will be skipped.")
             return
-
-        self.intervals = self.interval_str_to_int_list(intervals[0])
+        self._intervals = self.interval_str_to_int_list(intervals[0])
 
     @staticmethod
     def interval_str_to_int_list(value_str: str) -> list[int]:
@@ -104,3 +114,9 @@ class TimeTableRepeatEntry(TimeTableEntry):
         logger.error(f"Could not turn repeat string '{value_str}' "
                      f"into interval. Repeat column will be skipped.")
         return []
+
+    @staticmethod
+    def from_entry(entry: TimeTableEntry) -> TimeTableRepeatEntry:
+        repeat_entry = TimeTableRepeatEntry("", [])
+        repeat_entry.days = entry.days
+        repeat_entry.annotations = entry.annotations

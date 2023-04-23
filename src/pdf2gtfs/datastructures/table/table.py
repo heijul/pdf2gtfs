@@ -411,7 +411,7 @@ class Table(QuadLinkedList[F, OF]):
         from pdf2gtfs.datastructures.timetable.table import TimeTable
         from pdf2gtfs.datastructures.timetable.stops import Stop
         from pdf2gtfs.datastructures.timetable.entries import (
-            TimeTableEntry, Weekdays,
+            TimeTableEntry, TimeTableRepeatEntry, Weekdays,
             )
 
         t = TimeTable()
@@ -424,7 +424,8 @@ class Table(QuadLinkedList[F, OF]):
         for stop in tt_stops:
             t.stops.add_stop(stop)
 
-        entries = [TimeTableEntry("") for _ in self.get_series(n, self.left)]
+        entries: list[TimeTableEntry] = [
+            TimeTableEntry("") for _ in self.get_series(n, self.left)]
         non_empty_entries = set()
 
         for stop_id, start in enumerate(self.get_series(o, self.left)):
@@ -446,6 +447,14 @@ class Table(QuadLinkedList[F, OF]):
                 if field.get_type() == T.StopAnnot:
                     stop = t.stops.get_from_id(stop_id)
                     t.stops.add_annotation(field.text, stop=stop)
+                if field.get_type() == T.RepeatValue:
+                    e = entries[e_id]
+                    if not isinstance(entries[e_id], TimeTableRepeatEntry):
+                        entries[e_id] = TimeTableRepeatEntry("", [field.text])
+                        entries[e_id].days = e.days
+                        entries[e_id].route_name = e.route_name
+                        entries[e_id].annotations = e.annotations
+                    non_empty_entries.add(e_id)
         first_days = first_true((entries[e_id].days
                                  for e_id in non_empty_entries),
                                 lambda d: d.days != [])
