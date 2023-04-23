@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 from holidays import country_holidays
+from more_itertools import collapse
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.agency import (
@@ -103,13 +104,14 @@ class TestHandler(P2GTestCase):
         stop_times = self.handler.generate_stop_times(timetable.entries)
         # Prepare data
         data = self.data_gen("test_generate_stop_times")
-        data_stop_times = [[Time.from_string(s) for s in times]
-                           for times in data["stop_times"]]
-        data_stop_times: list[list[Time]]
+        data_stop_times: list[list[Time]] = [
+            [Time.from_string(s) for s in times]
+            for times in data["stop_times"]]
 
-        # Same number of entries. (One stop appears twice per route)
-        self.assertEqual(sum([len(s) for s in data_stop_times]),
-                         sum([len(s) for s in stop_times]) + 26)
+        # Same number of entries. (One stop appears twice per route,
+        # because of different arrival/departure times)
+        self.assertEqual(sum(map(len, collapse(data_stop_times, levels=0))),
+                         sum(map(len, collapse(stop_times, levels=0))) + 26)
 
         for i in range(len(data_stop_times)):
             with self.subTest(i=i):
@@ -359,7 +361,6 @@ class TestHandler(P2GTestCase):
         self.assertEqual(Time(0, 1), avg_time_ab)
         self.assertEqual(Time(0, 2), avg_time_bc)
         self.assertEqual(Time(0, 4, 4), avg_time_ac)
-        self.assertLessEqual(avg_time_ab + avg_time_bc, avg_time_ac)
 
     def test_get_used_stops(self) -> None:
         self.assertEqual([], self.handler.get_used_stops())
