@@ -439,15 +439,22 @@ class Table(QuadLinkedList[F, OF]):
                 if field.get_type() == T.EntryAnnotValue:
                     annots = set([a.strip() for a in field.text.split()])
                     entries[e_id].annotations = annots
-                if field.get_type() == T.Days:
+                if field.get_type() == T.Days and not entries[e_id].days.days:
                     entries[e_id].days = Weekdays(field.text)
                 if field.get_type() == T.RouteAnnotValue:
                     entries[e_id].route_name = field.text
                 if field.get_type() == T.StopAnnot:
                     stop = t.stops.get_from_id(stop_id)
                     t.stops.add_annotation(field.text, stop=stop)
+        first_days = first_true((entries[e_id].days
+                                 for e_id in non_empty_entries),
+                                lambda d: d.days != [])
         for e_id in non_empty_entries:
-            t.entries.append(entries[e_id])
+            entry = entries[e_id]
+            if not entry.days.days:
+                entry.days = first_days
+            first_days = entry.days
+            t.entries.append(entry)
         return t
 
     def find_stops(self) -> tuple[Orientation, list[tuple[int, F]]]:
