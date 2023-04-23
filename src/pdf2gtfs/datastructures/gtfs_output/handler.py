@@ -222,7 +222,7 @@ class GTFSHandler:
 
         holiday_dates, non_holiday_dates = self.calendar.group_by_holiday()
 
-        years = [date.year for date in Config.gtfs_date_bounds]
+        years = sorted([date.year for date in Config.gtfs_date_bounds])
         years = list(range(years[0], years[1] + 1))
         holidays = country_holidays(Config.holiday_code[0],
                                     Config.holiday_code[1],
