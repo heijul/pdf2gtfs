@@ -11,7 +11,7 @@ from pdf2gtfs.datastructures.table.fieldtype import (
     )
 from pdf2gtfs.datastructures.table.nodes import QuadNode
 from pdf2gtfs.datastructures.table.direction import (
-    H, Orientation, V, D,
+    Direction, H, Orientation, V, D,
     )
 from pdf2gtfs.datastructures.table.quadlinkedlist import QLL
 
@@ -119,17 +119,22 @@ class Field(QuadNode[F, OF], BBoxObject):
             return self.bbox.is_v_overlap(field.bbox, *args)
         return self.bbox.is_h_overlap(field.bbox, *args)
 
-    def merge(self, field: F, *, merge_char: str = " ") -> None:
+    def merge(self, field: F, *, merge_char: str = " ",
+              ignore: list[Direction] = None) -> None:
         """ Merge field's contents to ours. The neighbors of the field will
             be our neighbors after merging.
 
         :param field: The field that will be merged.
         :param merge_char: The char used when merging the field text.
+        :param ignore: The directions to ignore the neighbors in. Used, when
+            multiple neighboring fields are being merged successively.
         """
         self.chars += field.chars
         self.bbox.merge(field.bbox)
         self.text += f"{merge_char}{field.text}"
         for d in D:
+            if ignore and d in ignore:
+                continue
             # Remove field as a neighbor
             self_neighbor = self.get_neighbor(d)
             if self_neighbor == field:

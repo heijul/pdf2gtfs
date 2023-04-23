@@ -417,6 +417,7 @@ class Table(QuadLinkedList[F, OF]):
         t = TimeTable()
         o, stops = self.find_stops()
         # TODO NOW: Add to config min_stops
+        # Ignore tables with too few stops. Usually these are false positives.
         if len(stops) < 3:
             return None
         n = o.normal
@@ -467,7 +468,11 @@ class Table(QuadLinkedList[F, OF]):
         return t
 
     def find_stops(self) -> tuple[Orientation, list[tuple[int, F]]]:
-        """ Get the row/column, that contains the stops. """
+        """ Get the row/column, that contains the stops.
+
+        :return: The orientation of the stops, as well as the list of
+            stops, with each stop's row/col index based on orientation.
+        """
         def _find_stops(o: Orientation, start: F | None = None
                         ) -> list[tuple[int, F]]:
             for field in self.get_series(o.normal, start or self.left):
@@ -479,21 +484,39 @@ class Table(QuadLinkedList[F, OF]):
                 return series
             return []
 
-        stops = _find_stops(V)
-        orientation = V
-        match len(stops):
-            case 0:
-                stops = _find_stops(H)
-                orientation = H
-            case 1:
-                orientation = H
-                stops = _find_stops(H, stops[0][1])
-            case _:
-                return orientation, stops
-        # Ignore tables with too few stops. Usually these are false positives.
-        if len(stops) <= 2:
-            return orientation, []
-        return orientation, stops
+        v_stops = _find_stops(V)
+        h_stops = _find_stops(H)
+        return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
+
+    def merge_series(self, starter: F, d: Direction) -> None:
+        neighbor = starter.get_neighbor(d)
+        if not neighbor:
+            raise AssertionError(f"Can't merge in {d.name}. End of table.")
+        o = d.default_orientation
+        n = o.normal
+        series = list(self.get_series(n, starter))
+        neighbors = list(self.get_series(n, neighbor))
+        for f1, f2 in zip(series, neighbors, strict=True):
+            f1.merge(f2, ignore=[n.lower, n.upper])
+
+    def merge_stops(self) -> None:
+        def _merge_stops() -> bool:
+            allow_merge = True
+            stop: F | None = None
+            for _, stop in stops:
+                neighbor: F = stop.get_neighbor(n.upper)
+                if neighbor.get_type() not in [T.Stop, T.Empty]:
+                    allow_merge = False
+                    break
+            if not stop or not allow_merge:
+                return False
+            self.merge_series(stop, n.upper)
+            return True
+
+        o, stops = self.find_stops()
+        n = o.normal
+        while _merge_stops():
+            pass
 
 
 def group_fields_by(fields: Iterable[F],
