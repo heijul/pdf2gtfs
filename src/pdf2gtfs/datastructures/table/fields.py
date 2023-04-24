@@ -51,9 +51,12 @@ class Field(QuadNode[F, OF], BBoxObject):
         return any(typ in self.type.possible_types for typ in types)
 
     def get_neighbors(self, *,
-                      allow_none: bool = False, allow_empty: bool = True
+                      allow_none: bool = False, allow_empty: bool = True,
+                      directions: list[Direction] = None
                       ) -> Fs:
-        neighbors = {d: self.get_neighbor(d) for d in D}
+        if directions is None:
+            directions = D
+        neighbors = {d: self.get_neighbor(d) for d in directions}
         # Find the next neighbor if the direct neighbor is an EmptyField.
         if not allow_empty:
             for d, neighbor in neighbors.items():

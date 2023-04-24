@@ -10,7 +10,9 @@ from typing import Any, Callable, TYPE_CHECKING, TypeAlias, TypeVar
 from more_itertools import collapse
 
 from pdf2gtfs.config import Config
-from pdf2gtfs.datastructures.table.direction import H, V
+from pdf2gtfs.datastructures.table.direction import (
+    D, Direction, E, H, N, Orientation, S, V, W,
+    )
 
 
 if TYPE_CHECKING:
@@ -283,8 +285,8 @@ def field_col_contains_type(field: F, typ: T) -> bool:
     return any(map(func, field.col))
 
 
-def field_neighbor_has_type(field: F, typ: T, direct_neighbor: bool = False
-                            ) -> bool:
+def field_neighbor_has_type(field: F, typ: T, direct_neighbor: bool = False,
+                            directions: list[Direction] = D) -> bool:
     """ Check, if the field has a neighbor with the given type.
 
     :param field: The field in question.
@@ -292,11 +294,14 @@ def field_neighbor_has_type(field: F, typ: T, direct_neighbor: bool = False
     :param direct_neighbor: Whether, to only check direct neighbors, that is
         neighbors that may be empty. If False, get the first neighbor in each
         direction, that is not empty.
+    :param directions: If given, only the neighbors in these directions
+        will be checked.
     :return: True, if any of the fields neighbors is of the given type.
         False, otherwise.
     """
     func = field_has_type_wrapper(typ)
-    return any(map(func, field.get_neighbors(allow_empty=direct_neighbor)))
+    return any(map(func, field.get_neighbors(allow_empty=direct_neighbor,
+                                             directions=directions)))
 
 
 def field_neighbor_has_type_wrapper(typ: T, direct_neighbor: bool = False
@@ -358,6 +363,71 @@ def rel_multiple_function_wrapper(funcs: tuple[RelIndicator, ...]
     return _run
 
 
+def series_contains_type(field: F, o: Orientation, typ: T) -> bool:
+    if o == V:
+        return field_col_contains_type(field, typ)
+    return field_row_contains_type(field, typ)
+
+
+def data_aligned_fields_are_non_empty(starter: F, o: Orientation) -> bool:
+    """ Checks if the row/col of starter, contains empty fields
+    in the cols/rows where the data fields are.
+
+    :param starter: The row/col of this field will be checked.
+    :param o: The orientation of the series of starter. The normal
+        orientation to o will be used to check neighbors of each empty field.
+    :return: True, if all fields of the starter's col/row, that are within
+        a row/col that contains datafields are either non-empty fields with
+        T.Stop as possible type or are empty and either are missing a neighbor
+        in the normal orientation or such a neighbor has a different type than
+        T.Stop or T.Data. False, otherwise.
+    """
+    from pdf2gtfs.datastructures.table.fields import EmptyField
+
+    n = o.normal
+    for field in starter.qll.get_series(o, starter):
+        if not series_contains_type(field, n, T.Data):
+            continue
+        if not isinstance(field, EmptyField):
+            if not field.has_type(T.Stop):
+                return False
+            continue
+        # The current field may be part of an incomplete row/col, which will
+        # be merged to a proper Stop field.
+        neighbors = field.get_neighbors(allow_none=True,
+                                        allow_empty=False,
+                                        directions=[n.lower, n.upper])
+        for neighbor in neighbors:
+            # Both neighbors need to be either a Stop or Data.
+            if not neighbor or neighbor.get_type() not in (T.Stop, T.Data):
+                return False
+    return True
+
+
+def series_is_aligned(starter: F, o: Orientation,
+                      max_displacement: float = 0.5) -> bool:
+    """ Checks if the fields in starter's row/col are aligned.
+
+    :param starter: This fields row/col will be checked.
+    :param o: Whether to check row (H) or col (V) of starter.
+    :param max_displacement: The maximum displacement between a field's
+        lower x-/y-coordinate (based on o) and the smallest x-/y-coordinate
+        of all checked fields.
+    :return: True, if the lower x-/y-coordinate of all checked fields
+        differ at most by max_displacement. False, otherwise.
+    """
+    bbox_attr = "x0" if o == V else "y0"
+    lower_coords: list[float] = []
+    for field in starter.qll.get_series(o, starter):
+        # Only check data fields.
+        if not series_contains_type(field, o.normal, T.Data):
+            continue
+        lower_coords.append(getattr(field.bbox, bbox_attr))
+    lower_coords.sort()
+    # Only the largest difference needs to be checked.
+    return max_displacement >= (lower_coords[-1] - lower_coords[0])
+
+
 def rel_indicator_stop(field: F) -> float:
     """ The relative indicator for T.Stop.
 
@@ -365,11 +435,34 @@ def rel_indicator_stop(field: F) -> float:
     :return: A value between 0 and 2.5, representing change in probability,
         based on the funcs called.
     """
-    funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
-             field_neighbor_has_type_wrapper(T.Stop),
-             )
-    # TODO NOW: Stops (in general) share their Orientation.lower
-    return bool(rel_multiple_function_wrapper(funcs)(field)) * 2.5
+    # Stops are never between the table's data-fields.
+    if field_is_between_type(field, T.Data):
+        return 0
+    col_contains_data = field_col_contains_type(field, T.Data)
+    row_contains_data = field_row_contains_type(field, T.Data)
+    # We need exactly one of col/row to contain data. Otherwise, field is
+    # either diagonal or inside the grid spanned by the table's data-fields.
+    if (col_contains_data + row_contains_data) % 2 == 0:
+        return 0
+    score = 1
+    if col_contains_data:
+        # Every row that contains data must contain a stop.
+        if not data_aligned_fields_are_non_empty(field, H):
+            return 0
+        score += series_is_aligned(field, H)
+        score += field_col_contains_type(field, T.Stop)
+        score += field_neighbor_has_type(
+            field, T.StopAnnot, directions=[N, S])
+    elif row_contains_data:
+        # Every col that contains data must contain a stop.
+        if not data_aligned_fields_are_non_empty(field, V):
+            return 0
+        score += series_is_aligned(field, V)
+        score += field_row_contains_type(field, T.Stop)
+        score += field_neighbor_has_type(
+            field, T.StopAnnot, directions=[W, E])
+
+    return score
 
 
 def rel_indicator_stop_annot(field: F) -> float:
