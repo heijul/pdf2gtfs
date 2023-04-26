@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 from enum import Enum
+from operator import attrgetter
+from statistics import mean
 from time import strptime
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias, TypeVar
 
@@ -477,6 +479,24 @@ def rel_indicator_stop_annot(field: F) -> float:
     return rel_multiple_function_wrapper(funcs)(field)
 
 
+def rel_indicator_data_annot(field: F) -> float:
+    """ The relative indicator for T.DataAnnot.
+
+    :param field: The field that has its type evaluated.
+    :return: 0, if the field either has no direct neighbor of type Data or if
+        the field's fontsize is greater or equal to the data fields' fontsize.
+        1, otherwise.
+    """
+    neighbor_of_data = field_neighbor_has_type(field, T.Data, True)
+    if not neighbor_of_data:
+        return 0
+
+    data_neighbors = [n for n in field.get_neighbors(
+        allow_none=False, allow_empty=False) if n.get_type() == T.Data]
+    mean_data_fontsize = mean(map(attrgetter("fontsize"), data_neighbors))
+    return field.fontsize < mean_data_fontsize
+
+
 def rel_indicator_repeat_ident(field: F) -> float:
     """ The relative indicator for T.RepeatIdent.
 
@@ -529,7 +549,7 @@ REL_INDICATORS: dict[T: RelIndicator] = {
     T.Data: field_neighbor_has_type_wrapper(T.Data),
     T.Stop: rel_indicator_stop,
     T.StopAnnot: rel_indicator_stop_annot,
-    T.DataAnnot: field_neighbor_has_type_wrapper(T.Data),
+    T.DataAnnot: rel_indicator_data_annot,
     T.EntryAnnotValue: rel_indicator_entry_annot_value,
     T.RepeatIdent: rel_indicator_repeat_ident,
     T.RepeatValue: rel_indicator_repeat_value,
