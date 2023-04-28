@@ -405,6 +405,34 @@ class Table(QuadLinkedList[F, OF]):
             TimeTableEntry, TimeTableRepeatEntry, Weekdays,
             )
 
+        def add_field_to_timetable() -> None:
+            match field.get_type():
+                case T.Other | T.Empty | T.Stop:
+                    return
+                case T.Data:
+                    stop = t.stops.get_from_id(stop_id)
+                    entries[e_id].set_value(stop, field.text)
+                    non_empty_entries.add(e_id)
+                case T.EntryAnnotValue:
+                    annots = set([a.strip() for a in field.text.split()])
+                    entries[e_id].annotations = annots
+                case T.Days:
+                    entries[e_id].days = Weekdays(field.text)
+                case T.RouteAnnotValue:
+                    entries[e_id].route_name = field.text
+                case T.StopAnnot:
+                    stop = t.stops.get_from_id(stop_id)
+                    t.stops.add_annotation(field.text, stop=stop)
+                case T.RepeatValue:
+                    e = entries[e_id]
+                    if not isinstance(entries[e_id], TimeTableRepeatEntry):
+                        entries[e_id] = TimeTableRepeatEntry(
+                            "", [field.text])
+                        entries[e_id].days = e.days
+                        entries[e_id].route_name = e.route_name
+                        entries[e_id].annotations = e.annotations
+                    non_empty_entries.add(e_id)
+
         t = TimeTable()
         o, stops = self.find_stops()
         # TODO NOW: Add to config min_stops
@@ -421,32 +449,9 @@ class Table(QuadLinkedList[F, OF]):
         non_empty_entries = set()
 
         for stop_id, start in enumerate(self.get_series(o, self.left)):
-            pass
             for e_id, field in enumerate(self.get_series(n, start)):
-                if field.get_type() in (T.Other, T.Empty, T.Stop):
-                    continue
-                if field.get_type() == T.Data:
-                    stop = t.stops.get_from_id(stop_id)
-                    entries[e_id].set_value(stop, field.text)
-                    non_empty_entries.add(e_id)
-                if field.get_type() == T.EntryAnnotValue:
-                    annots = set([a.strip() for a in field.text.split()])
-                    entries[e_id].annotations = annots
-                if field.get_type() == T.Days and not entries[e_id].days.days:
-                    entries[e_id].days = Weekdays(field.text)
-                if field.get_type() == T.RouteAnnotValue:
-                    entries[e_id].route_name = field.text
-                if field.get_type() == T.StopAnnot:
-                    stop = t.stops.get_from_id(stop_id)
-                    t.stops.add_annotation(field.text, stop=stop)
-                if field.get_type() == T.RepeatValue:
-                    e = entries[e_id]
-                    if not isinstance(entries[e_id], TimeTableRepeatEntry):
-                        entries[e_id] = TimeTableRepeatEntry("", [field.text])
-                        entries[e_id].days = e.days
-                        entries[e_id].route_name = e.route_name
-                        entries[e_id].annotations = e.annotations
-                    non_empty_entries.add(e_id)
+                add_field_to_timetable()
+
         first_days = first_true((entries[e_id].days
                                  for e_id in non_empty_entries),
                                 lambda d: d.days != [])
