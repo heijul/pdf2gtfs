@@ -29,7 +29,6 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
 from pdf2gtfs.datastructures.table.bounds import Bounds
-from pdf2gtfs.datastructures.table.direction import N, S, W
 from pdf2gtfs.datastructures.table.fields import DataField, F, Field, Fs
 from pdf2gtfs.datastructures.table.table import (
     fields_to_rows, group_fields_by, Table,
@@ -358,21 +357,17 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
     tables = t.max_split(other_fields)
     assign_other_fields_to_tables(tables, other_fields)
     for t in tables:
-        t.expand(W)
-        t.expand(W)
-        t.expand(N)
-        t.expand(N)
-        t.expand(W)
-        t.expand(W)
-        t.expand(S)
+        t.expand_all()
         logger.info("Found the following table:")
         t.print(None)
+        t.infer_field_types(tables[0] if t != tables[0] else None)
+        t.merge_stops()
         logger.info("With the following types:")
         t.print_types()
     return tables
 
 
-def get_pdf_tables_from_datafields(tables: list[Table]) -> list[TimeTable]:
+def tables_to_timetables(tables: list[Table]) -> list[TimeTable]:
     timetables = []
     for table in tables:
         timetable = table.to_timetable()
@@ -477,7 +472,7 @@ def page_to_timetables(
     """ Extract all timetables from the given page. """
     if use_datafields:
         datafields = create_tables_from_page(page)
-        tables = get_pdf_tables_from_datafields(datafields)
+        tables = tables_to_timetables(datafields)
     else:
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)

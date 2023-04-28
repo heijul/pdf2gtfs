@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from itertools import pairwise
 from operator import attrgetter
 from typing import Callable, Iterable, TYPE_CHECKING
@@ -26,6 +27,9 @@ from pdf2gtfs.datastructures.table.direction import (
 
 if TYPE_CHECKING:
     from pdf2gtfs.datastructures.timetable.table import TimeTable
+
+
+logger = logging.getLogger(__name__)
 
 
 class Table(QuadLinkedList[F, OF]):
@@ -253,19 +257,6 @@ class Table(QuadLinkedList[F, OF]):
                 return ""
             return f.get_type().name
 
-        # Infer all types before printing them.
-        first_column = self.get_list(V, self.left)
-        rows = [self.get_list(H, field) for field in first_column]
-        # Doing this twice may be necessary, in case the type of
-        # a field has changed.
-        # TODO NOW: This does not seem very performant.
-        for row in rows:
-            for field in row:
-                field.type.infer_type_from_neighbors()
-        for row in rows:
-            for field in row:
-                field.type.infer_type_from_neighbors()
-
         self._print(_get_type_name, col_count=col_count)
 
     def split_at_fields(self, o: Orientation, splitter: list[Fs]
@@ -417,6 +408,7 @@ class Table(QuadLinkedList[F, OF]):
         t = TimeTable()
         o, stops = self.find_stops()
         # TODO NOW: Add to config min_stops
+        # Ignore tables with too few stops. Usually these are false positives.
         if len(stops) < 3:
             return None
         n = o.normal
@@ -467,7 +459,11 @@ class Table(QuadLinkedList[F, OF]):
         return t
 
     def find_stops(self) -> tuple[Orientation, list[tuple[int, F]]]:
-        """ Get the row/column, that contains the stops. """
+        """ Get the row/column, that contains the stops.
+
+        :return: The orientation of the stops, as well as the list of
+            stops, with each stop's row/col index based on orientation.
+        """
         def _find_stops(o: Orientation, start: F | None = None
                         ) -> list[tuple[int, F]]:
             for field in self.get_series(o.normal, start or self.left):
@@ -479,21 +475,105 @@ class Table(QuadLinkedList[F, OF]):
                 return series
             return []
 
-        stops = _find_stops(V)
-        orientation = V
-        match len(stops):
-            case 0:
-                stops = _find_stops(H)
-                orientation = H
-            case 1:
-                orientation = H
-                stops = _find_stops(H, stops[0][1])
-            case _:
-                return orientation, stops
-        # Ignore tables with too few stops. Usually these are false positives.
-        if len(stops) <= 2:
-            return orientation, []
-        return orientation, stops
+        v_stops = _find_stops(V)
+        h_stops = _find_stops(H)
+        return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
+
+    def expand_all(self):
+        expanded = True
+        while expanded:
+            expanded = False
+            for d in D:
+                expanded |= self.expand(d)
+
+    def infer_field_types(self, first_table: Table | None) -> None:
+        # TODO: Test if it makes a difference, running this twice.
+        for starter in self.get_series(H, self.left):
+            for field in self.get_series(V, starter):
+                field.type.infer_type_from_neighbors()
+        for starter in self.get_series(H, self.left):
+            for field in self.get_series(V, starter):
+                field.type.infer_type_from_neighbors()
+        self.merge_stops()
+
+        if first_table is None:
+            return
+        # Use the first table on the page to determine, which days row/col
+        # is the correct one, in case multiple days rows or cols exist.
+        days_rows = self.of_type(T.Days, H)
+        first_days_row = first_table.of_type(T.Days, H, single=True)[0]
+        if not days_rows:
+            # Duplicate -> add to self.
+            for day in first_days_row:
+                self.other_fields.append(day.duplicate())
+            self.expand_all()
+            return
+        if len(days_rows) == 1:
+            return
+        first_table_col = list(first_table.get_series(V, first_days_row[0]))
+        first_days_row_idx = first_table_col.index(first_days_row[0])
+        first = first_days_row_idx < len(first_table_col) / 2
+        first_or_last = "first" if first else "last"
+        logger.info("Found multiple rows containing fields of type Days for "
+                    f"table {self}. Selecting the {first_or_last}, because "
+                    f"the first table of the current page does so as well.")
+        # TODO: Do this for other types as well?
+        # Remove Days as possible type of all other days_rows
+        invalid_days_rows = days_rows[1:] if first else days_rows[:-1]
+        for days in invalid_days_rows:
+            for day in days:
+                del day.type.possible_types[T.Days]
+                day.type.infer_type_from_neighbors()
+
+    def of_type(self, typ: T, o: Orientation = V, single: bool = False,
+                strict: bool = True) -> list[list[F]]:
+        fields_of_type: list[list[F]] = []
+        for starter in self.get_series(o.normal, self.left):
+            fields_of_type.append([])
+            for field in self.get_series(o, starter):
+                if not field.has_type(typ):
+                    continue
+                if not strict or field.get_type() == typ:
+                    fields_of_type[-1].append(field)
+            if not fields_of_type[-1]:
+                fields_of_type.pop()
+            # Only return fields of the first row/col
+            # that contains fields of the given type.
+            if single and fields_of_type:
+                return fields_of_type
+        return fields_of_type
+
+    def merge_series(self, starter: F, d: Direction) -> None:
+        neighbor = starter.get_neighbor(d)
+        if not neighbor:
+            raise AssertionError(f"Can't merge in {d.name}. End of table.")
+        o = d.default_orientation
+        n = o.normal
+        series = list(self.get_series(n, starter))
+        neighbors = list(self.get_series(n, neighbor))
+        for f1, f2 in zip(series, neighbors, strict=True):
+            f1.merge(f2, ignore=[n.lower, n.upper])
+
+    def merge_stops(self) -> None:
+        def _merge_stops() -> bool:
+            allow_merge = True
+            stop: F | None = None
+            for _, stop in stops:
+                neighbor: F = stop.get_neighbor(n.upper)
+                if neighbor.get_type() not in [T.Stop, T.Empty]:
+                    allow_merge = False
+                    break
+            if not stop or not allow_merge:
+                return False
+            series = "cols" if o == V else "rows"
+            logger.info(f"Found two consecutive stop {series}. Merging...")
+            self.merge_series(stop, n.upper)
+            return True
+
+        o, stops = self.find_stops()
+        n = o.normal
+        while _merge_stops():
+            pass
 
 
 def group_fields_by(fields: Iterable[F],
