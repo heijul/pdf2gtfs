@@ -7,11 +7,17 @@ from abc import ABC, abstractmethod
 
 class Direction(ABC):
     """ Represents a direction for the linked lists. """
+
+    __count = 0
+
     def __init__(self, name: str, attr: str, end: str) -> None:
         assert name == self.__class__.__name__[1]
         self.name = name
         self._attr = attr
         self._end = end
+        Direction.__count += 1
+        if Direction.__count > 4:
+            raise AssertionError("There should only be four directions.")
 
     @property
     def attr(self) -> str:
@@ -110,10 +116,17 @@ D = [N, W, S, E]
 
 class Orientation(ABC):
     """ Reperesents the orientation of a line using two directions. """
+
+    __count = 0
+
     def __init__(self, name: str, lower: Direction, upper: Direction) -> None:
+        assert name == self.__class__.__name__[1]
         self.name = name
         self.lower = lower
         self.upper = upper
+        Orientation.__count += 1
+        if Orientation.__count > 2:
+            raise AssertionError("There should only be two orientations.")
 
     @property
     @abstractmethod
