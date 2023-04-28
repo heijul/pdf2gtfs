@@ -275,7 +275,7 @@ def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
         getter2 = attrgetter(f"bbox.{axis}0")
         lower = first_true(sorted_tables[idx - 1::-1],
                            pred=lambda t: getter1(t) < getter2(table))
-        return cast(float, getter2(lower)) if lower else None
+        return cast(float, getter1(lower)) if lower else None
 
     def get_next_upper(sorted_tables: list[Table], axis: str) -> float | None:
         """ Return the lower bound of the next upper table, if it exists.
