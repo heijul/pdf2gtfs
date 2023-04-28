@@ -14,7 +14,7 @@ from more_itertools import (
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_fields
 from pdf2gtfs.datastructures.table.fields import (
-    DataField, EmptyField, F, Fs, OF,
+    EmptyField, F, Fs, OF,
     )
 from pdf2gtfs.datastructures.table.fieldtype import T
 from pdf2gtfs.datastructures.table.quadlinkedlist import (
@@ -246,7 +246,7 @@ class Table(QuadLinkedList[F, OF]):
             :param f: This fields text is checked.
             :return: The format char used for alignment.
             """
-            return ">" if isinstance(f, DataField) else "<"
+            return ">" if f.get_type() == T.Data else "<"
 
         self._print(attrgetter("text"), get_text_align, col_count)
 
