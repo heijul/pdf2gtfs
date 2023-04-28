@@ -489,6 +489,8 @@ class Table(QuadLinkedList[F, OF]):
         while expanded:
             expanded = False
             for d in D:
+                if d in [S, E]:
+                    continue
                 expanded |= self.expand(d)
 
     def infer_field_types(self, first_table: Table | None) -> None:
