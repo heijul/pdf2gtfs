@@ -74,10 +74,11 @@ class QuadNode(Generic[QN, OQN]):
     def set_neighbor(self, d: Direction, neighbor: OQN) -> None:
         """ Update the neighbor in the given direction.
 
-        This should _always_ be called from the node the neighbor is moved to.
+        This should **always** be called from the node the neighbor is
+        moved to.
 
         If the current node already has a neighbor N in the given direction,
-            N will be accessible by using neighbor.get_neighbor(d) afterwards.
+        N will be accessible by using `neighbor.get_neighbor(d)` afterwards.
 
         :param d: The direction the neighbor will be placed in.
         :param neighbor: The new neighbor or None.
