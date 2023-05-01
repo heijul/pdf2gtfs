@@ -122,21 +122,41 @@ class EmptyFieldType(FieldType):
 
 class T(Enum):
     """ The different possible types for a field. """
-    Data = "data"
-    Stop = "stop"
-    Days = "days"
-    RepeatIdent = "repeat.ident"
-    RepeatValue = "repeat.value"
-    StopAnnot = "stop.annot.ident"
-    RouteAnnotIdent = "route.annot.ident"
-    RouteAnnotValue = "route.annot.value"
-    EntryAnnotIdent = "entry.annot.ident"
-    EntryAnnotValue = "entry.annot.value"
-    DataAnnot = "data.annot"
-    LegendIdent = "legend.ident"
-    LegendValue = "legend.value"
-    Other = "other"
-    Empty = "empty"
+    Data = 0.1
+    DataAnnot = 0.2
+    Stop = 1.1
+    StopAnnot = 1.2
+    Days = 2.
+    RepeatIdent = 3.1
+    RepeatValue = 3.2
+    RouteAnnotIdent = 4.1
+    RouteAnnotValue = 4.2
+    EntryAnnotIdent = 5.1
+    EntryAnnotValue = 5.2
+    LegendIdent = 6.1
+    LegendValue = 6.2
+    Other = 7.
+    Empty = 8.
+
+    def __gt__(self, other) -> bool:
+        if not isinstance(other, T):
+            raise TypeError("Can only compare types with types, not"
+                            f"'{type(other)}'.")
+        return self.value > other.value
+
+    def __lt__(self, other) -> bool:
+        if not isinstance(other, T):
+            raise TypeError("Can only compare types with types, not"
+                            f"'{type(other)}'.")
+        return self.value < other.value
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, T):
+            return False
+        return self.value == other.value
+
+    def __hash__(self) -> int:
+        return id(self)
 
 
 AbsIndicator: TypeAlias = Callable[[F], bool]
