@@ -232,8 +232,7 @@ def get_fields_from_page(page: LTPage) -> tuple[list[F], list[F], list[F]]:
     words = flatten(map(split_line_into_words, text_lines))
     # Create a Field/DataField, based on whether each word contains time data.
     page_height = page.y1
-    fields = map(
-        lambda chars: Field(chars=chars, page_height=page_height), words)
+    fields = map(lambda chars: Field.from_lt_chars(chars, page_height), words)
     # Remove empty fields, i.e. fields that do not contain any visible text.
     fields = filter(lambda f: f.text, fields)
     # Split the fields based on their type.
