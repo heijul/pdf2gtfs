@@ -4,7 +4,8 @@ from more_itertools import distinct_permutations
 from pdfminer.pdffont import PDFFont
 
 from pdf2gtfs.config import Config
-from pdf2gtfs.datastructures.table.direction import E, N, S, W
+from pdf2gtfs.datastructures.pdftable.bbox import BBox
+from pdf2gtfs.datastructures.table.direction import E, H, N, S, V, W
 from pdf2gtfs.datastructures.table.fields import EmptyField, Field
 from pdf2gtfs.datastructures.table.fieldtype import ABS_FALLBACK, T
 from pdf2gtfs.datastructures.table.quadlinkedlist import QuadLinkedList
@@ -101,3 +102,61 @@ class TestField(TestCase):
         self.assertListEqual([fa, fl, fb, fr],
                              fc.get_neighbors(allow_empty=False))
 
+    def test_is_overlap(self) -> None:
+        bbox1 = BBox(3, 10, 6, 11)
+        bbox2 = BBox(6, 11, 7, 12)
+        bbox3 = BBox(1, 11, 4, 12)
+        f1 = Field("f1", bbox1)
+        f2 = Field("f2", bbox2)
+        f3 = Field("f3", bbox3)
+        # Each field overlaps with itself.
+        for i, f in enumerate((f1, f2, f3)):
+            with self.subTest(i=i):
+                self.assertTrue(f.is_overlap(V, f, 1.0))
+                self.assertTrue(f.is_overlap(H, f, 1.0))
+
+        self.assertFalse(f1.is_overlap(V, f2, 0.8))
+        self.assertFalse(f1.is_overlap(H, f2, 0.8))
+        self.assertFalse(f1.is_overlap(V, f3, 0.8))
+        self.assertFalse(f1.is_overlap(H, f3, 0.8))
+        # Same y coordinates.
+        self.assertTrue(f2.is_overlap(V, f3, 1.))
+        self.assertTrue(f3.is_overlap(V, f2, 1.))
+        # Absolute overlap is 1/3.
+        self.assertTrue(f1.is_overlap(H, f3, 0.33))
+
+    def test_any_overlap(self) -> None:
+        # Vertical overlap.
+        bbox1 = BBox(3, 10, 6, 11)
+        bbox2 = BBox(6, 11, 7, 12)
+        bbox3 = BBox(1, 11, 4, 12)
+        f1 = Field("f1", bbox1)
+        f2 = Field("f2", bbox2)
+        f3 = Field("f3", bbox3)
+        self.assertFalse(f1.any_overlap(V, f2))
+        self.assertFalse(f1.any_overlap(H, f2))
+        self.assertFalse(f1.any_overlap(V, f3))
+        self.assertTrue(f1.any_overlap(H, f3))
+        self.assertTrue(f2.any_overlap(V, f3))
+        self.assertFalse(f2.any_overlap(H, f3))
+
+    def test_merge(self) -> None:
+        bbox1 = BBox(3, 10, 6, 11)
+        bbox2 = BBox(6, 11, 7, 12)
+        bbox3 = BBox(33, 13, 34, 14)
+        # Using .copy() here, to reuse the unchanged bboxes below.
+        f1 = Field("f1", bbox1.copy())
+        f2 = Field("f2", bbox2.copy())
+        f3 = Field("f3", bbox3.copy())
+        f1.merge(f2, merge_char=" merged ")
+        self.assertEqual("f1 merged f2", f1.text)
+        self.assertTrue(f1.bbox.is_h_overlap(bbox1, 1.))
+        self.assertTrue(f1.bbox.is_v_overlap(bbox1, 1.))
+        self.assertTrue(f1.bbox.is_h_overlap(bbox2, 1.))
+        self.assertTrue(f1.bbox.is_v_overlap(bbox2, 1.))
+        self.assertFalse(f1.bbox.is_h_overlap(bbox3, 0.1))
+        self.assertFalse(f1.bbox.is_v_overlap(bbox3, 0.1))
+        f1.merge(f3, merge_char=",")
+        self.assertEqual("f1 merged f2,f3", f1.text)
+        self.assertTrue(f1.bbox.is_h_overlap(bbox3, 1.))
+        self.assertTrue(f1.bbox.is_v_overlap(bbox3, 1.))
