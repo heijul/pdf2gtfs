@@ -48,7 +48,7 @@ class Field(QuadNode[F, OF], BBoxObject):
                  fontsize: float | None = None,
                  ) -> None:
         super().__init__(bbox=bbox)
-        self.text = text
+        self.text = text.strip()
         self.font = font
         self.fontname = fontname
         self.fontsize = fontsize

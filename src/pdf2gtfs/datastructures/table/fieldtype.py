@@ -53,6 +53,10 @@ class FieldType:
 
         :return: The type that is most likely based on the fields contents.
         """
+
+        if self.possible_types:
+            return get_max_key(self.possible_types)
+
         possible_types = {}
 
         for t, ind in ABS_INDICATORS.items():
@@ -61,7 +65,7 @@ class FieldType:
                 continue
             possible_types[t] = int(value)
         # It may always happen that a field is not of any proper type.
-        possible_types[T.Other] = 1
+        possible_types[T.Other] = .5
 
         # If the field contains no identifiers, it could still be one of these.
         if len(possible_types) == 1:
@@ -69,7 +73,8 @@ class FieldType:
             # However, the chance that it is not, is higher.
             possible_types[T.Other] = 2
 
-        self.possible_types = {key: round(value / (len(possible_types) + 1), 3)
+        div = sum(possible_types.values())
+        self.possible_types = {key: round(value / div, 3)
                                for key, value in possible_types.items()}
 
         return get_max_key(self.possible_types)
@@ -208,7 +213,12 @@ def is_repeat_value(field: F) -> bool:
         False, otherwise.
     """
     # Match numbers, numbers seperated by hyphen and numbers seperated by comma
-    return bool(re.match(r"^\d+$|^\d+\s?-\s?\d+$|\d+\s?,\s?\d+$", field.text))
+    # TODO: Should not only check for hyphen but things like emdash as well.
+    #  See Nurminen's thesis
+    return bool(re.match(r"^\d+$"
+                         r"|^\d+\s?-\s?\d+$"
+                         r"|\d+\s?,\s?\d+$",
+                         field.text))
 
 
 def is_legend(field: F) -> bool:
