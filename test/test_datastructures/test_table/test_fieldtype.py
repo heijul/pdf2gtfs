@@ -1,13 +1,18 @@
 from unittest import TestCase
 
 from pdf2gtfs.config import Config
-from pdf2gtfs.datastructures.table.fields import Field
+from pdf2gtfs.datastructures.table.direction import W
+from pdf2gtfs.datastructures.table.fields import EmptyField, Field, Fs
 from pdf2gtfs.datastructures.table.fieldtype import (
-    ABS_FALLBACK, ABS_INDICATORS, false, field_has_type,
-    field_has_type_wrapper, is_legend,
+    ABS_FALLBACK, ABS_INDICATORS, false, field_col_contains_type,
+    field_has_type,
+    field_has_type_wrapper, field_is_between_type, field_neighbor_has_type,
+    field_neighbor_has_type_wrapper, field_row_contains_type,
+    is_legend,
     is_repeat_value,
     is_time_data, is_wrapper, T, true,
     )
+from pdf2gtfs.datastructures.table.table import Table
 
 
 class AbsIndicatorTests(TestCase):
@@ -103,6 +108,100 @@ class RelIndicatorTests(TestCase):
                 self.assertEqual(field_has_type(f, t),
                                  field_has_type_wrapper(t)(f))
 
+    def test_field_row_contains_type(self) -> None:
+        f = Field("a")
+        f.next = Field("b")
+        f.next.next = Field("c")
+        f.type.possible_types = {a: 0.1 for a in ABS_FALLBACK}
+        f.next.type.possible_types = {
+            T.StopAnnot: 0.333, T.DataAnnot: 0.1, T.Other: 0.333}
+        f.next.next.type.possible_types = {T.Data: 0.667, T.Other: 0.333}
+        Table(f, f.next.next)
+        self.assertTrue(field_row_contains_type(f, T.Data))
+        # Strict type checking.
+        self.assertFalse(field_row_contains_type(f, T.Other))
+        self.assertFalse(field_row_contains_type(f, T.DataAnnot))
+
+        self.assertFalse(field_row_contains_type(f, T.LegendIdent))
+        self.assertFalse(field_row_contains_type(f, T.Empty))
+
+    def test_field_col_contains_type(self) -> None:
+        f = Field("a")
+        f.below = Field("b")
+        f.below.below = Field("c")
+        f.type.possible_types = {a: 0.1 for a in ABS_FALLBACK}
+        f.below.type.possible_types = {
+            T.StopAnnot: 0.333, T.DataAnnot: 0.1, T.Other: 0.333}
+        f.below.below.type.possible_types = {T.Data: 0.667, T.Other: 0.333}
+        Table(f, f.below.below)
+        self.assertTrue(field_col_contains_type(f, T.Data))
+        # Strict type checking.
+        self.assertFalse(field_col_contains_type(f, T.Other))
+        self.assertFalse(field_col_contains_type(f, T.DataAnnot))
+
+        self.assertFalse(field_col_contains_type(f, T.LegendIdent))
+        self.assertFalse(field_col_contains_type(f, T.Empty))
+
+    def test_field_neighbor_has_type(self) -> None:
+        a, b, c, d, e = create_fields(5)
+        a.type.possible_types = {T.Stop: 1}
+        b.type.possible_types = {T.StopAnnot: 1}
+        c.type.possible_types = {T.Data: 1}
+        d.type.possible_types = {T.DataAnnot: 1}
+        e.type.possible_types = {T.Other: 1}
+        b.prev = a
+        b.next = c
+        b.above = d
+        b.below = e
+        for typ in [T.Stop, T.Other, T.Data, T.DataAnnot]:
+            with self.subTest(type=typ):
+                self.assertTrue(
+                    field_neighbor_has_type(b, typ, direct_neighbor=True))
+        self.assertTrue(field_neighbor_has_type(b, T.Stop, True, [W]))
+        self.assertFalse(field_neighbor_has_type(b, T.LegendIdent, True))
+        self.assertTrue(field_neighbor_has_type(a, T.StopAnnot))
+        b.next = EmptyField()
+        self.assertEqual(c, b.next.next)
+        self.assertFalse(field_neighbor_has_type(b, T.Data, True))
+        self.assertTrue(field_neighbor_has_type(b, T.Data, False))
+
+    def test_field_neighbor_has_type_wrapper(self) -> None:
+        a, b, c, d, e = create_fields(5)
+        a.type.possible_types = {T.Stop: 1}
+        b.type.possible_types = {T.StopAnnot: 1}
+        c.type.possible_types = {T.Other: 1}
+        d.type.possible_types = {T.DataAnnot: 1}
+        e.type.possible_types = {T.Data: 1}
+        b.prev = a
+        b.next = c
+        b.above = d
+        b.below = e
+        for typ in ABS_FALLBACK + list(ABS_INDICATORS.keys()):
+            with self.subTest(fieldtype=typ):
+                self.assertEqual(field_neighbor_has_type(b, typ),
+                                 field_neighbor_has_type_wrapper(typ)(b))
+
+    def test_field_is_between_type(self) -> None:
+        a, b, c, d, e = create_fields(5)
+        a.type.possible_types = {T.RepeatIdent: 1}
+        b.type.possible_types = {T.RepeatValue: 1}
+        c.type.possible_types = {T.RepeatIdent: 1}
+        d.type.possible_types = {T.Data: 1}
+        e.type.possible_types = {T.Data: 1}
+        b.prev = a
+        b.next = c
+        b.above = d
+        b.below = e
+        self.assertTrue(field_is_between_type(b, T.RepeatIdent))
+        self.assertTrue(field_is_between_type(b, T.Data))
+        c.type.possible_types = {T.Data: 1}
+        self.assertFalse(field_is_between_type(b, T.RepeatIdent))
+        b.below = EmptyField()
+        self.assertFalse(field_is_between_type(b, T.Data))
+
+    def test_rel_multiple_function_wrapper(self) -> None:
+        self.skipTest("Check usage first!")
+
 
 class TestFieldType(TestCase):
     def test_guess_type(self) -> None:
@@ -114,3 +213,7 @@ class TestFieldType(TestCase):
         self.assertEqual(T.Data, f.type.guess_type())
         self.assertDictEqual({T.Data: 0.667, T.Other: 0.333},
                              f.type.possible_types)
+
+
+def create_fields(num: int) -> Fs:
+    return [Field(chr(97 + i)) for i in range(num)]
