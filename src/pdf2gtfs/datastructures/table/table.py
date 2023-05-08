@@ -484,12 +484,12 @@ class Table(QuadLinkedList[F, OF]):
         h_stops = _find_stops(H)
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
-    def expand_all(self):
+    def expand_all(self, all_directions: bool = False) -> None:
         expanded = True
         while expanded:
             expanded = False
             for d in D:
-                if d in [S, E]:
+                if not all_directions and d in [S, E]:
                     continue
                 expanded |= self.expand(d)
 
