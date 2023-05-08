@@ -147,15 +147,22 @@ class Table(QuadLinkedList[F, OF]):
 
         :param field: The field we are using as reference.
         :return: The last column left of the field or None, if no such
-            column exists.
+         column exists.
         """
-        def _is_left_of_field(f: F) -> bool:
-            return f.bbox.x0 > field.bbox.x0
+        def _is_right_of_field(f: F) -> bool:
+            return f.bbox.x0 >= left_most_field.bbox.x0
 
-        first_left_field = first_true(self.left.iter(E), default=self.right,
-                                      pred=_is_left_of_field
-                                      ).prev
-        return list(self.get_series(V, first_left_field))
+        if field.qll == self:
+            return self.get_list(V, field.prev)
+
+        top_field = field
+        while top_field.above:
+            top_field = top_field.above
+
+        left_most_field = min(top_field.iter(S), key=attrgetter("bbox.x0"))
+        col_right_of_field = first_true(
+            self.left.iter(E), default=self.right, pred=_is_right_of_field)
+        return self.get_list(V, col_right_of_field.prev)
 
     def insert_repeat_fields(self, fields: Fs) -> None:
         """ Find the fields that are part of a repeat interval and add

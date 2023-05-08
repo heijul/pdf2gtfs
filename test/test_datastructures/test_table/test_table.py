@@ -1,5 +1,5 @@
 from itertools import pairwise
-from operator import attrgetter
+from operator import attrgetter, methodcaller
 from unittest import TestCase
 
 from more_itertools import collapse, first_true
@@ -49,6 +49,7 @@ class TestTable(TestCase):
         self.assertEqual(3, len(self.idx))
         # End of the last table.
         self.idx.append(len(f_data))
+        self.multi_idx = [(self.idx[i], self.idx[i + 2]) for i in range(1)]
 
     def test_bbox(self) -> None:
         table, *_ = self._create_tables(self.f_data, self.f_other)
@@ -139,7 +140,7 @@ class TestTable(TestCase):
         self.assertListEqual([],
                              table.get_contained_fields(table.other_fields))
 
-    def test_get_contained_fields__some(self) -> None:
+    def test_get_contained_fields__single(self) -> None:
         # Each table separately.
         field_counts = [3, 3, 6]
         field_texts = [["alle", "30", "Min."],
@@ -158,6 +159,28 @@ class TestTable(TestCase):
                     self.assertTrue(table_bbox.is_v_overlap(field.bbox, 1))
                     self.assertIn(field.text, field_texts[i])
 
+    def test_get_contained_fields__multi(self) -> None:
+        # Multiple consecutive tables.
+        field_counts = [7, 12]
+        field_texts = [["alle", "alle", "15", "30", "Min.", "Min.",
+                        "Sonn- und Feiertag"],
+                       ["alle", "alle", "alle", "10", "15", "15", "Min.",
+                        "Min.", "Min.", "Sonn- und Feiertag", "V", "V"]]
+        f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
+        for i, (low, high) in enumerate(pairwise(self.multi_idx)):
+            with self.subTest(table_number=i, low=low, high=high):
+                table_data = f_data[low:high]
+                table = Table.from_fields(table_data)
+                fields = table.get_contained_fields(self.f_other)
+                self.assertEqual(field_counts[i], len(fields))
+                table_bbox = table.bbox
+                for field in fields:
+                    self.assertTrue(table_bbox.is_h_overlap(field.bbox, 1))
+                    self.assertTrue(table_bbox.is_v_overlap(field.bbox, 1))
+                    self.assertIn(field.text, field_texts[i])
+                self.assertListEqual(sorted(field_texts[i]),
+                                     sorted([f.text for f in fields]))
+
     def test_get_contained_fields__all(self) -> None:
         f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
         # All tables as one.
@@ -172,4 +195,140 @@ class TestTable(TestCase):
             self.assertTrue(table_bbox.is_h_overlap(field.bbox, 1))
             self.assertTrue(table_bbox.is_v_overlap(field.bbox, 1))
             self.assertIn(field.text, field_texts)
+
+    def test_get_containing_col(self) -> None:
+        table, *_ = self._create_tables(self.f_data, self.f_other)
+        for col in [table.get_list(V, f) for f in table.get_list(H)]:
+            with self.subTest(col=col):
+                for field in col:
+                    self.assertListEqual(col, table.get_containing_col(field))
+
+    def test_get_col_left_of__existing_fields(self) -> None:
+        table, *_ = self._create_tables(self.f_data, self.f_other)
+        cols = map(list, map(methodcaller("iter", S), table.get_list(H)))
+        for i, (col1, col2) in enumerate(pairwise(cols)):
+            col1: list[Field] = list(col1)
+            col2: list[Field] = list(col2)
+            with self.subTest(i=i):
+                left_col = table.get_col_left_of(col2[0])
+                self.assertListEqual(col1, left_col)
+
+    def test_get_col_left_of__new_field(self) -> None:
+        left_cols_idx = [[13, 13, 13], [13, 13, 13], [2, 2, 2, 9, 9, 9]]
+        for i, (low, high) in enumerate(pairwise(self.idx)):
+            table = Table.from_fields(self.f_data[low:high])
+            contained_fields = table.get_contained_fields(self.f_other)
+            contained_fields.sort(key=attrgetter("bbox.x0"))
+            with self.subTest(i=i):
+                for col_id, col in enumerate(map(table.get_col_left_of,
+                                                 contained_fields)):
+                    idx = left_cols_idx[i][col_id]
+                    table_col = table.get_list(V, table.get_list(H)[idx])
+                    self.assertListEqual(table_col, col)
+
+    def test_get_repeat_identifiers(self) -> None:
+        table = Table.from_fields(self.f_data)
+        repeat_idents = table.get_repeat_identifiers(self.f_other)
+        self.assertEqual(8, len(repeat_idents))
+        for ident in repeat_idents:
+            self.assertIn(ident.text, ["alle", "Min."])
+
+    def test_get_repeat_values(self) -> None:
+        table = Table.from_fields(self.f_data)
+        repeat_idents = table.get_repeat_identifiers(self.f_other)
+        repeat_values = table.get_repeat_values(repeat_idents, self.f_other)
+        self.assertEqual(4, len(repeat_values))
+        for value in repeat_values:
+            self.assertIn(value.text, ["10", "15", "30"])
+
+    def test_get_splitting_cols__empty(self) -> None:
+        tables = self._create_tables(self.f_data, self.f_other)
+        for table in tables:
+            fields = table.get_contained_fields(table.other_fields)
+            cols = table.get_splitting_cols(fields)
+            self.assertEqual(0, len(cols))
+
+    def test_get_splitting_cols__single(self) -> None:
+        expected_texts = [[["alle", "30", "Min."]],
+                          [["alle", "15", "Min."]],
+                          [["alle", "10", "Min."], ["alle", "15", "Min."]]]
+
+        f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
+        for i, (low, high) in enumerate(pairwise(self.idx)):
+            with self.subTest(table_number=i, low=low, high=high):
+                table_data = f_data[low:high]
+                table = Table.from_fields(table_data)
+                assign_other_fields_to_tables([table], self.f_other)
+                fields = table.get_contained_fields(table.other_fields)
+                cols = table.get_splitting_cols(fields)
+                for col_id, col in enumerate(cols):
+                    texts = [f.text for f in col if f.get_type() != T.Empty]
+                    self.assertListEqual(expected_texts[i][col_id], texts)
+
+    def test_get_splitting_cols__multi(self) -> None:
+        expected_texts = [[["alle", "30", "Min.", "alle", "15", "Min."]], []]
+        f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
+        for i, (low, high) in enumerate(pairwise(self.multi_idx)):
+            with self.subTest(table_number=i, low=low, high=high):
+                table_data = f_data[low:high]
+                table = Table.from_fields(table_data)
+                assign_other_fields_to_tables([table], self.f_other)
+                fields = table.get_contained_fields(table.other_fields)
+                cols = table.get_splitting_cols(fields)
+                self.assertEqual(len(expected_texts[i]), len(cols))
+                for col_id, col in enumerate(cols):
+                    texts = [f.text for f in col if f.get_type() != T.Empty]
+                    self.assertListEqual(expected_texts[i][col_id], texts)
+
+    def test_get_splitting_cols__all(self) -> None:
+        f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
+        table = Table.from_fields(f_data)
+        assign_other_fields_to_tables([table], self.f_other)
+        fields = table.get_contained_fields(table.other_fields)
+        cols = table.get_splitting_cols(fields)
+        self.assertEqual(0, len(cols))
+
+    def test_get_splitting_rows__empty(self) -> None:
+        tables = self._create_tables(self.f_data, self.f_other)
+        for table in tables:
+            fields = table.get_contained_fields(table.other_fields)
+            rows = table.get_splitting_rows(fields)
+            self.assertEqual(0, len(rows))
+
+    def test_get_splitting_rows__single(self) -> None:
+        f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
+        for i, (low, high) in enumerate(pairwise(self.idx)):
+            with self.subTest(table_number=i, low=low, high=high):
+                table_data = f_data[low:high]
+                table = Table.from_fields(table_data)
+                assign_other_fields_to_tables([table], self.f_other)
+                fields = table.get_contained_fields(table.other_fields)
+                rows = table.get_splitting_rows(fields)
+                self.assertEqual(0, len(rows))
+
+    def test_get_splitting_rows__multi(self) -> None:
+        expected_texts = [[["Sonn- und Feiertag"]], [["Sonn- und Feiertag"]]]
+        f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
+        for i, (low, high) in enumerate(pairwise(self.multi_idx)):
+            with self.subTest(table_number=i, low=low, high=high):
+                table_data = f_data[low:high]
+                table = Table.from_fields(table_data)
+                assign_other_fields_to_tables([table], self.f_other)
+                fields = table.get_contained_fields(table.other_fields)
+                rows = table.get_splitting_rows(fields)
+                self.assertEqual(len(expected_texts[i]), len(rows))
+                for row_id, row in enumerate(rows):
+                    texts = [f.text for f in row if f.get_type() != T.Empty]
+                    self.assertListEqual(expected_texts[i][row_id], texts)
+
+    def test_get_splitting_rows__all(self) -> None:
+        f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
+        table = Table.from_fields(f_data)
+        assign_other_fields_to_tables([table], self.f_other)
+        fields = table.get_contained_fields(table.other_fields)
+        rows = table.get_splitting_rows(fields)
+        self.assertEqual(3, len(rows))
+        self.assertListEqual(
+            [["Sonn- und Feiertag"], ["Sonn- und Feiertag"], ["V", "V"]],
+            [[f.text for f in row] for row in rows])
 
