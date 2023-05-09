@@ -202,6 +202,30 @@ class RelIndicatorTests(TestCase):
     def test_rel_multiple_function_wrapper(self) -> None:
         self.skipTest("Check usage first!")
 
+    def test_data_aligned_fields_are_non_empty(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_series_is_aligned(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_rel_indicator_stop(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_rel_indicator_stop_annot(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_rel_indicator_data_annot(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_rel_indicator_repeat_ident(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_rel_indicator_repeat_value(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_rel_indicator_entry_annot_value(self) -> None:
+        self.skipTest("Not implemented yet!")
+
 
 class TestFieldType(TestCase):
     def test_guess_type(self) -> None:

@@ -241,6 +241,34 @@ class TestTable(TestCase):
         for value in repeat_values:
             self.assertIn(value.text, ["10", "15", "30"])
 
+    def test_split_at_fields__horizontally(self) -> None:
+        tables1 = self._create_tables([f.duplicate() for f in self.f_data],
+                                      [f.duplicate() for f in self.f_other])
+        table = Table.from_fields(self.f_data)
+        assign_other_fields_to_tables([table], self.f_other)
+        table.insert_repeat_fields(table.other_fields)
+        contained_fields = table.get_contained_fields(table.other_fields)
+        tables2 = table.split_at_fields(H, contained_fields)
+        for table1, table2 in zip(tables1, tables2, strict=True):
+            cols1 = [table1.get_list(V, f) for f in table1.get_list(H)]
+            cols2 = [table2.get_list(V, f) for f in table2.get_list(H)]
+            for col1, col2 in zip(cols1, cols2, strict=True):
+                self.assertListEqual([f.text for f in col1],
+                                     [f.text for f in col2])
+
+    def test_split_at_fields__vertically(self) -> None:
+        lengths = [2, 2, 3]
+        col_counts = [[14, 5], [14, 5], [3, 7, 5]]
+        for i, (low, high) in enumerate(pairwise(self.idx)):
+            table = Table.from_fields(self.f_data[low:high])
+            contained_fields = table.get_contained_fields(self.f_other)
+            with self.subTest(i=i):
+                tables = table.split_at_fields(V, contained_fields)
+                self.assertEqual(lengths[i], len(tables))
+                for table_id, table in enumerate(tables):
+                    self.assertEqual(col_counts[i][table_id],
+                                     len(table.get_list(H)))
+
     def test_get_splitting_cols__empty(self) -> None:
         tables = self._create_tables(self.f_data, self.f_other)
         for table in tables:
@@ -332,3 +360,29 @@ class TestTable(TestCase):
             [["Sonn- und Feiertag"], ["Sonn- und Feiertag"], ["V", "V"]],
             [[f.text for f in row] for row in rows])
 
+    def test_max_split(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_remove_empty_series(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_to_timetable(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_find_stops(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_expand_all(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_infer_field_types(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_of_type(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_merge_series(self) -> None:
+        self.skipTest("Not implemented yet!")
+
+    def test_merge_stops(self) -> None:
+        self.skipTest("Not implemented yet!")

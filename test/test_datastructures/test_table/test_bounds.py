@@ -9,6 +9,10 @@ from pdf2gtfs.datastructures.table.bounds import (
 from pdf2gtfs.datastructures.table.fields import Field
 
 
+def test_select_adjacent_fields() -> None:
+    ...
+
+
 class TestBounds(TestCase):
     def test_vertical_setter(self) -> None:
         b1 = Bounds(None, None, None, None)
@@ -128,6 +132,9 @@ class TestBounds(TestCase):
 
     def test_merge(self) -> None:
         self.skipTest("Check usage first.")
+
+    def test_get_bound_from_fields(self) -> None:
+        self.skipTest("Not implemented yet!")
 
     def test_from_bboxes(self) -> None:
         # Tested in subclasses.
