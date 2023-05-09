@@ -34,6 +34,7 @@ class QuadLinkedList(Generic[QN, OQN]):
         for row_field in self.get_series(H, self.top):
             for col_field in self.get_series(V, row_field):
                 col_field.qll = self
+        self._get_bbox_call_count: int = 0
 
     @property
     def left(self) -> OQN:
@@ -209,10 +210,24 @@ class QuadLinkedList(Generic[QN, OQN]):
         :param nodes: The nodes to get the bbox from.
         :return: A bbox, that contains all the nodes' bboxes.
         """
-        from pdf2gtfs.datastructures.table.fields import EmptyField
-
-        bboxes = [node.bbox for node in nodes
-                  if not isinstance(node, EmptyField)]
+        # Allow only a single recursive call.
+        # This will prevent Table.bbox from producing the wrong result,
+        # if at least one of the nodes used to calculate it is an EmptyField.
+        recursion_depth = 1
+        # Changing the depth to 0 will cause tests to fail.
+        # Changing it to anything higher than 1 will decrease performance
+        #  by orders of magnitude.
+        if self._get_bbox_call_count > recursion_depth:
+            raise RecursionError
+        self._get_bbox_call_count += 1
+        bboxes = []
+        for node in nodes:
+            try:
+                bboxes.append(node.bbox)
+            except RecursionError:
+                pass
+        self._get_bbox_call_count -= 1
+        # Actual bbox calculation and caching.
         # No need to cache a single bbox.
         if len(bboxes) == 1:
             return bboxes[0]
