@@ -8,7 +8,7 @@ from operator import attrgetter
 from typing import Callable, Iterable, TYPE_CHECKING
 
 from more_itertools import (
-    always_iterable, collapse, first_true, flatten, peekable, split_when,
+    always_iterable, collapse, first_true, peekable, split_when,
     )
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
@@ -371,7 +371,7 @@ class Table(QuadLinkedList[F, OF]):
             return field1.qll != field2.qll
 
         fields = list(self.get_series(o.normal, self.get_end_node(o.lower)))
-        fields += list(flatten(splitter))
+        fields += list(collapse(splitter))
         pre_sorter = "bbox.y0" if o == H else "bbox.x0"
         return group_fields_by(fields, _same_table, pre_sorter, None)
 
