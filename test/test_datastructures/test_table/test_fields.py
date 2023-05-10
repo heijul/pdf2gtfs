@@ -1,14 +1,14 @@
 from unittest import TestCase
 
-from more_itertools import distinct_permutations
+from more_itertools import distinct_permutations, peekable
 from pdfminer.pdffont import PDFFont
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
-from pdf2gtfs.datastructures.table.direction import E, H, N, S, V, W
+from pdf2gtfs.datastructures.table.direction import Direction, E, H, N, S, V, W
 from pdf2gtfs.datastructures.table.fields import EmptyField, Field
 from pdf2gtfs.datastructures.table.fieldtype import ABS_FALLBACK, T
-from pdf2gtfs.datastructures.table.quadlinkedlist import QuadLinkedList
+from pdf2gtfs.datastructures.table.table import Table
 
 
 class TestField(TestCase):
@@ -16,8 +16,8 @@ class TestField(TestCase):
         font = PDFFont({}, {})
         fontsize = 5.3321
         f1 = Field("field1", None, font, font.fontname, fontsize)
-        _ = QuadLinkedList(f1, f1)
-        self.assertIsNotNone(f1.qll)
+        _ = Table(f1, f1)
+        self.assertIsNotNone(f1.table)
         f2 = f1.duplicate()
         self.assertNotEqual(id(f1), id(f2))
         self.assertEqual(f1.text, f2.text)
@@ -26,8 +26,8 @@ class TestField(TestCase):
         self.assertEqual(f1.fontname, f2.fontname)
         self.assertEqual(f1.fontsize, f2.fontsize)
         # The table and type are not duplicated.
-        self.assertIsNone(f2.qll)
-        self.assertNotEqual(f1.qll, f2.qll)
+        self.assertIsNone(f2.table)
+        self.assertNotEqual(f1.table, f2.table)
         self.assertNotEqual(f1.type, f2.type)
 
     def test_get_type(self) -> None:
@@ -160,3 +160,96 @@ class TestField(TestCase):
         self.assertEqual("f1 merged f2,f3", f1.text)
         self.assertTrue(f1.bbox.is_h_overlap(bbox3, 1.))
         self.assertTrue(f1.bbox.is_v_overlap(bbox3, 1.))
+
+    def test_prev_next(self) -> None:
+        a, b, c = create_fields(3)
+        self.assertIsNone(b.prev)
+        b.prev = a
+        self.assertEqual(a, b.prev)
+        self.assertEqual(b, a.next)
+        self.assertEqual(a, a.next.prev)
+        self.assertEqual(b, b.prev.next)
+
+        # Insert a node (c) between two other nodes (a, b).
+        self.assertIsNone(c.prev)
+        self.assertIsNone(c.next)
+        a.next = c
+        self.assertEqual(a, c.prev)
+        self.assertEqual(b, c.next)
+
+    def test_above_below(self) -> None:
+        a, b, c = create_fields(3)
+        self.assertIsNone(b.above)
+        b.above = a
+        self.assertEqual(a, b.above)
+        self.assertEqual(b, a.below)
+        self.assertEqual(a, a.below.above)
+        self.assertEqual(b, b.above.below)
+
+        # Insert a node (c) between two other nodes (a, b).
+        self.assertIsNone(c.above)
+        self.assertIsNone(c.below)
+        a.below = c
+        self.assertEqual(a, c.above)
+        self.assertEqual(b, c.below)
+
+    def test_set_neighbor(self) -> None:
+        a, b, c, d = create_fields(4)
+
+        a.set_neighbor(E, b)
+        self.assertEqual(a.get_neighbor(E), b)
+        self.assertEqual(b.get_neighbor(W), a)
+        self.assertIsNone(a.get_neighbor(S))
+        self.assertIsNone(a.get_neighbor(N))
+        self.assertIsNone(b.get_neighbor(S))
+        self.assertIsNone(b.get_neighbor(N))
+        c.set_neighbor(E, d)
+        c.set_neighbor(W, b)
+        self.assertListEqual([a, b, c, d], list(a.iter(E)))
+        self.assertListEqual([d, c, b, a], list(d.iter(W)))
+
+        e = Field("e")
+        b.set_neighbor(E, e)
+        lst = [a, b, e, c, d]
+        self.assertListEqual(lst, list(a.iter(E)))
+        self.assertListEqual(list(reversed(lst)), list(d.iter(W)))
+
+        f = Field("f")
+        g = Field("g")
+        f.set_neighbor(E, g)
+        # Removing the neighbor on one node, removes it from the other as well.
+        f.set_neighbor(E, None)
+        self.assertIsNone(f.get_neighbor(E))
+        self.assertIsNone(g.get_neighbor(W))
+        # However, this works, because the order is clear.
+        e.set_neighbor(E, f)
+        f.set_neighbor(E, g)
+        lst = [a, b, e, f, g, c, d]
+        self.assertListEqual(lst, list(a.iter(E)))
+        self.assertListEqual(list(reversed(lst)), list(d.iter(W)))
+
+    def test_iter(self) -> None:
+        d = E
+        nodes = create_fields(5, link_d=d)
+        for i in range(1, len(nodes)):
+            start = nodes[i]
+            with self.subTest(start=start):
+                self.assertListEqual([start.prev] + list(start.iter(d)),
+                                     list(start.prev.iter(d)))
+                self.assertTrue(all(n in nodes for n in start.iter(d)))
+        a = Field("a")
+        start = nodes[0]
+        self.assertNotIn(a, start.iter(d))
+        a.set_neighbor(d, start)
+        self.assertListEqual([a] + list(nodes), list(a.iter(d)))
+
+
+def create_fields(num: int, *, link_d: Direction | None = None
+                  ) -> tuple[Field, ...]:
+    nodes = tuple(Field(text=chr(97 + i)) for i in range(num))
+    if link_d:
+        p = peekable(nodes)
+        for node in p:
+            node.next = p.peek(None)
+
+    return nodes

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from itertools import pairwise
 from operator import attrgetter
-from typing import Callable, Iterable, TYPE_CHECKING
+from typing import Callable, Generator, Iterable, Iterator, TYPE_CHECKING
 
 from more_itertools import (
     always_iterable, collapse, first_true, peekable, split_when,
@@ -17,9 +17,6 @@ from pdf2gtfs.datastructures.table.fields import (
     EmptyField, F, Fs, OF,
     )
 from pdf2gtfs.datastructures.table.fieldtype import T
-from pdf2gtfs.datastructures.table.quadlinkedlist import (
-    QuadLinkedList,
-    )
 from pdf2gtfs.datastructures.table.direction import (
     D, Direction, E, H, N, Orientation, S, V, W,
     )
@@ -32,13 +29,46 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Table(QuadLinkedList[F, OF]):
+class Table:
     """ Table representation using Fields mapped in all four directions
         (= QuadLinkedList). Able to expand in all directions.
     """
     def __init__(self, first_node: F, last_node: F):
-        super().__init__(first_node, last_node)
+        self.bboxes: dict[int: int] = {}
+        self._left = None
+        self._right = None
+        self._top = None
+        self._bot = None
+        self._update_end_node(W, first_node)
+        self._update_end_node(E, last_node)
+        self._update_end_node(N, first_node)
+        self._update_end_node(S, last_node)
+        # Update table on all nodes.
+        for row_field in self.get_series(H, self.top):
+            for col_field in self.get_series(V, row_field):
+                col_field.table = self
+        self._get_bbox_call_count: int = 0
         self.other_fields = None
+
+    @property
+    def top(self) -> OF:
+        """ One of the nodes in the top row. """
+        return self.get_end_node(d=N)
+
+    @property
+    def left(self) -> OF:
+        """ One of the nodes in the left-most column. """
+        return self.get_end_node(d=W)
+
+    @property
+    def bot(self) -> OF:
+        """ One of the nodes in the bottom column. """
+        return self.get_end_node(d=S)
+
+    @property
+    def right(self) -> OF:
+        """ One of the nodes in the right-most column. """
+        return self.get_end_node(d=E)
 
     @property
     def bbox(self) -> BBox:
@@ -59,6 +89,158 @@ class Table(QuadLinkedList[F, OF]):
         link_rows_and_cols(rows, cols)
         t = Table(cols[0][0], rows[-1][-1])
         return t
+
+    def get_end_node(self, d: Direction) -> OF:
+        """ Return one of the end nodes in the given direction.
+
+        :param d: The direction to look for the end node in.
+        """
+        # Get the current end node.
+        node: OF = getattr(self, d.p_end)
+        o = d.default_orientation
+        d2 = o.normal.lower if d == o.lower else o.normal.upper
+        if not node.has_neighbors(d=d) and not node.has_neighbors(d=d2):
+            return node
+
+        self._update_end_node(d, node)
+        return self.get_end_node(d)
+
+    def _set_end_node(self, d: Direction, node: OF) -> None:
+        """ Store the last node in the given direction to node.
+
+        This will fail if node has a neighbor in the given direction.
+
+        :param d: The direction, which specifies, where to store the node.
+        :param node: The node to be stored.
+        """
+        assert node.get_neighbor(d) is None
+        setattr(self, d.p_end, node)
+
+    def _update_end_node(self, d: Direction, start: F) -> None:
+        """ Update the end node in the given direction to the farthest/last
+        node in that direction.
+
+        Always ensures that the end node in the lower direction of an
+        orientation is also the end node in the lower direction of the
+        orientation's normal orientation. That is, if d is N (i.e. V.lower)
+        the end node the same as when d is W (i.e. H.lower). Analogous for S/E.
+
+        :param d: The direction to look for the last node.
+        :param start: The node to use to look for the end node in d.
+        """
+        o = d.default_orientation
+        node = self.get_first(d, start)
+        d2 = o.normal.lower if d == o.lower else o.normal.upper
+        node = self.get_first(d2, node)
+        self._set_end_node(d, node)
+
+    def get_first(self, d: Direction, node: F) -> F:
+        """ Return the final node in the given direction, starting at node.
+
+        :param d: The direction to get the final node in.
+        :param node: The node to start the search at.
+        :return: Either node, if it is the last node or a node that is an
+            extended neighbor (i.e. neighbor/neighbors neighbor/...).
+        """
+        while node.has_neighbors(d=d):
+            node = node.get_neighbor(d)
+        return node
+
+    def get_list(self, o: Orientation, node: OF = None) -> list[F]:
+        """ Return the full list of nodes in the given orientation.
+
+        :param o: The orientation the nodes will be in.
+        :param node: The node used to get a specific row/column. If set to
+         None, the first/top node will be used instead.
+        """
+        if not node:
+            node = self.get_end_node(o.lower)
+        return list(self.iter(o.upper, node))
+
+    def insert(self, d: Direction, rel_node: OF, new_node: F) -> None:
+        """ Inserts the node relative to the rel_node in the given direction.
+
+        :param d: The relative direction of node to rel_node, after insertion.
+        :param rel_node: Either a node or None. If node, insertion happens
+         adjacent to it. If None, insert as the last node in d.
+        :param new_node: The node that will be inserted.
+        """
+        o = d.default_orientation
+        normal = o.normal
+
+        # TODO NOW: Check that each new_node only has neighbors,
+        #  that are in new_nodes
+        new_nodes = list(new_node.iter(normal.upper))
+        # If we want to insert a column (i.e. vertical) at the beginning/end,
+        # we need a row (i.e. horizontal) to get the first/last column.
+        if rel_node is None:
+            rel_node = self.get_end_node(normal.lower)
+        rel_nodes = self.get_list(normal, rel_node)
+
+        # Strict, to ensure the same number of nodes.
+        for rel_node, new_node in zip(rel_nodes, new_nodes, strict=True):
+            rel_node.set_neighbor(d, new_node)
+            new_node.table = self
+
+    def get_series(self, o: Orientation, node: F) -> Generator[F]:
+        """ The row or column the node resides in.
+
+        :param o: The orientation of the series, i.e. whether to return
+            row (H) or column (V).
+        :param node: The node in question.
+        :return: A generator that yields all objects in the series.
+        """
+        return self.iter(o.upper, node)
+
+    def get_bbox_of(self, nodes: Iterator[F]) -> BBox:
+        """ Return the combined bbox of nodes.
+
+        Also caches the results, in case the same bbox is requested again.
+
+        :param nodes: The nodes to get the bbox from.
+        :return: A bbox, that contains all the nodes' bboxes.
+        """
+        # Allow only a single recursive call.
+        # This will prevent Table.bbox from producing the wrong result,
+        # if at least one of the nodes used to calculate it is an EmptyField.
+        recursion_depth = 1
+        # Changing the depth to 0 will cause tests to fail.
+        # Changing it to anything higher than 1 will decrease performance
+        #  by orders of magnitude.
+        if self._get_bbox_call_count > recursion_depth:
+            raise RecursionError
+        self._get_bbox_call_count += 1
+        bboxes = []
+        for node in nodes:
+            try:
+                bboxes.append(node.bbox)
+            except RecursionError:
+                pass
+        self._get_bbox_call_count -= 1
+        # Actual bbox calculation and caching.
+        # No need to cache a single bbox.
+        if len(bboxes) == 1:
+            return bboxes[0]
+        # If a bboxes' coordinates change, its hash changes as well.
+        nodes_hashes = sorted(map(hash, bboxes))
+        nodes_hash = hash("".join(map(str, nodes_hashes)))
+        if nodes_hash not in self.bboxes:
+            self.bboxes[nodes_hash] = BBox.from_bboxes(bboxes)
+        return self.bboxes[nodes_hash]
+
+    def iter(self, d: Direction, node: OF = None) -> Generator[F]:
+        """ Start on the opposite end of d and iterate over nodes towards d.
+
+        :param d: The direction to iterate towards to.
+        :param node: If given, the generator will yield nodes of the
+            col/row of node, based on d. Otherwise, always yield the
+            first col/row.
+        :return: An iterator over the nodes.
+        """
+        node = self.get_first(d.opposite, node)
+        while node:
+            yield node
+            node = node.get_neighbor(d)
 
     def get_empty_field_bbox(self, field: EmptyField) -> BBox:
         """ The bbox of an empty field is defined as its row's x-coordinates
@@ -152,7 +334,7 @@ class Table(QuadLinkedList[F, OF]):
         def _is_right_of_field(f: F) -> bool:
             return f.bbox.x0 >= left_most_field.bbox.x0
 
-        if field.qll == self:
+        if field.table == self:
             return self.get_list(V, field.prev)
 
         top_field = field
@@ -283,7 +465,7 @@ class Table(QuadLinkedList[F, OF]):
         for table_field in table_fields:
             head = table_field[0]
             # The splitter should not implicitly be part of the table.
-            if head.qll != self:
+            if head.table != self:
                 continue
             field = None
             # Unlink last row/col of each table, based on o.
@@ -368,7 +550,7 @@ class Table(QuadLinkedList[F, OF]):
     def _split_at_splitter(self, o: Orientation, splitter: list[Fs]
                            ) -> list[Fs]:
         def _same_table(field1: F, field2: F) -> bool:
-            return field1.qll != field2.qll
+            return field1.table != field2.table
 
         fields = list(self.get_series(o.normal, self.get_end_node(o.lower)))
         fields += list(collapse(splitter))
@@ -716,8 +898,8 @@ def merge_small_fields(o: Orientation, ref_fields: Fs, fields: Fs) -> None:
     for field in fields:
         field_overlaps = []
         for i, ref_field in enumerate(ref_fields[first_ref_id:], first_ref_id):
-            bbox = ref_field.qll.get_bbox_of(
-                ref_field.qll.get_series(o, ref_field))
+            bbox = ref_field.table.get_bbox_of(
+                ref_field.table.get_series(o, ref_field))
             if bbox.is_overlap(n.name.lower(), field.bbox, 0.8):
                 if not field_overlaps:
                     first_ref_id = i
@@ -807,7 +989,7 @@ def replace_field(which: F, replace_with: F) -> None:
             continue
         which.set_neighbor(d, None)
         neighbor.set_neighbor(d.opposite, replace_with)
-    which.qll = None
+    which.table = None
 
 
 def insert_fields_in_col(col: Fs, fields: Fs) -> None:

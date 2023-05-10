@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Generator, Optional, TypeAlias, TypeVar
+from typing import Generator, Optional, TYPE_CHECKING, TypeAlias, TypeVar
 
 from pdfminer.layout import LTChar
 from pdfminer.pdffont import PDFFont
@@ -13,11 +13,12 @@ from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
 from pdf2gtfs.datastructures.table.fieldtype import (
     EmptyFieldType, FieldType, T,
     )
-from pdf2gtfs.datastructures.table.nodes import QuadNode
 from pdf2gtfs.datastructures.table.direction import (
-    Direction, H, Orientation, V, D,
+    Direction, E, H, N, Orientation, S, V, D, W,
     )
-from pdf2gtfs.datastructures.table.quadlinkedlist import QLL
+
+if TYPE_CHECKING:
+    from pdf2gtfs.datastructures.table.table import Table
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ def get_bbox_from_chars(
     return bbox
 
 
-class Field(QuadNode[F, OF], BBoxObject):
+class Field(BBoxObject):
     """ A singl field in a table. """
 
     def __init__(self, text: str, bbox: BBox | None = None,
@@ -48,11 +49,125 @@ class Field(QuadNode[F, OF], BBoxObject):
                  fontsize: float | None = None,
                  ) -> None:
         super().__init__(bbox=bbox)
+        self._list = None
+        self._prev = None
+        self._next = None
+        self._above = None
+        self._below = None
         self.text = text.strip()
         self.font = font
         self.fontname = fontname
         self.fontsize = fontsize
         self.type = FieldType(self)
+
+    @property
+    def prev(self) -> OF:
+        """ The previous node (i.e. left of this one) or None. """
+        return self.get_neighbor(W)
+
+    @prev.setter
+    def prev(self, node: OF) -> None:
+        self.set_neighbor(W, node)
+
+    @property
+    def next(self) -> OF:
+        """ The next node (i.e. right of this one) or None. """
+        return self.get_neighbor(E)
+
+    @next.setter
+    def next(self, node: OF) -> None:
+        self.set_neighbor(E, node)
+
+    @property
+    def above(self) -> OF:
+        """ The node above this one or None. """
+        return self.get_neighbor(N)
+
+    @above.setter
+    def above(self, node: OF) -> None:
+        self.set_neighbor(N, node)
+
+    @property
+    def below(self) -> OF:
+        """ The node below this one or None. """
+        return self.get_neighbor(S)
+
+    @below.setter
+    def below(self, node: OF) -> None:
+        self.set_neighbor(S, node)
+
+    def get_neighbor(self, d: Direction) -> OF:
+        """ Get the next neighbor in one of the four directions.
+
+        :param d: The direction.
+        :return: This nodes next neighbor in the given direction.
+        """
+        return getattr(self, d.p_attr)
+
+    def set_neighbor(self, d: Direction, neighbor: OF) -> None:
+        """ Update the neighbor in the given direction.
+
+        This should **always** be called from the node the neighbor is
+        moved to.
+
+        If the current node already has a neighbor N in the given direction,
+        N will be accessible by using `neighbor.get_neighbor(d)` afterwards.
+
+        :param d: The direction the neighbor will be placed in.
+        :param neighbor: The new neighbor or None.
+        """
+        current_neighbor: OF = self.get_neighbor(d)
+        if not neighbor:
+            setattr(self, d.p_attr, None)
+            if current_neighbor:
+                setattr(current_neighbor, d.opposite.p_attr, None)
+            return
+
+        setattr(self, d.p_attr, neighbor)
+        setattr(neighbor, d.opposite.p_attr, self)
+        neighbor.table = self.table
+        if current_neighbor:
+            setattr(neighbor, d.p_attr, current_neighbor)
+            setattr(current_neighbor, d.opposite.p_attr, neighbor)
+
+    def has_neighbors(self, *, d: Direction = None, o: Orientation = None
+                      ) -> bool:
+        """ Whether the node has any neighbors in the direction/orientation.
+
+        Only exactly one of d/o can be given at a time.
+        :param d: The direction to check for neighbors in.
+        :param o: The orientation. Simply checks both directions of o.
+        :return: True if there exist any neighbors, False otherwise.
+        """
+        # Exactly one of d/o is required.
+        assert d is None or o is None
+        assert d is not None or o is not None
+        if o:
+            return (self.has_neighbors(d=o.lower) or
+                    self.has_neighbors(d=o.upper))
+        return self.get_neighbor(d) is not None
+
+    @property
+    def table(self) -> Table | None:
+        """ The QuadLinkedList, this node belongs to, if any. """
+        return self._list
+
+    @table.setter
+    def table(self, quad_linked_list: Table | None) -> None:
+        self._list = quad_linked_list
+
+    def iter(self, d: Direction) -> Generator[F]:
+        """ Return an Iterator over the neighbors of this field in the given d.
+
+        This node will always be the first node yielded, i.e. no neighbor in
+            the opposite direction of d will be returned.
+
+        :param d:
+        """
+        field = self
+        while field:
+            yield field
+            field = field.get_neighbor(d)
 
     @staticmethod
     def from_lt_chars(lt_chars: list[LTChar], page_height: float) -> Field:
@@ -101,7 +216,7 @@ class Field(QuadNode[F, OF], BBoxObject):
 
         :return: A generator over all objects in this fields' row.
         """
-        return self.qll.get_series(H, self)
+        return self.table.get_series(H, self)
 
     @property
     def col(self) -> Generator[F, None, None]:
@@ -109,7 +224,7 @@ class Field(QuadNode[F, OF], BBoxObject):
 
         :return: A generator over all objects in this fields' column.
         """
-        return self.qll.get_series(V, self)
+        return self.table.get_series(V, self)
 
     def any_overlap(self, o: Orientation, field: F) -> bool:
         """ Returns if there is any overlap between self and field in o.
@@ -186,16 +301,16 @@ class EmptyField(Field, BBoxObject):
         self.bbox = BBox(x_axis.bbox.x0, y_axis.bbox.y0,
                          x_axis.bbox.x1, y_axis.bbox.y1)
 
-    @QuadNode.qll.setter
-    def qll(self, value: QLL) -> None:
+    @Field.table.setter
+    def table(self, value: Table) -> None:
         if value:
             self._bbox = None
-        QuadNode.qll.fset(self, value)
+        Field.table.fset(self, value)
 
     @property
     def bbox(self) -> BBox:
-        if self.qll:
-            return self.qll.get_empty_field_bbox(self)
+        if self.table:
+            return self.table.get_empty_field_bbox(self)
         if self._bbox:
             return self._bbox
         logger.warning("Tried to get the bbox of an empty field "
@@ -203,7 +318,7 @@ class EmptyField(Field, BBoxObject):
 
     @bbox.setter
     def bbox(self, bbox: BBox | None) -> None:
-        if not self.qll:
+        if not self.table:
             self._bbox = bbox
             return
         logger.warning("Tried to set the bbox of an empty field "

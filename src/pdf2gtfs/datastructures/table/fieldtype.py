@@ -426,7 +426,7 @@ def data_aligned_fields_are_non_empty(starter: F, o: Orientation,
     neighbor_types = [T.Data]
     if neighbor_type is not None:
         neighbor_types.append(neighbor_type)
-    for field in starter.qll.get_series(o, starter):
+    for field in starter.table.get_series(o, starter):
         if not series_contains_type(field, n, T.Data):
             continue
         if not isinstance(field, EmptyField):
@@ -462,7 +462,7 @@ def series_is_aligned(starter: F, o: Orientation,
     """
     bbox_attr = "x0" if o == V else "y0"
     lower_coords: list[float] = []
-    for field in starter.qll.get_series(o, starter):
+    for field in starter.table.get_series(o, starter):
         # Only check data fields.
         if not series_contains_type(field, o.normal, T.Data):
             continue
