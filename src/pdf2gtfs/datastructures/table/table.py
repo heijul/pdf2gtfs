@@ -73,9 +73,8 @@ class Table:
     @property
     def bbox(self) -> BBox:
         """ The bbox, that contains every field of the table. """
-        # TODO NOW: This is not entirely true. It should be using
-        #  the col and row for all end nodes.
-        return self.get_bbox_of([self.left, self.right])
+        return self.get_bbox_of(collapse((self.left.col, self.top.row,
+                                          self.right.col, self.bot.row)))
 
     @staticmethod
     def from_fields(fields: Fs) -> Table:

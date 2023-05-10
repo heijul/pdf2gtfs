@@ -123,7 +123,6 @@ class TestTable(TestCase):
         self.assertFalse(table.expand(W))
         # TODO: These should be tested further.
         self.assertTrue(table.expand(S))
-        self.assertTrue(table.expand(S))
         self.assertFalse(table.expand(S))
         self.assertTrue(table.expand(N))
         self.assertTrue(table.expand(N))
