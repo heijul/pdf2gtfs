@@ -8,13 +8,13 @@ from operator import attrgetter
 from typing import Callable, Iterable, TYPE_CHECKING
 
 from more_itertools import (
-    always_iterable, collapse, first_true, flatten, peekable, split_when,
+    always_iterable, collapse, first_true, peekable, split_when,
     )
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_fields
 from pdf2gtfs.datastructures.table.fields import (
-    DataField, EmptyField, F, Fs, OF,
+    EmptyField, F, Fs, OF,
     )
 from pdf2gtfs.datastructures.table.fieldtype import T
 from pdf2gtfs.datastructures.table.quadlinkedlist import (
@@ -147,15 +147,22 @@ class Table(QuadLinkedList[F, OF]):
 
         :param field: The field we are using as reference.
         :return: The last column left of the field or None, if no such
-            column exists.
+         column exists.
         """
-        def _is_left_of_field(f: F) -> bool:
-            return f.bbox.x0 > field.bbox.x0
+        def _is_right_of_field(f: F) -> bool:
+            return f.bbox.x0 >= left_most_field.bbox.x0
 
-        first_left_field = first_true(self.left.iter(E), default=self.right,
-                                      pred=_is_left_of_field
-                                      ).prev
-        return list(self.get_series(V, first_left_field))
+        if field.qll == self:
+            return self.get_list(V, field.prev)
+
+        top_field = field
+        while top_field.above:
+            top_field = top_field.above
+
+        left_most_field = min(top_field.iter(S), key=attrgetter("bbox.x0"))
+        col_right_of_field = first_true(
+            self.left.iter(E), default=self.right, pred=_is_right_of_field)
+        return self.get_list(V, col_right_of_field.prev)
 
     def insert_repeat_fields(self, fields: Fs) -> None:
         """ Find the fields that are part of a repeat interval and add
@@ -246,7 +253,7 @@ class Table(QuadLinkedList[F, OF]):
             :param f: This fields text is checked.
             :return: The format char used for alignment.
             """
-            return ">" if isinstance(f, DataField) else "<"
+            return ">" if f.get_type() == T.Data else "<"
 
         self._print(attrgetter("text"), get_text_align, col_count)
 
@@ -364,7 +371,7 @@ class Table(QuadLinkedList[F, OF]):
             return field1.qll != field2.qll
 
         fields = list(self.get_series(o.normal, self.get_end_node(o.lower)))
-        fields += list(flatten(splitter))
+        fields += list(collapse(splitter))
         pre_sorter = "bbox.y0" if o == H else "bbox.x0"
         return group_fields_by(fields, _same_table, pre_sorter, None)
 
@@ -405,6 +412,34 @@ class Table(QuadLinkedList[F, OF]):
             TimeTableEntry, TimeTableRepeatEntry, Weekdays,
             )
 
+        def add_field_to_timetable() -> None:
+            match field.get_type():
+                case T.Other | T.Empty | T.Stop:
+                    return
+                case T.Data:
+                    stop = t.stops.get_from_id(stop_id)
+                    entries[e_id].set_value(stop, field.text)
+                    non_empty_entries.add(e_id)
+                case T.EntryAnnotValue:
+                    annots = set([a.strip() for a in field.text.split()])
+                    entries[e_id].annotations = annots
+                case T.Days:
+                    entries[e_id].days = Weekdays(field.text)
+                case T.RouteAnnotValue:
+                    entries[e_id].route_name = field.text
+                case T.StopAnnot:
+                    stop = t.stops.get_from_id(stop_id)
+                    t.stops.add_annotation(field.text, stop=stop)
+                case T.RepeatValue:
+                    e = entries[e_id]
+                    if not isinstance(entries[e_id], TimeTableRepeatEntry):
+                        entries[e_id] = TimeTableRepeatEntry(
+                            "", [field.text])
+                        entries[e_id].days = e.days
+                        entries[e_id].route_name = e.route_name
+                        entries[e_id].annotations = e.annotations
+                    non_empty_entries.add(e_id)
+
         t = TimeTable()
         o, stops = self.find_stops()
         # TODO NOW: Add to config min_stops
@@ -421,32 +456,9 @@ class Table(QuadLinkedList[F, OF]):
         non_empty_entries = set()
 
         for stop_id, start in enumerate(self.get_series(o, self.left)):
-            pass
             for e_id, field in enumerate(self.get_series(n, start)):
-                if field.get_type() in (T.Other, T.Empty, T.Stop):
-                    continue
-                if field.get_type() == T.Data:
-                    stop = t.stops.get_from_id(stop_id)
-                    entries[e_id].set_value(stop, field.text)
-                    non_empty_entries.add(e_id)
-                if field.get_type() == T.EntryAnnotValue:
-                    annots = set([a.strip() for a in field.text.split()])
-                    entries[e_id].annotations = annots
-                if field.get_type() == T.Days and not entries[e_id].days.days:
-                    entries[e_id].days = Weekdays(field.text)
-                if field.get_type() == T.RouteAnnotValue:
-                    entries[e_id].route_name = field.text
-                if field.get_type() == T.StopAnnot:
-                    stop = t.stops.get_from_id(stop_id)
-                    t.stops.add_annotation(field.text, stop=stop)
-                if field.get_type() == T.RepeatValue:
-                    e = entries[e_id]
-                    if not isinstance(entries[e_id], TimeTableRepeatEntry):
-                        entries[e_id] = TimeTableRepeatEntry("", [field.text])
-                        entries[e_id].days = e.days
-                        entries[e_id].route_name = e.route_name
-                        entries[e_id].annotations = e.annotations
-                    non_empty_entries.add(e_id)
+                add_field_to_timetable()
+
         first_days = first_true((entries[e_id].days
                                  for e_id in non_empty_entries),
                                 lambda d: d.days != [])
@@ -479,11 +491,13 @@ class Table(QuadLinkedList[F, OF]):
         h_stops = _find_stops(H)
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
-    def expand_all(self):
+    def expand_all(self, all_directions: bool = False) -> None:
         expanded = True
         while expanded:
             expanded = False
             for d in D:
+                if not all_directions and d in [S, E]:
+                    continue
                 expanded |= self.expand(d)
 
     def infer_field_types(self, first_table: Table | None) -> None:

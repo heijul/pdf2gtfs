@@ -1,8 +1,12 @@
 """ Provides the different Fields of a Table. """
+
+from __future__ import annotations
+
 import logging
 from typing import Generator, Optional, TypeAlias, TypeVar
 
 from pdfminer.layout import LTChar
+from pdfminer.pdffont import PDFFont
 
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
@@ -24,21 +28,44 @@ OF = TypeVar("OF", bound=Optional["Field"])
 Fs: TypeAlias = list[F]
 
 
+def get_bbox_from_chars(
+        lt_chars: list[LTChar], page_height: float) -> BBox | None:
+    """ Use the chars of this field to construct a bbox. """
+    from pdf2gtfs.reader import lt_char_to_dict
+
+    if not lt_chars:
+        return None
+    chars = [Char(**lt_char_to_dict(char, page_height)) for char in lt_chars]
+    bbox = BBox.from_bboxes([BBox.from_char(char) for char in chars])
+    return bbox
+
+
 class Field(QuadNode[F, OF], BBoxObject):
     """ A singl field in a table. """
 
-    def __init__(self, chars: list[LTChar], page_height: float) -> None:
-        super().__init__(bbox=None)
-        self.chars = chars
-        self.page_height = page_height
-        self.font = self.chars[0].font if self.chars else None
-        self.fontname = self.chars[0].fontname if self.chars else None
-        self.fontsize = self.chars[0].fontsize if self.chars else None
+    def __init__(self, text: str, bbox: BBox | None = None,
+                 font: PDFFont | None = None, fontname: str | None = None,
+                 fontsize: float | None = None,
+                 ) -> None:
+        super().__init__(bbox=bbox)
+        self.text = text.strip()
+        self.font = font
+        self.fontname = fontname
+        self.fontsize = fontsize
         self.type = FieldType(self)
-        self._initialize()
+
+    @staticmethod
+    def from_lt_chars(lt_chars: list[LTChar], page_height: float) -> Field:
+        text = "".join([c.get_text() for c in lt_chars]).strip()
+        bbox = get_bbox_from_chars(lt_chars, page_height)
+        font = lt_chars[0].font if lt_chars else None
+        fontname = font.fontname if font else None
+        fontsize = lt_chars[0].fontsize if lt_chars else None
+        return Field(text, bbox, font, fontname, fontsize)
 
     def duplicate(self) -> F:
-        return Field(self.chars, self.page_height)
+        return Field(
+            self.text, self.bbox, self.font, self.fontname, self.fontsize)
 
     def get_type(self) -> T:
         if self.type.inferred_type:
@@ -67,21 +94,6 @@ class Field(QuadNode[F, OF], BBoxObject):
                 neighbors[d] = neighbor
         # Remove neighbors that are None if allow_none is False.
         return [n for n in neighbors.values() if allow_none or n is not None]
-
-    def _initialize(self) -> None:
-        self.set_bbox_from_chars()
-        self.text = "".join([c.get_text() for c in self.chars]).strip()
-
-    def set_bbox_from_chars(self) -> None:
-        """ Use the chars of this field to construct the bbox. """
-        from pdf2gtfs.reader import lt_char_to_dict
-
-        if not self.chars:
-            return
-        bbox = BBox.from_bboxes([
-            BBox.from_char(Char(**lt_char_to_dict(char, self.page_height)))
-            for char in self.chars])
-        self.bbox = bbox
 
     @property
     def row(self) -> Generator[F, None, None]:
@@ -132,7 +144,6 @@ class Field(QuadNode[F, OF], BBoxObject):
         :param ignore: The directions to ignore the neighbors in. Used, when
             multiple neighboring fields are being merged successively.
         """
-        self.chars += field.chars
         self.bbox.merge(field.bbox)
         self.text += f"{merge_char}{field.text}"
         for d in D:
@@ -161,13 +172,10 @@ class EmptyField(Field, BBoxObject):
     """ A field in a table, that does not contain any text. """
     def __init__(self, **kwargs) -> None:
         # An empty field can never contain any characters.
-        kwargs.update(dict(chars=[], page_height=0))
+        kwargs.update(dict(text="", bbox=None))
         super().__init__(**kwargs)
         self.type = EmptyFieldType(self)
         self._bbox = None
-
-    def set_bbox_from_chars(self) -> None:
-        pass
 
     def set_bbox_from_reference_fields(self, x_axis: F, y_axis: F) -> None:
         """ Set the bbox based on the two given fields.
@@ -200,61 +208,3 @@ class EmptyField(Field, BBoxObject):
             return
         logger.warning("Tried to set the bbox of an empty field "
                        "that is part of a table.")
-
-    def _initialize(self) -> None:
-        self.text = ""
-
-
-class DataAnnotField(Field):
-    """ An annotation, that is directly adjacent to a data field. """
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.data_field: DataField | None = None
-
-
-class DataField(Field):
-    """ A field of a table, which contains time data. """
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._annotations: list[DataAnnotField] = []
-        self.col_id = -1
-        self.row_id = -1
-
-    @property
-    def annotations(self) -> list[DataAnnotField]:
-        """ A list of annotations for this data field. """
-        return self._annotations
-
-    @annotations.setter
-    def annotations(self, fields: list[DataAnnotField]) -> None:
-        for field in fields:
-            field.data_field = self
-        self._annotations = fields
-
-
-class EmptyDataField(EmptyField, DataField):
-    """ An empty field, that is surrounded by at least two
-    data fields on opposite sides. """
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        del self.col_id
-        del self.row_id
-
-
-class RepeatField(DataField):
-    """ Base class for fields that are part of a repeat column/row. """
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        del self.col_id
-        del self.row_id
-
-
-class RepeatTextField(RepeatField):
-    """ The field containing the text before/after the repeat time. """
-    pass
-
-
-class RepeatValueField(RepeatField):
-    """ The field, that contains the amount of time,
-     at which service will be repeated. """
-    pass

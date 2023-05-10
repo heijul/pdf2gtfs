@@ -14,7 +14,7 @@ from typing import cast, Iterator, Optional, Tuple, TypeAlias, Union
 
 import pandas as pd
 from more_itertools import (
-    first_true, flatten, map_if, partition, peekable,
+    first_true, flatten, partition, peekable,
     )
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
@@ -29,7 +29,8 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
 from pdf2gtfs.datastructures.table.bounds import Bounds
-from pdf2gtfs.datastructures.table.fields import DataField, F, Field, Fs
+from pdf2gtfs.datastructures.table.fields import F, Field, Fs
+from pdf2gtfs.datastructures.table.fieldtype import T
 from pdf2gtfs.datastructures.table.table import (
     fields_to_rows, group_fields_by, Table,
     )
@@ -176,29 +177,6 @@ def word_contains_time_data(word: list[LTChar]) -> bool:
     return True
 
 
-def get_datafields(line: LTTextLine, height: float
-                   ) -> tuple[list[DataField], list[Field]]:
-    words = split_line_into_words(line)
-    data_words = []
-    other_words = []
-    for word in words:
-        word_text = "".join([char.get_text() for char in word]).strip()
-        try:
-            strptime(word_text, Config.time_format)
-            data_words.append(word)
-        except ValueError:
-            other_words.append(word)
-            continue
-
-    fields = [DataField(chars=word, page_height=height)
-              for word in data_words]
-    other_fields = [Field(word, height) for word in other_words]
-    # Remove fields without text.
-    fields = [f for f in fields if f.text]
-    other_fields = [f for f in other_fields if f.text]
-    return fields, other_fields
-
-
 def merge_other_fields(fields: Iterator[Field]) -> Fs:
     def _same_font(field1: F, field2: F) -> bool:
         return not (field1.fontname == field2.fontname
@@ -236,8 +214,7 @@ def merge_other_fields(fields: Iterator[Field]) -> Fs:
     return merged
 
 
-def get_fields_from_page(page: LTPage
-                         ) -> tuple[list[DataField], list[F], list[F]]:
+def get_fields_from_page(page: LTPage) -> tuple[list[F], list[F], list[F]]:
     """ Create an object for each word on the page.
 
     :param page: A single page of a PDF.
@@ -251,21 +228,16 @@ def get_fields_from_page(page: LTPage
     text_lines = filter(lambda line: isinstance(line, LTTextLine),
                         flatten(text_boxes))
 
-    valid_chars, invalid_chars = partition(
-        lambda c: c.get_text().startswith("(cid:"), flatten(text_lines))
     # Get all words in the given page from its lines.
     words = flatten(map(split_line_into_words, text_lines))
     # Create a Field/DataField, based on whether each word contains time data.
     page_height = page.y1
-    fields = map_if(
-        words, word_contains_time_data,
-        lambda chars: DataField(chars=chars, page_height=page_height),
-        lambda chars: Field(chars=chars, page_height=page_height))
+    fields = map(lambda chars: Field.from_lt_chars(chars, page_height), words)
     # Remove empty fields, i.e. fields that do not contain any visible text.
     fields = filter(lambda f: f.text, fields)
     # Split the fields based on their type.
-    data_fields, non_data_fields = partition(
-        lambda f: not isinstance(f, DataField), fields)
+    non_data_fields, data_fields = partition(
+        lambda f: f.get_type() == T.Data, fields)
     # Some text may not have been read properly.
     non_data_fields, invalid_fields = partition(
         lambda f: f.text.startswith("(cid"), non_data_fields)
@@ -302,7 +274,7 @@ def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
         getter2 = attrgetter(f"bbox.{axis}0")
         lower = first_true(sorted_tables[idx - 1::-1],
                            pred=lambda t: getter1(t) < getter2(table))
-        return cast(float, getter2(lower)) if lower else None
+        return cast(float, getter1(lower)) if lower else None
 
     def get_next_upper(sorted_tables: list[Table], axis: str) -> float | None:
         """ Return the lower bound of the next upper table, if it exists.

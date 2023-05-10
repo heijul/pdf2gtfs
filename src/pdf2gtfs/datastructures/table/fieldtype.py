@@ -53,6 +53,10 @@ class FieldType:
 
         :return: The type that is most likely based on the fields contents.
         """
+
+        if self.possible_types:
+            return get_max_key(self.possible_types)
+
         possible_types = {}
 
         for t, ind in ABS_INDICATORS.items():
@@ -61,7 +65,7 @@ class FieldType:
                 continue
             possible_types[t] = int(value)
         # It may always happen that a field is not of any proper type.
-        possible_types[T.Other] = 1
+        possible_types[T.Other] = .5
 
         # If the field contains no identifiers, it could still be one of these.
         if len(possible_types) == 1:
@@ -69,7 +73,8 @@ class FieldType:
             # However, the chance that it is not, is higher.
             possible_types[T.Other] = 2
 
-        self.possible_types = {key: round(value / (len(possible_types) + 1), 3)
+        div = sum(possible_types.values())
+        self.possible_types = {key: round(value / div, 3)
                                for key, value in possible_types.items()}
 
         return get_max_key(self.possible_types)
@@ -122,21 +127,41 @@ class EmptyFieldType(FieldType):
 
 class T(Enum):
     """ The different possible types for a field. """
-    Data = "data"
-    Stop = "stop"
-    Days = "days"
-    RepeatIdent = "repeat.ident"
-    RepeatValue = "repeat.value"
-    StopAnnot = "stop.annot.ident"
-    RouteAnnotIdent = "route.annot.ident"
-    RouteAnnotValue = "route.annot.value"
-    EntryAnnotIdent = "entry.annot.ident"
-    EntryAnnotValue = "entry.annot.value"
-    DataAnnot = "data.annot"
-    LegendIdent = "legend.ident"
-    LegendValue = "legend.value"
-    Other = "other"
-    Empty = "empty"
+    Data = 0.1
+    DataAnnot = 0.2
+    Stop = 1.1
+    StopAnnot = 1.2
+    Days = 2.
+    RepeatIdent = 3.1
+    RepeatValue = 3.2
+    RouteAnnotIdent = 4.1
+    RouteAnnotValue = 4.2
+    EntryAnnotIdent = 5.1
+    EntryAnnotValue = 5.2
+    LegendIdent = 6.1
+    LegendValue = 6.2
+    Other = 7.
+    Empty = 8.
+
+    def __gt__(self, other) -> bool:
+        if not isinstance(other, T):
+            raise TypeError("Can only compare types with types, not"
+                            f"'{type(other)}'.")
+        return self.value > other.value
+
+    def __lt__(self, other) -> bool:
+        if not isinstance(other, T):
+            raise TypeError("Can only compare types with types, not"
+                            f"'{type(other)}'.")
+        return self.value < other.value
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, T):
+            return False
+        return self.value == other.value
+
+    def __hash__(self) -> int:
+        return id(self)
 
 
 AbsIndicator: TypeAlias = Callable[[F], bool]
@@ -188,7 +213,12 @@ def is_repeat_value(field: F) -> bool:
         False, otherwise.
     """
     # Match numbers, numbers seperated by hyphen and numbers seperated by comma
-    return bool(re.match(r"^\d+$|^\d+\s?-\s?\d+$|\d+\s?,\s?\d+$", field.text))
+    # TODO: Should not only check for hyphen but things like emdash as well.
+    #  See Nurminen's thesis
+    return bool(re.match(r"^\d+$"
+                         r"|^\d+\s?-\s?\d+$"
+                         r"|\d+\s?,\s?\d+$",
+                         field.text))
 
 
 def is_legend(field: F) -> bool:
@@ -371,27 +401,36 @@ def series_contains_type(field: F, o: Orientation, typ: T) -> bool:
     return field_row_contains_type(field, typ)
 
 
-def data_aligned_fields_are_non_empty(starter: F, o: Orientation) -> bool:
+def data_aligned_fields_are_non_empty(starter: F, o: Orientation,
+                                      field_type: T, neighbor_type: T | None
+                                      ) -> bool:
     """ Checks if the row/col of starter, contains empty fields
     in the cols/rows where the data fields are.
 
     :param starter: The row/col of this field will be checked.
     :param o: The orientation of the series of starter. The normal
         orientation to o will be used to check neighbors of each empty field.
+    :param field_type: The type the aligned fields should have.
+    :param neighbor_type: The type (other than T.Data) the neighbors of any
+        encountered EmptyFields should have. If this is None, at least one
+        neighbor must be of type `Data`. In either case, neighbors must exist.
     :return: True, if all fields of the starter's col/row, that are within
         a row/col that contains datafields are either non-empty fields with
-        T.Stop as possible type or are empty and either are missing a neighbor
-        in the normal orientation or such a neighbor has a different type than
-        T.Stop or T.Data. False, otherwise.
+        `Stop` as possible type or are empty and either are missing a
+        neighbor in the normal orientation or such a neighbor has a different
+        type than T.Stop or T.Data. False, otherwise.
     """
     from pdf2gtfs.datastructures.table.fields import EmptyField
 
     n = o.normal
+    neighbor_types = [T.Data]
+    if neighbor_type is not None:
+        neighbor_types.append(neighbor_type)
     for field in starter.qll.get_series(o, starter):
         if not series_contains_type(field, n, T.Data):
             continue
         if not isinstance(field, EmptyField):
-            if not field.has_type(T.Stop):
+            if not field.has_type(field_type):
                 return False
             continue
         # The current field may be part of an incomplete row/col, which will
@@ -399,10 +438,13 @@ def data_aligned_fields_are_non_empty(starter: F, o: Orientation) -> bool:
         neighbors = field.get_neighbors(allow_none=True,
                                         allow_empty=False,
                                         directions=[n.lower, n.upper])
+        # Check the type of the neighbors.
+        correct_types = 0
         for neighbor in neighbors:
-            # Both neighbors need to be either a Stop or Data.
-            if not neighbor or neighbor.get_type() not in (T.Stop, T.Data):
-                return False
+            if neighbor and neighbor.has_type(*neighbor_types):
+                correct_types += 1
+        if correct_types < len(neighbor_types):
+            return False
     return True
 
 
@@ -449,18 +491,20 @@ def rel_indicator_stop(field: F) -> float:
     score = 1
     if col_contains_data:
         # Every row that contains data must contain a stop.
-        if not data_aligned_fields_are_non_empty(field, H):
+        if not data_aligned_fields_are_non_empty(field, H, T.Stop, T.Stop):
             return 0
+        # Stop columns are (generally) left aligned.
         score += series_is_aligned(field, H)
-        score += field_col_contains_type(field, T.Stop)
+        # If the column contains data, the row should contain stops.
+        score += field_row_contains_type(field, T.Stop)
         score += field_neighbor_has_type(
             field, T.StopAnnot, directions=[N, S])
     elif row_contains_data:
         # Every col that contains data must contain a stop.
-        if not data_aligned_fields_are_non_empty(field, V):
+        if not data_aligned_fields_are_non_empty(field, V, T.Stop, T.Stop):
             return 0
         score += series_is_aligned(field, V)
-        score += field_row_contains_type(field, T.Stop)
+        score += field_col_contains_type(field, T.Stop)
         score += field_neighbor_has_type(
             field, T.StopAnnot, directions=[W, E])
 
@@ -474,9 +518,24 @@ def rel_indicator_stop_annot(field: F) -> float:
     :return: A value between 0 and 1, representing change in probability,
         based on the results of the functions called.
     """
-    funcs = (field_neighbor_has_type_wrapper(T.StopAnnot),
-             field_neighbor_has_type_wrapper(T.Stop))
-    return rel_multiple_function_wrapper(funcs)(field)
+    col_contains_data = field_col_contains_type(field, T.Data)
+    row_contains_data = field_row_contains_type(field, T.Data)
+    # Either the row or col has to contain data, but never both.
+    if (col_contains_data + row_contains_data) % 2 == 0:
+        return 0
+    score = 1
+    if col_contains_data:
+        if not data_aligned_fields_are_non_empty(field, H, T.StopAnnot, None):
+            return 0
+        score += field_neighbor_has_type(field, T.Stop, directions=[N, S])
+        score += field_neighbor_has_type(field, T.StopAnnot, directions=[W, E])
+    elif row_contains_data:
+        if not data_aligned_fields_are_non_empty(field, V, T.StopAnnot, None):
+            return 0
+        score += field_neighbor_has_type(field, T.Stop, directions=[W, E])
+        score += field_neighbor_has_type(field, T.StopAnnot, directions=[N, S])
+
+    return score
 
 
 def rel_indicator_data_annot(field: F) -> float:

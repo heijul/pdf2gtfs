@@ -17,22 +17,23 @@ from holidays.utils import country_holidays
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.agency import GTFSAgency
 from pdf2gtfs.datastructures.gtfs_output.calendar import (
-    GTFSCalendar,
-    GTFSCalendarEntry)
-from pdf2gtfs.datastructures.gtfs_output.calendar_dates import \
+    GTFSCalendar, GTFSCalendarEntry)
+from pdf2gtfs.datastructures.gtfs_output.calendar_dates import (
     GTFSCalendarDates
+    )
 from pdf2gtfs.datastructures.gtfs_output.routes import GTFSRoutes
 from pdf2gtfs.datastructures.gtfs_output.stop import (
-    GTFSStopEntry, GTFSStops,
-    WheelchairBoarding)
+    GTFSStopEntry, GTFSStops, WheelchairBoarding)
 from pdf2gtfs.datastructures.gtfs_output.stop_times import (
     GTFSStopTimes, GTFSStopTimesEntry, Time)
 from pdf2gtfs.datastructures.gtfs_output.trips import GTFSTrips
 from pdf2gtfs.datastructures.timetable.entries import (
-    TimeTableEntry, TimeTableRepeatEntry)
+    TimeTableEntry, TimeTableRepeatEntry
+    )
 from pdf2gtfs.locate.finder.loc_nodes import ENode, MNode, Node
 from pdf2gtfs.user_input.cli import (
-    ask_overwrite_existing_file, handle_annotations, select_agency)
+    ask_overwrite_existing_file, handle_annotations, select_agency
+    )
 from pdf2gtfs.utils import UIDGenerator
 
 
