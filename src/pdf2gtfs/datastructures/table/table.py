@@ -128,22 +128,8 @@ class Table:
         :param start: The node to use to look for the end node in d.
         """
         o = d.default_orientation
-        node = self.get_first(d, start)
         d2 = o.normal.lower if d == o.lower else o.normal.upper
-        node = self.get_first(d2, node)
-        self._set_end_node(d, node)
-
-    def get_first(self, d: Direction, node: F) -> F:
-        """ Return the final node in the given direction, starting at node.
-
-        :param d: The direction to get the final node in.
-        :param node: The node to start the search at.
-        :return: Either node, if it is the last node or a node that is an
-            extended neighbor (i.e. neighbor/neighbors neighbor/...).
-        """
-        while node.has_neighbors(d=d):
-            node = node.get_neighbor(d)
-        return node
+        self._set_end_node(d, start.get_last(d).get_last(d2))
 
     def get_list(self, o: Orientation, node: OF = None) -> list[F]:
         """ Return the full list of nodes in the given orientation.
@@ -236,7 +222,7 @@ class Table:
             first col/row.
         :return: An iterator over the nodes.
         """
-        node = self.get_first(d.opposite, node)
+        node = node.get_last(d.opposite)
         while node:
             yield node
             node = node.get_neighbor(d)

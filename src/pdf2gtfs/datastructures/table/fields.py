@@ -285,6 +285,18 @@ class Field(BBoxObject):
             assert not self_neighbor or self_neighbor == field
             self.set_neighbor(d, field_neighbor)
 
+    def get_last(self, d: Direction) -> F:
+        """ The last neighbor that only has neighbors in d.opposite.
+
+        :param d: The direction to look for.
+        :return: The last field of the given direction.
+         That is, the field that has no neighbor d.
+        """
+        field = self
+        while field.has_neighbors(d=d):
+            field = field.get_neighbor(d)
+        return field
+
     def __repr__(self) -> str:
         neighbors = ", ".join([f"{d.name}='{n.text}'"
                                for d in D
