@@ -171,6 +171,12 @@ class Field(BBoxObject):
 
     @staticmethod
     def from_lt_chars(lt_chars: list[LTChar], page_height: float) -> Field:
+        """ Create a new field from the given chars.
+
+        :param lt_chars: The chars this field should contain.
+        :param page_height: Required for the bbox creation.
+        :return: A field that contains all given chars.
+        """
         text = "".join([c.get_text() for c in lt_chars]).strip()
         bbox = get_bbox_from_chars(lt_chars, page_height)
         font = lt_chars[0].font if lt_chars else None
@@ -179,15 +185,26 @@ class Field(BBoxObject):
         return Field(text, bbox, font, fontname, fontsize)
 
     def duplicate(self) -> F:
+        """ Duplicate the field (except for table and type).
+
+        :return: A new field that has the same values.
+        """
         return Field(
             self.text, self.bbox, self.font, self.fontname, self.fontsize)
 
     def get_type(self) -> T:
+        """ The inferred or guessed type of the field, whichever exists. """
         if self.type.inferred_type:
             return self.type.inferred_type
         return self.type.guess_type()
 
     def has_type(self, *types: T) -> bool:
+        """ Check if the field has any of the given types.
+
+        :param types: Each of these will be checked.
+        :return: True, if the fields' type is equal to any of the given types.
+            False, otherwise.
+        """
         if not self.type.possible_types:
             self.get_type()
         return any(typ in self.type.possible_types for typ in types)
@@ -196,6 +213,17 @@ class Field(BBoxObject):
                       allow_none: bool = False, allow_empty: bool = True,
                       directions: list[Direction] = None
                       ) -> Fs:
+        """ Return the adjacent neighbors of the field.
+
+        Depending on the parameters, the neighbors may not be adjacent.
+
+        :param allow_none: Whether to return None for non-existent neighbors.
+        :param allow_empty: If this is False, instead of returning EmptyFields,
+            we will search for non-empty fields.
+            If true, return any EmptyField.
+        :param directions: The directions to look for neighbors in.
+        :return: A list of some or all neighbors in the given directions.
+        """
         if directions is None:
             directions = D
         neighbors = {d: self.get_neighbor(d) for d in directions}
@@ -250,7 +278,7 @@ class Field(BBoxObject):
     def is_overlap(self, o: Orientation, field: F, *args) -> bool:
         """ Run is_v_overlap or is_h_overlap on field based on o.
 
-        :param o: The orientation used to determine which method to run.
+        :param o: The orientation used to determine, which method to run.
         :param field: The field passed to the method.
         :param args: Args to the method.
         :return: The output of the run method.
@@ -317,8 +345,8 @@ class EmptyField(Field, BBoxObject):
     def set_bbox_from_reference_fields(self, x_axis: F, y_axis: F) -> None:
         """ Set the bbox based on the two given fields.
 
-        :param x_axis: This fields bbox's x-coordinates are used.
-        :param y_axis: This fields bbox's y-coordinates are used.
+        :param x_axis: This fields' bbox's x-coordinates are used.
+        :param y_axis: This fields' bbox's y-coordinates are used.
         """
         self.bbox = BBox(x_axis.bbox.x0, y_axis.bbox.y0,
                          x_axis.bbox.x1, y_axis.bbox.y1)

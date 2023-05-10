@@ -396,6 +396,15 @@ def rel_multiple_function_wrapper(funcs: tuple[RelIndicator, ...]
 
 
 def series_contains_type(field: F, o: Orientation, typ: T) -> bool:
+    """ Check if any field in the fields' row/col has the given type.
+
+    :param field: This fields' row/col is checked.
+    :param o: Based on this, the row (H) or column (V) is checked.
+    :param typ: The type each field is checked against.
+    :return: True, if there exists a field with the given type in the
+        fields row/col.
+        False, otherwise.
+    """
     if o == V:
         return field_col_contains_type(field, typ)
     return field_row_contains_type(field, typ)

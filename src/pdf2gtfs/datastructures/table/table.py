@@ -573,6 +573,11 @@ class Table:
         self._remove_empty_series(V)
 
     def to_timetable(self) -> TimeTable | None:
+        """ Turn this table into a timetable.
+
+        :return: A valid timetable containing all fields
+            that have a proper type.
+        """
         from pdf2gtfs.datastructures.timetable.table import TimeTable
         from pdf2gtfs.datastructures.timetable.stops import Stop
         from pdf2gtfs.datastructures.timetable.entries import (
@@ -580,6 +585,10 @@ class Table:
             )
 
         def add_field_to_timetable() -> None:
+            """ Add the field to the timetable.
+
+            How the field is added depends on its type.
+            """
             match field.get_type():
                 case T.Other | T.Empty | T.Stop:
                     return
@@ -658,16 +667,26 @@ class Table:
         h_stops = _find_stops(H)
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
-    def expand_all(self, all_directions: bool = False) -> None:
+    def expand_all(self) -> None:
+        """ Exhaustively expand the table in the lower directions (N, W). """
         expanded = True
         while expanded:
             expanded = False
             for d in D:
-                if not all_directions and d in [S, E]:
+                if d in [S, E]:
                     continue
                 expanded |= self.expand(d)
 
     def infer_field_types(self, first_table: Table | None) -> None:
+        """ Infer the field types of all fields.
+
+        This will infer the type multiple times,
+        to accomodate changes in the type based on the earlier inference.
+
+        :param first_table: If None, the current table is the first table.
+            Otherwise, the first table will be used to determine if the
+            Days, etc. are in the header or in the footer.
+        """
         # TODO: Test if it makes a difference, running this twice.
         for starter in self.left.row:
             for field in starter.col:
@@ -708,6 +727,20 @@ class Table:
 
     def of_type(self, typ: T, o: Orientation = V, single: bool = False,
                 strict: bool = True) -> list[list[F]]:
+        """ Return one or all series' of the given type.
+
+        Each series will be partial in the sense
+        that each field will be of the given type.
+        Thus, in general, the series is different
+        from the row/col of the series' fields.
+
+        :param typ: The type each field in the returned row will have.
+        :param o: The orientation the fields in the returned lists will have.
+        :param single: Whether, only to return the first series encountered.
+        :param strict: If type checking should be strict or not.
+        :return: A list of lists,
+            where each sublist contains fields of the given type.
+        """
         fields_of_type: list[list[F]] = []
         for starter in self.get_series(o.normal, self.left):
             fields_of_type.append([])
@@ -725,6 +758,13 @@ class Table:
         return fields_of_type
 
     def merge_series(self, starter: F, d: Direction) -> None:
+        """ Merge the row/col of the given field to the neighboring series.
+
+        :param starter: Used to get the series in the directions'
+            orientations' normal orientation.
+        :param d: The fields row/col will get merged to their respective
+            neighbors in the given direction.
+        """
         neighbor = starter.get_neighbor(d)
         if not neighbor:
             raise AssertionError(f"Can't merge in {d.name}. End of table.")
@@ -736,6 +776,7 @@ class Table:
             f1.merge(f2, ignore=[n.lower, n.upper])
 
     def merge_stops(self) -> None:
+        """ Merge consecutive fields of type stop. """
         def _merge_stops() -> bool:
             allow_merge = True
             stop: F | None = None
