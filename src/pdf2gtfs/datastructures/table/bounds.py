@@ -298,7 +298,7 @@ def select_adjacent_fields(d: Direction, bboxes: list[BBox], fields: Fs) -> Fs:
     """
     bound_cls = {N: NBounds, W: WBounds, S: SBounds, E: EBounds}[d]
 
-    adjacent_fields = bound_cls.select_adjacent_fields(bboxes, fields)
+    adjacent_fields = bound_cls.select_adjacent_fields(bboxes, iter(fields))
 
     normal = d.default_orientation.normal
     # Remove fields that are not overlapping with any reference field.
