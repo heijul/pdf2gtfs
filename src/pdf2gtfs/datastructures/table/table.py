@@ -44,8 +44,8 @@ class Table:
         self._update_end_node(N, first_node)
         self._update_end_node(S, last_node)
         # Update table on all nodes.
-        for row_field in self.get_series(H, self.top):
-            for col_field in self.get_series(V, row_field):
+        for row_field in self.top.row:
+            for col_field in row_field.col:
                 col_field.table = self
         self._get_bbox_call_count: int = 0
         self.other_fields = None
@@ -250,8 +250,8 @@ class Table:
         :return: A bbox, that is contained by both the row/col, while having
             the row's height and the col's width.
         """
-        row_bbox = self.get_bbox_of(self.get_series(H, field))
-        col_bbox = self.get_bbox_of(self.get_series(V, field))
+        row_bbox = self.get_bbox_of(field.row)
+        col_bbox = self.get_bbox_of(field.col)
         return BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
 
     def expand(self, d: Direction) -> bool:
@@ -301,10 +301,10 @@ class Table:
                     bbox.is_h_overlap(field.bbox, 0.8))
 
         bbox = BBox.from_bboxes(
-            [self.get_bbox_of(self.get_series(V, self.left)),
-             self.get_bbox_of(self.get_series(V, self.right)),
-             self.get_bbox_of(self.get_series(H, self.top)),
-             self.get_bbox_of(self.get_series(H, self.bot))])
+            [self.get_bbox_of(self.left.col),
+             self.get_bbox_of(self.right.col),
+             self.get_bbox_of(self.top.row),
+             self.get_bbox_of(self.bot.row)])
 
         fields = list(filter(_both_overlap, fields))
         return fields
@@ -318,7 +318,7 @@ class Table:
         """
         for col_field in self.left.iter(E):
             if col_field.is_overlap(H, field, 0.8):
-                return list(self.get_series(V, col_field))
+                return list(col_field.col)
         return None
 
     def get_col_left_of(self, field: F) -> Fs:
@@ -335,7 +335,7 @@ class Table:
             return f.bbox.x0 >= left_most_field.bbox.x0
 
         if field.table == self:
-            return self.get_list(V, field.prev)
+            return field.prev.col
 
         top_field = field
         while top_field.above:
@@ -343,8 +343,9 @@ class Table:
 
         left_most_field = min(top_field.iter(S), key=attrgetter("bbox.x0"))
         col_right_of_field = first_true(
-            self.left.iter(E), default=self.right, pred=_is_right_of_field)
-        return self.get_list(V, col_right_of_field.prev)
+            self.left.row, default=self.left, pred=_is_right_of_field)
+        # TODO NOW: Will fail if default.
+        return col_right_of_field.prev.col
 
     def insert_repeat_fields(self, fields: Fs) -> None:
         """ Find the fields that are part of a repeat interval and add
@@ -410,9 +411,8 @@ class Table:
     def _print(self, getter_func: Callable[[F], str],
                align_func: Callable[[F], str] = lambda _: "^",
                col_count: int | None = None) -> None:
-        first_column = self.get_list(V, self.left)
-        rows = [self.get_list(H, field) for field in first_column]
-        cols = [self.get_list(V, field) for field in rows[0]]
+        rows = [field.row for field in self.left.col]
+        cols = [field.col for field in self.top.row]
         # The maximum length of a fields text in each column.
         col_len = [max(map(len, map(getter_func, col))) for col in cols]
 
@@ -684,11 +684,11 @@ class Table:
 
     def infer_field_types(self, first_table: Table | None) -> None:
         # TODO: Test if it makes a difference, running this twice.
-        for starter in self.get_series(H, self.left):
-            for field in self.get_series(V, starter):
+        for starter in self.left.row:
+            for field in starter.col:
                 field.type.infer_type_from_neighbors()
-        for starter in self.get_series(H, self.left):
-            for field in self.get_series(V, starter):
+        for starter in self.left.row:
+            for field in starter.col:
                 field.type.infer_type_from_neighbors()
         self.merge_stops()
 
@@ -706,7 +706,7 @@ class Table:
             return
         if len(days_rows) == 1:
             return
-        first_table_col = list(first_table.get_series(V, first_days_row[0]))
+        first_table_col = list(first_days_row[0].col)
         first_days_row_idx = first_table_col.index(first_days_row[0])
         first = first_days_row_idx < len(first_table_col) / 2
         first_or_last = "first" if first else "last"

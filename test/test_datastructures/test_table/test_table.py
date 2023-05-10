@@ -54,9 +54,8 @@ class TestTable(TestCase):
     def test_bbox(self) -> None:
         table, *_ = self._create_tables(self.f_data, self.f_other)
         table_bbox: BBox = table.bbox
-        for col_start in table.get_list(H):
-            col = table.get_list(V, col_start)
-            for field in col:
+        for row_field in table.top.row:
+            for field in row_field.col:
                 field: Field
                 table_bbox.is_h_overlap(field.bbox, 1)
                 table_bbox.is_v_overlap(field.bbox, 1)
@@ -76,12 +75,9 @@ class TestTable(TestCase):
             pass
         while t2.expand(E):
             pass
-        # t2.expand_all(True)
         t1 = Table.from_fields(f_data)
-        for cf1, cf2 in zip(t1.get_list(H), t2.get_list(H), strict=True):
-            col1 = t1.get_list(V, cf1)
-            col2 = t2.get_list(V, cf2)
-            for field1, field2 in zip(col1, col2, strict=True):
+        for cf1, cf2 in zip(t1.top.row, t2.top.row, strict=True):
+            for field1, field2 in zip(cf1.col, cf2.col, strict=True):
                 self.assertEqual(field1.text, field2.text)
                 self.assertEqual(field1.bbox, field2.bbox)
 
@@ -92,18 +88,18 @@ class TestTable(TestCase):
         # TODO: Check that no other field is overlapping (only for datafields).
         for empty_field in empty_fields:
             empty_field: Field
-            for field in table.get_list(H, empty_field):
-                field: Field
-                field.is_overlap(V, empty_field, 1)
-            for field in table.get_list(V, empty_field):
-                field: Field
-                field.is_overlap(H, empty_field, 1)
+            for row_field in empty_field.row:
+                row_field: Field
+                row_field.is_overlap(V, empty_field, 1)
+            for col_field in empty_field.col:
+                col_field: Field
+                col_field.is_overlap(H, empty_field, 1)
 
     def test_expand(self) -> None:
         table, *_ = self._create_tables(self.f_data, self.f_other)
         self.assertTrue(table.expand(W))
         # Column left of data contains only stop annots.
-        col = table.get_list(V, table.left)
+        col = list(table.left.col)
         self.assertEqual(23, len(col))
         stop_annots = 0
         for field in col:
@@ -119,7 +115,7 @@ class TestTable(TestCase):
         self.assertTrue(table.expand(W))
         # Need to infer types for the stops.
         table.infer_field_types(None)
-        stops = table.get_list(V, table.left)
+        stops = list(table.left.col)
         for stop in stops:
             self.assertTrue(stop.get_type() == T.Stop)
         self.assertEqual(23, len(stops))
@@ -198,7 +194,8 @@ class TestTable(TestCase):
 
     def test_get_containing_col(self) -> None:
         table, *_ = self._create_tables(self.f_data, self.f_other)
-        for col in [table.get_list(V, f) for f in table.get_list(H)]:
+        for col in [f.col for f in table.top.row]:
+            col = list(col)
             with self.subTest(col=col):
                 for field in col:
                     self.assertListEqual(col, table.get_containing_col(field))
@@ -210,7 +207,7 @@ class TestTable(TestCase):
             col1: list[Field] = list(col1)
             col2: list[Field] = list(col2)
             with self.subTest(i=i):
-                left_col = table.get_col_left_of(col2[0])
+                left_col = list(table.get_col_left_of(col2[0]))
                 self.assertListEqual(col1, left_col)
 
     def test_get_col_left_of__new_field(self) -> None:
@@ -223,8 +220,8 @@ class TestTable(TestCase):
                 for col_id, col in enumerate(map(table.get_col_left_of,
                                                  contained_fields)):
                     idx = left_cols_idx[i][col_id]
-                    table_col = table.get_list(V, table.get_list(H)[idx])
-                    self.assertListEqual(table_col, col)
+                    table_col = table.get_list(H)[idx].col
+                    self.assertListEqual(list(table_col), list(col))
 
     def test_get_repeat_identifiers(self) -> None:
         table = Table.from_fields(self.f_data)
@@ -250,8 +247,8 @@ class TestTable(TestCase):
         contained_fields = table.get_contained_fields(table.other_fields)
         tables2 = table.split_at_fields(H, contained_fields)
         for table1, table2 in zip(tables1, tables2, strict=True):
-            cols1 = [table1.get_list(V, f) for f in table1.get_list(H)]
-            cols2 = [table2.get_list(V, f) for f in table2.get_list(H)]
+            cols1 = [f.col for f in table1.top.row]
+            cols2 = [f.col for f in table2.top.row]
             for col1, col2 in zip(cols1, cols2, strict=True):
                 self.assertListEqual([f.text for f in col1],
                                      [f.text for f in col2])
@@ -267,7 +264,7 @@ class TestTable(TestCase):
                 self.assertEqual(lengths[i], len(tables))
                 for table_id, table in enumerate(tables):
                     self.assertEqual(col_counts[i][table_id],
-                                     len(table.get_list(H)))
+                                     len(list(table.top.row)))
 
     def test_get_splitting_cols__empty(self) -> None:
         tables = self._create_tables(self.f_data, self.f_other)

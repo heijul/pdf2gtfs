@@ -216,7 +216,12 @@ class Field(BBoxObject):
 
         :return: A generator over all objects in this fields' row.
         """
-        return self.table.get_series(H, self)
+        if self.table:
+            return self.table.get_series(H, self)
+        node = self
+        while node.prev:
+            node = node.prev
+        return node.iter(E)
 
     @property
     def col(self) -> Generator[F, None, None]:
@@ -224,7 +229,12 @@ class Field(BBoxObject):
 
         :return: A generator over all objects in this fields' column.
         """
-        return self.table.get_series(V, self)
+        if self.table:
+            return self.table.get_series(V, self)
+        node = self
+        while node.above:
+            node = node.above
+        return node.iter(S)
 
     def any_overlap(self, o: Orientation, field: F) -> bool:
         """ Returns if there is any overlap between self and field in o.
