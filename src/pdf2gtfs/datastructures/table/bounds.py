@@ -30,7 +30,7 @@ BoundArg = NamedTuple("BoundArg", [("func", F), ("direction", Direction)])
 
 class Bounds:
     """ Basic Bounds, where not all limits necessarily exist. """
-    d = None
+    d: Direction = None
 
     def __init__(self, n: float | None, w: float | None,
                  s: float | None, e: float | None) -> None:
@@ -78,7 +78,7 @@ class Bounds:
             :param cell: The cell that is checked.
             :return: True if the cell overlaps. False, otherwise.
             """
-            func = getattr(cell.bbox, cls.d.overlap_func)
+            func = getattr(cell.bbox, cls.d.o.overlap_func)
             for min_cell in min_cells:
                 if func(min_cell.bbox, 0.8):
                     return True
@@ -100,8 +100,8 @@ class Bounds:
         within_bounds_cells = [c for c in cells if within_min_cells(c)]
 
         # Sort columns by y0 and rows by x0.
-        c = cls.d.default_orientation.normal.lower.coordinate
-        return list(sorted(within_bounds_cells, key=attrgetter(f"bbox.{c}")))
+        lower_coord = attrgetter(f"bbox.{cls.d.o.normal.lower.coordinate}")
+        return list(sorted(within_bounds_cells, key=lower_coord))
 
     @property
     def n(self) -> float | None:
@@ -349,7 +349,7 @@ def select_adjacent_cells(d: Direction, bboxes: list[BBox], cells: Cs) -> Cs:
 
     adjacent_cells = bound_cls.select_adjacent_cells(bboxes, cells)
 
-    normal = d.default_orientation.normal
+    normal = d.o.normal
     # Remove cells that are not overlapping with any reference cell.
     starter_id = 0
     for adj_cell in adjacent_cells:

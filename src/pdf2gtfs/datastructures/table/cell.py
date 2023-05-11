@@ -245,7 +245,7 @@ class Cell(BBoxObject):
 
     def get_neighbors(self, *,
                       allow_none: bool = False, allow_empty: bool = True,
-                      directions: list[Direction] = None
+                      directions: list[Direction] = D
                       ) -> Cs:
         """ Return neighbors of the Cell.
 
@@ -256,11 +256,9 @@ class Cell(BBoxObject):
             If False, instead of returning the EmptyCells,
              we will search for non-empty Cells.
         :param directions: The Directions to look for neighbors in.
-            If this is not given or None, search all Directions.
+            If this is not given, search all Directions.
         :return: A list of some or all neighbors of this Cell.
         """
-        if directions is None:
-            directions = D
         neighbors = {d: self.get_neighbor(d) for d in directions}
         if not allow_empty:
             # Find the next neighbor, if the direct neighbor is an EmptyCell.

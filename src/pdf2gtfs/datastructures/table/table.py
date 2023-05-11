@@ -95,13 +95,11 @@ class Table:
         """
         # Get the current end node.
         node: OC = getattr(self, d.p_end)
-        o = d.default_orientation
-        d2 = o.normal.lower if d == o.lower else o.normal.upper
-        if not node.has_neighbors(d=d) and not node.has_neighbors(d=d2):
-            return node
-
-        self._update_end_node(d, node)
-        return self.get_end_node(d)
+        # Need to update the end node, because it is not a proper end node.
+        if node.has_neighbors(d=d) or node.has_neighbors(d=d.normal_eqivalent):
+            self._update_end_node(d, node)
+            return self.get_end_node(d)
+        return node
 
     def _set_end_node(self, d: Direction, node: OC) -> None:
         """ Store the last node in the given direction to node.
@@ -126,9 +124,7 @@ class Table:
         :param d: The direction to look for the last node.
         :param start: The node to use to look for the end node in d.
         """
-        o = d.default_orientation
-        d2 = o.normal.lower if d == o.lower else o.normal.upper
-        self._set_end_node(d, start.get_last(d).get_last(d2))
+        self._set_end_node(d, start.get_last(d).get_last(d.normal_eqivalent))
 
     def get_list(self, o: Orientation, node: OC = None) -> list[C]:
         """ Return the full list of nodes in the given orientation.
@@ -149,8 +145,7 @@ class Table:
          adjacent to it. If None, insert as the last node in d.
         :param new_node: The node that will be inserted.
         """
-        o = d.default_orientation
-        normal = o.normal
+        normal = d.o.normal
 
         # TODO NOW: Check that each new_node only has neighbors,
         #  that are in new_nodes
@@ -218,17 +213,17 @@ class Table:
         if self.other_cells is None:
             raise Exception("Other cells need to be added to this table, "
                             "before trying to expand.")
-        normal = d.default_orientation.normal
+        normal = d.o.normal
         ref_cells = list(self.get_series(normal, self.get_end_node(d)))
 
-        bboxes = [self.get_bbox_of(self.get_series(d.default_orientation, f))
+        bboxes = [self.get_bbox_of(self.get_series(d.o, f))
                   for f in ref_cells]
         adjacent_cells = select_adjacent_cells(d, bboxes, self.other_cells)
         if not adjacent_cells:
             return False
 
         link_cells(normal.upper, adjacent_cells)
-        merge_small_cells(d.default_orientation, ref_cells, adjacent_cells)
+        merge_small_cells(d.o, ref_cells, adjacent_cells)
 
         head = insert_empty_cells_from_map(
             normal, ref_cells, adjacent_cells)
@@ -436,16 +431,18 @@ class Table:
                               ) -> list[Cs]:
         splitter = []
         idx = 0
-        n = o.normal
-        table_cells = list(self.get_series(n, self.get_end_node(n.upper)))
-        bound = "y0" if o == H else "x0"
+        normal = o.normal
+        table_cells = list(
+            self.get_series(normal, self.get_end_node(normal.upper)))
+
+        bound = normal.lower.coordinate
         for group in grouped_cells:
             group_bbox = BBox.from_bboxes([f.bbox for f in group])
             for i, table_cell in enumerate(table_cells[idx:], idx):
                 table_bbox = self.get_bbox_of(self.get_series(o, table_cell))
                 # Fields that are overlapping in the given orientation
                 #  can' split the table.
-                if table_bbox.is_overlap(o.normal.name.lower(), group_bbox):
+                if table_bbox.is_overlap(normal.name.lower(), group_bbox):
                     idx = i
                     break
                 # We can be sure the group splits the table, only when
@@ -742,12 +739,11 @@ class Table:
         neighbor = starter.get_neighbor(d)
         if not neighbor:
             raise AssertionError(f"Can't merge in {d.name}. End of table.")
-        o = d.default_orientation
-        n = o.normal
-        series = list(self.get_series(n, starter))
-        neighbors = list(self.get_series(n, neighbor))
+        normal = d.o.normal
+        series = list(self.get_series(normal, starter))
+        neighbors = list(self.get_series(normal, neighbor))
         for f1, f2 in zip(series, neighbors, strict=True):
-            f1.merge(f2, ignore_neighbors=[n.lower, n.upper])
+            f1.merge(f2, ignore_neighbors=[normal.lower, normal.upper])
 
     def merge_stops(self) -> None:
         """ Merge consecutive cells of type stop. """

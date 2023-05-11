@@ -26,12 +26,12 @@ class TestDirections(TestCase):
     def test_default_orientation(self) -> None:
         for d in D[:2]:
             with self.subTest(orientation=d.name):
-                self.assertEqual(d, d.default_orientation.lower)
-                self.assertEqual(d.opposite, d.default_orientation.upper)
+                self.assertEqual(d, d.o.lower)
+                self.assertEqual(d.opposite, d.o.upper)
         for d in D[2:]:
             with self.subTest(orientation=d.name):
-                self.assertEqual(d, d.default_orientation.upper)
-                self.assertEqual(d.opposite, d.default_orientation.lower)
+                self.assertEqual(d, d.o.upper)
+                self.assertEqual(d.opposite, d.o.lower)
 
 
 class TestOrientations(TestCase):
@@ -45,5 +45,5 @@ class TestOrientations(TestCase):
             with self.subTest(orientation=o.name):
                 self.assertLess(D.index(o.lower), 2)
                 self.assertGreaterEqual(D.index(o.upper), 2)
-                self.assertEqual(o, o.lower.default_orientation)
-                self.assertEqual(o, o.upper.default_orientation)
+                self.assertEqual(o, o.lower.o)
+                self.assertEqual(o, o.upper.o)
