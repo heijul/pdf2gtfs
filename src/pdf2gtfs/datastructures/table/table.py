@@ -47,7 +47,6 @@ class Table:
         for row_cell in self.top.row:
             for col_cell in row_cell.col:
                 col_cell.table = self
-        self._get_bbox_call_count: int = 0
         self.other_cells = None
 
     @property
@@ -177,31 +176,16 @@ class Table:
         """
         return self.iter(o.upper, node)
 
-    def get_bbox_of(self, nodes: Iterator[C]) -> BBox:
-        """ Return the combined bbox of nodes.
+    def get_bbox_of(self, cells: Iterator[C]) -> BBox:
+        """ Return the combined bbox of cells.
 
-        Also caches the results, in case the same bbox is requested again.
+        Also caches the results in case the same bbox is requested again,
+        using the hash of the cells bboxes.
 
-        :param nodes: The nodes to get the bbox from.
-        :return: A bbox, that contains all the nodes' bboxes.
+        :param cells: The cells to get the bbox from.
+        :return: A bbox, that contains all the cells' bboxes.
         """
-        # Allow only a single recursive call.
-        # This will prevent Table.bbox from producing the wrong result,
-        # if at least one of the nodes used to calculate it is an EmptyField.
-        recursion_depth = 1
-        # Changing the depth to 0 will cause tests to fail.
-        # Changing it to anything higher than 1 will decrease performance
-        #  by orders of magnitude.
-        if self._get_bbox_call_count > recursion_depth:
-            raise RecursionError
-        self._get_bbox_call_count += 1
-        bboxes = []
-        for node in nodes:
-            try:
-                bboxes.append(node.bbox)
-            except RecursionError:
-                pass
-        self._get_bbox_call_count -= 1
+        bboxes = [c.bbox for c in cells if not isinstance(c, EmptyCell)]
         # Actual bbox calculation and caching.
         # No need to cache a single bbox.
         if len(bboxes) == 1:
@@ -472,7 +456,8 @@ class Table:
         for group in grouped_cells:
             group_bbox = BBox.from_bboxes([f.bbox for f in group])
             for i, table_cell in enumerate(table_cells[idx:], idx):
-                table_bbox = self.get_bbox_of(self.get_series(o, table_cell))
+                table_bbox = self.bbox
+                # self.get_bbox_of(self.get_series(o, table_cell))
                 # Fields that are overlapping in the given orientation
                 #  can' split the table.
                 if table_bbox.is_overlap(o.normal.name.lower(), group_bbox):
