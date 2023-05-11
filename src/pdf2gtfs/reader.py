@@ -10,7 +10,10 @@ from pathlib import Path
 from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import strptime, time
-from typing import cast, Iterator, Optional, Tuple, TypeAlias, Union
+from typing import (
+    Any, cast, Iterable, Iterator, Optional, Tuple, TypeAlias,
+    Union,
+    )
 
 import pandas as pd
 from more_itertools import (
@@ -29,10 +32,10 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
 from pdf2gtfs.datastructures.table.bounds import Bounds
-from pdf2gtfs.datastructures.table.fields import F, Field, Fs
-from pdf2gtfs.datastructures.table.fieldtype import T
+from pdf2gtfs.datastructures.table.cell import C, Cell, Cs
+from pdf2gtfs.datastructures.table.celltype import T
 from pdf2gtfs.datastructures.table.table import (
-    fields_to_rows, group_fields_by, Table,
+    cells_to_rows, group_cells_by, Table,
     )
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables,
@@ -177,16 +180,16 @@ def word_contains_time_data(word: list[LTChar]) -> bool:
     return True
 
 
-def merge_other_fields(fields: Iterator[Field]) -> Fs:
-    def _same_font(field1: F, field2: F) -> bool:
-        return not (field1.fontname == field2.fontname
-                    and field1.fontsize == field2.fontsize)
+def merge_other_cells(cells: Iterator[Cell]) -> Cs:
+    def _same_font(cell1: C, cell2: C) -> bool:
+        return not (cell1.fontname == cell2.fontname
+                    and cell1.fontsize == cell2.fontsize)
 
-    same_font_groups = group_fields_by(
-        fields, _same_font, ("fontname", "fontsize"), None)
+    same_font_groups = group_cells_by(
+        cells, _same_font, ("fontname", "fontsize"), None)
     merged = []
     for same_font_group in same_font_groups:
-        rows = fields_to_rows(same_font_group, link_rows=False)
+        rows = cells_to_rows(same_font_group, link_rows=False)
         for row in rows:
             if len(row) == 1:
                 merged.append(row[0])
@@ -214,47 +217,48 @@ def merge_other_fields(fields: Iterator[Field]) -> Fs:
     return merged
 
 
-def get_fields_from_page(page: LTPage) -> tuple[list[F], list[F], list[F]]:
+def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
     """ Create an object for each word on the page.
 
     :param page: A single page of a PDF.
     :type page: LTPage
-    :return: Two lists, where the first contains all data fields of the page
-     and the second contains all non-data fields of the page.
-    :rtype: tuple[list[DataField], list[F]]
+    :return: Two lists, where the first contains all data cells of the page
+     and the second contains all non-data cells of the page.
+    :rtype: tuple[list[DataField], list[C]]
     """
     # Get all lines of the page that are LTTextLines.
     text_boxes = filter(lambda box: isinstance(box, LTTextBox), page)
-    text_lines = filter(lambda line: isinstance(line, LTTextLine),
-                        flatten(text_boxes))
+    text_boxes = cast(Iterable[Iterable[Any]], text_boxes)
+    text_lines = filter(lambda line: isinstance(line, LTTextLine), text_boxes)
 
     # Get all words in the given page from its lines.
+    text_lines = cast(Iterable[LTTextLine], text_lines)
     words = flatten(map(split_line_into_words, text_lines))
     # Create a Field/DataField, based on whether each word contains time data.
     page_height = page.y1
-    fields = map(lambda chars: Field.from_lt_chars(chars, page_height), words)
-    # Remove empty fields, i.e. fields that do not contain any visible text.
-    fields = filter(lambda f: f.text, fields)
-    # Split the fields based on their type.
-    non_data_fields, data_fields = partition(
-        lambda f: f.get_type() == T.Data, fields)
+    cells = map(lambda chars: Cell.from_lt_chars(chars, page_height), words)
+    # Remove empty cells, i.e. cells that do not contain any visible text.
+    cells = filter(lambda f: f.text, cells)
+    # Split the cells based on their type.
+    non_data_cells, data_cells = partition(
+        lambda c: c.get_type() == T.Data, cells)
     # Some text may not have been read properly.
-    non_data_fields, invalid_fields = partition(
-        lambda f: f.text.startswith("(cid"), non_data_fields)
-    non_data_fields = merge_other_fields(non_data_fields)
+    non_data_cells, invalid_cells = partition(
+        lambda c: c.text.startswith("(cid"), non_data_cells)
+    non_data_cells = merge_other_cells(non_data_cells)
 
-    return list(data_fields), non_data_fields, list(invalid_fields)
+    return list(data_cells), non_data_cells, list(invalid_cells)
 
 
-def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
-    """ Assign those fields to each table that can be used to expand.
+def assign_other_cells_to_tables(tables: list[Table], cells: Cs) -> None:
+    """ Assign those cells to each table that can be used to expand.
 
-    A field F can be used to expand a table T1, if no other table T2
-    is between F and T1.
+    A cell C can be used to expand a table T1, if no other table T2
+    is between C and T1.
 
     :param tables: All tables of the page.
-    :param fields: All fields of the page, that are neither Data nor
-        Repeat fields.
+    :param cells: All cells of the page, that are neither Data nor
+        Repeat cells.
     """
     def get_next_lower(sorted_tables: list[Table], axis: str) -> float | None:
         """ Return the upper bound of the next lower table, if it exists.
@@ -307,32 +311,32 @@ def assign_other_fields_to_tables(tables: list[Table], fields: Fs) -> None:
         t_prev = get_next_lower(tables_x0, "x")
         t_next = get_next_upper(tables_x1, "x")
         bounds = Bounds(t_above, t_prev, t_below, t_next)
-        table.other_fields = [f.duplicate() for f in fields
-                              if bounds.within_bounds(f)]
+        table.other_cells = [f.duplicate() for f in cells
+                             if bounds.within_bounds(f)]
 
 
 def create_tables_from_page(page: LTPage) -> list[Table]:
-    """ Use the fields on the page to create the tables.
+    """ Use the cells on the page to create the tables.
 
     :param page: An LTPage.
     :return: A list of tables, where each table is minimal in the sense
         that it can not be easily split into multiple tables where each
         table still contains a stop col/row; they are also maximal, in
-        the sense that no other fields exist on the page, that can be
+        the sense that no other cells exist on the page, that can be
         attributed to the table in a simple manner.
     """
-    data_fields, non_data_fields, invalid_fields = get_fields_from_page(page)
-    t = Table.from_fields(data_fields)
-    other_fields = non_data_fields
-    t.insert_repeat_fields(other_fields)
+    data_cells, non_data_cells, invalid_cells = get_cells_from_page(page)
+    t = Table.from_cells(data_cells)
+    other_cells = non_data_cells
+    t.insert_repeat_cells(other_cells)
     t.print(None)
-    tables = t.max_split(other_fields)
-    assign_other_fields_to_tables(tables, other_fields)
+    tables = t.max_split(other_cells)
+    assign_other_cells_to_tables(tables, other_cells)
     for t in tables:
         t.expand_all()
         logger.info("Found the following table:")
         t.print(None)
-        t.infer_field_types(tables[0] if t != tables[0] else None)
+        t.infer_cell_types(tables[0] if t != tables[0] else None)
         t.merge_stops()
         logger.info("With the following types:")
         t.print_types()
@@ -443,15 +447,15 @@ def page_to_timetables(
         ) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
     if use_datafields:
-        datafields = create_tables_from_page(page)
-        tables = tables_to_timetables(datafields)
+        cell_tables = create_tables_from_page(page)
+        time_tables = tables_to_timetables(cell_tables)
     else:
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)
-        tables = pdf_tables_to_timetables(pdf_tables)
+        time_tables = pdf_tables_to_timetables(pdf_tables)
 
-    logger.info(f"Number of tables found: {len(tables)}")
-    return tables
+    logger.info(f"Number of tables found: {len(time_tables)}")
+    return time_tables
 
 
 def preprocess_check() -> bool:

@@ -6,10 +6,10 @@ from pdf2gtfs.datastructures.table.bounds import (
     Bounds, EBounds, NBounds,
     SBounds, WBounds,
     )
-from pdf2gtfs.datastructures.table.fields import Field
+from pdf2gtfs.datastructures.table.cell import Cell
 
 
-def test_select_adjacent_fields() -> None:
+def test_select_adjacent_cells() -> None:
     ...
 
 
@@ -133,7 +133,7 @@ class TestBounds(TestCase):
     def test_merge(self) -> None:
         self.skipTest("Check usage first.")
 
-    def test_get_bound_from_fields(self) -> None:
+    def test_get_bound_from_cells(self) -> None:
         self.skipTest("Not implemented yet!")
 
     def test_from_bboxes(self) -> None:
@@ -144,7 +144,7 @@ class TestBounds(TestCase):
         # Tested in subclasses.
         pass
 
-    def test_select_adjacent_fields(self) -> None:
+    def test_select_adjacent_cells(self) -> None:
         # Tested in subclasses.
         pass
 
@@ -166,8 +166,8 @@ class TestWBounds(TestCase):
         bound1 = WBounds(3, None, 12, 15)
         bound2 = WBounds(bound1.n, bound1.w, bound1.s, bound1.e)
         # y coordinates do not matter.
-        f1 = Field("f1", BBox(6, 0, 16, 100))
-        f2 = Field("f2", BBox(13, 0, 14, 100))
+        f1 = Cell("f1", BBox(6, 0, 16, 100))
+        f2 = Cell("f2", BBox(13, 0, 14, 100))
         bound1.update_missing_bound([f1, f2])
         for dir_ in ["n", "s", "e"]:
             with self.subTest(direction=dir_):
@@ -192,8 +192,8 @@ class TestEBounds(TestCase):
         bound1 = EBounds(3, 12, 15, None)
         bound2 = EBounds(bound1.n, bound1.w, bound1.s, bound1.e)
         # y coordinates do not matter.
-        f1 = Field("f1", BBox(6, 0, 16, 100))
-        f2 = Field("f2", BBox(13, 0, 14, 100))
+        f1 = Cell("f1", BBox(6, 0, 16, 100))
+        f2 = Cell("f2", BBox(13, 0, 14, 100))
         bound1.update_missing_bound([f1, f2])
         for dir_ in ["n", "s", "w"]:
             with self.subTest(direction=dir_):
@@ -218,8 +218,8 @@ class TestNBounds(TestCase):
         bound1 = NBounds(3, None, 12, 15)
         bound2 = NBounds(bound1.n, bound1.w, bound1.s, bound1.e)
         # x coordinates do not matter.
-        f1 = Field("f1", BBox(0, 6, 100, 16))
-        f2 = Field("f2", BBox(0, 13, 100, 14))
+        f1 = Cell("f1", BBox(0, 6, 100, 16))
+        f2 = Cell("f2", BBox(0, 13, 100, 14))
         bound1.update_missing_bound([f1, f2])
         for dir_ in ["s", "w", "e"]:
             with self.subTest(direction=dir_):
@@ -244,8 +244,8 @@ class TestSBounds(TestCase):
         bound1 = SBounds(3, None, 12, 15)
         bound2 = SBounds(bound1.n, bound1.w, bound1.s, bound1.e)
         # x coordinates do not matter.
-        f1 = Field("f1", BBox(0, 6, 100, 16))
-        f2 = Field("f2", BBox(0, 13, 100, 14))
+        f1 = Cell("f1", BBox(0, 6, 100, 16))
+        f2 = Cell("f2", BBox(0, 13, 100, 14))
         bound1.update_missing_bound([f1, f2])
         # Other bounds are unchanged.
         for dir_ in ["n", "w", "e"]:

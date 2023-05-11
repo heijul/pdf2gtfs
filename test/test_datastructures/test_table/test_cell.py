@@ -6,8 +6,8 @@ from pdfminer.pdffont import PDFFont
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.direction import Direction, E, H, N, S, V, W
-from pdf2gtfs.datastructures.table.fields import EmptyField, Field
-from pdf2gtfs.datastructures.table.fieldtype import ABS_FALLBACK, T
+from pdf2gtfs.datastructures.table.cell import EmptyCell, Cell
+from pdf2gtfs.datastructures.table.celltype import ABS_FALLBACK, T
 from pdf2gtfs.datastructures.table.table import Table
 
 
@@ -15,7 +15,7 @@ class TestField(TestCase):
     def test_duplicate(self) -> None:
         font = PDFFont({}, {})
         fontsize = 5.3321
-        f1 = Field("field1", None, font, font.fontname, fontsize)
+        f1 = Cell("cell1", None, font, font.fontname, fontsize)
         _ = Table(f1, f1)
         self.assertIsNotNone(f1.table)
         f2 = f1.duplicate()
@@ -31,7 +31,7 @@ class TestField(TestCase):
         self.assertNotEqual(f1.type, f2.type)
 
     def test_get_type(self) -> None:
-        f = Field("test", None)
+        f = Cell("test", None)
         self.assertDictEqual({}, f.type.possible_types)
         t = f.get_type()
         self.assertListEqual(list(f.type.possible_types),
@@ -39,13 +39,13 @@ class TestField(TestCase):
         self.assertEqual(T.Other, t)
 
         Config.time_format = "%H:%M"
-        f2 = Field("13:37", None)
+        f2 = Cell("13:37", None)
         self.assertEqual(T.Data, f2.get_type())
         self.assertListEqual([T.Data, T.LegendIdent, T.Other],
                              list(f2.type.possible_types))
 
     def test_has_type(self) -> None:
-        f = Field("test", None)
+        f = Cell("test", None)
         possible_types = [T.Other, T.Stop, T.EntryAnnotValue]
         f.type.possible_types = {t: 0.33 for t in possible_types}
 
@@ -59,11 +59,11 @@ class TestField(TestCase):
                 self.assertFalse(f.has_type(type_))
 
     def test_get_neighbors(self) -> None:
-        fc = Field("center")
-        fl = Field("left")
-        fr = Field("right")
-        fa = Field("above")
-        fb = Field("below")
+        fc = Cell("center")
+        fl = Cell("left")
+        fr = Cell("right")
+        fa = Cell("above")
+        fb = Cell("below")
         self.assertListEqual([], fc.get_neighbors())
         self.assertListEqual([None, None, None, None],
                              fc.get_neighbors(allow_none=True))
@@ -95,8 +95,8 @@ class TestField(TestCase):
                                               directions=[N, E]))
         fc.set_neighbor(N, fa)
 
-        # Empty fields.
-        fe = EmptyField()
+        # Empty cells.
+        fe = EmptyCell()
         fc.set_neighbor(E, fe)
         self.assertListEqual([fa, fl, fb, fe], fc.get_neighbors())
         self.assertListEqual([fa, fl, fb, fr],
@@ -106,10 +106,10 @@ class TestField(TestCase):
         bbox1 = BBox(3, 10, 6, 11)
         bbox2 = BBox(6, 11, 7, 12)
         bbox3 = BBox(1, 11, 4, 12)
-        f1 = Field("f1", bbox1)
-        f2 = Field("f2", bbox2)
-        f3 = Field("f3", bbox3)
-        # Each field overlaps with itself.
+        f1 = Cell("f1", bbox1)
+        f2 = Cell("f2", bbox2)
+        f3 = Cell("f3", bbox3)
+        # Each cell overlaps with itself.
         for i, f in enumerate((f1, f2, f3)):
             with self.subTest(i=i):
                 self.assertTrue(f.is_overlap(V, f, 1.0))
@@ -130,9 +130,9 @@ class TestField(TestCase):
         bbox1 = BBox(3, 10, 6, 11)
         bbox2 = BBox(6, 11, 7, 12)
         bbox3 = BBox(1, 11, 4, 12)
-        f1 = Field("f1", bbox1)
-        f2 = Field("f2", bbox2)
-        f3 = Field("f3", bbox3)
+        f1 = Cell("f1", bbox1)
+        f2 = Cell("f2", bbox2)
+        f3 = Cell("f3", bbox3)
         self.assertFalse(f1.any_overlap(V, f2))
         self.assertFalse(f1.any_overlap(H, f2))
         self.assertFalse(f1.any_overlap(V, f3))
@@ -145,9 +145,9 @@ class TestField(TestCase):
         bbox2 = BBox(6, 11, 7, 12)
         bbox3 = BBox(33, 13, 34, 14)
         # Using .copy() here, to reuse the unchanged bboxes below.
-        f1 = Field("f1", bbox1.copy())
-        f2 = Field("f2", bbox2.copy())
-        f3 = Field("f3", bbox3.copy())
+        f1 = Cell("f1", bbox1.copy())
+        f2 = Cell("f2", bbox2.copy())
+        f3 = Cell("f3", bbox3.copy())
         f1.merge(f2, merge_char=" merged ")
         self.assertEqual("f1 merged f2", f1.text)
         self.assertTrue(f1.bbox.is_h_overlap(bbox1, 1.))
@@ -162,7 +162,7 @@ class TestField(TestCase):
         self.assertTrue(f1.bbox.is_v_overlap(bbox3, 1.))
 
     def test_prev_next(self) -> None:
-        a, b, c = create_fields(3)
+        a, b, c = create_cells(3)
         self.assertIsNone(b.prev)
         b.prev = a
         self.assertEqual(a, b.prev)
@@ -178,7 +178,7 @@ class TestField(TestCase):
         self.assertEqual(b, c.next)
 
     def test_above_below(self) -> None:
-        a, b, c = create_fields(3)
+        a, b, c = create_cells(3)
         self.assertIsNone(b.above)
         b.above = a
         self.assertEqual(a, b.above)
@@ -194,7 +194,7 @@ class TestField(TestCase):
         self.assertEqual(b, c.below)
 
     def test_set_neighbor(self) -> None:
-        a, b, c, d = create_fields(4)
+        a, b, c, d = create_cells(4)
 
         a.set_neighbor(E, b)
         self.assertEqual(a.get_neighbor(E), b)
@@ -208,14 +208,14 @@ class TestField(TestCase):
         self.assertListEqual([a, b, c, d], list(a.iter(E)))
         self.assertListEqual([d, c, b, a], list(d.iter(W)))
 
-        e = Field("e")
+        e = Cell("e")
         b.set_neighbor(E, e)
         lst = [a, b, e, c, d]
         self.assertListEqual(lst, list(a.iter(E)))
         self.assertListEqual(list(reversed(lst)), list(d.iter(W)))
 
-        f = Field("f")
-        g = Field("g")
+        f = Cell("f")
+        g = Cell("g")
         f.set_neighbor(E, g)
         # Removing the neighbor on one node, removes it from the other as well.
         f.set_neighbor(E, None)
@@ -230,23 +230,23 @@ class TestField(TestCase):
 
     def test_iter(self) -> None:
         d = E
-        nodes = create_fields(5, link_d=d)
+        nodes = create_cells(5, link_d=d)
         for i in range(1, len(nodes)):
             start = nodes[i]
             with self.subTest(start=start):
                 self.assertListEqual([start.prev] + list(start.iter(d)),
                                      list(start.prev.iter(d)))
                 self.assertTrue(all(n in nodes for n in start.iter(d)))
-        a = Field("a")
+        a = Cell("a")
         start = nodes[0]
         self.assertNotIn(a, start.iter(d))
         a.set_neighbor(d, start)
         self.assertListEqual([a] + list(nodes), list(a.iter(d)))
 
 
-def create_fields(num: int, *, link_d: Direction | None = None
-                  ) -> tuple[Field, ...]:
-    nodes = tuple(Field(text=chr(97 + i)) for i in range(num))
+def create_cells(num: int, *, link_d: Direction | None = None
+                 ) -> tuple[Cell, ...]:
+    nodes = tuple(Cell(text=chr(97 + i)) for i in range(num))
     if link_d:
         p = peekable(nodes)
         for node in p:

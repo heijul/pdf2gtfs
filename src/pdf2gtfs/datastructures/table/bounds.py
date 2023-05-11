@@ -11,12 +11,12 @@ from typing import (
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.direction import Direction, E, N, S, W
-from pdf2gtfs.datastructures.table.fields import F, Fs
+from pdf2gtfs.datastructures.table.cell import C, Cs
 
 
 B = TypeVar("B", bound="Bounds")
 BoundArgs = NamedTuple("BoundArgs",
-                       [("func", Callable[[Iterable[F]], F]), ("attr", str)])
+                       [("func", Callable[[Iterable[C]], C]), ("attr", str)])
 
 
 # TODO NOW: Subclass BBox <-> Change bounds into PartialBBox?
@@ -119,7 +119,7 @@ class Bounds:
             return False
         return True
 
-    def within_bounds(self, obj: F) -> bool:
+    def within_bounds(self, obj: C) -> bool:
         """ Check if the obj is within the bounds.
 
         If the hbox/vbox is None, that is, if at least one of the w/e or n/s
@@ -144,14 +144,14 @@ class Bounds:
             setattr(self, coord, func(vals, default=None))
 
     @staticmethod
-    def get_bound_from_fields(args: BoundArgs | None, fields: Iterable[F]
-                              ) -> float | None:
-        """ Calculate a bound from fields using the provided args. """
+    def get_bound_from_cells(args: BoundArgs | None, cells: Iterable[C]
+                             ) -> float | None:
+        """ Calculate a bound from cells using the provided args. """
         if args is None:
             return None
-        fields = list(fields)
-        field = args.func(fields, key=attrgetter(f"bbox.{args.attr}"))
-        return cast(float, attrgetter(f"bbox.{args.attr}")(field))
+        cells = list(cells)
+        cell = args.func(cells, key=attrgetter(f"bbox.{args.attr}"))
+        return cast(float, attrgetter(f"bbox.{args.attr}")(cell))
 
     @classmethod
     def from_bboxes(cls, bboxes: list[BBox], *,
@@ -172,12 +172,12 @@ class Bounds:
                    s=_bbox_to_bound(s), e=_bbox_to_bound(e))
 
     def _update_single_bound(
-            self, which: str, args: BoundArgs, fields: list[F]) -> None:
-        """ Update a single bound using the BoundArgs and the fields.
+            self, which: str, args: BoundArgs, cells: list[C]) -> None:
+        """ Update a single bound using the BoundArgs and the cells.
 
         which can be one of "n", "w", "s", "e".
         """
-        setattr(self, which, self.get_bound_from_fields(args, fields))
+        setattr(self, which, self.get_bound_from_cells(args, cells))
 
     def __repr__(self) -> str:
         cls_name = self.__class__.__name__
@@ -189,35 +189,35 @@ class Bounds:
         return f"{cls_name}(n={n}, w={w}, s={s}, e={e})"
 
     @classmethod
-    def select_adjacent_fields(cls, border: list[BBox], fields: Iterator[F]
-                               ) -> Fs:
-        """ Select those fields, that are adjacent to factory fields.
+    def select_adjacent_cells(cls, border: list[BBox], cells: Iterator[C]
+                              ) -> Cs:
+        """ Select those cells, that are adjacent to factory cells.
 
-        :param border: The Row/Col, that is used to determine if a field
+        :param border: The Row/Col, that is used to determine if a cell
          is adjacent to the table.
-        :param fields: The fields that are checked.
-        :return: Those items of fields, which are adjacent to the table.
+        :param cells: The cells that are checked.
+        :return: Those items of cells, which are adjacent to the table.
         """
         # Get the three basic bounds, which are dictated by row_or_col.
         bounds = cls.from_bboxes(list(border))
-        fields = list(filter(bounds.within_bounds, fields))
-        if not fields:
-            return fields
-        bounds.update_missing_bound(fields)
-        # These are the fields that fit all bounds.
-        minimal_fields = list(filter(bounds.within_bounds, fields))
-        # Also try to add fields, that fit only three bounds, but are
-        # overlapping with fields, that fit all four.
+        cells = list(filter(bounds.within_bounds, cells))
+        if not cells:
+            return cells
+        bounds.update_missing_bound(cells)
+        # These are the cells that fit all bounds.
+        minimal_cells = list(filter(bounds.within_bounds, cells))
+        # Also try to add cells, that fit only three bounds, but are
+        # overlapping with cells, that fit all four.
         overlap_func = ("is_h_overlap" if cls in [WBounds, EBounds]
                         else "is_v_overlap")
-        within_bounds_fields = []
-        for field in fields:
-            for min_field in minimal_fields:
-                if getattr(field.bbox, overlap_func)(min_field.bbox, 0.8):
-                    within_bounds_fields.append(field)
+        within_bounds_cells = []
+        for cell in cells:
+            for min_cell in minimal_cells:
+                if getattr(cell.bbox, overlap_func)(min_cell.bbox, 0.8):
+                    within_bounds_cells.append(cell)
                     break
         sort_key = "bbox.x0" if cls in [SBounds, NBounds] else "bbox.y0"
-        return list(sorted(within_bounds_fields, key=attrgetter(sort_key)))
+        return list(sorted(within_bounds_cells, key=attrgetter(sort_key)))
 
 
 class WBounds(Bounds):
@@ -229,12 +229,12 @@ class WBounds(Bounds):
         e = BoundArgs(min, "x0")
         return super().from_bboxes(bboxes, n=n, s=s, e=e)
 
-    def update_missing_bound(self, fields: list[F]) -> None:
+    def update_missing_bound(self, cells: list[C]) -> None:
         """
-        Update the western bound, which was not created using the datafields.
+        Update the western bound, which was not created using the datacells.
         """
         args: BoundArgs = BoundArgs(max, "x0")
-        self._update_single_bound("w", args, fields)
+        self._update_single_bound("w", args, cells)
 
 
 class EBounds(Bounds):
@@ -246,12 +246,12 @@ class EBounds(Bounds):
         w = BoundArgs(max, "x1")
         return super().from_bboxes(bboxes, n=n, w=w, s=s)
 
-    def update_missing_bound(self, fields: list[F]) -> None:
+    def update_missing_bound(self, cells: list[C]) -> None:
         """
-        Update the eastern bound, which was not created using the datafields.
+        Update the eastern bound, which was not created using the datacells.
         """
         args: BoundArgs = BoundArgs(min, "x1")
-        self._update_single_bound("e", args, fields)
+        self._update_single_bound("e", args, cells)
 
 
 class NBounds(Bounds):
@@ -263,12 +263,12 @@ class NBounds(Bounds):
         e = BoundArgs(max, "x1")
         return super().from_bboxes(bboxes, w=w, s=s, e=e)
 
-    def update_missing_bound(self, fields: list[F]) -> None:
+    def update_missing_bound(self, cells: list[C]) -> None:
         """
-        Update the eastern bound, which was not created using the datafields.
+        Update the eastern bound, which was not created using the datacells.
         """
         args: BoundArgs = BoundArgs(max, "y0")
-        self._update_single_bound("n", args, fields)
+        self._update_single_bound("n", args, cells)
 
 
 class SBounds(Bounds):
@@ -280,35 +280,35 @@ class SBounds(Bounds):
         e = BoundArgs(max, "x1")
         return super().from_bboxes(bboxes, n=n, w=w, e=e)
 
-    def update_missing_bound(self, fields: list[F]) -> None:
+    def update_missing_bound(self, cells: list[C]) -> None:
         """
-        Update the eastern bound, which was not created using the datafields.
+        Update the eastern bound, which was not created using the datacells.
         """
         args: BoundArgs = BoundArgs(min, "y1")
-        self._update_single_bound("s", args, fields)
+        self._update_single_bound("s", args, cells)
 
 
-def select_adjacent_fields(d: Direction, bboxes: list[BBox], fields: Fs) -> Fs:
-    """ Get all fields adjacent in d to the given reference fields.
+def select_adjacent_cells(d: Direction, bboxes: list[BBox], cells: Cs) -> Cs:
+    """ Get all cells adjacent in d to the given reference cells.
 
     :param d: The direction to check for adjacency in.
     :param bboxes: The bboxes used to check for adjacency.
-    :param fields: The fields that are checked for adjacency.
-    :return: The fields that are adjacent to ref_fields.
+    :param cells: The cells that are checked for adjacency.
+    :return: The cells that are adjacent to ref_cells.
     """
     bound_cls = {N: NBounds, W: WBounds, S: SBounds, E: EBounds}[d]
 
-    adjacent_fields = bound_cls.select_adjacent_fields(bboxes, iter(fields))
+    adjacent_cells = bound_cls.select_adjacent_cells(bboxes, iter(cells))
 
     normal = d.default_orientation.normal
-    # Remove fields that are not overlapping with any reference field.
+    # Remove cells that are not overlapping with any reference cell.
     starter_id = 0
-    for adj_field in adjacent_fields:
+    for adj_cell in adjacent_cells:
         for i, bbox in enumerate(bboxes[starter_id:], starter_id):
-            if adj_field.bbox.is_overlap(normal.name.lower(), bbox, 0.8):
+            if adj_cell.bbox.is_overlap(normal.name.lower(), bbox, 0.8):
                 break
         else:
-            adjacent_fields.remove(adj_field)
+            adjacent_cells.remove(adj_cell)
             break
         starter_id = i
-    return adjacent_fields
+    return adjacent_cells
