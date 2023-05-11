@@ -1,4 +1,4 @@
-""" Provides the different Fields of a Table. """
+""" Provides the different Cells of a Table. """
 
 from __future__ import annotations
 
@@ -10,11 +10,9 @@ from pdfminer.pdffont import PDFFont
 
 from pdf2gtfs.datastructures.pdftable import Char
 from pdf2gtfs.datastructures.pdftable.bbox import BBox, BBoxObject
-from pdf2gtfs.datastructures.table.celltype import (
-    EmptyCellType, CellType, T,
-    )
+from pdf2gtfs.datastructures.table.celltype import EmptyCellType, CellType, T
 from pdf2gtfs.datastructures.table.direction import (
-    Direction, E, H, N, Orientation, S, V, D, W,
+    Direction, E, N, Orientation, S, V, D, W,
     )
 
 if TYPE_CHECKING:
@@ -25,31 +23,33 @@ logger = logging.getLogger(__name__)
 
 
 C = TypeVar("C", bound="Cell")
-OF = TypeVar("OF", bound=Optional["Cell"])
+OC: TypeAlias = Optional[C]
 Cs: TypeAlias = list[C]
 
 
-def get_bbox_from_chars(
-        lt_chars: list[LTChar], page_height: float) -> BBox | None:
-    """ Use the chars of this cell to construct a bbox. """
+def get_bbox_from_chars(lt_chars: list[LTChar], page_height: float) -> BBox:
+    """ Construct a BBox from the given chars.
+
+    :param lt_chars: The chars to construct the BBox from.
+    :param page_height: The height of the current page.
+    :return: A BBox that contains all the given chars.
+    """
     from pdf2gtfs.reader import lt_char_to_dict
 
-    if not lt_chars:
-        return None
     chars = [Char(**lt_char_to_dict(char, page_height)) for char in lt_chars]
     bbox = BBox.from_bboxes([BBox.from_char(char) for char in chars])
     return bbox
 
 
 class Cell(BBoxObject):
-    """ A singl cell in a table. """
+    """ A single cell in a table. """
 
     def __init__(self, text: str, bbox: BBox | None = None,
                  font: PDFFont | None = None, fontname: str | None = None,
                  fontsize: float | None = None,
                  ) -> None:
         super().__init__(bbox=bbox)
-        self._list = None
+        self._table = None
         self._prev = None
         self._next = None
         self._above = None
@@ -61,149 +61,183 @@ class Cell(BBoxObject):
         self.type = CellType(self)
 
     @property
-    def prev(self) -> OF:
-        """ The previous node (i.e. left of this one) or None. """
+    def prev(self) -> OC:
+        """ The previous/left Cell, or None if this is the left-most Cell. """
         return self.get_neighbor(W)
 
     @prev.setter
-    def prev(self, node: OF) -> None:
-        self.set_neighbor(W, node)
+    def prev(self, cell: OC) -> None:
+        self.update_neighbor(W, cell)
 
     @property
-    def next(self) -> OF:
-        """ The next node (i.e. right of this one) or None. """
+    def next(self) -> OC:
+        """ The next/right Cell, or None if this is the right-most Cell. """
         return self.get_neighbor(E)
 
     @next.setter
-    def next(self, node: OF) -> None:
-        self.set_neighbor(E, node)
+    def next(self, cell: OC) -> None:
+        self.update_neighbor(E, cell)
 
     @property
-    def above(self) -> OF:
-        """ The node above this one or None. """
+    def above(self) -> OC:
+        """ The Cell above this one, or None if this is the top Cell. """
         return self.get_neighbor(N)
 
     @above.setter
-    def above(self, node: OF) -> None:
-        self.set_neighbor(N, node)
+    def above(self, cell: OC) -> None:
+        self.update_neighbor(N, cell)
 
     @property
-    def below(self) -> OF:
-        """ The node below this one or None. """
+    def below(self) -> OC:
+        """ The Cell below this one, or None if this is the bottom Cell. """
         return self.get_neighbor(S)
 
     @below.setter
-    def below(self, node: OF) -> None:
-        self.set_neighbor(S, node)
+    def below(self, cell: OC) -> None:
+        self.update_neighbor(S, cell)
 
-    def get_neighbor(self, d: Direction) -> OF:
-        """ Get the next neighbor in one of the four directions.
+    def get_neighbor(self, d: Direction) -> OC:
+        """ Get the direct neighbor in the given Direction.
 
-        :param d: The direction.
-        :return: This nodes next neighbor in the given direction.
+        :param d: The Direction.
+        :return: This Cell's next/direct neighbor in the given Direction.
         """
         return getattr(self, d.p_attr)
 
-    def set_neighbor(self, d: Direction, neighbor: OF) -> None:
-        """ Update the neighbor in the given direction.
+    def del_neighbor(self, d: Direction) -> None:
+        """ Remove the neighbor in the given Direction.
 
-        This should **always** be called from the node the neighbor is
+        :param d: Remove the neighbor that is located in this Direction.
+        """
+        current_neighbor: OC = self.get_neighbor(d)
+        setattr(self, d.p_attr, None)
+        if current_neighbor:
+            setattr(current_neighbor, d.opposite.p_attr, None)
+
+    def set_neighbor(self, d: Direction, cell: C) -> None:
+        """ Set this Cell's neighbor in the given Direction to the given Cell.
+
+        :param d: The Direction of the Cell relative to self.
+        :param cell: The Cell that will be the new neighbor.
+        """
+        assert cell is not None, "Use update_neighbor, if cell might be None"
+
+        current_neighbor: OC = self.get_neighbor(d)
+
+        setattr(self, d.p_attr, cell)
+        setattr(cell, d.opposite.p_attr, self)
+        cell.table = self.table
+        # Set the current neighbor as neighbor of the new neighbor
+        #  in the same Direction, to ensure not to break transitivity.
+        if not current_neighbor:
+            return
+        setattr(cell, d.p_attr, current_neighbor)
+        setattr(current_neighbor, d.opposite.p_attr, cell)
+
+    def update_neighbor(self, d: Direction, neighbor: C | None) -> None:
+        """ Update the neighbor in the given Direction.
+
+        This should **always** be called from the Cell the neighbor is
         moved to.
 
-        If the current node already has a neighbor N in the given direction,
-        N will be accessible by using `neighbor.get_neighbor(d)` afterwards.
+        If the current Cell already has a neighbor N in the given Direction,
+        N will be accessible by using `neighbor.get_neighbor(d)` afterward.
 
-        :param d: The direction the neighbor will be placed in.
-        :param neighbor: The new neighbor or None.
+        :param d: The Direction the neighbor will be placed in.
+        :param neighbor: The new neighbor
+            or None, to remove the current neighbor.
         """
-        current_neighbor: OF = self.get_neighbor(d)
         if not neighbor:
-            setattr(self, d.p_attr, None)
-            if current_neighbor:
-                setattr(current_neighbor, d.opposite.p_attr, None)
+            self.del_neighbor(d)
             return
-
-        setattr(self, d.p_attr, neighbor)
-        setattr(neighbor, d.opposite.p_attr, self)
-        neighbor.table = self.table
-        if current_neighbor:
-            setattr(neighbor, d.p_attr, current_neighbor)
-            setattr(current_neighbor, d.opposite.p_attr, neighbor)
+        self.set_neighbor(d, neighbor)
 
     def has_neighbors(self, *, d: Direction = None, o: Orientation = None
                       ) -> bool:
-        """ Whether the node has any neighbors in the direction/orientation.
+        """ Whether this Cell has any neighbors in the Direction/Orientation.
 
         Only exactly one of d/o can be given at a time.
-        :param d: The direction to check for neighbors in.
-        :param o: The orientation. Simply checks both directions of o.
-        :return: True if there exist any neighbors, False otherwise.
+
+        :param d: The Direction to check for neighbors in.
+        :param o: The Orientation to check for neighbors in.
+            Simply checks both Directions of o.
+        :return: True, if there exist any neighbors. False, otherwise.
         """
+        if o is None:
+            # Exactly one of d/o is required.
+            assert d is not None
+            return self.get_neighbor(d) is not None
+
         # Exactly one of d/o is required.
-        assert d is None or o is None
-        assert d is not None or o is not None
-        if o:
-            return (self.has_neighbors(d=o.lower) or
-                    self.has_neighbors(d=o.upper))
-        return self.get_neighbor(d) is not None
+        assert d is None
+        return self.has_neighbors(d=o.lower) or self.has_neighbors(d=o.upper)
 
     @property
     def table(self) -> Table | None:
-        """ The QuadLinkedList, this node belongs to, if any. """
-        return self._list
+        """ The Table that this Cell belongs to, if any. """
+        return self._table
 
     @table.setter
-    def table(self, quad_linked_list: Table | None) -> None:
-        self._list = quad_linked_list
+    def table(self, table: Table | None) -> None:
+        self._table = table
 
-    def iter(self, d: Direction) -> Generator[C]:
-        """ Return an Iterator over the neighbors of this cell in the given d.
+    def iter(self, d: Direction, complete: bool = False) -> Generator[C]:
+        """ Return an Iterator over the neighbors of this Cell in the given d.
 
-        This node will always be the first node yielded, i.e. no neighbor in
-            the opposite direction of d will be returned.
-
-        :param d:
+        :param d: The Direction to iterate over the Cells in.
+        :param complete: If True, we first reverse the Direction. That way,
+            this will return a generator over all neighbors of self, and self.
+        :return: A generator over either all Cells in this Cell's row/col,
+            or only those that are neighbors in the given Direction.
         """
-        cell = self
+        # TODO: Check if complete=True is a better default.
+        cell = self.get_last(d.opposite) if complete else self
         while cell:
             yield cell
             cell = cell.get_neighbor(d)
 
     @staticmethod
     def from_lt_chars(lt_chars: list[LTChar], page_height: float) -> Cell:
-        """ Create a new cell from the given chars.
+        """ Create a new Cell from the given chars.
 
-        :param lt_chars: The chars this cell should contain.
-        :param page_height: Required for the bbox creation.
-        :return: A cell that contains all given chars.
+        :param lt_chars: The chars the new Cell is created from.
+        :param page_height: Height of the page. Required for the BBox creation.
+        :return: A new Cell that contains the text of all given chars
+            and a minimal BBox that contains all given chars.
         """
         text = "".join([c.get_text() for c in lt_chars]).strip()
         bbox = get_bbox_from_chars(lt_chars, page_height)
         font = lt_chars[0].font if lt_chars else None
         fontname = font.fontname if font else None
         fontsize = lt_chars[0].fontsize if lt_chars else None
+        # A Cell contains only chars with equal font properties.
+        assert all([font == char.font for char in lt_chars])
+        assert all([fontname == char.fontname for char in lt_chars])
+        assert all([fontsize == char.fontsize for char in lt_chars])
+
         return Cell(text, bbox, font, fontname, fontsize)
 
     def duplicate(self) -> C:
-        """ Duplicate the cell (except for table and type).
+        """ Duplicate the Cell (except for table and type).
 
-        :return: A new cell that has the same values.
+        :return: A new Cell that has the same values.
         """
-        return Cell(
-            self.text, self.bbox, self.font, self.fontname, self.fontsize)
+        return Cell(self.text, self.bbox,
+                    self.font, self.fontname, self.fontsize)
 
     def get_type(self) -> T:
-        """ The inferred or guessed type of the cell, whichever exists. """
+        """ The inferred or guessed type of the Cell, whichever exists. """
+        # Prefer the inferred CellType, if it exists.
         if self.type.inferred_type:
             return self.type.inferred_type
         return self.type.guess_type()
 
     def has_type(self, *types: T) -> bool:
-        """ Check if the cell has any of the given types.
+        """ Check, if the Cell contains any of the types in its possible types.
 
-        :param types: Each of these will be checked.
-        :return: True, if the cells' type is equal to any of the given types.
-            False, otherwise.
+        :param types: Any of these must be in the Cell's possible types.
+        :return: True, if any of the given CellTypes is
+            a possible type of the Cell. False, otherwise.
         """
         if not self.type.possible_types:
             self.get_type()
@@ -213,100 +247,95 @@ class Cell(BBoxObject):
                       allow_none: bool = False, allow_empty: bool = True,
                       directions: list[Direction] = None
                       ) -> Cs:
-        """ Return the adjacent neighbors of the cell.
+        """ Return neighbors of the Cell.
 
         Depending on the parameters, the neighbors may not be adjacent.
 
         :param allow_none: Whether to return None for non-existent neighbors.
-        :param allow_empty: If this is False, instead of returning EmptyFields,
-            we will search for non-empty cells.
-            If true, return any EmptyField.
-        :param directions: The directions to look for neighbors in.
-        :return: A list of some or all neighbors in the given directions.
+        :param allow_empty: If true, return any EmptyCell, if it is a neighbor.
+            If False, instead of returning the EmptyCells,
+             we will search for non-empty Cells.
+        :param directions: The Directions to look for neighbors in.
+            If this is not given or None, search all Directions.
+        :return: A list of some or all neighbors of this Cell.
         """
         if directions is None:
             directions = D
         neighbors = {d: self.get_neighbor(d) for d in directions}
-        # Find the next neighbor if the direct neighbor is an EmptyField.
         if not allow_empty:
+            # Find the next neighbor, if the direct neighbor is an EmptyCell.
             for d, neighbor in neighbors.items():
                 if neighbor is None or not isinstance(neighbor, EmptyCell):
                     continue
                 while neighbor and isinstance(neighbor, EmptyCell):
                     neighbor = neighbor.get_neighbor(d)
                 neighbors[d] = neighbor
-        # Remove neighbors that are None if allow_none is False.
+        # Remove neighbors that are None, if allow_none is False.
         return [n for n in neighbors.values() if allow_none or n is not None]
 
     @property
     def row(self) -> Generator[C, None, None]:
-        """ The row this cell belongs to.
+        """ The row this Cell belongs to.
 
-        :return: A generator over all objects in this cells' row.
+        :return: A generator over all Cells in this Cell's row.
         """
-        if self.table:
-            return self.table.get_series(H, self)
-        node = self
-        while node.prev:
-            node = node.prev
-        return node.iter(E)
+        return self.iter(E, True)
 
     @property
     def col(self) -> Generator[C, None, None]:
-        """ The column this cell belongs to.
+        """ The column this Cell belongs to.
 
-        :return: A generator over all objects in this cells' column.
+        :return: A generator over all Cells in this Cell's column.
         """
-        if self.table:
-            return self.table.get_series(V, self)
-        node = self
-        while node.above:
-            node = node.above
-        return node.iter(S)
+        return self.iter(S, True)
 
     def any_overlap(self, o: Orientation, cell: C) -> bool:
-        """ Returns if there is any overlap between self and cell in o.
+        """ Check, if there is any overlap between self and the given Cell.
 
-        :param o: The orientation to check for overlap in.
-        :param cell: The cell that is checked.
-        :return: Whether there is any overlap between the cell and self.
+        :param o: The Orientation to check for overlap in.
+        :param cell: The Cell that may be overlapping.
+        :return: True, if there is any overlap between the Cell and self.
+            False, otherwise.
         """
+        # TODO: Use o.overlap_func (after moving it there from d) instead.
         if o is V:
             return self.bbox.v_overlap(cell) > 0
         return self.bbox.h_overlap(cell) > 0
 
     def is_overlap(self, o: Orientation, cell: C, *args) -> bool:
-        """ Run is_v_overlap or is_h_overlap on cell based on o.
+        """ Check if self and the given Cell are overlapping in the given o.
 
-        :param o: The orientation used to determine, which method to run.
-        :param cell: The cell passed to the method.
-        :param args: Args to the method.
-        :return: The output of the run method.
+        :param o: The Orientation used to determine, which method to run.
+        :param cell: The Cell that may be overlapping.
+        :param args: Args passed to the overlap method.
+        :return: True, if self and the given Cell overlap. False, otherwise.
         """
         if o is V:
             return self.bbox.is_v_overlap(cell.bbox, *args)
         return self.bbox.is_h_overlap(cell.bbox, *args)
 
-    def merge(self, cell: C, *, merge_char: str = " ",
-              ignore: list[Direction] = None) -> None:
-        """ Merge cell's contents to ours. The neighbors of the cell will
-            be our neighbors after merging.
+    def merge(self, cell: C, *,
+              merge_char: str = " ", ignore_neighbors: list[Direction] = None
+              ) -> None:
+        """ Merge the given Cell's contents with self's.
 
-        :param cell: The cell that will be merged.
-        :param merge_char: The char used when merging the cell text.
-        :param ignore: The directions to ignore the neighbors in. Used, when
-            multiple neighboring cells are being merged successively.
+        The neighbors of the given Cell will be our neighbors after merging.
+
+        :param cell: The Cell that will be merged.
+        :param merge_char: The char used when merging the text of both Cells.
+        :param ignore_neighbors: The Directions to ignore the neighbors in.
+            Useful, when multiple neighboring Cells are merged successively.
         """
         self.bbox.merge(cell.bbox)
         self.text += f"{merge_char}{cell.text}"
         for d in D:
-            if ignore and d in ignore:
+            if ignore_neighbors and d in ignore_neighbors:
                 continue
-            # Remove cell as a neighbor
+            # Remove the given Cell as a neighbor.
             self_neighbor = self.get_neighbor(d)
             if self_neighbor == cell:
-                self.set_neighbor(d, None)
-            # Add cells neighbors as our own neighbors.
+                self.del_neighbor(d)
+            # Add the other Cell's neighbors as our own neighbors.
             cell_neighbor = cell.get_neighbor(d)
             if not cell_neighbor or cell_neighbor == self:
                 continue
@@ -314,11 +343,11 @@ class Cell(BBoxObject):
             self.set_neighbor(d, cell_neighbor)
 
     def get_last(self, d: Direction) -> C:
-        """ The last neighbor that only has neighbors in d.opposite.
+        """ The last neighbor that only has neighbors (if any) in d.opposite.
 
-        :param d: The direction to look for.
-        :return: The last cell of the given direction.
-         That is, the cell that has no neighbor d.
+        :param d: The Direction to look for.
+        :return: The last Cell of the given Direction.
+            That is, the Cell that has no neighbor d.
         """
         cell = self
         while cell.has_neighbors(d=d):
@@ -334,19 +363,19 @@ class Cell(BBoxObject):
 
 
 class EmptyCell(Cell, BBoxObject):
-    """ A cell in a table, that does not contain any text. """
+    """ A Cell in a table, that does not contain any text. """
     def __init__(self, **kwargs) -> None:
-        # An empty cell can never contain any characters.
+        # An EmptyCell can never contain any characters.
         kwargs.update(dict(text="", bbox=None))
         super().__init__(**kwargs)
         self.type = EmptyCellType(self)
         self._bbox = None
 
     def set_bbox_from_reference_cells(self, x_axis: C, y_axis: C) -> None:
-        """ Set the bbox based on the two given cells.
+        """ Set the bbox based on the two given Cells.
 
-        :param x_axis: This cells' bbox's x-coordinates are used.
-        :param y_axis: This cells' bbox's y-coordinates are used.
+        :param x_axis: This Cell's bbox's x-coordinates are used.
+        :param y_axis: This Cell's bbox's y-coordinates are used.
         """
         self.bbox = BBox(x_axis.bbox.x0, y_axis.bbox.y0,
                          x_axis.bbox.x1, y_axis.bbox.y1)
@@ -364,13 +393,13 @@ class EmptyCell(Cell, BBoxObject):
             return self.table.get_empty_cell_bbox(self)
         if self._bbox:
             return self._bbox
-        logger.warning("Tried to get the bbox of an empty cell "
-                       "that is not part of a table.")
+        logger.warning("Tried to get the bbox of an EmptyCell that is "
+                       "not part of a Table.")
 
     @bbox.setter
     def bbox(self, bbox: BBox | None) -> None:
         if not self.table:
             self._bbox = bbox
             return
-        logger.warning("Tried to set the bbox of an empty cell "
-                       "that is part of a table.")
+        logger.warning("Tried to set the bbox of an EmptyCell that is "
+                       "part of a Table.")

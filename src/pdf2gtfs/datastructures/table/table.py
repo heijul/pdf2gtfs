@@ -14,7 +14,7 @@ from more_itertools import (
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_cells
 from pdf2gtfs.datastructures.table.cell import (
-    EmptyCell, C, Cs, OF,
+    EmptyCell, C, Cs, OC,
     )
 from pdf2gtfs.datastructures.table.celltype import T
 from pdf2gtfs.datastructures.table.direction import (
@@ -50,22 +50,22 @@ class Table:
         self.other_cells = None
 
     @property
-    def top(self) -> OF:
+    def top(self) -> OC:
         """ One of the nodes in the top row. """
         return self.get_end_node(d=N)
 
     @property
-    def left(self) -> OF:
+    def left(self) -> OC:
         """ One of the nodes in the left-most column. """
         return self.get_end_node(d=W)
 
     @property
-    def bot(self) -> OF:
+    def bot(self) -> OC:
         """ One of the nodes in the bottom column. """
         return self.get_end_node(d=S)
 
     @property
-    def right(self) -> OF:
+    def right(self) -> OC:
         """ One of the nodes in the right-most column. """
         return self.get_end_node(d=E)
 
@@ -88,13 +88,13 @@ class Table:
         t = Table(cols[0][0], rows[-1][-1])
         return t
 
-    def get_end_node(self, d: Direction) -> OF:
+    def get_end_node(self, d: Direction) -> OC:
         """ Return one of the end nodes in the given direction.
 
         :param d: The direction to look for the end node in.
         """
         # Get the current end node.
-        node: OF = getattr(self, d.p_end)
+        node: OC = getattr(self, d.p_end)
         o = d.default_orientation
         d2 = o.normal.lower if d == o.lower else o.normal.upper
         if not node.has_neighbors(d=d) and not node.has_neighbors(d=d2):
@@ -103,7 +103,7 @@ class Table:
         self._update_end_node(d, node)
         return self.get_end_node(d)
 
-    def _set_end_node(self, d: Direction, node: OF) -> None:
+    def _set_end_node(self, d: Direction, node: OC) -> None:
         """ Store the last node in the given direction to node.
 
         This will fail if node has a neighbor in the given direction.
@@ -130,7 +130,7 @@ class Table:
         d2 = o.normal.lower if d == o.lower else o.normal.upper
         self._set_end_node(d, start.get_last(d).get_last(d2))
 
-    def get_list(self, o: Orientation, node: OF = None) -> list[C]:
+    def get_list(self, o: Orientation, node: OC = None) -> list[C]:
         """ Return the full list of nodes in the given orientation.
 
         :param o: The orientation the nodes will be in.
@@ -139,9 +139,9 @@ class Table:
         """
         if not node:
             node = self.get_end_node(o.lower)
-        return list(self.iter(o.upper, node))
+        return list(node.iter(o.upper, True))
 
-    def insert(self, d: Direction, rel_node: OF, new_node: C) -> None:
+    def insert(self, d: Direction, rel_node: OC, new_node: C) -> None:
         """ Inserts the node relative to the rel_node in the given direction.
 
         :param d: The relative direction of node to rel_node, after insertion.
@@ -174,7 +174,7 @@ class Table:
         :param node: The node in question.
         :return: A generator that yields all objects in the series.
         """
-        return self.iter(o.upper, node)
+        return node.iter(o.upper, True)
 
     def get_bbox_of(self, cells: Iterator[C]) -> BBox:
         """ Return the combined bbox of cells.
@@ -196,20 +196,6 @@ class Table:
         if nodes_hash not in self.bboxes:
             self.bboxes[nodes_hash] = BBox.from_bboxes(bboxes)
         return self.bboxes[nodes_hash]
-
-    def iter(self, d: Direction, node: OF = None) -> Generator[C]:
-        """ Start on the opposite end of d and iterate over nodes towards d.
-
-        :param d: The direction to iterate towards to.
-        :param node: If given, the generator will yield nodes of the
-            col/row of node, based on d. Otherwise, always yield the
-            first col/row.
-        :return: An iterator over the nodes.
-        """
-        node = node.get_last(d.opposite)
-        while node:
-            yield node
-            node = node.get_neighbor(d)
 
     def get_empty_cell_bbox(self, cell: EmptyCell) -> BBox:
         """ The bbox of an empty cell is defined as its row's x-coordinates
@@ -439,7 +425,7 @@ class Table:
             cell = None
             # Unlink last row/col of each table, based on o.
             for cell in self.get_series(o, table_cell[-1]):
-                cell.set_neighbor(o.normal.upper, None)
+                cell.del_neighbor(o.normal.upper)
             table = Table(head, cell)
             table.remove_empty_series()
             tables.append(table)
@@ -761,7 +747,7 @@ class Table:
         series = list(self.get_series(n, starter))
         neighbors = list(self.get_series(n, neighbor))
         for f1, f2 in zip(series, neighbors, strict=True):
-            f1.merge(f2, ignore=[n.lower, n.upper])
+            f1.merge(f2, ignore_neighbors=[n.lower, n.upper])
 
     def merge_stops(self) -> None:
         """ Merge consecutive cells of type stop. """
@@ -854,7 +840,7 @@ def link_cells(d: Direction, cells: Cs) -> None:
     """
     p = peekable(cells)
     for cell in p:
-        cell.set_neighbor(d, p.peek(None))
+        cell.update_neighbor(d, p.peek(None))
 
 
 def unlink_cells(d: Direction, cells: Cs) -> None:
@@ -866,7 +852,7 @@ def unlink_cells(d: Direction, cells: Cs) -> None:
     :param cells: The cells to remove the links from.
     """
     for cell in cells:
-        cell.set_neighbor(d, None)
+        cell.del_neighbor(d)
 
 
 def link_rows_and_cols(rows: list[Cs], cols: list[Cs]) -> None:
@@ -887,11 +873,11 @@ def link_rows_and_cols(rows: list[Cs], cols: list[Cs]) -> None:
         rel_col = cols[col_id]
     for col1, col2 in pairwise(cols):
         for f1, f2 in zip(col1, col2, strict=True):
-            f1.set_neighbor(E, None)
-            f2.set_neighbor(E, None)
+            f1.del_neighbor(E)
+            f2.del_neighbor(E)
             f1.set_neighbor(E, f2)
     for row_id, cell in enumerate(cols[0]):
-        rows[row_id] = list(cell.iter(E))
+        rows[row_id] = list(cell.iter(E, True))
 
 
 def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
@@ -992,7 +978,7 @@ def insert_empty_cells_from_map(
 
 
 def replace_cell(which: C, replace_with: C) -> None:
-    """ Replace one cell by the other.
+    """ Replace one cell with the other.
 
     :param which: The cell that will be replaced.
     :param replace_with: The cell that will be inserted instead.
@@ -1004,7 +990,7 @@ def replace_cell(which: C, replace_with: C) -> None:
         neighbor = which.get_neighbor(d)
         if not neighbor:
             continue
-        which.set_neighbor(d, None)
+        which.del_neighbor(d)
         neighbor.set_neighbor(d.opposite, replace_with)
     which.table = None
 

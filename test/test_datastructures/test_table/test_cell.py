@@ -67,33 +67,33 @@ class TestField(TestCase):
         self.assertListEqual([], fc.get_neighbors())
         self.assertListEqual([None, None, None, None],
                              fc.get_neighbors(allow_none=True))
-        fc.set_neighbor(W, fl)
+        fc.update_neighbor(W, fl)
         self.assertListEqual([fl], fc.get_neighbors())
         self.assertListEqual([None, fl, None, None],
                              fc.get_neighbors(allow_none=True))
-        fc.set_neighbor(E, fr)
+        fc.update_neighbor(E, fr)
         self.assertListEqual([fl, fr], fc.get_neighbors())
         self.assertListEqual([None, fl, None, fr],
                              fc.get_neighbors(allow_none=True))
-        fc.set_neighbor(N, fa)
+        fc.update_neighbor(N, fa)
         self.assertListEqual([fa, fl, fr], fc.get_neighbors())
         self.assertListEqual([fa, fl, None, fr],
                              fc.get_neighbors(allow_none=True))
-        fc.set_neighbor(S, fb)
+        fc.update_neighbor(S, fb)
         self.assertListEqual([fa, fl, fb, fr], fc.get_neighbors())
         self.assertListEqual([fa, fl, fb, fr],
                              fc.get_neighbors(allow_none=True))
         # Subset of directions.
         self.assertListEqual([fa, fr],
                              fc.get_neighbors(directions=[N, E]))
-        fc.set_neighbor(N, None)
+        fc.update_neighbor(N, None)
         # Subset of directions with no neighbor in the given direction.
         self.assertListEqual([fr],
                              fc.get_neighbors(directions=[N, E]))
         self.assertListEqual([None, fr],
                              fc.get_neighbors(allow_none=True,
                                               directions=[N, E]))
-        fc.set_neighbor(N, fa)
+        fc.update_neighbor(N, fa)
 
         # Empty cells.
         fe = EmptyCell()
@@ -193,55 +193,55 @@ class TestField(TestCase):
         self.assertEqual(a, c.above)
         self.assertEqual(b, c.below)
 
-    def test_set_neighbor(self) -> None:
+    def test_update_neighbor(self) -> None:
         a, b, c, d = create_cells(4)
 
-        a.set_neighbor(E, b)
+        a.update_neighbor(E, b)
         self.assertEqual(a.get_neighbor(E), b)
         self.assertEqual(b.get_neighbor(W), a)
         self.assertIsNone(a.get_neighbor(S))
         self.assertIsNone(a.get_neighbor(N))
         self.assertIsNone(b.get_neighbor(S))
         self.assertIsNone(b.get_neighbor(N))
-        c.set_neighbor(E, d)
-        c.set_neighbor(W, b)
+        c.update_neighbor(E, d)
+        c.update_neighbor(W, b)
         self.assertListEqual([a, b, c, d], list(a.iter(E)))
         self.assertListEqual([d, c, b, a], list(d.iter(W)))
 
         e = Cell("e")
-        b.set_neighbor(E, e)
+        b.update_neighbor(E, e)
         lst = [a, b, e, c, d]
         self.assertListEqual(lst, list(a.iter(E)))
         self.assertListEqual(list(reversed(lst)), list(d.iter(W)))
 
         f = Cell("f")
         g = Cell("g")
-        f.set_neighbor(E, g)
+        f.update_neighbor(E, g)
         # Removing the neighbor on one node, removes it from the other as well.
-        f.set_neighbor(E, None)
+        f.update_neighbor(E, None)
         self.assertIsNone(f.get_neighbor(E))
         self.assertIsNone(g.get_neighbor(W))
         # However, this works, because the order is clear.
-        e.set_neighbor(E, f)
-        f.set_neighbor(E, g)
+        e.update_neighbor(E, f)
+        f.update_neighbor(E, g)
         lst = [a, b, e, f, g, c, d]
         self.assertListEqual(lst, list(a.iter(E)))
         self.assertListEqual(list(reversed(lst)), list(d.iter(W)))
 
     def test_iter(self) -> None:
         d = E
-        nodes = create_cells(5, link_d=d)
-        for i in range(1, len(nodes)):
-            start = nodes[i]
+        cells = create_cells(5, link_d=d)
+        for i in range(1, len(cells)):
+            start: Cell = cells[i]
             with self.subTest(start=start):
                 self.assertListEqual([start.prev] + list(start.iter(d)),
                                      list(start.prev.iter(d)))
-                self.assertTrue(all(n in nodes for n in start.iter(d)))
+                self.assertTrue(all(n in cells for n in start.iter(d)))
         a = Cell("a")
-        start = nodes[0]
+        start = cells[0]
         self.assertNotIn(a, start.iter(d))
         a.set_neighbor(d, start)
-        self.assertListEqual([a] + list(nodes), list(a.iter(d)))
+        self.assertListEqual([a] + list(cells), list(a.iter(d)))
 
 
 def create_cells(num: int, *, link_d: Direction | None = None
