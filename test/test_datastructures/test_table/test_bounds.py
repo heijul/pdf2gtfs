@@ -54,7 +54,7 @@ class TestBounds(TestCase):
         within_bounds = [b1, wb1, wb2]
         for i, bound in enumerate(within_bounds):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_v_bounds(bound.vbox))
+                self.assertTrue(b1.within_v_bounds(bound.vbox))
         # These are out of bounds.
         ob1 = Bounds(1., None, 1.5, None)
         ob2 = Bounds(5., None, 10., None)
@@ -62,18 +62,18 @@ class TestBounds(TestCase):
         outside_bounds = [ob1, ob2, ob3]
         for i, outside_bound in enumerate(outside_bounds):
             with self.subTest(i=i):
-                self.assertFalse(b1._within_v_bounds(outside_bound.vbox))
+                self.assertFalse(b1.within_v_bounds(outside_bound.vbox))
 
         b1.n = None
         # Can not use b1.vbox here, as it is None.
         for i, bound in enumerate(within_bounds[1:]):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_v_bounds(bound.vbox))
+                self.assertTrue(b1.within_v_bounds(bound.vbox))
         # No overlap percentage is required now, only coordinates are checked.
-        self.assertTrue(b1._within_v_bounds(ob1.vbox))
-        self.assertTrue(b1._within_v_bounds(ob2.vbox))
+        self.assertTrue(b1.within_v_bounds(ob1.vbox))
+        self.assertTrue(b1.within_v_bounds(ob2.vbox))
         # This is still out of bounds (to the right of b1)
-        self.assertFalse(b1._within_v_bounds(ob3.vbox))
+        self.assertFalse(b1.within_v_bounds(ob3.vbox))
 
         b1.n = 1.412
         b1.s = None
@@ -81,12 +81,12 @@ class TestBounds(TestCase):
         # Outside bounds are all within bounds now.
         for i, bound in enumerate(within_bounds[1:] + outside_bounds):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_v_bounds(bound.vbox))
+                self.assertTrue(b1.within_v_bounds(bound.vbox))
 
         b1.n = None
         for i, bound in enumerate(within_bounds + outside_bounds):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_v_bounds(bound.vbox))
+                self.assertTrue(b1.within_v_bounds(bound.vbox))
 
     def test_within_h_bounds(self) -> None:
         b1 = Bounds(None, 1.412, None, 5.321)
@@ -96,7 +96,7 @@ class TestBounds(TestCase):
         within_bounds = [b1, wb1, wb2]
         for i, bound in enumerate(within_bounds):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_h_bounds(bound.hbox))
+                self.assertTrue(b1.within_h_bounds(bound.hbox))
         # These are out of bounds.
         ob1 = Bounds(None, 1., None, 1.5)
         ob2 = Bounds(None, 5., None, 10.)
@@ -104,18 +104,18 @@ class TestBounds(TestCase):
         outside_bounds = [ob1, ob2, ob3]
         for i, outside_bound in enumerate(outside_bounds):
             with self.subTest(i=i):
-                self.assertFalse(b1._within_h_bounds(outside_bound.hbox))
+                self.assertFalse(b1.within_h_bounds(outside_bound.hbox))
 
         b1.w = None
         # Can not use b1.hbox here, as it is None.
         for i, bound in enumerate(within_bounds[1:]):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_h_bounds(bound.hbox))
+                self.assertTrue(b1.within_h_bounds(bound.hbox))
         # No overlap percentage is required now, only coordinates are checked.
-        self.assertTrue(b1._within_h_bounds(ob1.hbox))
-        self.assertTrue(b1._within_h_bounds(ob2.hbox))
+        self.assertTrue(b1.within_h_bounds(ob1.hbox))
+        self.assertTrue(b1.within_h_bounds(ob2.hbox))
         # This is still out of bounds (to the right of b1)
-        self.assertFalse(b1._within_h_bounds(ob3.hbox))
+        self.assertFalse(b1.within_h_bounds(ob3.hbox))
 
         b1.w = 1.412
         b1.e = None
@@ -123,12 +123,12 @@ class TestBounds(TestCase):
         # Outside bounds are all within bounds now.
         for i, bound in enumerate(within_bounds[1:] + outside_bounds):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_h_bounds(bound.hbox))
+                self.assertTrue(b1.within_h_bounds(bound.hbox))
 
         b1.w = None
         for i, bound in enumerate(within_bounds + outside_bounds):
             with self.subTest(i=i):
-                self.assertTrue(b1._within_h_bounds(bound.hbox))
+                self.assertTrue(b1.within_h_bounds(bound.hbox))
 
     def test_merge(self) -> None:
         self.skipTest("Check usage first.")

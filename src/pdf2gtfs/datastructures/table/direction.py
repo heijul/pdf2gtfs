@@ -10,14 +10,26 @@ class Direction(ABC):
 
     __count = 0
 
-    def __init__(self, name: str, attr: str, end: str) -> None:
+    def __init__(self, name: str, coordinate: str, attr: str, end: str
+                 ) -> None:
         assert name == self.__class__.__name__[1]
         self.name = name
+        self._coordinate = coordinate
         self._attr = attr
         self._end = end
         Direction.__count += 1
         if Direction.__count > 4:
             raise AssertionError("There should only be four directions.")
+
+    @property
+    def coordinate(self) -> str:
+        """ The bbox coordinate of this direction. """
+        return self._coordinate
+
+    @property
+    def overlap_func(self) -> str:
+        """ The default overlap function used, when using this direction. """
+        return f"is_{self.default_orientation.name.lower()}_overlap"
 
     @property
     def attr(self) -> str:
@@ -57,7 +69,7 @@ class Direction(ABC):
 
 class _N(Direction):
     def __init__(self) -> None:
-        super().__init__("N", "above", "top")
+        super().__init__("N", "y0", "above", "top")
 
     @property
     def default_orientation(self) -> Orientation:
@@ -70,7 +82,7 @@ class _N(Direction):
 
 class _S(Direction):
     def __init__(self) -> None:
-        super().__init__("S", "below", "bot")
+        super().__init__("S", "y1", "below", "bot")
 
     @property
     def default_orientation(self) -> Orientation:
@@ -83,7 +95,7 @@ class _S(Direction):
 
 class _W(Direction):
     def __init__(self) -> None:
-        super().__init__("W", "prev", "left")
+        super().__init__("W", "x0", "prev", "left")
 
     @property
     def default_orientation(self) -> Orientation:
@@ -96,7 +108,7 @@ class _W(Direction):
 
 class _E(Direction):
     def __init__(self) -> None:
-        super().__init__("E", "next", "right")
+        super().__init__("E", "x1", "next", "right")
 
     @property
     def default_orientation(self) -> Orientation:

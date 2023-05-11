@@ -1,13 +1,11 @@
-""" Contains Bounds used by the Table to determine the Fields that are part
-of the same Row/Column. """
+""" Provides the different Bounds that are used by the Table to determine
+the Cells that are adjacent to the Table. """
 
 from __future__ import annotations
 
 from _operator import attrgetter
 from itertools import cycle
-from typing import (
-    Callable, cast, Iterable, Iterator, NamedTuple, TypeVar,
-    )
+from typing import Callable, cast, Iterable, NamedTuple, Protocol, TypeVar
 
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.direction import Direction, E, N, S, W
@@ -15,15 +13,25 @@ from pdf2gtfs.datastructures.table.cell import C, Cs
 
 
 B = TypeVar("B", bound="Bounds")
-BoundArgs = NamedTuple("BoundArgs",
-                       [("func", Callable[[Iterable[C]], C]), ("attr", str)])
 
 
-# TODO NOW: Subclass BBox <-> Change bounds into PartialBBox?
+class F(Protocol):
+    """ Used as type to typecheck min/max functions correctly. """
+    def __call__(self, cells: Iterable[C] | Iterable[BBox],
+                 key: Callable[[C | BBox], float]) -> C:
+        pass
+
+
+# Arguments used by the N-/S-/W-/EBounds.
+#  — func: The function (min / max) used to determine the correct limit.
+#  — direction: The direction of the limit.
+BoundArg = NamedTuple("BoundArg", [("func", F), ("direction", Direction)])
 
 
 class Bounds:
-    """ Basic bounding box, that may not be bounding to all sides. """
+    """ Basic Bounds, where not all limits necessarily exist. """
+    d = None
+
     def __init__(self, n: float | None, w: float | None,
                  s: float | None, e: float | None) -> None:
         self._n = n
@@ -33,9 +41,71 @@ class Bounds:
         self._update_hbox()
         self._update_vbox()
 
+    @classmethod
+    def from_bboxes(cls, bboxes: list[BBox], *,
+                    n: BoundArg | None = None, w: BoundArg | None = None,
+                    s: BoundArg | None = None, e: BoundArg | None = None
+                    ) -> B:
+        """ Create a new Bounds from the bboxes, based on which args are given.
+
+        :param bboxes: The bboxes used for construction.
+        :param n: The northern BoundArg. None for NBounds.
+        :param w: The western BoundArg. None for WBounds.
+        :param s: The southern BoundArg. None for SBounds.
+        :param e: The eastern BoundArg. None for EBounds.
+        :return: A new Bounds created from the given bboxes,
+            based on which BoundArgs are provided.
+        """
+        return cls(n=get_limit_from_cells(bboxes, n),
+                   w=get_limit_from_cells(bboxes, w),
+                   s=get_limit_from_cells(bboxes, s),
+                   e=get_limit_from_cells(bboxes, e))
+
+    @classmethod
+    def select_adjacent_cells(cls, border: list[BBox], cells: Cs) -> Cs:
+        """ Select those cells that are adjacent to the border bboxes.
+
+        :param border: The row/col that is used to determine,
+            if a cell is adjacent to the table.
+        :param cells: The cells that are checked for adjacency.
+        :return: Those Cells, which are adjacent to the table.
+        """
+        def within_min_cells(cell: C) -> bool:
+            """ Check if the cell overlaps with any min_cells.
+
+            The overlap function is determined by cls.
+
+            :param cell: The cell that is checked.
+            :return: True if the cell overlaps. False, otherwise.
+            """
+            func = getattr(cell.bbox, cls.d.overlap_func)
+            for min_cell in min_cells:
+                if func(min_cell.bbox, 0.8):
+                    return True
+            return False
+
+        # Get the three basic bounds, which are created from the border.
+        bounds = cls.from_bboxes(border)
+        cells = list(filter(bounds.within_bounds, cells))
+        if not cells:
+            return cells
+
+        bounds.update_missing_bound(cells)
+
+        # These are the cells that fit all bounds.
+        min_cells = list(filter(bounds.within_bounds, cells))
+
+        # Also add cells that fit only three bounds,
+        #  but are overlapping with cells that fit all four.
+        within_bounds_cells = [c for c in cells if within_min_cells(c)]
+
+        # Sort columns by y0 and rows by x0.
+        c = cls.d.default_orientation.normal.lower.coordinate
+        return list(sorted(within_bounds_cells, key=attrgetter(f"bbox.{c}")))
+
     @property
     def n(self) -> float | None:
-        """ The northern bound, i.e. y0/the lowest y coordinate. """
+        """ The northern bound, i.e., y0/the lowest y coordinate. """
         return self._n
 
     @n.setter
@@ -45,7 +115,7 @@ class Bounds:
 
     @property
     def s(self) -> float | None:
-        """ The southern bound, i.e. y1/the largest y coordinate. """
+        """ The southern bound, i.e., y1/the largest y coordinate. """
         return self._s
 
     @s.setter
@@ -55,7 +125,7 @@ class Bounds:
 
     @property
     def w(self) -> float | None:
-        """ The western bound, i.e. x0/the lowest x coordinate. """
+        """ The western bound, i.e., x0/the lowest x coordinate. """
         return self._w
 
     @w.setter
@@ -65,7 +135,7 @@ class Bounds:
 
     @property
     def e(self) -> float | None:
-        """ The eastern bound, i.e. x1/the largest y coordinate. """
+        """ The eastern bound, i.e., x1/the largest y coordinate. """
         return self._e
 
     @e.setter
@@ -97,7 +167,12 @@ class Bounds:
             vbox = BBox(-1, self.n, -1, self.s)
         self._vbox = vbox
 
-    def _within_h_bounds(self, bbox: BBox) -> bool:
+    def within_h_bounds(self, bbox: BBox) -> bool:
+        """ Check if the given bbox is within the current Bounds, horizontally.
+
+        :param bbox: The bbox that is checked.
+        :return: True, if the bbox is within Bounds. False, otherwise.
+        """
         if self.hbox and self.hbox.is_h_overlap(bbox):
             return True
         if self.hbox:
@@ -108,7 +183,12 @@ class Bounds:
             return False
         return True
 
-    def _within_v_bounds(self, bbox: BBox) -> bool:
+    def within_v_bounds(self, bbox: BBox) -> bool:
+        """ Check if the given bbox is within the current Bounds, vertically.
+
+        :param bbox: The bbox that is checked.
+        :return: True, if the bbox is within Bounds. False, otherwise.
+        """
         if self.vbox and self.vbox.is_v_overlap(bbox):
             return True
         if self.vbox:
@@ -119,65 +199,41 @@ class Bounds:
             return False
         return True
 
-    def within_bounds(self, obj: C) -> bool:
-        """ Check if the obj is within the bounds.
+    def within_bounds(self, cell: C) -> bool:
+        """ Check if the cell is within the bounds.
 
         If the hbox/vbox is None, that is, if at least one of the w/e or n/s
         coordinates is None, the check will not fail immediately.
         Instead, in that case only the existing (if any) coordinate will
         be checked.
 
-        :param obj: The obj, which requires a bbox.
-        :return: True if obj is within both the hbox and the vbox.
+        :param cell: The cell that is checked.
+        :return: True, if obj is within both the hbox and the vbox.
+            False, otherwise.
         """
-        bbox = obj.bbox
-        return self._within_h_bounds(bbox) and self._within_v_bounds(bbox)
+        bbox = cell.bbox
+        return self.within_h_bounds(bbox) and self.within_v_bounds(bbox)
 
-    def merge(self, other: B) -> None:
-        """ Merge the bounds, such that the resulting bounds contain both.
+    def merge(self, bounds: B) -> None:
+        """ Merge the Bounds, such that the resulting Bounds contain both.
 
-        :param other: The other bounds.
+        :param bounds: The Bounds that is merged into this one.
         """
         # n/w use min for lower bound, s/e use max for larger bound.
-        for coord, func in zip("nswe", cycle((min, max))):
-            vals = [v for v in [getattr(self, coord), getattr(other, coord)]]
-            setattr(self, coord, func(vals, default=None))
+        for coordinate, func in zip("nswe", cycle((min, max))):
+            getter = attrgetter(coordinate)
+            value = func(map(getter, (self, bounds)), default=None)
+            setattr(self, coordinate, value)
 
-    @staticmethod
-    def get_bound_from_cells(args: BoundArgs | None, cells: Iterable[C]
-                             ) -> float | None:
-        """ Calculate a bound from cells using the provided args. """
-        if args is None:
-            return None
-        cells = list(cells)
-        cell = args.func(cells, key=attrgetter(f"bbox.{args.attr}"))
-        return cast(float, attrgetter(f"bbox.{args.attr}")(cell))
+    def _update_single_limit(
+            self, which: str, arg: BoundArg, cells: list[C]) -> None:
+        """ Update a single bound using the BoundArg and the cells.
 
-    @classmethod
-    def from_bboxes(cls, bboxes: list[BBox], *,
-                    n: BoundArgs | None = None, w: BoundArgs | None = None,
-                    s: BoundArgs | None = None, e: BoundArgs | None = None
-                    ) -> B:
-        """ Create new bounds from the bboxes, setting only the
-        provided bounds. """
-        def _bbox_to_bound(args: BoundArgs | None) -> float | None:
-            if not args:
-                return None
-
-            minmax = args.func(bboxes, key=attrgetter(args.attr))
-
-            return cast(float, attrgetter(args.attr)(minmax))
-
-        return cls(n=_bbox_to_bound(n), w=_bbox_to_bound(w),
-                   s=_bbox_to_bound(s), e=_bbox_to_bound(e))
-
-    def _update_single_bound(
-            self, which: str, args: BoundArgs, cells: list[C]) -> None:
-        """ Update a single bound using the BoundArgs and the cells.
-
-        which can be one of "n", "w", "s", "e".
+        :param which: Can be one of "n", "w", "s", "e".
+        :param arg: The BoundArg, that is used to determine the limit.
+        :param cells: The cells used to calculate the limit.
         """
-        setattr(self, which, self.get_bound_from_cells(args, cells))
+        setattr(self, which, get_limit_from_cells(cells, arg))
 
     def __repr__(self) -> str:
         cls_name = self.__class__.__name__
@@ -188,104 +244,97 @@ class Bounds:
         e = fmt.format(self.e) if self.e is not None else "None"
         return f"{cls_name}(n={n}, w={w}, s={s}, e={e})"
 
-    @classmethod
-    def select_adjacent_cells(cls, border: list[BBox], cells: Iterator[C]
-                              ) -> Cs:
-        """ Select those cells, that are adjacent to factory cells.
-
-        :param border: The Row/Col, that is used to determine if a cell
-         is adjacent to the table.
-        :param cells: The cells that are checked.
-        :return: Those items of cells, which are adjacent to the table.
-        """
-        # Get the three basic bounds, which are dictated by row_or_col.
-        bounds = cls.from_bboxes(list(border))
-        cells = list(filter(bounds.within_bounds, cells))
-        if not cells:
-            return cells
-        bounds.update_missing_bound(cells)
-        # These are the cells that fit all bounds.
-        minimal_cells = list(filter(bounds.within_bounds, cells))
-        # Also try to add cells, that fit only three bounds, but are
-        # overlapping with cells, that fit all four.
-        overlap_func = ("is_h_overlap" if cls in [WBounds, EBounds]
-                        else "is_v_overlap")
-        within_bounds_cells = []
-        for cell in cells:
-            for min_cell in minimal_cells:
-                if getattr(cell.bbox, overlap_func)(min_cell.bbox, 0.8):
-                    within_bounds_cells.append(cell)
-                    break
-        sort_key = "bbox.x0" if cls in [SBounds, NBounds] else "bbox.y0"
-        return list(sorted(within_bounds_cells, key=attrgetter(sort_key)))
-
 
 class WBounds(Bounds):
     """ The western outer bounds of a table. Used when growing a table. """
+    d = W
+
     @classmethod
     def from_bboxes(cls, bboxes: list[BBox], **_) -> WBounds:
-        n = BoundArgs(min, "y0")
-        s = BoundArgs(max, "y1")
-        e = BoundArgs(min, "x0")
+        n = BoundArg(min, N)
+        s = BoundArg(max, S)
+        # We use the opposite direction here, because we want the outer Bounds.
+        e = BoundArg(min, E.opposite)
         return super().from_bboxes(bboxes, n=n, s=s, e=e)
 
     def update_missing_bound(self, cells: list[C]) -> None:
-        """
-        Update the western bound, which was not created using the datacells.
-        """
-        args: BoundArgs = BoundArgs(max, "x0")
-        self._update_single_bound("w", args, cells)
+        """ Add the missing bound (western) based on the given cells. """
+        args: BoundArg = BoundArg(max, W)
+        self._update_single_limit("w", args, cells)
 
 
 class EBounds(Bounds):
     """ The eastern outer bounds of a table. Used when growing a table. """
+    d = E
+
     @classmethod
     def from_bboxes(cls, bboxes: list[BBox], **_) -> EBounds:
-        n = BoundArgs(min, "y0")
-        s = BoundArgs(max, "y1")
-        w = BoundArgs(max, "x1")
+        n = BoundArg(min, N)
+        s = BoundArg(max, S)
+        # We use the opposite direction here, because we want the outer Bounds.
+        w = BoundArg(max, W.opposite)
         return super().from_bboxes(bboxes, n=n, w=w, s=s)
 
     def update_missing_bound(self, cells: list[C]) -> None:
-        """
-        Update the eastern bound, which was not created using the datacells.
-        """
-        args: BoundArgs = BoundArgs(min, "x1")
-        self._update_single_bound("e", args, cells)
+        """ Add the missing bound (eastern) based on the given ells. """
+        args: BoundArg = BoundArg(min, E)
+        self._update_single_limit("e", args, cells)
 
 
 class NBounds(Bounds):
     """ The northern outer bounds of a table. Used when growing a table. """
+    d = N
+
     @classmethod
     def from_bboxes(cls, bboxes: list[BBox], **_) -> NBounds:
-        w = BoundArgs(min, "x0")
-        s = BoundArgs(min, "y0")
-        e = BoundArgs(max, "x1")
+        w = BoundArg(min, W)
+        # We use the opposite direction here, because we want the outer Bounds.
+        s = BoundArg(min, S.opposite)
+        e = BoundArg(max, E)
         return super().from_bboxes(bboxes, w=w, s=s, e=e)
 
     def update_missing_bound(self, cells: list[C]) -> None:
-        """
-        Update the eastern bound, which was not created using the datacells.
-        """
-        args: BoundArgs = BoundArgs(max, "y0")
-        self._update_single_bound("n", args, cells)
+        """ Add the missing bound (northern) based on the given cells. """
+        args: BoundArg = BoundArg(max, N)
+        self._update_single_limit("n", args, cells)
 
 
 class SBounds(Bounds):
     """ The southern outer bounds of a table. Used when growing a table. """
+    d = S
+
     @classmethod
     def from_bboxes(cls, bboxes: list[BBox], **_) -> SBounds:
-        n = BoundArgs(max, "y1")
-        w = BoundArgs(min, "x0")
-        e = BoundArgs(max, "x1")
+        # We use the opposite direction here, because we want the outer Bounds.
+        n = BoundArg(max, N.opposite)
+        w = BoundArg(min, W)
+        e = BoundArg(max, E)
         return super().from_bboxes(bboxes, n=n, w=w, e=e)
 
     def update_missing_bound(self, cells: list[C]) -> None:
-        """
-        Update the eastern bound, which was not created using the datacells.
-        """
-        args: BoundArgs = BoundArgs(min, "y1")
-        self._update_single_bound("s", args, cells)
+        """ Add the missing bound (southern) based on the given cells. """
+        args: BoundArg = BoundArg(min, S)
+        self._update_single_limit("s", args, cells)
+
+
+def get_limit_from_cells(objects: list[C] | list[BBox], arg: BoundArg | None
+                         ) -> float | None:
+    """ Calculate a limit from the cells using the provided func and attr.
+
+    :param objects: The cells/bboxes used to calculate the limit.
+    :param arg: The BoundArg used to determine the limit.
+    :return: The limit of the cells, based on the given func and d.
+    """
+    if not objects or not arg:
+        return None
+
+    prefix = "bbox." if hasattr(objects[0], "bbox") else ""
+    getter = attrgetter(prefix + arg.direction.coordinate)
+
+    # Get the Cell/BBox that has the highest/lowest value for c.
+    limit = arg.func(objects, key=getter)
+    # Get the actual value.
+    return cast(float, getter(limit))
 
 
 def select_adjacent_cells(d: Direction, bboxes: list[BBox], cells: Cs) -> Cs:
@@ -298,7 +347,7 @@ def select_adjacent_cells(d: Direction, bboxes: list[BBox], cells: Cs) -> Cs:
     """
     bound_cls = {N: NBounds, W: WBounds, S: SBounds, E: EBounds}[d]
 
-    adjacent_cells = bound_cls.select_adjacent_cells(bboxes, iter(cells))
+    adjacent_cells = bound_cls.select_adjacent_cells(bboxes, cells)
 
     normal = d.default_orientation.normal
     # Remove cells that are not overlapping with any reference cell.
