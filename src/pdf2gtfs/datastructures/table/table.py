@@ -456,8 +456,7 @@ class Table:
         for group in grouped_cells:
             group_bbox = BBox.from_bboxes([f.bbox for f in group])
             for i, table_cell in enumerate(table_cells[idx:], idx):
-                table_bbox = self.bbox
-                # self.get_bbox_of(self.get_series(o, table_cell))
+                table_bbox = self.get_bbox_of(self.get_series(o, table_cell))
                 # Fields that are overlapping in the given orientation
                 #  can' split the table.
                 if table_bbox.is_overlap(o.normal.name.lower(), group_bbox):

@@ -228,8 +228,9 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
     """
     # Get all lines of the page that are LTTextLines.
     text_boxes = filter(lambda box: isinstance(box, LTTextBox), page)
-    text_boxes = cast(Iterable[Iterable[Any]], flatten(text_boxes))
-    text_lines = filter(lambda line: isinstance(line, LTTextLine), text_boxes)
+    text_boxes = cast(Iterable[Iterable[Any]], text_boxes)
+    text_lines = filter(lambda line: isinstance(line, LTTextLine),
+                        flatten(text_boxes))
 
     # Get all words in the given page from its lines.
     text_lines = cast(Iterable[LTTextLine], text_lines)
