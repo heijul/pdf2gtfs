@@ -354,7 +354,7 @@ class Table:
                 unlink_cells(S, group)
                 insert_cells_in_col(col, group)
                 continue
-            col = self.get_col_left_of(group[0])
+            col = list(self.get_col_left_of(group[0]))
             head = insert_empty_cells_from_map(V, col, group)
             self.insert(E, col[0], head)
 
@@ -701,7 +701,11 @@ class Table:
         # Use the first table on the page to determine, which days row/col
         # is the correct one, in case multiple days rows or cols exist.
         days_rows = self.of_type(T.Days, H)
-        first_days_row = first_table.of_type(T.Days, H, single=True)[0]
+        first_table_days_rows = first_table.of_type(T.Days, H, single=True)
+        if not first_table_days_rows:
+            first_days_row = []
+        else:
+            first_days_row = first_table_days_rows[0]
         if not days_rows:
             # Duplicate -> add to self.
             for day in first_days_row:
@@ -782,6 +786,9 @@ class Table:
             stop: C | None = None
             for _, stop in stops:
                 neighbor: C = stop.get_neighbor(n.upper)
+                if not neighbor:
+                    allow_merge = False
+                    break
                 if neighbor.get_type() not in [T.Stop, T.Empty]:
                     allow_merge = False
                     break

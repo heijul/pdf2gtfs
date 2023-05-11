@@ -228,7 +228,7 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
     """
     # Get all lines of the page that are LTTextLines.
     text_boxes = filter(lambda box: isinstance(box, LTTextBox), page)
-    text_boxes = cast(Iterable[Iterable[Any]], text_boxes)
+    text_boxes = cast(Iterable[Iterable[Any]], flatten(text_boxes))
     text_lines = filter(lambda line: isinstance(line, LTTextLine), text_boxes)
 
     # Get all words in the given page from its lines.
@@ -247,7 +247,7 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
         lambda c: c.text.startswith("(cid"), non_data_cells)
     non_data_cells = merge_other_cells(non_data_cells)
 
-    return list(data_cells), non_data_cells, list(invalid_cells)
+    return list(data_cells), list(non_data_cells), list(invalid_cells)
 
 
 def assign_other_cells_to_tables(tables: list[Table], cells: Cs) -> None:
