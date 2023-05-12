@@ -312,8 +312,8 @@ def assign_other_cells_to_tables(tables: list[Table], cells: Cs) -> None:
         t_prev = get_next_lower(tables_x0, "x")
         t_next = get_next_upper(tables_x1, "x")
         bounds = Bounds(t_above, t_prev, t_below, t_next)
-        table.other_cells = [f.duplicate() for f in cells
-                             if bounds.within_bounds(f)]
+        table.potential_cells = [f.duplicate() for f in cells
+                                 if bounds.within_bounds(f)]
 
 
 def create_tables_from_page(page: LTPage) -> list[Table]:
@@ -327,7 +327,7 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         attributed to the table in a simple manner.
     """
     data_cells, non_data_cells, invalid_cells = get_cells_from_page(page)
-    t = Table.from_cells(data_cells)
+    t = Table.from_data_cells(data_cells)
     other_cells = non_data_cells
     t.insert_repeat_cells(other_cells)
     t.print(None)

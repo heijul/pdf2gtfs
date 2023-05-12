@@ -1,6 +1,6 @@
-""" The new table, that is able to detect tables regardless of orientation. """
-
+""" The new Table, that is able to detect Tables regardless of Orientation. """
 from __future__ import annotations
+# PR: Move code around, so it is closer to its usage.
 
 import logging
 from itertools import pairwise
@@ -30,195 +30,197 @@ logger = logging.getLogger(__name__)
 
 
 class Table:
-    """ Table representation using Fields mapped in all four directions
-        (= QuadLinkedList). Able to expand in all directions.
+    """ Table using Cells linked in all four Directions (= QuadLinkedList).
+    Able to expand in all Directions using adjacent Cells.
     """
-    def __init__(self, first_node: C, last_node: C):
+    def __init__(self, first_cell: C, last_cell: C):
         self.bboxes: dict[int: int] = {}
         self._left = None
         self._right = None
         self._top = None
         self._bot = None
-        self._update_end_node(W, first_node)
-        self._update_end_node(E, last_node)
-        self._update_end_node(N, first_node)
-        self._update_end_node(S, last_node)
-        # Update table on all nodes.
+        self._update_end(W, first_cell)
+        self._update_end(E, last_cell)
+        self._update_end(N, first_cell)
+        self._update_end(S, last_cell)
+        # Set self as Table on all Cells.
         for row_cell in self.top.row:
             for col_cell in row_cell.col:
                 col_cell.table = self
-        self.other_cells = None
+        self.potential_cells = None
 
     @property
     def top(self) -> OC:
-        """ One of the nodes in the top row. """
-        return self.get_end_node(d=N)
+        """ The left-most Cell in the top row. This is equal to left. """
+        return self.get_end(d=N)
 
     @property
     def left(self) -> OC:
-        """ One of the nodes in the left-most column. """
-        return self.get_end_node(d=W)
+        """ The top Cell in the first column. This is equal to top. """
+        return self.get_end(d=W)
 
     @property
     def bot(self) -> OC:
-        """ One of the nodes in the bottom column. """
-        return self.get_end_node(d=S)
+        """ The right-most Cell in the bottom row. This is equal to right. """
+        return self.get_end(d=S)
 
     @property
     def right(self) -> OC:
-        """ One of the nodes in the right-most column. """
-        return self.get_end_node(d=E)
+        """ The bottom Cell in the last column. This is equal to bot. """
+        return self.get_end(d=E)
 
     @property
     def bbox(self) -> BBox:
-        """ The bbox, that contains every cell of the table. """
+        """ The BBox that contains every Cell of the Table. """
         return self.get_bbox_of(collapse((self.left.col, self.top.row,
                                           self.right.col, self.bot.row)))
 
     @staticmethod
-    def from_cells(cells: Cs) -> Table:
-        """ Create a new table from the given cells.
+    def from_data_cells(data_cells: Cs) -> Table:
+        """ Create a new Table from the given Cells.
 
-        :param cells:
-        :return:
+        :param data_cells: The Cells of Type Data used to construct the Table.
+        :return: A new Table containing all the given Cells.
         """
-        cols = cells_to_cols(cells)
-        rows = cells_to_rows(cells)
+        cols = cells_to_cols(data_cells)
+        rows = cells_to_rows(data_cells)
         link_rows_and_cols(rows, cols)
         t = Table(cols[0][0], rows[-1][-1])
         return t
 
-    def get_end_node(self, d: Direction) -> OC:
-        """ Return one of the end nodes in the given direction.
+    def get_end(self, d: Direction) -> OC:
+        """ Return one of the end Cells in the given Direction.
 
-        :param d: The direction to look for the end node in.
+        :param d: The Direction to look for the end Cell in.
         """
-        # Get the current end node.
-        node: OC = getattr(self, d.p_end)
-        # Need to update the end node, because it is not a proper end node.
-        if node.has_neighbors(d=d) or node.has_neighbors(d=d.normal_eqivalent):
-            self._update_end_node(d, node)
-            return self.get_end_node(d)
-        return node
+        # Get the current end Cell.
+        cell: OC = getattr(self, d.p_end)
+        # Need to update the end Cell, because it is not a proper end Cell.
+        if cell.has_neighbors(d=d) or cell.has_neighbors(d=d.normal_eqivalent):
+            self._update_end(d, cell)
+            return self.get_end(d)
+        return cell
 
-    def _set_end_node(self, d: Direction, node: OC) -> None:
-        """ Store the last node in the given direction to node.
+    def _set_end(self, d: Direction, cell: OC) -> None:
+        """ Store the given Cell as the last Cell in the given Direction.
 
-        This will fail if node has a neighbor in the given direction.
+        This will fail if Cell has a neighbor in the given Direction.
 
-        :param d: The direction, which specifies, where to store the node.
-        :param node: The node to be stored.
+        :param d: The Direction, which specifies where to store the Cell.
+        :param cell: The Cell to be stored.
         """
-        assert node.get_neighbor(d) is None
-        setattr(self, d.p_end, node)
+        assert cell.get_neighbor(d) is None
+        setattr(self, d.p_end, cell)
 
-    def _update_end_node(self, d: Direction, start: C) -> None:
-        """ Update the end node in the given direction to the farthest/last
-        node in that direction.
+    def _update_end(self, d: Direction, start: C) -> None:
+        """ Update the end Cell in the given Direction
+        to the farthest/last Cell in that Direction.
 
-        Always ensures that the end node in the lower direction of an
-        orientation is also the end node in the lower direction of the
-        orientation's normal orientation. That is, if d is N (i.e. V.lower)
-        the end node the same as when d is W (i.e. H.lower). Analogous for S/E.
+        Always ensures that the end Cell in the lower Direction of an
+        Orientation is also the end Cell in the lower Direction of the
+        Orientation's normal Orientation.
+        That is, if d is N (i.e., V.lower), the end Cell is the same as it
+        would be, if d were W (i.e., H.lower). Analogous for S/E.
 
-        :param d: The direction to look for the last node.
-        :param start: The node to use to look for the end node in d.
+        :param d: The Direction to look for the last Cell.
+        :param start: The Cell to use to start looking for the end Cell in d.
         """
-        self._set_end_node(d, start.get_last(d).get_last(d.normal_eqivalent))
+        self._set_end(d, start.get_last(d).get_last(d.normal_eqivalent))
 
-    def get_list(self, o: Orientation, node: OC = None) -> list[C]:
-        """ Return the full list of nodes in the given orientation.
+    def get_list(self, o: Orientation, cell: OC = None) -> list[C]:
+        """ Return the full list of Cells in the given Orientation.
 
-        :param o: The orientation the nodes will be in.
-        :param node: The node used to get a specific row/column. If set to
-         None, the first/top node will be used instead.
+        :param o: The Orientation the Cells will be in.
+        :param cell: The Cell used to get a specific row/column.
+            If set to None, the first/top Cell will be used instead.
         """
-        if not node:
-            node = self.get_end_node(o.lower)
-        return list(node.iter(o.upper, True))
+        if not cell:
+            cell = self.get_end(o.lower)
+        return list(cell.iter(o.upper, True))
 
-    def insert(self, d: Direction, rel_node: OC, new_node: C) -> None:
-        """ Inserts the node relative to the rel_node in the given direction.
+    def insert(self, d: Direction, rel_cell: OC, new_cell: C) -> None:
+        """ Inserts new_cell relative to the rel_cell in the given Direction.
 
-        :param d: The relative direction of node to rel_node, after insertion.
-        :param rel_node: Either a node or None. If node, insertion happens
-         adjacent to it. If None, insert as the last node in d.
-        :param new_node: The node that will be inserted.
+        :param d: The relative Direction of Cell to rel_cell, after insertion.
+        :param rel_cell: Either a Cell or None.
+            If it is a Cell, insert new_cell adjacent to it.
+            If it is None, insert new_cell as the last Cell in d.
+        :param new_cell: The Cell that will be inserted.
         """
         normal = d.o.normal
 
-        # TODO NOW: Check that each new_node only has neighbors,
-        #  that are in new_nodes
-        new_nodes = list(new_node.iter(normal.upper))
-        # If we want to insert a column (i.e. vertical) at the beginning/end,
-        # we need a row (i.e. horizontal) to get the first/last column.
-        if rel_node is None:
-            rel_node = self.get_end_node(normal.lower)
-        rel_nodes = self.get_list(normal, rel_node)
+        # TODO NOW: Check that each new_cell only has neighbors
+        #  that are in new_cells
+        new_cells = list(new_cell.iter(normal.upper))
+        # If we want to insert a column (i.e., vertical) at the beginning/end,
+        # we need a row (i.e., horizontal) to get the first/last column.
+        if rel_cell is None:
+            rel_cell = self.get_end(normal.lower)
+        rel_cells = self.get_list(normal, rel_cell)
 
-        # Strict, to ensure the same number of nodes.
-        for rel_node, new_node in zip(rel_nodes, new_nodes, strict=True):
-            rel_node.set_neighbor(d, new_node)
-            new_node.table = self
+        # Strict, to ensure the same number of Cells.
+        for rel_cell, new_cell in zip(rel_cells, new_cells, strict=True):
+            rel_cell.set_neighbor(d, new_cell)
+            new_cell.table = self
 
-    def get_series(self, o: Orientation, node: C) -> Generator[C]:
-        """ The row or column the node resides in.
+    def get_series(self, o: Orientation, cell: C) -> Generator[C]:
+        """ The row or column the Cell resides in.
 
-        :param o: The orientation of the series, i.e. whether to return
+        :param o: The Orientation of the series, i.e. whether to return
             row (H) or column (V).
-        :param node: The node in question.
+        :param cell: The Cell in question.
         :return: A generator that yields all objects in the series.
         """
-        return node.iter(o.upper, True)
+        # PR: REMOVE THIS IN FAVOR OF CELL.ITER/CELL.ROW/CELL.COL.
+        return cell.iter(o.upper, True)
 
     def get_bbox_of(self, cells: Iterator[C]) -> BBox:
-        """ Return the combined bbox of cells.
+        """ Return the combined BBox of the given Cells.
 
-        Also caches the results in case the same bbox is requested again,
-        using the hash of the cells bboxes.
+        Also caches the results in case the same BBox is requested again,
+        using the hash of the Cells bboxes.
 
-        :param cells: The cells to get the bbox from.
-        :return: A bbox, that contains all the cells' bboxes.
+        :param cells: The Cells to get the BBox from.
+        :return: A BBox that contains all the Cells' bboxes.
         """
         bboxes = [c.bbox for c in cells if not isinstance(c, EmptyCell)]
-        # Actual bbox calculation and caching.
-        # No need to cache a single bbox.
+        # No need to cache a single BBox.
         if len(bboxes) == 1:
             return bboxes[0]
         # If a bboxes' coordinates change, its hash changes as well.
-        nodes_hashes = sorted(map(hash, bboxes))
-        nodes_hash = hash("".join(map(str, nodes_hashes)))
-        if nodes_hash not in self.bboxes:
-            self.bboxes[nodes_hash] = BBox.from_bboxes(bboxes)
-        return self.bboxes[nodes_hash]
+        cell_hashes = sorted(map(hash, bboxes))
+        cell_hash = hash("".join(map(str, cell_hashes)))
+        if cell_hash not in self.bboxes:
+            self.bboxes[cell_hash] = BBox.from_bboxes(bboxes)
+        return self.bboxes[cell_hash]
 
-    def get_empty_cell_bbox(self, cell: EmptyCell) -> BBox:
-        """ The bbox of an empty cell is defined as its row's x-coordinates
+    def get_empty_cell_bbox(self, empty_cell: EmptyCell) -> BBox:
+        """ The BBox of an empty Cell is defined as its row's x-coordinates
         and its col's y-coordinates.
 
-        :param cell: The EmptyField the bbox was requested for.
-        :return: A bbox, that is contained by both the row/col, while having
-            the row's height and the col's width.
+        :param empty_cell: The EmptyCell the BBox was requested for.
+        :return: A BBox that is contained by both the row/col,
+            while having the row's height and the col's width.
         """
-        row_bbox = self.get_bbox_of(cell.row)
-        col_bbox = self.get_bbox_of(cell.col)
+        # PR: Consider moving this to EmptyCell.
+        row_bbox = self.get_bbox_of(empty_cell.row)
+        col_bbox = self.get_bbox_of(empty_cell.col)
         return BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
 
     def expand(self, d: Direction) -> bool:
-        """ Expand the table in the given direction using the given cells.
+        """ Expand the Table in the given Direction using the given Cells.
 
-        :param d: The direction the expansion is done towards.
-        :return: Whether any cells were added.
+        :param d: The Direction the expansion is done towards.
+        :return: Whether any Cells were added.
         """
-        if self.other_cells is None:
-            raise Exception("Other cells need to be added to this table, "
-                            "before trying to expand.")
+        if self.potential_cells is None:
+            raise Exception("Potential Cells must be added to this Table, "
+                            "before trying to expand it.")
         normal = d.o.normal
-        ref_cells = list(self.get_series(normal, self.get_end_node(d)))
+        ref_cells = list(self.get_series(normal, self.get_end(d)))
 
-        bboxes = [self.get_bbox_of(self.get_series(d.o, f))
-                  for f in ref_cells]
-        adjacent_cells = select_adjacent_cells(d, bboxes, self.other_cells)
+        bboxes = [self.get_bbox_of(self.get_series(d.o, f)) for f in ref_cells]
+        adjacent_cells = select_adjacent_cells(d, bboxes, self.potential_cells)
         if not adjacent_cells:
             return False
 
@@ -230,41 +232,35 @@ class Table:
         try:
             self.insert(d, ref_cells[0], head)
         except ValueError:
-            # Insertion has failed. This usually (hopefully) means that the
-            # adjacent cells are not part of the table.
+            # Insertion has failed. This usually (hopefully) means
+            # that the adjacent Cells are not part of the Table.
             unlink_cells(d, ref_cells)
             return False
-        # Only remove cells that were added.
+        # Only remove Cells from the potential cells that were added to self.
         for cell in adjacent_cells:
-            self.other_cells.remove(cell)
+            self.potential_cells.remove(cell)
         return True
 
     def get_contained_cells(self, cells: Cs) -> Cs:
-        """ Get all cells, that are within the tables' cells' combined bbox.
+        """ Get all Cells that are within the Table's BBox.
 
-        :param cells: The cells that might be contained by the table.
-        :return: A list of all cells of the given cells, that have a bbox
-            that is contained in the tables bbox.
+        :param cells: The Cells that might be contained by the Table.
+        :return: A list of all Cells of all given Cells that have a BBox
+            that is contained in the Tables BBox.
         """
         def _both_overlap(cell: C) -> bool:
-            return (bbox.is_v_overlap(cell.bbox, 0.8) and
-                    bbox.is_h_overlap(cell.bbox, 0.8))
-
-        bbox = BBox.from_bboxes(
-            [self.get_bbox_of(self.left.col),
-             self.get_bbox_of(self.right.col),
-             self.get_bbox_of(self.top.row),
-             self.get_bbox_of(self.bot.row)])
+            return (self.bbox.is_v_overlap(cell.bbox, 0.8) and
+                    self.bbox.is_h_overlap(cell.bbox, 0.8))
 
         cells = list(filter(_both_overlap, cells))
         return cells
 
     def get_containing_col(self, cell: C) -> Cs | None:
-        """ Find the column that contains (via bbox-overlap) the cell.
+        """ Find the column that contains the Cell (determined using the BBox).
 
-        :param cell: The cell, we want to know the column of.
-        :return: The column, that contains the cell or None if no
-            such column exists.
+        :param cell: The Cell we want to know the column of.
+        :return: The column that contains the Cell,
+            or None if no such column exists.
         """
         for col_cell in self.left.iter(E):
             if col_cell.is_overlap(H, cell, 0.8):
@@ -272,14 +268,14 @@ class Table:
         return None
 
     def get_col_left_of(self, cell: C) -> Cs:
-        """ Get the last column left of the cell.
+        """ Get the last column left of the Cell.
 
         That is, the column right of whichever column this function returns
-        (if any) either contains the cell or is located right of the cell.
+        (if any) either contains the Cell or is located right of the Cell.
 
-        :param cell: The cell we are using as reference.
-        :return: The last column left of the cell or None, if no such
-         column exists.
+        :param cell: The Cell we are using as reference.
+        :return: The last column left of the Cell,
+            or None, if no such column exists.
         """
         def _is_right_of_cell(f: C) -> bool:
             return f.bbox.x0 >= left_most_cell.bbox.x0
@@ -298,19 +294,21 @@ class Table:
         return col_right_of_cell.prev.col
 
     def insert_repeat_cells(self, cells: Cs) -> None:
-        """ Find the cells that are part of a repeat interval and add
-            them to the table.
+        """ Find the Cells that are part of a repeat interval
+        and add them to the Table.
 
-        :param cells: The cells that are checked for repeat intervals.
+        :param cells: The Cells that are checked for repeat intervals.
         """
+        # PR: This seems like it can only handle repeat columns.
+        #  Not rows. Fix or create issue.
         identifiers = self.get_repeat_identifiers(cells)
         if not identifiers:
             return
         values = self.get_repeat_values(identifiers, cells)
         for cell in identifiers + values:
             cells.remove(cell)
-        # Add identifiers and their values to table.
-        # Group repeat cells by col and link them.
+        # Add identifiers and their values to Table.
+        # Group repeat Cells by col and link them.
         repeat_groups = cells_to_cols(identifiers + values)
         # Insert the repeat_groups each into a new or existing column.
         for group in repeat_groups:
@@ -324,10 +322,10 @@ class Table:
             self.insert(E, col[0], head)
 
     def get_repeat_identifiers(self, cells: Cs) -> Cs:
-        """ Return those cells, that are repeat identifiers.
+        """ Return those Cells that are RepeatIdents.
 
-        :param cells: The cells that may be identifiers.
-        :return: Those cells that are repeat identifiers.
+        :param cells: The Cells that may be RepeatIdents.
+        :return: Those Cells that are RepeatIdents.
         """
         contained_cells = self.get_contained_cells(cells)
         repeat_identifiers = [f for f in contained_cells
@@ -337,11 +335,11 @@ class Table:
         return repeat_identifiers
 
     def get_repeat_values(self, identifiers: Cs, cells: Cs) -> Cs:
-        """ Given the identifiers, find those cells that are repeat values.
+        """ Given the RepeatIdents, find those Cells that are RepeatValues.
 
-        :param identifiers: The repeat identifiers.
-        :param cells: The cells that are evaluated.
-        :return: Those cells that are repeat values.
+        :param identifiers: The RepeatIdents.
+        :param cells: The Cells that are evaluated.
+        :return: Those Cells that are RepeatValues.
         """
         contained_cells = self.get_contained_cells(cells)
         values = []
@@ -361,9 +359,15 @@ class Table:
     def _print(self, getter_func: Callable[[C], str],
                align_func: Callable[[C], str] = lambda _: "^",
                col_count: int | None = None) -> None:
+        """ Print the Cells of the Table to stdout.
+
+        :param getter_func: A function used to get the value that is printed.
+        :param align_func: A function used to align each value.
+        :param col_count: The maximum number of columns to print.
+        """
         rows = [cell.row for cell in self.left.col]
         cols = [cell.col for cell in self.top.row]
-        # The maximum length of a cells text in each column.
+        # The maximum length of a Cell's text in each column.
         col_len = [max(map(len, map(getter_func, col))) for col in cols]
 
         delim = " | "
@@ -376,36 +380,41 @@ class Table:
         print("\n".join(lines) + "\n")
 
     def print(self, col_count: int | None = 8) -> None:
-        """ Print the table to stdout.
+        """ Print the Table to stdout.
 
-        :param col_count: The number of characters each line can have.
+        :param col_count: The maximum number of columns that will be printed.
         """
-        def get_text_align(f) -> str:
-            """ Right align all data cells; left align everything else.
-            :param f: This cells text is checked.
+        def get_text_align(c) -> str:
+            """ Right align all data Cells; left align everything else.
+
+            :param c: This Cell's text is checked.
             :return: The format char used for alignment.
             """
-            return ">" if f.get_type() == T.Data else "<"
+            return ">" if c.get_type() == T.Data else "<"
 
         self._print(attrgetter("text"), get_text_align, col_count)
 
     def print_types(self, col_count: int = None) -> None:
-        """ Print the inferred type of each cell, instead of its text. """
-        def _get_type_name(f: C) -> str:
-            if isinstance(f, EmptyCell):
+        """ Print the inferred type of each Cell, instead of its text.
+
+        :param col_count: The maximum number of columns that will be printed.
+        """
+        def _get_type_name(c: C) -> str:
+            if isinstance(c, EmptyCell):
                 return ""
-            return f.get_type().name
+            return c.get_type().name
 
         self._print(_get_type_name, col_count=col_count)
 
     def split_at_cells(self, o: Orientation, splitter: list[Cs]
                        ) -> list[Table]:
-        """ Split the table at the given cells.
+        """ Split the Table at the given Cells.
 
-        :param o: The orientation to split in.
-        :param splitter: The cells used to split the table.
-        :return: A list of tables, where each table contains only cells,
+        :param o: The Orientation to split the Table in.
+        :param splitter: The Cells used to split the Table.
+        :return: A list of Tables, where each Table contains only Cells
             that are between the given splitter.
+            The splitter will not be part of any Table.
         """
         if not splitter:
             return [self]
@@ -414,11 +423,11 @@ class Table:
         tables = []
         for table_cell in table_cells:
             head = table_cell[0]
-            # The splitter should not implicitly be part of the table.
+            # The splitter should not implicitly be part of the Table.
             if head.table != self:
                 continue
             cell = None
-            # Unlink last row/col of each table, based on o.
+            # Unlink last row/col of each Table, based on o.
             for cell in self.get_series(o, table_cell[-1]):
                 cell.del_neighbor(o.normal.upper)
             table = Table(head, cell)
@@ -433,20 +442,20 @@ class Table:
         idx = 0
         normal = o.normal
         table_cells = list(
-            self.get_series(normal, self.get_end_node(normal.upper)))
+            self.get_series(normal, self.get_end(normal.upper)))
 
         bound = normal.lower.coordinate
         for group in grouped_cells:
             group_bbox = BBox.from_bboxes([f.bbox for f in group])
             for i, table_cell in enumerate(table_cells[idx:], idx):
                 table_bbox = self.get_bbox_of(self.get_series(o, table_cell))
-                # Fields that are overlapping in the given orientation
-                #  can' split the table.
+                # Cells that are overlapping in the given Orientation
+                #  can't split the Table.
                 if table_bbox.is_overlap(normal.name.lower(), group_bbox):
                     idx = i
                     break
-                # We can be sure the group splits the table, only when
-                #  encountering a series right/below of group.
+                # We can be sure the group splits the Table,
+                #  only when encountering a series right/below of group.
                 if getattr(table_bbox, bound) > getattr(group_bbox, bound):
                     splitter.append(group)
                     idx = i
@@ -454,37 +463,39 @@ class Table:
         return splitter
 
     def get_splitting_cols(self, contained_cells: Cs) -> list[Cs]:
-        """ Return those cells, that split the table vertically,
-            i.e. none of these cells fit in any column of the table.
+        """ Return those Cells that split the Table vertically.
 
-        :param contained_cells: The cells to check. All of these should be
-            contained in the table.
-        :return: The cells that split the table vertically.
+        I.e., none of these Cells fit in any column of the Table.
+
+        :param contained_cells: The Cells to check.
+            All of these should be contained in the Table.
+        :return: The Cells that split the Table vertically.
         """
         cols = cells_to_cols(contained_cells, link_cols=False)
         splitter = self._get_splitting_series(V, cols)
         return splitter
 
     def get_splitting_rows(self, contained_cells: Cs) -> list[Cs]:
-        """ Get the cells that split the table horizontally,
-            i.e. none of these cells fit in any row of the table.
+        """ Get the Cells that split the Table horizontally,
 
-        :param contained_cells: The cells to check. All of these should
-            be contained in the table.
-        :return: The cells that split the table horizontally.
+        I.e., none of these Cells fit in any row of the Table.
+
+        :param contained_cells: The Cells to check.
+            All of these should be contained in the Table.
+        :return: The Cells that split the Table horizontally.
         """
         rows = cells_to_rows(contained_cells, link_rows=False)
         splitter = self._get_splitting_series(H, rows)
         return splitter
 
     def max_split(self, cells: Cs) -> list[Table]:
-        """ Split the table horizontally (if appliccable) using the given
-            cells and then split each of those vertically (if appliccable).
+        """ Split the Table horizontally (if possible) using the given
+            Cells and then split each of those vertically (if possible).
 
-        The current table should not be used after it was split.
+        The current Table should not be used after it was split.
 
-        :param cells: The cells that may split the table in either direction.
-        :return: The list of tables.
+        :param cells: The Cells that may split the Table in either Direction.
+        :return: The list of Tables.
         """
         contained_cells = self.get_contained_cells(cells)
         if not contained_cells:
@@ -504,7 +515,9 @@ class Table:
         def _same_table(cell1: C, cell2: C) -> bool:
             return cell1.table != cell2.table
 
-        cells = list(self.get_series(o.normal, self.get_end_node(o.lower)))
+        # PR: What's the difference to split_at_cells? Update name?
+
+        cells = list(self.get_series(o.normal, self.get_end(o.lower)))
         cells += list(collapse(splitter))
         pre_sorter = "bbox.y0" if o == H else "bbox.x0"
         return group_cells_by(cells, _same_table, pre_sorter, None)
@@ -525,25 +538,24 @@ class Table:
                 for (lower_neighbor, upper_neighbor) in zip(*neighbors):
                     lower_neighbor.set_neighbor(o.upper, upper_neighbor)
                 continue
-            # Need to update saved nodes, in case we just removed one
-            # of the end nodes.
+            # Need to update the saved end Cells,
+            # in case we just removed one of the end Cells.
             if not lower_neighbor:
-                self._update_end_node(N, upper_neighbor)
-                self._update_end_node(W, upper_neighbor)
+                self._update_end(N, upper_neighbor)
+                self._update_end(W, upper_neighbor)
             if not upper_neighbor:
-                self._update_end_node(S, lower_neighbor)
-                self._update_end_node(E, lower_neighbor)
+                self._update_end(S, lower_neighbor)
+                self._update_end(E, lower_neighbor)
 
     def remove_empty_series(self) -> None:
-        """ Remove all rows/columns that only contain EmptyFields. """
+        """ Remove all rows/columns that only contain EmptyCells. """
         self._remove_empty_series(H)
         self._remove_empty_series(V)
 
     def to_timetable(self) -> TimeTable | None:
-        """ Turn this table into a timetable.
+        """ Turn this Table into a timetable.
 
-        :return: A valid timetable containing all cells
-            that have a proper type.
+        :return: A valid timetable containing all Cells with a proper type.
         """
         from pdf2gtfs.datastructures.timetable.table import TimeTable
         from pdf2gtfs.datastructures.timetable.stops import Stop
@@ -551,10 +563,12 @@ class Table:
             TimeTableEntry, TimeTableRepeatEntry, Weekdays,
             )
 
-        def add_cell_to_timetable() -> None:
-            """ Add the cell to the timetable.
+        # PR: Needs more comments explaining stuff.
 
-            How the cell is added depends on its type.
+        def add_cell_to_timetable() -> None:
+            """ Add the Cell to the timetable.
+
+            How the Cell is added depends on its type.
             """
             match cell.get_type():
                 case T.Other | T.Empty | T.Stop:
@@ -585,8 +599,7 @@ class Table:
 
         t = TimeTable()
         o, stops = self.find_stops()
-        # TODO NOW: Add to config min_stops
-        # Ignore tables with too few stops. Usually these are false positives.
+        # Ignore Tables with too few stops. Usually these are false positives.
         if len(stops) < 3:
             return None
         n = o.normal
@@ -614,10 +627,10 @@ class Table:
         return t
 
     def find_stops(self) -> tuple[Orientation, list[tuple[int, C]]]:
-        """ Get the row/column, that contains the stops.
+        """ Get the row/column that contains the Stops.
 
-        :return: The orientation of the stops, as well as the list of
-            stops, with each stop's row/col index based on orientation.
+        :return: The Orientation of the Stops, as well as the list of stops,
+            with each Stop's row/col index based on Orientation.
         """
         def _find_stops(o: Orientation, start: C | None = None
                         ) -> list[tuple[int, C]]:
@@ -635,7 +648,8 @@ class Table:
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
     def expand_all(self) -> None:
-        """ Exhaustively expand the table in the lower directions (N, W). """
+        """ Exhaustively expand the Table in the lower Directions (N, W). """
+        # PR: This needs to be done in the upper Directions as well. New issue?
         expanded = True
         while expanded:
             expanded = False
@@ -645,16 +659,17 @@ class Table:
                 expanded |= self.expand(d)
 
     def infer_cell_types(self, first_table: Table | None) -> None:
-        """ Infer the cell types of all cells.
+        """ Infer the Cell types of all Cells.
 
         This will infer the type multiple times,
-        to accomodate changes in the type based on the earlier inference.
+        to accomodate for changes in the type based on a previous inference.
 
-        :param first_table: If None, the current table is the first table.
-            Otherwise, the first table will be used to determine if the
-            Days, etc. are in the header or in the footer.
+        :param first_table: If None, the current Table is the first Table.
+            Otherwise, the first Table will be used to determine
+            whether the Days, etc. are in the header or in the footer.
         """
         # TODO: Test if it makes a difference, running this twice.
+        # PR: Convoluted. Maybe split this?
         for starter in self.left.row:
             for cell in starter.col:
                 cell.type.infer_type_from_neighbors()
@@ -665,7 +680,7 @@ class Table:
 
         if first_table is None:
             return
-        # Use the first table on the page to determine, which days row/col
+        # Use the first Table on the page to determine, which days row/col
         # is the correct one, in case multiple days rows or cols exist.
         days_rows = self.of_type(T.Days, H)
         first_table_days_rows = first_table.of_type(T.Days, H, single=True)
@@ -676,7 +691,7 @@ class Table:
         if not days_rows:
             # Duplicate -> add to self.
             for day in first_days_row:
-                self.other_cells.append(day.duplicate())
+                self.potential_cells.append(day.duplicate())
             self.expand_all()
             return
         if len(days_rows) == 1:
@@ -685,9 +700,9 @@ class Table:
         first_days_row_idx = first_table_col.index(first_days_row[0])
         first = first_days_row_idx < len(first_table_col) / 2
         first_or_last = "first" if first else "last"
-        logger.info("Found multiple rows containing cells of type Days for "
-                    f"table {self}. Selecting the {first_or_last}, because "
-                    f"the first table of the current page does so as well.")
+        logger.info("Found multiple rows containing Cells of type Days for "
+                    f"Table {self}. Selecting the {first_or_last}, because "
+                    f"the first Table of the current page does so as well.")
         # TODO: Do this for other types as well?
         # Remove Days as possible type of all other days_rows
         invalid_days_rows = days_rows[1:] if first else days_rows[:-1]
@@ -698,19 +713,20 @@ class Table:
 
     def of_type(self, typ: T, o: Orientation = V, single: bool = False,
                 strict: bool = True) -> list[list[C]]:
-        """ Return one or all series' of the given type.
+        """ Return one or all series' of the given Type.
 
-        Each series will be partial in the sense
-        that each cell will be of the given type.
-        Thus, in general, the series is different
-        from the row/col of the series' cells.
+        Each series will be partial, in the sense that
+        each Cell will be of the given type.
 
-        :param typ: The type each cell in the returned row will have.
-        :param o: The orientation the cells in the returned lists will have.
-        :param single: Whether, only to return the first series encountered.
+        Thus, in general,
+        the series is different from the row/col of the series' Cells.
+
+        :param typ: The Type each Cell in the returned row will have.
+        :param o: The Orientation the Cells in the returned lists will have.
+        :param single: Whether only to return the first series encountered.
         :param strict: If type checking should be strict or not.
         :return: A list of lists,
-            where each sublist contains cells of the given type.
+            where each sublist contains Cells of the given Type.
         """
         cells_of_type: list[list[C]] = []
         for starter in self.get_series(o.normal, self.left):
@@ -722,23 +738,23 @@ class Table:
                     cells_of_type[-1].append(cell)
             if not cells_of_type[-1]:
                 cells_of_type.pop()
-            # Only return cells of the first row/col
-            # that contains cells of the given type.
+            # Only return Cells of the first row/col
+            # that contains Cells of the given type.
             if single and cells_of_type:
                 return cells_of_type
         return cells_of_type
 
     def merge_series(self, starter: C, d: Direction) -> None:
-        """ Merge the row/col of the given cell to the neighboring series.
+        """ Merge the row/col of the given Cell to the neighboring series.
 
-        :param starter: Used to get the series in the directions'
-            orientations' normal orientation.
-        :param d: The cells row/col will get merged to their respective
-            neighbors in the given direction.
+        :param starter: Used to get the series in the Directions'
+            Orientations' normal Orientation.
+        :param d: The Cells row/col will be merged with
+            their respective neighbors in this Direction.
         """
         neighbor = starter.get_neighbor(d)
         if not neighbor:
-            raise AssertionError(f"Can't merge in {d.name}. End of table.")
+            raise AssertionError(f"Can't merge in {d.name}. End of Table.")
         normal = d.o.normal
         series = list(self.get_series(normal, starter))
         neighbors = list(self.get_series(normal, neighbor))
@@ -746,7 +762,7 @@ class Table:
             f1.merge(f2, ignore_neighbors=[normal.lower, normal.upper])
 
     def merge_stops(self) -> None:
-        """ Merge consecutive cells of type stop. """
+        """ Merge consecutive Cells of Type Stop. """
         def _merge_stops() -> bool:
             allow_merge = True
             stop: C | None = None
@@ -775,14 +791,14 @@ def group_cells_by(cells: Iterable[C],
                    same_group_func: Callable[[C, C], bool],
                    pre_sort_keys: str | Iterable[str] | None,
                    group_sort_keys: str | Iterable[str] | None) -> list[Cs]:
-    """ Group the given cells using the given function.
+    """ Group the given Cells using the given function.
 
-    :param cells: The cells that should be grouped.
-    :param same_group_func: A function taking two cells and returning True,
-      if they are in the same group, False otherwise.
-    :param pre_sort_keys: Sort the cells before grouping using this as key.
+    :param cells: The Cells that should be grouped.
+    :param same_group_func: A function that takes two Cells and returns True
+      if they are in the same group. False, otherwise.
+    :param pre_sort_keys: Sort the Cells before grouping using this as key.
     :param group_sort_keys: Each group will be sorted using this as key.
-    :return: A list of groups of cells.
+    :return: A list of groups of Cells.
     """
     groups: list[Cs] = []
     if pre_sort_keys:
@@ -801,10 +817,10 @@ def group_cells_by(cells: Iterable[C],
 
 
 def cells_to_cols(cells: Cs, *, link_cols: bool = True) -> list[Cs]:
-    """ Turns the datacells into a collection of columns. """
-    def _same_col(cell1: C, cell2: C) -> bool:
-        """ Two cells are in the same column if they overlap horizontally. """
-        return not cell1.bbox.is_h_overlap(cell2.bbox)
+    """ Turns the DataCells into a collection of cols. """
+    def _same_col(c1: C, c2: C) -> bool:
+        """ Two Cells are in the same col if they overlap horizontally. """
+        return not c1.bbox.is_h_overlap(c2.bbox)
 
     cols = group_cells_by(cells, _same_col, "bbox.x0", "bbox.y0")
     if link_cols:
@@ -814,10 +830,10 @@ def cells_to_cols(cells: Cs, *, link_cols: bool = True) -> list[Cs]:
 
 
 def cells_to_rows(cells: Cs, *, link_rows: bool = True) -> list[Cs]:
-    """ Turns the datacells into a collection of rows. """
-    def _same_row(cell1: C, cell2: C) -> bool:
-        """ Two cells are in the same row if they overlap vertically. """
-        return not cell1.bbox.is_v_overlap(cell2.bbox)
+    """ Turns the DataCells into a collection of rows. """
+    def _same_row(c1: C, c2: C) -> bool:
+        """ Two Cells are in the same row if they overlap vertically. """
+        return not c1.bbox.is_v_overlap(c2.bbox)
 
     rows = group_cells_by(cells, _same_row, "bbox.y0", "bbox.x0")
     if link_rows:
@@ -827,12 +843,12 @@ def cells_to_rows(cells: Cs, *, link_rows: bool = True) -> list[Cs]:
 
 
 def link_cells(d: Direction, cells: Cs) -> None:
-    """ Link the fielsd in the given direction.
+    """ Link the fields in the given Direction.
 
-    The cells will be linked in the opposite direction implicitely.
+    The Cells will be linked in the opposite Direction, implicitely.
 
-    :param d: The direction to link in.
-    :param cells: The cells that should be linked.
+    :param d: The Direction to link in.
+    :param cells: The Cells that should be linked.
     """
     p = peekable(cells)
     for cell in p:
@@ -840,24 +856,27 @@ def link_cells(d: Direction, cells: Cs) -> None:
 
 
 def unlink_cells(d: Direction, cells: Cs) -> None:
-    """ Remove the links to any other cells in the given direction.
+    """ Remove the links to any other Cells in the given Direction.
 
-    The links that are removed can be linking to arbitrary cells.
+    The links that are removed can be linking to arbitrary Cells.
 
-    :param d: The direction the cells' neighbors will be removed from.
-    :param cells: The cells to remove the links from.
+    :param d: The Direction each Cell's neighbors will be removed from.
+    :param cells: The Cells to remove the links from.
     """
     for cell in cells:
         cell.del_neighbor(d)
 
 
 def link_rows_and_cols(rows: list[Cs], cols: list[Cs]) -> None:
-    """ Link the rows and columns, such that each cell can be reached using
-        any other cells and the cells' get_neighbor method.
+    """ Link the rows and columns, such that each Cell can be reached using
+        any other Cell's and the Cell's get_neighbor method.
 
-    :param rows: The list of cells representing the rows.
-    :param cols: The list of cells representing the cols.
+    :param rows: The list of Cells representing the rows.
+    :param cols: The list of Cells representing the cols.
     """
+
+    # PR: This looks weird.
+
     # Fill first column.
     first_cell_of_rows = [row[0] for row in rows]
     head = insert_empty_cells_from_map(V, first_cell_of_rows, cols[0])
@@ -877,18 +896,20 @@ def link_rows_and_cols(rows: list[Cs], cols: list[Cs]) -> None:
 
 
 def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
-    """ Merge cells, that are overlapping with the same ref_cell.
+    """ Merge Cells that are overlapping with the same ref_cell.
 
-    Only the first overlapping cell is checked. That is, if a cell of cells
-        is overlapping with multiple ref_cells, only the first one matters
-        for the purpose of merging.
-    If more than two cells are overlapping with the same ref_cell, they
-        are all merged into a single cell.
+    Only the first overlapping Cell is checked.
+    That is, if a Cell is overlapping with multiple ref_cells,
+    only the first one matters for the purpose of merging.
 
-    :param o: The orientation used to get the overlap.
-    :param ref_cells: The cells used as reference.
-    :param cells: The cells that might be merged.
+    If two or more Cells are overlapping with the same ref_cell,
+    they (the Cells, not the ref_cell) are all merged into a single Cell.
+
+    :param o: The Orientation used check for overlap.
+    :param ref_cells: The Cells used as reference.
+    :param cells: The Cells that might be merged.
     """
+    # PR: Needs more comments or needs to be split.
     if len(cells) < 2:
         return
     n = o.normal
@@ -924,17 +945,19 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
 
 def insert_empty_cells_from_map(
         o: Orientation, ref_cells: Cs, cells: Cs) -> C:
-    """ Insert EmptyFields as neighbors of the cells, until cells and
-    ref_cells can be mapped (i.e. can be neighbors)
+    """ Insert EmptyCells as neighbors of the Cells, until Cells and
+    ref_cells can be mapped (i.e., can be neighbors)
 
-    :param o: V or H. If V, ref_cells should be a column of a table;
-        if H, a row instead.
-    :param ref_cells: The cells used as reference.
-    :param cells: The cells that are used as starting point. All of these
-        will be part of the linked cell list.
-    :return: The (possibly new, empty) first cell.
+    :param o: V or H.
+        If V, ref_cells should be a column of a Table; if H, a row instead.
+    :param ref_cells: The Cells used as reference.
+    :param cells: The Cells that are used as starting point.
+        All of these will be part of the linked Cell list.
+    :return: The (possibly new, empty) first Cell.
     """
-    # Add cells at the start and between other cells.
+    # PR: Too long.
+
+    # Add Cells at the start and between other Cells.
     i = 0
     cell_count = 0
     for ref_cell in ref_cells:
@@ -953,7 +976,7 @@ def insert_empty_cells_from_map(
 
         cell.set_neighbor(o.lower, e)
 
-    # Add empty nodes at the end.
+    # Add empty Cells at the end.
     cell = cells[-1]
     while cell_count < len(ref_cells):
         e = EmptyCell()
@@ -966,36 +989,36 @@ def insert_empty_cells_from_map(
         cell_count += 1
         cell = e
 
-    # Return head
+    # Return th lower end Cell.
     cell = cells[0]
     while cell.has_neighbors(d=o.lower):
         cell = cell.get_neighbor(o.lower)
     return cell
 
 
-def replace_cell(which: C, replace_with: C) -> None:
-    """ Replace one cell with the other.
+def replace_cell(to_replace: C, replace_with: C) -> None:
+    """ Replace one Cell with another Cell.
 
-    :param which: The cell that will be replaced.
-    :param replace_with: The cell that will be inserted instead.
+    :param to_replace: The Cell that will be replaced.
+    :param replace_with: The Cell that will be inserted instead.
     """
-    # New node should not have any neighbors
+    # The new Cell should not have any neighbors.
     assert not replace_with.has_neighbors(o=V)
     assert not replace_with.has_neighbors(o=H)
     for d in D:
-        neighbor = which.get_neighbor(d)
+        neighbor = to_replace.get_neighbor(d)
         if not neighbor:
             continue
-        which.del_neighbor(d)
+        to_replace.del_neighbor(d)
         neighbor.set_neighbor(d.opposite, replace_with)
-    which.table = None
+    to_replace.table = None
 
 
 def insert_cells_in_col(col: Cs, cells: Cs) -> None:
-    """ Insert the cells into the given col, replacing existing cells.
+    """ Insert the Cells into the given col, replacing existing Cells.
 
-    :param col: The column the cells are inserted into.
-    :param cells: The cells that will be inserted into the column.
+    :param col: The column the Cells are inserted into.
+    :param cells: The Cells that will be inserted into the column.
     """
     last_id = 0
     for cell in cells:
