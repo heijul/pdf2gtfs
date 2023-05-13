@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from itertools import pairwise
-from operator import attrgetter, methodcaller
+from operator import attrgetter, itemgetter, methodcaller
 from typing import Callable, Generator, Iterable, Iterator, TYPE_CHECKING
 
 from more_itertools import (
@@ -763,27 +763,21 @@ class Table:
 
     def merge_stops(self) -> None:
         """ Merge consecutive Cells of Type Stop. """
-        def _merge_stops() -> bool:
-            allow_merge = True
+        o, stops = self.find_stops()
+        allow_merge = True
+        allowed_types = [T.Stop, T.Empty]
+        while True:
             stop: C | None = None
-            for _, stop in stops:
+            for stop in itemgetter(1)(stops):
                 neighbor: C = stop.get_neighbor(o.normal.upper)
-                if not neighbor:
-                    allow_merge = False
-                    break
-                if neighbor.get_type() not in [T.Stop, T.Empty]:
+                if not neighbor or neighbor.get_type() not in allowed_types:
                     allow_merge = False
                     break
             if not stop or not allow_merge:
-                return False
+                break
             series = "cols" if o == V else "rows"
             logger.info(f"Found two consecutive stop {series}. Merging...")
             self.merge_series(stop, o.normal.upper)
-            return True
-
-        o, stops = self.find_stops()
-        while _merge_stops():
-            pass
 
 
 def group_cells_by(cells: Iterable[C],
