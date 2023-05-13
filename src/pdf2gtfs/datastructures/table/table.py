@@ -121,7 +121,7 @@ class Table:
     def _set_end(self, d: Direction, cell: OC) -> None:
         """ Store the given Cell as the last Cell in the given Direction.
 
-        This will fail if Cell has a neighbor in the given Direction.
+        This will fail if the Cell has a neighbor in the given Direction.
 
         :param d: The Direction, which specifies where to store the Cell.
         :param cell: The Cell to be stored.
@@ -265,7 +265,7 @@ class Table:
         """ Find the column that contains the Cell (determined using the BBox).
 
         :param cell: The Cell we want to know the column of.
-        :return: The column that contains the Cell,
+        :return: The column that contains the Cell
             or None if no such column exists.
         """
         for col_cell in self.left.iter(E):
@@ -280,8 +280,8 @@ class Table:
         (if any) either contains the Cell or is located right of the Cell.
 
         :param cell: The Cell we are using as reference.
-        :return: The last column left of the Cell,
-            or None, if no such column exists.
+        :return: The last column left of the Cell or
+            None if no such column exists.
         """
         def _is_right_of_cell(f: C) -> bool:
             return f.bbox.x0 >= left_most_cell.bbox.x0
@@ -392,7 +392,7 @@ class Table:
             """ Right align all data Cells; left align everything else.
 
             :param c: This Cell's text is checked.
-            :return: The format char used for alignment.
+            :return: The format character used for alignment.
             """
             return ">" if c.has_type(T.Data, strict=True) else "<"
 
@@ -430,23 +430,21 @@ class Table:
             pre_sorter = "bbox.y0" if o == H else "bbox.x0"
             return group_cells_by(cells, _same_table, pre_sorter, None)
 
-        # PR: Clean this up. Convoluted.
-
         if not splitter:
             return [self]
-        table_cells = _split_at_splitter()
+        cell_groups = _split_at_splitter()
 
         tables = []
-        for table_cell in table_cells:
-            head = table_cell[0]
-            # The splitter should not implicitly be part of the Table.
+        for group in cell_groups:
+            head = group[0]
+            # The splitter should not implicitly be part of any Table.
             if head.table != self:
                 continue
-            cell = None
-            # Unlink last row/col of each Table, based on o.
-            for cell in table_cell[-1].iter(o=o):
-                cell.del_neighbor(o.normal.upper)
-            table = Table(head, cell)
+            # Unlink the last row/col of each Table, based on o.
+            last_series = list(group[-1].iter(o=o))
+            unlink_cells(o.normal.upper, last_series)
+            # Create a new Table.
+            table = Table(head, last_series[-1])
             table.remove_empty_series()
             tables.append(table)
 
@@ -465,12 +463,12 @@ class Table:
             for i, table_cell in enumerate(table_cells[idx:], idx):
                 table_bbox = self.get_bbox_of(table_cell.iter(o=o))
                 # Cells that are overlapping in the given Orientation
-                #  can't split the Table.
+                #  can not split the Table.
                 if table_bbox.is_overlap(normal.name.lower(), group_bbox):
                     idx = i
                     break
                 # We can be sure the group splits the Table,
-                #  only when encountering a series right/below of group.
+                #  only when encountering a series right/below of the group.
                 if getattr(table_bbox, bound) > getattr(group_bbox, bound):
                     splitter.append(group)
                     idx = i
@@ -491,7 +489,7 @@ class Table:
         return splitter
 
     def get_splitting_rows(self, contained_cells: Cs) -> list[Cs]:
-        """ Get the Cells that split the Table horizontally,
+        """ Get the Cells that split the Table horizontally.
 
         I.e., none of these Cells fit in any row of the Table.
 
@@ -566,20 +564,22 @@ class Table:
             TimeTableEntry, TimeTableRepeatEntry, Weekdays,
             )
 
-        # PR: Needs more comments explaining stuff.
-
-        def add_cell_to_timetable() -> None:
+        def add_cell_to_timetable(e_id: int, cell: C) -> None:
             """ Add the Cell to the timetable.
 
             How the Cell is added depends on its type.
             """
             match cell.get_type():
                 case T.Other | T.Empty | T.Stop:
+                    # Only Cells with a proper type are added.
+                    # Stops were already added.
                     return
                 case T.Data:
-                    stop = t.stops.get_from_id(stop_id)
-                    entries[e_id].set_value(stop, cell.text)
-                    non_empty_entries.add(e_id)
+                    # Add the data to the entry
+                    #  and ensure the entry will be added to the TimeTable.
+                    entries[e_id].set_value(
+                        t.stops.get_from_id(stop_id), cell.text)
+                    valid_entry_ids.add(e_id)
                 case T.EntryAnnotValue:
                     annots = set([a.strip() for a in cell.text.split()])
                     entries[e_id].annotations = annots
@@ -588,45 +588,57 @@ class Table:
                 case T.RouteAnnotValue:
                     entries[e_id].route_name = cell.text
                 case T.StopAnnot:
-                    stop = t.stops.get_from_id(stop_id)
-                    t.stops.add_annotation(cell.text, stop=stop)
+                    t.stops.add_annotation(cell.text, stop_id=stop_id)
                 case T.RepeatValue:
-                    e = entries[e_id]
+                    # Convert the entry to a RepeatEntry
+                    #  and ensure the entry will be added to the TimeTable.
                     if not isinstance(entries[e_id], TimeTableRepeatEntry):
-                        entries[e_id] = TimeTableRepeatEntry(
-                            "", [cell.text])
-                        entries[e_id].days = e.days
-                        entries[e_id].route_name = e.route_name
-                        entries[e_id].annotations = e.annotations
-                    non_empty_entries.add(e_id)
+                        entries[e_id] = TimeTableRepeatEntry.from_entry(
+                            entries[e_id], [cell.text])
+                    valid_entry_ids.add(e_id)
+
+        def update_entry_days(days: Weekdays, entry_: TimeTableEntry
+                              ) -> Weekdays:
+            """ Set the days for the given entry, if it does not have any.
+
+            :param days: The previously encountered days.
+            :param entry_: This entry's days are added if it does not have any.
+            :return: Either days or the entry's days,
+                depending on whether the entry already had days or not.
+            """
+            if not entry_.days.days:
+                entry_.days = days
+            return entry_.days
 
         t = TimeTable()
         o, stops = self.find_stops()
         # Ignore Tables with too few stops. Usually these are false positives.
         if len(stops) < 3:
             return None
-        n = o.normal
-        tt_stops = [Stop(stop.text, i) for i, stop in stops]
-        for stop in tt_stops:
+
+        # Add stops to the TimeTable.
+        for stop in [Stop(stop.text, i) for i, stop in stops]:
             t.stops.add_stop(stop)
 
+        # Create empty TimeTableEntries for each col/row.
         entries: list[TimeTableEntry]
-        entries = [TimeTableEntry("") for _ in self.left.iter(o=n)]
-        non_empty_entries = set()
+        entries = [TimeTableEntry("") for _ in self.left.iter(o=o.normal)]
+        valid_entry_ids = set()
 
+        # Add each Cell to the TimeTable.
         for stop_id, start in enumerate(self.left.iter(o=o)):
-            for e_id, cell in enumerate(start.iter(o=n)):
-                add_cell_to_timetable()
+            for entry_id, table_cell in enumerate(start.iter(o=o.normal)):
+                add_cell_to_timetable(entry_id, table_cell)
 
-        first_days = first_true((entries[e_id].days
-                                 for e_id in non_empty_entries),
-                                lambda d: d.days != [])
-        for e_id in non_empty_entries:
-            entry = entries[e_id]
-            if not entry.days.days:
-                entry.days = first_days
-            first_days = entry.days
+        # Find the first valid days.
+        valid_entries = list(entries[idx] for idx in valid_entry_ids)
+        previous_days = first_true(valid_entries, lambda e: e.days != [])
+
+        # Update the days for each entry and add the entries to the TimeTable.
+        for entry in valid_entries:
+            previous_days = update_entry_days(previous_days, entry)
             t.entries.append(entry)
+
         return t
 
     def find_stops(self) -> tuple[Orientation, list[tuple[int, C]]]:
@@ -651,7 +663,7 @@ class Table:
         h_stops = _find_stops(H)
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
-    def infer_cell_types(self, first_table: Table | None) -> None:
+    def cleanup(self, first_table: Table | None) -> None:
         """ Infer the Cell types of all Cells.
 
         This will infer the type multiple times,
@@ -663,44 +675,87 @@ class Table:
         """
         # PR: Convoluted. Maybe split this?
         #  This does more than simply inferring types
-        # TODO: Test if it makes a difference, running this twice.
-        for starter in self.left.row:
-            for cell in starter.col:
-                cell.type.infer_type_from_neighbors()
-        for starter in self.left.row:
-            for cell in starter.col:
-                cell.type.infer_type_from_neighbors()
-        self.merge_stops()
+        def infer_cell_types() -> None:
+            """ Infer the CellTypes of each Cell.
 
-        if first_table is None:
+            This will infer the type multiple times, to accomodate
+            for changes in the type based on a previous inference.
+            """
+            # TODO: Test if it makes a difference, running this twice.
+            for starter in self.left.row:
+                for cell in starter.col:
+                    cell.type.infer_type_from_neighbors()
+            for starter in self.left.row:
+                for cell in starter.col:
+                    cell.type.infer_type_from_neighbors()
+
+        def merge_stops(o: Orientation, stops: list[tuple[int, C]]) -> None:
+            """ Merge consecutive Cells of Type Stop. """
+            allow_merge = True
+            allowed_types = [T.Stop, T.Empty]
+            while True:
+                stop: C | None = None
+                for _, stop in stops:
+                    neighbor: C = stop.get_neighbor(o.normal.upper)
+                    if neighbor and neighbor.get_type() in allowed_types:
+                        continue
+                    allow_merge = False
+                    break
+                if not stop or not allow_merge:
+                    break
+                series = "cols" if o == V else "rows"
+                logger.info(
+                    f"Found two consecutive stop {series}. Merging...")
+                merge_series(stop, o.normal.upper)
+
+        infer_cell_types()
+        merge_stops(*self.find_stops())
+        self.remove_duplicate_days(H, first_table)
+
+    def remove_duplicate_days(self, o: Orientation, ref_table: Table) -> None:
+        """ When a Table contains more than one row/col of Days,
+        only keep the first/last,
+        based on what the first Table of the page looks like.
+
+        :param o: The Orientation the days are in.
+            Currently only H is supported.
+        :param ref_table: The Table used as reference.
+            This should be the first table on the page.
+        """
+        # TODO: Theoretically, this could handle o = V as well.
+        #  However, because we currently allow Days to be only inside rows,
+        #  logically it does not make sense to run it like that.
+        # TODO: There is also the issue on how to detect whether the tables
+        #  use rows or cols for the Days.
+        if ref_table is None:
             return
         # Use the first Table on the page to determine, which days row/col
         # is the correct one, in case multiple days rows or cols exist.
-        days_rows = self.of_type(T.Days, H)
-        first_table_days_rows = first_table.of_type(T.Days, H, single=True)
-        if not first_table_days_rows:
-            first_days_row = []
-        else:
-            first_days_row = first_table_days_rows[0]
-        if not days_rows:
-            # Duplicate -> add to self.
-            for day in first_days_row:
-                self.potential_cells.append(day.duplicate())
+        days = self.of_type(T.Days, o)
+        # This Table only has one row containing Days.
+        if len(days) == 1:
+            return
+        # Get the first row of the reference Table.
+        ref_days_list = ref_table.of_type(T.Days, o, single=True)
+        ref_days = [] if not ref_days_list else ref_days_list[0]
+        if not days:
+            # Duplicate the first Tables days and add to self.
+            self.potential_cells += [day.duplicate() for day in ref_days]
             self.expand_all()
             return
-        if len(days_rows) == 1:
-            return
-        first_table_col = list(first_days_row[0].col)
-        first_days_row_idx = first_table_col.index(first_days_row[0])
-        first = first_days_row_idx < len(first_table_col) / 2
+        # Use the first days row/col if its col/row index in the
+        #  first half of the col/row. Otherwise, use the last days row/col.
+        ref_normal = list(ref_days[0].iter(o.normal))
+        ref_normal_days_index = ref_normal.index(ref_days[0])
+        first = ref_normal_days_index < len(ref_normal) / 2
         first_or_last = "first" if first else "last"
         logger.info("Found multiple rows containing Cells of type Days for "
-                    f"Table {self}. Selecting the {first_or_last}, because "
-                    f"the first Table of the current page does so as well.")
-        # TODO: Do this for other types as well?
-        # Remove Days as possible type of all other days_rows
-        invalid_days_rows = days_rows[1:] if first else days_rows[:-1]
-        for days in invalid_days_rows:
+                    f"Table {self}. Selecting the {first_or_last} row, "
+                    f"because the first Table of the current page uses the "
+                    f"{first_or_last} row as well.")
+        # Remove Days as a possible type of all other days
+        invalid_days = days[1:] if first else days[:-1]
+        for days in invalid_days:
             for day in days:
                 del day.type.possible_types[T.Days]
                 day.type.infer_type_from_neighbors()
@@ -717,7 +772,7 @@ class Table:
 
         :param typ: The Type each Cell in the returned row will have.
         :param o: The Orientation the Cells in the returned lists will have.
-        :param single: Whether only to return the first series encountered.
+        :param single: Whether to only return the first series encountered.
         :param strict: If type checking should be strict or not.
         :return: A list of lists,
             where each sublist contains Cells of the given Type.
@@ -735,24 +790,6 @@ class Table:
             if single and cells_of_type:
                 return cells_of_type
         return cells_of_type
-
-    def merge_stops(self) -> None:
-        """ Merge consecutive Cells of Type Stop. """
-        o, stops = self.find_stops()
-        allow_merge = True
-        allowed_types = [T.Stop, T.Empty]
-        while True:
-            stop: C | None = None
-            for _, stop in stops:
-                neighbor: C = stop.get_neighbor(o.normal.upper)
-                if not neighbor or neighbor.get_type() not in allowed_types:
-                    allow_merge = False
-                    break
-            if not stop or not allow_merge:
-                break
-            series = "cols" if o == V else "rows"
-            logger.info(f"Found two consecutive stop {series}. Merging...")
-            merge_series(stop, o.normal.upper)
 
 
 def group_cells_by(cells: Iterable[C],
@@ -808,7 +845,7 @@ def cells_to_rows(cells: Cs, *, link_rows: bool = True) -> list[Cs]:
     """ Group the Cells into a collection of rows.
 
     :param cells: The Cells that will be part of the row.
-    :param link_rows: Whether to link the Cells of a row.
+    :param link_rows: Whether to link the Cells in a row.
     :return: A list of all rows.
     """
     def _same_row(c1: C, c2: C) -> bool:
@@ -840,7 +877,7 @@ def link_cells(d: Direction, cells: Cs) -> None:
 def unlink_cells(d: Direction, cells: Cs) -> None:
     """ Remove the links to any other Cells in the given Direction.
 
-    The links that are removed can be linking to arbitrary Cells.
+    The links that are removed can be linked to arbitrary Cells.
 
     :param d: The Direction each Cell's neighbors will be removed from.
     :param cells: The Cells to remove the links from.
@@ -860,8 +897,8 @@ def link_rows_and_cols(partial_rows: list[Cs], partial_cols: list[Cs]
     def _fill_gaps_in_column(relative_to: Cs, partial_col: Cs) -> Cs:
         """ Add EmptyCells in place of missing Cells.
 
-        :param relative_to: A complete col, used to determine,
-            which fields are missing in the partial col.
+        :param relative_to: A complete col. This is used to determine,
+            which of the Cells are missing in the partial col.
         :param partial_col: A col that may have missing Cells.
         :return: The complete col.
         """
@@ -911,8 +948,8 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
         overlap_func: Callable[[BBox], Callable[[BBox, float], bool]]
         overlap_func = methodcaller(o.normal.overlap_func, cell_.bbox, 0.8)
         # Start looking for overlapping ref_cells only from the previous
-        #  ref_cell. That way we skip those ref_cells, we know can't overlap.
-        # This works, because both the cells and the ref_cells are sorted.
+        #  ref_cell. That way we skip those ref_cells, we know can not overlap.
+        # This works because both the cells and the ref_cells are sorted.
         for i, ref_cell in enumerate(ref_cells[start_:], start_):
             # Use the BBox of the ref_cells col/row, in case the ref_cell
             #  itself is smaller.

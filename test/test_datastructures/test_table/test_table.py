@@ -114,7 +114,7 @@ class TestTable(TestCase):
         # Column left of stop annots contains stops.
         self.assertTrue(table.expand(W))
         # Need to infer types for the stops.
-        table.infer_cell_types(None)
+        table.cleanup(None)
         stops = list(table.left.col)
         for stop in stops:
             self.assertTrue(stop.has_type(T.Stop, strict=True))

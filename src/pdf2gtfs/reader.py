@@ -337,8 +337,7 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         t.expand_all()
         logger.info("Found the following table:")
         t.print(None)
-        t.infer_cell_types(tables[0] if t != tables[0] else None)
-        t.merge_stops()
+        t.cleanup(tables[0] if t != tables[0] else None)
         logger.info("With the following types:")
         t.print_types()
     return tables

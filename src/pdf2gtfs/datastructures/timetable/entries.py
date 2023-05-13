@@ -116,7 +116,16 @@ class TimeTableRepeatEntry(TimeTableEntry):
         return []
 
     @staticmethod
-    def from_entry(entry: TimeTableEntry) -> TimeTableRepeatEntry:
-        repeat_entry = TimeTableRepeatEntry("", [])
+    def from_entry(entry: TimeTableEntry, intervals: list[str] = None
+                   ) -> TimeTableRepeatEntry:
+        """ Create a TimeTableEntry using the values of the given entry.
+
+        :param entry: The values of this entry will be used.
+        :param text: If given, it will be added to the TimeTableEntry.
+        """
+        if not intervals:
+            intervals = []
+        repeat_entry = TimeTableRepeatEntry("", intervals)
         repeat_entry.days = entry.days
         repeat_entry.annotations = entry.annotations
+        return repeat_entry

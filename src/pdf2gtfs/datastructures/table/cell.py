@@ -160,7 +160,7 @@ class Cell(BBoxObject):
 
         :param d: The Direction to check for neighbors in.
         :param o: The Orientation to check for neighbors in.
-            Simply checks both Directions of o.
+            Simply check both Directions of o.
         :return: True, if there exist any neighbors. False, otherwise.
         """
         if o is None:
@@ -237,7 +237,7 @@ class Cell(BBoxObject):
 
     def get_type(self) -> T:
         """ The inferred or guessed type of the Cell, whichever exists. """
-        # Prefer the inferred CellType, if it exists.
+        # Prefer the inferred CellType if it exists.
         if self.type.inferred_type:
             return self.type.inferred_type
         return self.type.guess_type()
@@ -265,7 +265,7 @@ class Cell(BBoxObject):
         Depending on the parameters, the neighbors may not be adjacent.
 
         :param allow_none: Whether to return None for non-existent neighbors.
-        :param allow_empty: If true, return any EmptyCell, if it is a neighbor.
+        :param allow_empty: If true, return any EmptyCell if it is a neighbor.
             If False, instead of returning the EmptyCells,
              we will search for non-empty Cells.
         :param directions: The Directions to look for neighbors in.
@@ -274,7 +274,7 @@ class Cell(BBoxObject):
         """
         neighbors = {d: self.get_neighbor(d) for d in directions}
         if not allow_empty:
-            # Find the next neighbor, if the direct neighbor is an EmptyCell.
+            # Find the next neighbor if the direct neighbor is an EmptyCell.
             for d, neighbor in neighbors.items():
                 if neighbor is None or not isinstance(neighbor, EmptyCell):
                     continue
@@ -316,7 +316,8 @@ class Cell(BBoxObject):
     def is_overlap(self, o: Orientation, cell: C, *args) -> bool:
         """ Check if self and the given Cell are overlapping in the given o.
 
-        :param o: The Orientation used to determine, which method to run.
+        :param o: The Orientation used to determine
+            whether to run the vertical or horizontal overlap check.
         :param cell: The Cell that may be overlapping.
         :param args: Args passed to the overlap method.
         :return: True, if self and the given Cell overlap. False, otherwise.
@@ -333,7 +334,7 @@ class Cell(BBoxObject):
         The neighbors of the given Cell will be our neighbors after merging.
 
         :param cell: The Cell that will be merged.
-        :param merge_char: The char used when merging the text of both Cells.
+        :param merge_char: Used when merging the text of both Cells.
         :param ignore_neighbors: The Directions to ignore the neighbors in.
             Useful, when multiple neighboring Cells are merged successively.
         """
