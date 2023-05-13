@@ -297,20 +297,6 @@ ABS_FALLBACK: list[T] = [
 RelIndicatorFunc: TypeAlias = Callable[[C], float]
 
 
-def cell_has_type(cell: C, typ: T, strict: bool = True) -> bool:
-    """ Check if the Cell has the given Type.
-
-    :param cell: The Cell in question.
-    :param typ: The Type the Cell's CellType is checked against.
-    :param strict: If true, check only the most probable/inferred Type.
-        Otherwise, all possible Types are checked against.
-    :return: True if the CellType is of the given Type. False, otherwise.
-    """
-    if strict:
-        return cell.get_type() == typ
-    return typ in cell.type.possible_types
-
-
 def cell_has_type_wrapper(typ: T, strict: bool = True) -> Callable[[C], bool]:
     """ Simple wrapper around has_type.
 
@@ -320,7 +306,7 @@ def cell_has_type_wrapper(typ: T, strict: bool = True) -> Callable[[C], bool]:
         and returns whether the Cell has the given Type.
     """
     def _cell_has_type(cell: C) -> bool:
-        return cell_has_type(cell, typ, strict)
+        return cell.has_type(typ, strict=strict)
 
     return _cell_has_type
 
@@ -590,8 +576,8 @@ def rel_indicator_data_annot(cell: C) -> float:
     if not neighbor_of_data:
         return 0
 
-    data_neighbors = [n for n in cell.get_neighbors(
-        allow_none=False, allow_empty=False) if n.get_type() == T.Data]
+    neighbors = cell.get_neighbors(allow_none=False, allow_empty=False)
+    data_neighbors = [n for n in neighbors if n.has_type(T.Data, strict=True)]
     mean_data_fontsize = mean(map(attrgetter("fontsize"), data_neighbors))
     return cell.fontsize <= mean_data_fontsize
 

@@ -104,7 +104,7 @@ class TestTable(TestCase):
         stop_annots = 0
         for cell in col:
             is_empty = cell.has_type(T.Empty)
-            is_stop_annot = cell.get_type() == T.StopAnnot
+            is_stop_annot = cell.has_type(T.StopAnnot, strict=True)
             if is_stop_annot:
                 stop_annots += 1
             self.assertTrue(is_empty or is_stop_annot)
@@ -117,7 +117,7 @@ class TestTable(TestCase):
         table.infer_cell_types(None)
         stops = list(table.left.col)
         for stop in stops:
-            self.assertTrue(stop.get_type() == T.Stop)
+            self.assertTrue(stop.has_type(T.Stop, strict=True))
         self.assertEqual(23, len(stops))
         # Can not expand further in W.
         self.assertFalse(table.expand(W))

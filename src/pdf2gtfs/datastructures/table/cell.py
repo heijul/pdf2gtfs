@@ -242,16 +242,18 @@ class Cell(BBoxObject):
             return self.type.inferred_type
         return self.type.guess_type()
 
-    def has_type(self, *types: T) -> bool:
+    def has_type(self, *types: T, strict: bool = False) -> bool:
         """ Check, if the Cell contains any of the types in its possible types.
 
         :param types: Any of these must be in the Cell's possible types.
-        :return: True, if any of the given CellTypes is
+        :param strict: If True, only the probable/inferred type is checked.
+        :return: True if any of the given CellTypes is
             a possible type of the Cell. False, otherwise.
         """
-        # PR: Add strict.
-        if not self.type.possible_types:
-            self.get_type()
+        if not self.type.possible_types or strict:
+            current_type = self.get_type()
+            if strict:
+                return any(current_type == typ for typ in types)
         return any(typ in self.type.possible_types for typ in types)
 
     def get_neighbors(self, *,

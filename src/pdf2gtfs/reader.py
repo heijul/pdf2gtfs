@@ -242,7 +242,7 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
     cells = filter(lambda f: f.text, cells)
     # Split the cells based on their type.
     non_data_cells, data_cells = partition(
-        lambda c: c.get_type() == T.Data, cells)
+        lambda c: c.has_type(T.Data, strict=True), cells)
     # Some text may not have been read properly.
     non_data_cells, invalid_cells = partition(
         lambda c: c.text.startswith("(cid"), non_data_cells)

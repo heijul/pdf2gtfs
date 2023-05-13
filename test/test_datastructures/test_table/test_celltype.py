@@ -5,12 +5,9 @@ from pdf2gtfs.datastructures.table.direction import W
 from pdf2gtfs.datastructures.table.cell import EmptyCell, Cell, Cs
 from pdf2gtfs.datastructures.table.celltype import (
     ABS_FALLBACK, ABS_INDICATORS, false, cell_col_contains_type,
-    cell_has_type,
     cell_has_type_wrapper, cell_is_between_type, cell_neighbor_has_type,
     cell_neighbor_has_type_wrapper, cell_row_contains_type,
-    is_legend,
-    is_repeat_value,
-    is_time_data, is_wrapper, T, true,
+    is_legend, is_repeat_value, is_time_data, is_wrapper, T, true,
     )
 from pdf2gtfs.datastructures.table.table import Table
 
@@ -85,27 +82,13 @@ class AbsIndicatorTests(TestCase):
 
 
 class RelIndicatorTests(TestCase):
-    def test_cell_has_type(self) -> None:
-        f = Cell("test")
-        f.type.possible_types = {T.Data: 1, T.Other: 0.3}
-        self.assertTrue(cell_has_type(f, T.Data, True))
-        self.assertTrue(cell_has_type(f, T.Data, False))
-        self.assertTrue(cell_has_type(f, T.Other, False))
-        self.assertFalse(cell_has_type(f, T.Other, True))
-        self.assertFalse(cell_has_type(f, T.Days, True))
-        self.assertFalse(cell_has_type(f, T.Days, False))
-        f.type.inferred_type = T.Stop
-        self.assertFalse(cell_has_type(f, T.Data, True))
-        self.assertTrue(cell_has_type(f, T.Data, False))
-        self.assertTrue(cell_has_type(f, T.Stop, True))
-
     def test_cell_has_type_wrapper(self) -> None:
         # Possible types are in ABS_FALLBACK
         f = Cell("test")
         f.get_type()
         for t in ABS_FALLBACK + list(ABS_INDICATORS.keys()):
             with self.subTest(celltype=t):
-                self.assertEqual(cell_has_type(f, t),
+                self.assertEqual(f.has_type(t, strict=True),
                                  cell_has_type_wrapper(t)(f))
 
     def test_cell_row_contains_type(self) -> None:

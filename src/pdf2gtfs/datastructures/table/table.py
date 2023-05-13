@@ -394,7 +394,7 @@ class Table:
             :param c: This Cell's text is checked.
             :return: The format char used for alignment.
             """
-            return ">" if c.get_type() == T.Data else "<"
+            return ">" if c.has_type(T.Data, strict=True) else "<"
 
         self._print(attrgetter("text"), get_text_align, col_count)
 
@@ -641,7 +641,7 @@ class Table:
                 start = self.left
             for cell in start.iter(o=o.normal):
                 series = [(i, f) for i, f in enumerate(cell.iter(o=o))
-                          if f.get_type() == T.Stop]
+                          if f.has_type(T.Stop, strict=True)]
                 if not series:
                     continue
                 return series
@@ -726,9 +726,7 @@ class Table:
         for starter in self.left.iter(o=o.normal):
             cells_of_type.append([])
             for cell in starter.iter(o=o):
-                if not cell.has_type(typ):
-                    continue
-                if not strict or cell.get_type() == typ:
+                if cell.has_type(typ, strict=strict):
                     cells_of_type[-1].append(cell)
             if not cells_of_type[-1]:
                 cells_of_type.pop()
