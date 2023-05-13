@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from itertools import pairwise
-from operator import attrgetter
+from operator import attrgetter, methodcaller
 from typing import Callable, Generator, Iterable, Iterator, TYPE_CHECKING
 
 from more_itertools import (
@@ -909,10 +909,6 @@ def link_rows_and_cols(partial_rows: list[Cs], partial_cols: list[Cs]
 def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
     """ Merge Cells that are overlapping with the same ref_cell.
 
-    Only the first overlapping Cell is checked.
-    That is, if a Cell is overlapping with multiple ref_cells,
-    only the first one matters for the purpose of merging.
-
     If two or more Cells are overlapping with the same ref_cell,
     they (the Cells, not the ref_cell) are all merged into a single Cell.
 
@@ -920,38 +916,60 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
     :param ref_cells: The Cells used as reference.
     :param cells: The Cells that might be merged.
     """
-    # PR: Needs more comments or needs to be split.
-    if len(cells) < 2:
-        return
-    n = o.normal
-    overlaps = {}
-    first_ref_id = 0
-    for cell in cells:
+    def get_cell_overlaps(start_: int, cell_: C) -> tuple[int, Cs]:
+        """ Find those ref_cells the given Cell overlaps with.
+
+        :param start_: The index of the ref_cell to start at. Used to skip
+            ref_cells that did not overlap with the previous col's Cell.
+        :param cell_: The Cell we want to find the overlapping ref_cells for.
+        :return: The index of the first overlapping ref_cell,
+            and the ref_cells that overlap with the given Cell.
+        """
         cell_overlaps = []
-        for i, ref_cell in enumerate(ref_cells[first_ref_id:], first_ref_id):
-            bbox = ref_cell.table.get_bbox_of(
-                ref_cell.table.get_series(o, ref_cell))
-            if bbox.is_overlap(n.name.lower(), cell.bbox, 0.8):
+        overlap_func: Callable[[BBox], Callable[[BBox, float], bool]]
+        overlap_func = methodcaller(o.normal.overlap_func, cell_.bbox, 0.8)
+        # Start looking for overlapping ref_cells only from the previous
+        #  ref_cell. That way we skip those ref_cells, we know can't overlap.
+        # This works, because both the cells and the ref_cells are sorted.
+        for i, ref_cell in enumerate(ref_cells[start_:], start_):
+            # Use the BBox of the ref_cells col/row, in case the ref_cell
+            #  itself is smaller.
+            bbox = ref_cell.table.get_bbox_of(ref_cell.iter(o.upper, True))
+            if overlap_func(bbox):
                 if not cell_overlaps:
-                    first_ref_id = i
+                    start_ = i
                 cell_overlaps.append(ref_cell)
                 continue
+            # No need to look for further overlaps
+            #  if a previous ref_cell overlapped and the current one doesn't.
             if cell_overlaps:
                 break
-        overlaps[id(cell)] = cell_overlaps
+        return start_, cell_overlaps
 
+    # TODO: Try to have ref_cells contain the maximum number of DataCells.
+    #  That way, Days columns, for example,  won't fuck up anything above them.
+    if len(cells) < 2:
+        return
+    overlaps = {}
+    start = 0
+    # For each Cell find those ref_cells the Cell overlaps with.
+    # We use id(cell) here, because a Cell is not hashable.
+    for cell in cells:
+        start, overlaps[id(cell)] = get_cell_overlaps(start, cell)
+
+    # Merge consecutive Cells, iff they are overlapping with the same ref_cell.
     f1 = cells[0]
     f2 = cells[1]
     while f2:
-        same_overlap = any([o2 in overlaps[id(f1)] for o2 in overlaps[id(f2)]])
-        if not same_overlap:
-            f1 = f2
-            f2 = f2.get_neighbor(n.upper)
+        has_same_overlap = any([overlap in overlaps[id(f1)]
+                                for overlap in overlaps[id(f2)]])
+        if not has_same_overlap:
+            f1, f2 = f2, f2.get_neighbor(o.normal.upper)
             continue
         f1.merge(f2)
         cells.remove(f2)
         # f1 has all neighbors of f2 after merge.
-        f2 = f1.get_neighbor(n.upper)
+        f2 = f1.get_neighbor(o.normal.upper)
 
 
 def insert_empty_cells_from_map(
