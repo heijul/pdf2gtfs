@@ -181,16 +181,26 @@ class Cell(BBoxObject):
     def table(self, table: Table | None) -> None:
         self._table = table
 
-    def iter(self, d: Direction, complete: bool = False) -> Generator[C]:
+    def iter(self, d: Direction = None, complete: bool = True,
+             *, o: Orientation = None) -> Generator[C]:
         """ Return an Iterator over the neighbors of this Cell in the given d.
+
+        Only one of o and d must be given.
 
         :param d: The Direction to iterate over the Cells in.
         :param complete: If True, we first reverse the Direction. That way,
             this will return a generator over all neighbors of self, and self.
+        :param o: The Orientation to use.
+            I.e., whether to return row (H) or column (V).
+            If given will iterate over the Cells using the upper Direction.
         :return: A generator over either all Cells in this Cell's row/col,
             or only those that are neighbors in the given Direction.
         """
-        # TODO: Check if complete=True is a better default.
+        if o:
+            assert d is None
+            d = o.upper
+        assert d is not None
+
         cell = self.get_last(d.opposite) if complete else self
         while cell:
             yield cell
@@ -239,6 +249,7 @@ class Cell(BBoxObject):
         :return: True, if any of the given CellTypes is
             a possible type of the Cell. False, otherwise.
         """
+        # PR: Add strict.
         if not self.type.possible_types:
             self.get_type()
         return any(typ in self.type.possible_types for typ in types)
@@ -277,7 +288,7 @@ class Cell(BBoxObject):
 
         :return: A generator over all Cells in this Cell's row.
         """
-        return self.iter(E, True)
+        return self.iter(E)
 
     @property
     def col(self) -> Generator[C, None, None]:
@@ -285,7 +296,7 @@ class Cell(BBoxObject):
 
         :return: A generator over all Cells in this Cell's column.
         """
-        return self.iter(S, True)
+        return self.iter(S)
 
     def any_overlap(self, o: Orientation, cell: C) -> bool:
         """ Check, if there is any overlap between self and the given Cell.
@@ -386,9 +397,17 @@ class EmptyCell(Cell, BBoxObject):
 
     @property
     def bbox(self) -> BBox:
+        """ The BBox of an EmptyCell is defined as its row's x-coordinates
+        and its col's y-coordinates.
+
+        :return: A BBox that is contained by both the row/col,
+            while having the row's height and the col's width.
+        """
         self.table: Table
         if self.table:
-            return self.table.get_empty_cell_bbox(self)
+            row_bbox = self.table.get_bbox_of(self.row)
+            col_bbox = self.table.get_bbox_of(self.col)
+            return BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
         if self._bbox:
             return self._bbox
         logger.warning("Tried to get the bbox of an EmptyCell that is "

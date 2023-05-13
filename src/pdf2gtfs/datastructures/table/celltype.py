@@ -466,7 +466,7 @@ def data_aligned_cells_are_non_empty(starter: C, o: Orientation,
     neighbor_types = [T.Data]
     if neighbor_type is not None:
         neighbor_types.append(neighbor_type)
-    for cell in starter.table.get_series(o, starter):
+    for cell in starter.iter(o=o):
         if not series_contains_type(cell, n, T.Data):
             continue
         if not isinstance(cell, EmptyCell):
@@ -502,7 +502,7 @@ def series_is_aligned(starter: C, o: Orientation,
     """
     bbox_attr = "x0" if o == V else "y0"
     lower_coords: list[float] = []
-    for cell in starter.table.get_series(o, starter):
+    for cell in starter.iter(o=o):
         # Only check data Cells.
         if not series_contains_type(cell, o.normal, T.Data):
             continue

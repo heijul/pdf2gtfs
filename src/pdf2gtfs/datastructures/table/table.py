@@ -1,11 +1,10 @@
 """ The new Table, that is able to detect Tables regardless of Orientation. """
 from __future__ import annotations
-# PR: Move code around, so it is closer to its usage.
 
 import logging
 from itertools import pairwise
-from operator import attrgetter, itemgetter, methodcaller
-from typing import Callable, Generator, Iterable, Iterator, TYPE_CHECKING
+from operator import attrgetter, methodcaller
+from typing import Callable, Iterable, Iterator, TYPE_CHECKING
 
 from more_itertools import (
     always_iterable, collapse, first_true, peekable, split_when,
@@ -27,6 +26,24 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def merge_series(starter: C, d: Direction) -> None:
+    """ Merge the row/col of the given Cell to the neighboring series.
+
+    :param starter: Used to get the series in the Directions'
+        Orientations' normal Orientation.
+    :param d: The Cells row/col will be merged with
+        their respective neighbors in this Direction.
+    """
+    neighbor = starter.get_neighbor(d)
+    if not neighbor:
+        raise AssertionError(f"Can't merge in {d.name}. End of Table.")
+    normal = d.o.normal
+    series = list(starter.iter(o=normal))
+    neighbors = list(neighbor.iter(o=normal))
+    for f1, f2 in zip(series, neighbors, strict=True):
+        f1.merge(f2, ignore_neighbors=[normal.lower, normal.upper])
 
 
 class Table:
@@ -136,7 +153,7 @@ class Table:
         """
         if not cell:
             cell = self.get_end(o.lower)
-        return list(cell.iter(o.upper, True))
+        return list(cell.iter(o=o))
 
     def insert(self, d: Direction, rel_cell: OC, new_cell: C) -> None:
         """ Inserts new_cell relative to the rel_cell in the given Direction.
@@ -149,9 +166,12 @@ class Table:
         """
         normal = d.o.normal
 
-        # TODO NOW: Check that each new_cell only has neighbors
-        #  that are in new_cells
-        new_cells = list(new_cell.iter(normal.upper))
+        new_cells = list(new_cell.iter(o=normal))
+        # Check that each new_cell only has neighbors that are in new_cells.
+        # Otherwise, bad things may happen.
+        for cell in new_cells:
+            for neighbor in cell.get_neighbors(allow_none=False):
+                assert neighbor in new_cells
         # If we want to insert a column (i.e., vertical) at the beginning/end,
         # we need a row (i.e., horizontal) to get the first/last column.
         if rel_cell is None:
@@ -162,17 +182,6 @@ class Table:
         for rel_cell, new_cell in zip(rel_cells, new_cells, strict=True):
             rel_cell.set_neighbor(d, new_cell)
             new_cell.table = self
-
-    def get_series(self, o: Orientation, cell: C) -> Generator[C]:
-        """ The row or column the Cell resides in.
-
-        :param o: The Orientation of the series, i.e. whether to return
-            row (H) or column (V).
-        :param cell: The Cell in question.
-        :return: A generator that yields all objects in the series.
-        """
-        # PR: REMOVE THIS IN FAVOR OF CELL.ITER/CELL.ROW/CELL.COL.
-        return cell.iter(o.upper, True)
 
     def get_bbox_of(self, cells: Iterator[C]) -> BBox:
         """ Return the combined BBox of the given Cells.
@@ -194,19 +203,6 @@ class Table:
             self.bboxes[cell_hash] = BBox.from_bboxes(bboxes)
         return self.bboxes[cell_hash]
 
-    def get_empty_cell_bbox(self, empty_cell: EmptyCell) -> BBox:
-        """ The BBox of an empty Cell is defined as its row's x-coordinates
-        and its col's y-coordinates.
-
-        :param empty_cell: The EmptyCell the BBox was requested for.
-        :return: A BBox that is contained by both the row/col,
-            while having the row's height and the col's width.
-        """
-        # PR: Consider moving this to EmptyCell.
-        row_bbox = self.get_bbox_of(empty_cell.row)
-        col_bbox = self.get_bbox_of(empty_cell.col)
-        return BBox(col_bbox.x0, row_bbox.y0, col_bbox.x1, row_bbox.y1)
-
     def expand(self, d: Direction) -> bool:
         """ Expand the Table in the given Direction using the given Cells.
 
@@ -217,9 +213,9 @@ class Table:
             raise Exception("Potential Cells must be added to this Table, "
                             "before trying to expand it.")
         normal = d.o.normal
-        ref_cells = list(self.get_series(normal, self.get_end(d)))
+        ref_cells = list(self.get_end(d).iter(o=normal))
 
-        bboxes = [self.get_bbox_of(self.get_series(d.o, f)) for f in ref_cells]
+        bboxes = [self.get_bbox_of(f.iter(o=d.o)) for f in ref_cells]
         adjacent_cells = select_adjacent_cells(d, bboxes, self.potential_cells)
         if not adjacent_cells:
             return False
@@ -240,6 +236,16 @@ class Table:
         for cell in adjacent_cells:
             self.potential_cells.remove(cell)
         return True
+
+    def expand_all(self) -> None:
+        """ Exhaustively expand the Table in the lower Directions (N, W). """
+        expanded = True
+        while expanded:
+            expanded = False
+            for d in D:
+                if d in [S, E]:
+                    continue
+                expanded |= self.expand(d)
 
     def get_contained_cells(self, cells: Cs) -> Cs:
         """ Get all Cells that are within the Table's BBox.
@@ -299,8 +305,6 @@ class Table:
 
         :param cells: The Cells that are checked for repeat intervals.
         """
-        # PR: This seems like it can only handle repeat columns.
-        #  Not rows. Fix or create issue.
         identifiers = self.get_repeat_identifiers(cells)
         if not identifiers:
             return
@@ -416,9 +420,21 @@ class Table:
             that are between the given splitter.
             The splitter will not be part of any Table.
         """
+
+        def _split_at_splitter() -> list[Cs]:
+            def _same_table(cell1: C, cell2: C) -> bool:
+                return cell1.table != cell2.table
+
+            cells = list(self.get_end(o.lower).iter(o=o.normal))
+            cells += list(collapse(splitter))
+            pre_sorter = "bbox.y0" if o == H else "bbox.x0"
+            return group_cells_by(cells, _same_table, pre_sorter, None)
+
+        # PR: Clean this up. Convoluted.
+
         if not splitter:
             return [self]
-        table_cells = self._split_at_splitter(o, splitter)
+        table_cells = _split_at_splitter()
 
         tables = []
         for table_cell in table_cells:
@@ -428,7 +444,7 @@ class Table:
                 continue
             cell = None
             # Unlink last row/col of each Table, based on o.
-            for cell in self.get_series(o, table_cell[-1]):
+            for cell in table_cell[-1].iter(o=o):
                 cell.del_neighbor(o.normal.upper)
             table = Table(head, cell)
             table.remove_empty_series()
@@ -441,14 +457,13 @@ class Table:
         splitter = []
         idx = 0
         normal = o.normal
-        table_cells = list(
-            self.get_series(normal, self.get_end(normal.upper)))
+        table_cells = list(self.get_end(normal.upper).iter(o=normal))
 
         bound = normal.lower.coordinate
         for group in grouped_cells:
             group_bbox = BBox.from_bboxes([f.bbox for f in group])
             for i, table_cell in enumerate(table_cells[idx:], idx):
-                table_bbox = self.get_bbox_of(self.get_series(o, table_cell))
+                table_bbox = self.get_bbox_of(table_cell.iter(o=o))
                 # Cells that are overlapping in the given Orientation
                 #  can't split the Table.
                 if table_bbox.is_overlap(normal.name.lower(), group_bbox):
@@ -510,22 +525,10 @@ class Table:
 
         return list(collapse(tables))
 
-    def _split_at_splitter(self, o: Orientation, splitter: list[Cs]
-                           ) -> list[Cs]:
-        def _same_table(cell1: C, cell2: C) -> bool:
-            return cell1.table != cell2.table
-
-        # PR: What's the difference to split_at_cells? Update name?
-
-        cells = list(self.get_series(o.normal, self.get_end(o.lower)))
-        cells += list(collapse(splitter))
-        pre_sorter = "bbox.y0" if o == H else "bbox.x0"
-        return group_cells_by(cells, _same_table, pre_sorter, None)
-
     def _remove_empty_series(self, o: Orientation) -> None:
         n = o.normal
-        for cell in list(self.get_series(o, self.top)):
-            series = list(self.get_series(n, cell))
+        for cell in list(self.top.iter(o=o)):
+            series = list(cell.iter(o=n))
             if any((not isinstance(f, EmptyCell) for f in series)):
                 continue
             lower_neighbor = series[0].get_neighbor(o.lower)
@@ -533,8 +536,8 @@ class Table:
             unlink_cells(o.lower, series)
             unlink_cells(o.upper, series)
             if lower_neighbor and upper_neighbor:
-                neighbors = (list(self.get_series(n, lower_neighbor)),
-                             list(self.get_series(n, upper_neighbor)))
+                neighbors = (list(lower_neighbor.iter(o=n)),
+                             list(upper_neighbor.iter(o=n)))
                 for (lower_neighbor, upper_neighbor) in zip(*neighbors):
                     lower_neighbor.set_neighbor(o.upper, upper_neighbor)
                 continue
@@ -607,12 +610,12 @@ class Table:
         for stop in tt_stops:
             t.stops.add_stop(stop)
 
-        entries: list[TimeTableEntry] = [
-            TimeTableEntry("") for _ in self.get_series(n, self.left)]
+        entries: list[TimeTableEntry]
+        entries = [TimeTableEntry("") for _ in self.left.iter(o=n)]
         non_empty_entries = set()
 
-        for stop_id, start in enumerate(self.get_series(o, self.left)):
-            for e_id, cell in enumerate(self.get_series(n, start)):
+        for stop_id, start in enumerate(self.left.iter(o=o)):
+            for e_id, cell in enumerate(start.iter(o=n)):
                 add_cell_to_timetable()
 
         first_days = first_true((entries[e_id].days
@@ -634,9 +637,10 @@ class Table:
         """
         def _find_stops(o: Orientation, start: C | None = None
                         ) -> list[tuple[int, C]]:
-            for cell in self.get_series(o.normal, start or self.left):
-                series = [(i, f)
-                          for i, f in enumerate(self.get_series(o, cell))
+            if start is None:
+                start = self.left
+            for cell in start.iter(o=o.normal):
+                series = [(i, f) for i, f in enumerate(cell.iter(o=o))
                           if f.get_type() == T.Stop]
                 if not series:
                     continue
@@ -646,17 +650,6 @@ class Table:
         v_stops = _find_stops(V)
         h_stops = _find_stops(H)
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
-
-    def expand_all(self) -> None:
-        """ Exhaustively expand the Table in the lower Directions (N, W). """
-        # PR: This needs to be done in the upper Directions as well. New issue?
-        expanded = True
-        while expanded:
-            expanded = False
-            for d in D:
-                if d in [S, E]:
-                    continue
-                expanded |= self.expand(d)
 
     def infer_cell_types(self, first_table: Table | None) -> None:
         """ Infer the Cell types of all Cells.
@@ -668,8 +661,9 @@ class Table:
             Otherwise, the first Table will be used to determine
             whether the Days, etc. are in the header or in the footer.
         """
-        # TODO: Test if it makes a difference, running this twice.
         # PR: Convoluted. Maybe split this?
+        #  This does more than simply inferring types
+        # TODO: Test if it makes a difference, running this twice.
         for starter in self.left.row:
             for cell in starter.col:
                 cell.type.infer_type_from_neighbors()
@@ -729,9 +723,9 @@ class Table:
             where each sublist contains Cells of the given Type.
         """
         cells_of_type: list[list[C]] = []
-        for starter in self.get_series(o.normal, self.left):
+        for starter in self.left.iter(o=o.normal):
             cells_of_type.append([])
-            for cell in self.get_series(o, starter):
+            for cell in starter.iter(o=o):
                 if not cell.has_type(typ):
                     continue
                 if not strict or cell.get_type() == typ:
@@ -744,23 +738,6 @@ class Table:
                 return cells_of_type
         return cells_of_type
 
-    def merge_series(self, starter: C, d: Direction) -> None:
-        """ Merge the row/col of the given Cell to the neighboring series.
-
-        :param starter: Used to get the series in the Directions'
-            Orientations' normal Orientation.
-        :param d: The Cells row/col will be merged with
-            their respective neighbors in this Direction.
-        """
-        neighbor = starter.get_neighbor(d)
-        if not neighbor:
-            raise AssertionError(f"Can't merge in {d.name}. End of Table.")
-        normal = d.o.normal
-        series = list(self.get_series(normal, starter))
-        neighbors = list(self.get_series(normal, neighbor))
-        for f1, f2 in zip(series, neighbors, strict=True):
-            f1.merge(f2, ignore_neighbors=[normal.lower, normal.upper])
-
     def merge_stops(self) -> None:
         """ Merge consecutive Cells of Type Stop. """
         o, stops = self.find_stops()
@@ -768,7 +745,7 @@ class Table:
         allowed_types = [T.Stop, T.Empty]
         while True:
             stop: C | None = None
-            for stop in itemgetter(1)(stops):
+            for _, stop in stops:
                 neighbor: C = stop.get_neighbor(o.normal.upper)
                 if not neighbor or neighbor.get_type() not in allowed_types:
                     allow_merge = False
@@ -777,7 +754,7 @@ class Table:
                 break
             series = "cols" if o == V else "rows"
             logger.info(f"Found two consecutive stop {series}. Merging...")
-            self.merge_series(stop, o.normal.upper)
+            merge_series(stop, o.normal.upper)
 
 
 def group_cells_by(cells: Iterable[C],
@@ -909,7 +886,7 @@ def link_rows_and_cols(partial_rows: list[Cs], partial_cols: list[Cs]
             f1.set_neighbor(E, f2)
 
     # Get the (now) complete rows.
-    rows: list[Cs] = [list(cell.iter(E, True)) for cell in cols[0]]
+    rows: list[Cs] = [list(cell.iter(E)) for cell in cols[0]]
     return cols, rows
 
 
@@ -941,7 +918,7 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
         for i, ref_cell in enumerate(ref_cells[start_:], start_):
             # Use the BBox of the ref_cells col/row, in case the ref_cell
             #  itself is smaller.
-            bbox = ref_cell.table.get_bbox_of(ref_cell.iter(o.upper, True))
+            bbox = ref_cell.table.get_bbox_of(ref_cell.iter(o=o))
             if overlap_func(bbox):
                 if not cell_overlaps:
                     start_ = i

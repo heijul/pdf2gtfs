@@ -230,13 +230,14 @@ class TestField(TestCase):
 
     def test_iter(self) -> None:
         d = E
+        # TODO: Test with complete=True
         cells = create_cells(5, link_d=d)
         for i in range(1, len(cells)):
             start: Cell = cells[i]
             with self.subTest(start=start):
-                self.assertListEqual([start.prev] + list(start.iter(d)),
-                                     list(start.prev.iter(d)))
-                self.assertTrue(all(n in cells for n in start.iter(d)))
+                self.assertListEqual([start.prev] + list(start.iter(d, False)),
+                                     list(start.prev.iter(d, False)))
+                self.assertTrue(all(n in cells for n in start.iter(d, False)))
         a = Cell("a")
         start = cells[0]
         self.assertNotIn(a, start.iter(d))
