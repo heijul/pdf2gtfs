@@ -767,7 +767,7 @@ class Table:
             allow_merge = True
             stop: C | None = None
             for _, stop in stops:
-                neighbor: C = stop.get_neighbor(n.upper)
+                neighbor: C = stop.get_neighbor(o.normal.upper)
                 if not neighbor:
                     allow_merge = False
                     break
@@ -778,11 +778,10 @@ class Table:
                 return False
             series = "cols" if o == V else "rows"
             logger.info(f"Found two consecutive stop {series}. Merging...")
-            self.merge_series(stop, n.upper)
+            self.merge_series(stop, o.normal.upper)
             return True
 
         o, stops = self.find_stops()
-        n = o.normal
         while _merge_stops():
             pass
 
@@ -795,7 +794,7 @@ def group_cells_by(cells: Iterable[C],
 
     :param cells: The Cells that should be grouped.
     :param same_group_func: A function that takes two Cells and returns True
-      if they are in the same group. False, otherwise.
+        if they are in the same group. False, otherwise.
     :param pre_sort_keys: Sort the Cells before grouping using this as key.
     :param group_sort_keys: Each group will be sorted using this as key.
     :return: A list of groups of Cells.
@@ -817,28 +816,42 @@ def group_cells_by(cells: Iterable[C],
 
 
 def cells_to_cols(cells: Cs, *, link_cols: bool = True) -> list[Cs]:
-    """ Turns the DataCells into a collection of cols. """
+    """ Groups the Cells into a collection of cols.
+
+    :param cells: The Cells that are grouped into cols.
+    :param link_cols: Whether to link the Cells of a col.
+    :return: A list of all cols.
+    """
     def _same_col(c1: C, c2: C) -> bool:
         """ Two Cells are in the same col if they overlap horizontally. """
         return not c1.bbox.is_h_overlap(c2.bbox)
 
     cols = group_cells_by(cells, _same_col, "bbox.x0", "bbox.y0")
-    if link_cols:
-        for col in cols:
-            link_cells(S, col)
+    if not link_cols:
+        return cols
+
+    for col in cols:
+        link_cells(S, col)
     return cols
 
 
 def cells_to_rows(cells: Cs, *, link_rows: bool = True) -> list[Cs]:
-    """ Turns the DataCells into a collection of rows. """
+    """ Group the Cells into a collection of rows.
+
+    :param cells: The Cells that will be part of the row.
+    :param link_rows: Whether to link the Cells of a row.
+    :return: A list of all rows.
+    """
     def _same_row(c1: C, c2: C) -> bool:
         """ Two Cells are in the same row if they overlap vertically. """
         return not c1.bbox.is_v_overlap(c2.bbox)
 
     rows = group_cells_by(cells, _same_row, "bbox.y0", "bbox.x0")
-    if link_rows:
-        for row in rows:
-            link_cells(E, row)
+    if not link_rows:
+        return rows
+
+    for row in rows:
+        link_cells(E, row)
     return rows
 
 
@@ -1022,30 +1035,30 @@ def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
     return cells[0].get_last(o.lower)
 
 
-def replace_cell(to_replace: C, replace_with: C) -> None:
-    """ Replace one Cell with another Cell.
-
-    :param to_replace: The Cell that will be replaced.
-    :param replace_with: The Cell that will be inserted instead.
-    """
-    # The new Cell should not have any neighbors.
-    assert not replace_with.has_neighbors(o=V)
-    assert not replace_with.has_neighbors(o=H)
-    for d in D:
-        neighbor = to_replace.get_neighbor(d)
-        if not neighbor:
-            continue
-        to_replace.del_neighbor(d)
-        neighbor.set_neighbor(d.opposite, replace_with)
-    to_replace.table = None
-
-
 def insert_cells_in_col(col: Cs, cells: Cs) -> None:
     """ Insert the Cells into the given col, replacing existing Cells.
 
     :param col: The column the Cells are inserted into.
     :param cells: The Cells that will be inserted into the column.
     """
+
+    def replace_cell(to_replace: C, replace_with: C) -> None:
+        """ Replace one Cell with another Cell.
+
+        :param to_replace: The Cell that will be replaced.
+        :param replace_with: The Cell that will be inserted instead.
+        """
+        # The new Cell should not have any neighbors.
+        assert not replace_with.has_neighbors(o=V)
+        assert not replace_with.has_neighbors(o=H)
+        for d in D:
+            neighbor = to_replace.get_neighbor(d)
+            if not neighbor:
+                continue
+            to_replace.del_neighbor(d)
+            neighbor.set_neighbor(d.opposite, replace_with)
+        to_replace.table = None
+
     last_id = 0
     for cell in cells:
         for i, col_cell in enumerate(col[last_id:], last_id):
