@@ -972,10 +972,9 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
         f2 = f1.get_neighbor(o.normal.upper)
 
 
-def insert_empty_cells_from_map(
-        o: Orientation, ref_cells: Cs, cells: Cs) -> C:
+def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
     """ Insert EmptyCells as neighbors of the Cells, until Cells and
-    ref_cells can be mapped (i.e., can be neighbors)
+    ref_cells can be mapped (i.e., can be neighbors).
 
     :param o: V or H.
         If V, ref_cells should be a column of a Table; if H, a row instead.
@@ -984,45 +983,43 @@ def insert_empty_cells_from_map(
         All of these will be part of the linked Cell list.
     :return: The (possibly new, empty) first Cell.
     """
-    # PR: Too long.
+    def add_empty_cell(d: Direction, cell_: C, ref_cell_: C) -> EmptyCell:
+        """ Create a new EmtpyCell and add it as the neighbor of Cell.
 
-    # Add Cells at the start and between other Cells.
-    i = 0
+        :param d: The EmptyCell will be the Cell's neighbor in this Direction.
+        :param cell_: The Cell the EmptyCell is inserted next to.
+            It is also used to set the EmptyCell's BBox.
+        :param ref_cell_: This is used to set the EmptyCell's BBox.
+        """
+        empty_cell = EmptyCell()
+        if o == H:
+            empty_cell.set_bbox_from_reference_cells(ref_cell_, cell_)
+        else:
+            empty_cell.set_bbox_from_reference_cells(cell_, ref_cell_)
+        cell_.set_neighbor(d, empty_cell)
+        return empty_cell
+
+    # Add EmptyCells at the start and between other Cells.
+    idx = 0
     cell_count = 0
     for ref_cell in ref_cells:
-        if i >= len(cells):
+        if idx >= len(cells):
             break
         cell_count += 1
-        cell = cells[i]
+        cell = cells[idx]
         if ref_cell.is_overlap(o, cell, 0.8):
-            i += 1
+            idx += 1
             continue
-        e = EmptyCell()
-        if o == H:
-            e.set_bbox_from_reference_cells(ref_cell, cell)
-        else:
-            e.set_bbox_from_reference_cells(cell, ref_cell)
+        add_empty_cell(o.lower, cell, ref_cell)
 
-        cell.set_neighbor(o.lower, e)
-
-    # Add empty Cells at the end.
+    # Add empty EmptyCells at the end.
     cell = cells[-1]
     while cell_count < len(ref_cells):
-        e = EmptyCell()
-        ref_cell = ref_cells[cell_count]
-        if o == H:
-            e.set_bbox_from_reference_cells(ref_cell, cell)
-        else:
-            e.set_bbox_from_reference_cells(cell, ref_cell)
-        cell.set_neighbor(o.upper, e)
+        cell = add_empty_cell(o.upper, cell, ref_cells[cell_count])
         cell_count += 1
-        cell = e
 
-    # Return th lower end Cell.
-    cell = cells[0]
-    while cell.has_neighbors(d=o.lower):
-        cell = cell.get_neighbor(o.lower)
-    return cell
+    # Return th lower end (i.e., first) Cell.
+    return cells[0].get_last(o.lower)
 
 
 def replace_cell(to_replace: C, replace_with: C) -> None:
