@@ -84,7 +84,7 @@ class Table:
         """
         cols = cells_to_cols(data_cells)
         rows = cells_to_rows(data_cells)
-        link_rows_and_cols(rows, cols)
+        cols, rows = link_rows_and_cols(rows, cols)
         t = Table(cols[0][0], rows[-1][-1])
         return t
 
@@ -867,32 +867,43 @@ def unlink_cells(d: Direction, cells: Cs) -> None:
         cell.del_neighbor(d)
 
 
-def link_rows_and_cols(rows: list[Cs], cols: list[Cs]) -> None:
+def link_rows_and_cols(partial_rows: list[Cs], partial_cols: list[Cs]
+                       ) -> tuple[list[Cs], list[Cs]]:
     """ Link the rows and columns, such that each Cell can be reached using
         any other Cell's and the Cell's get_neighbor method.
 
-    :param rows: The list of Cells representing the rows.
-    :param cols: The list of Cells representing the cols.
+    :param partial_rows: The list of Cells representing the rows.
+    :param partial_cols: The list of Cells representing the cols.
     """
+    def _fill_gaps_in_column(relative_to: Cs, partial_col: Cs) -> Cs:
+        """ Add EmptyCells in place of missing Cells.
 
-    # PR: This looks weird.
+        :param relative_to: A complete col, used to determine,
+            which fields are missing in the partial col.
+        :param partial_col: A col that may have missing Cells.
+        :return: The complete col.
+        """
+        head = insert_empty_cells_from_map(V, relative_to, partial_col)
+        return list(head.iter(S))
 
-    # Fill first column.
-    first_cell_of_rows = [row[0] for row in rows]
-    head = insert_empty_cells_from_map(V, first_cell_of_rows, cols[0])
-    cols[0] = list(head.iter(S))
-    rel_col = cols[0]
-    for col_id, col in enumerate(cols[1:], 1):
-        head = insert_empty_cells_from_map(V, rel_col, col)
-        cols[col_id] = list(head.iter(S))
-        rel_col = cols[col_id]
+    # No complete relative column exists for the first column,
+    #  so we use the first Cell of each row.
+    left_most_cell_of_each_row = [row[0] for row in partial_rows]
+    cols = [_fill_gaps_in_column(left_most_cell_of_each_row, partial_cols[0])]
+
+    for col in partial_cols[1:]:
+        cols.append(_fill_gaps_in_column(cols[-1], col))
+
+    # Link the columns with each other.
     for col1, col2 in pairwise(cols):
         for f1, f2 in zip(col1, col2, strict=True):
+            # The neighbor of f2 in Direction W is deleted implicitly.
             f1.del_neighbor(E)
-            f2.del_neighbor(E)
             f1.set_neighbor(E, f2)
-    for row_id, cell in enumerate(cols[0]):
-        rows[row_id] = list(cell.iter(E, True))
+
+    # Get the (now) complete rows.
+    rows: list[Cs] = [list(cell.iter(E, True)) for cell in cols[0]]
+    return cols, rows
 
 
 def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
