@@ -1,4 +1,5 @@
-""" Provides the four cardinal directions.  """
+""" Provides the four cardinal directions and the two resulting orientations.
+"""
 
 from __future__ import annotations
 
@@ -6,22 +7,36 @@ from abc import ABC, abstractmethod
 
 
 class Direction(ABC):
-    """ Represents a direction for the linked lists. """
+    """ Represents a direction for the Table and Cells.
+
+    The private attribute names (starting with 'p_') are the ones used
+    when getting/setting a property of the Table.
+    """
 
     __count = 0
 
-    def __init__(self, name: str, attr: str, end: str) -> None:
+    def __init__(self, name: str, coordinate: str, attr: str, end: str
+                 ) -> None:
         assert name == self.__class__.__name__[1]
+        assert coordinate in ["x0", "x1", "y0", "y1"]
+
         self.name = name
+        self._coordinate = coordinate
         self._attr = attr
         self._end = end
+        # Only four cardinal directions exist.
         Direction.__count += 1
         if Direction.__count > 4:
             raise AssertionError("There should only be four directions.")
 
     @property
+    def coordinate(self) -> str:
+        """ The bbox coordinate of this direction. Used in the Bounds. """
+        return self._coordinate
+
+    @property
     def attr(self) -> str:
-        """ The attribute name of the direction. """
+        """ The attribute name of this direction. Used in the Cells. """
         return self._attr
 
     @property
@@ -31,25 +46,37 @@ class Direction(ABC):
 
     @property
     def end(self) -> str:
-        """ The attribute name of the last element in this direction. """
+        """ The attribute name of the last element. Used in the Table. """
         return self._end
 
     @property
     def p_end(self) -> str:
-        """
-        The private attribute name of the last element in this direction.
-        """
+        """ The private attribute name of the last element. """
         return "_" + self.end
 
     @property
     @abstractmethod
-    def default_orientation(self) -> Orientation:
-        """ The obvious orientation, this direction is part of. """
+    def o(self) -> Orientation:
+        """ The obvious orientation this direction is part of. """
 
     @property
     @abstractmethod
     def opposite(self) -> Direction:
-        """ The direction opposite to this one. """
+        """ The direction opposite to this one.
+
+        This should be symmetric, meaning `d.opposite.opposite == d`.
+        """
+
+    @property
+    def normal_eqivalent(self) -> Direction:
+        """ The normal equivalent of this Direction.
+
+        This means the lower Direction of self's Orientation's normal
+        if self is the lower Direction of its Orientation, and vice versa.
+        """
+        if self == self.o.lower:
+            return self.o.normal.lower
+        return self.o.normal.upper
 
     def __repr__(self) -> str:
         return f"<{self.name}>"
@@ -57,10 +84,10 @@ class Direction(ABC):
 
 class _N(Direction):
     def __init__(self) -> None:
-        super().__init__("N", "above", "top")
+        super().__init__("N", "y0", "above", "top")
 
     @property
-    def default_orientation(self) -> Orientation:
+    def o(self) -> Orientation:
         return V
 
     @property
@@ -70,10 +97,10 @@ class _N(Direction):
 
 class _S(Direction):
     def __init__(self) -> None:
-        super().__init__("S", "below", "bot")
+        super().__init__("S", "y1", "below", "bot")
 
     @property
-    def default_orientation(self) -> Orientation:
+    def o(self) -> Orientation:
         return V
 
     @property
@@ -83,10 +110,10 @@ class _S(Direction):
 
 class _W(Direction):
     def __init__(self) -> None:
-        super().__init__("W", "prev", "left")
+        super().__init__("W", "x0", "prev", "left")
 
     @property
-    def default_orientation(self) -> Orientation:
+    def o(self) -> Orientation:
         return H
 
     @property
@@ -96,10 +123,10 @@ class _W(Direction):
 
 class _E(Direction):
     def __init__(self) -> None:
-        super().__init__("E", "next", "right")
+        super().__init__("E", "x1", "next", "right")
 
     @property
-    def default_orientation(self) -> Orientation:
+    def o(self) -> Orientation:
         return H
 
     @property
@@ -111,22 +138,30 @@ N = _N()
 S = _S()
 W = _W()
 E = _E()
-D = [N, W, S, E]
+# A tuple of all Directions. Using a tuple allows us to use it as default arg.
+D = (N, W, S, E)
 
 
 class Orientation(ABC):
-    """ Reperesents the orientation of a line using two directions. """
+    """ Represents the orientation of objects using opposite directions. """
 
     __count = 0
 
     def __init__(self, name: str, lower: Direction, upper: Direction) -> None:
         assert name == self.__class__.__name__[1]
+
         self.name = name
         self.lower = lower
         self.upper = upper
+        # Only two major orientations exist.
         Orientation.__count += 1
         if Orientation.__count > 2:
             raise AssertionError("There should only be two orientations.")
+
+    @property
+    def overlap_func(self) -> str:
+        """ The default overlap function used, when using this orientation. """
+        return f"is_{self.name.lower()}_overlap"
 
     @property
     @abstractmethod

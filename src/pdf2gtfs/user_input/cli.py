@@ -8,7 +8,7 @@ from operator import attrgetter
 from pathlib import Path
 from typing import Callable, TYPE_CHECKING, TypeAlias
 
-from pdf2gtfs.logging import flush_all_loggers
+from pdf2gtfs.p2g_logging import flush_all_loggers
 
 
 if TYPE_CHECKING:

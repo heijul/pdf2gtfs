@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.handler import GTFSHandler
 from pdf2gtfs.locate import find_location_nodes
-from pdf2gtfs.logging import initialize_logging
+from pdf2gtfs.p2g_logging import initialize_logging
 from pdf2gtfs.reader import Reader
 from pdf2gtfs.user_input.arg_parser import parse_args
 from pdf2gtfs.user_input.cli import create_output_directory
