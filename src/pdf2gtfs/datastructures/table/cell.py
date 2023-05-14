@@ -42,7 +42,7 @@ def get_bbox_from_chars(lt_chars: list[LTChar], page_height: float) -> BBox:
 
 
 class Cell(BBoxObject):
-    """ A single cell in a table. """
+    """ A single Cell in a table. """
 
     def __init__(self, text: str, bbox: BBox | None = None,
                  font: PDFFont | None = None, fontname: str | None = None,
@@ -117,10 +117,13 @@ class Cell(BBoxObject):
     def set_neighbor(self, d: Direction, cell: C) -> None:
         """ Set this Cell's neighbor in the given Direction to the given Cell.
 
+        If the current Cell already has a neighbor N in the given Direction,
+        N will be the neighbor of the new neighbor in the same Direction.
+
         :param d: The Direction of the Cell relative to self.
         :param cell: The Cell that will be the new neighbor.
         """
-        assert cell is not None, "Use update_neighbor, if cell might be None"
+        assert cell is not None, "Use update_neighbor, if cell might be None."
 
         current_neighbor: OC = self.get_neighbor(d)
 
@@ -138,10 +141,7 @@ class Cell(BBoxObject):
         """ Update the neighbor in the given Direction.
 
         This should **always** be called from the Cell the neighbor is
-        moved to.
-
-        If the current Cell already has a neighbor N in the given Direction,
-        N will be accessible by using `neighbor.get_neighbor(d)` afterward.
+        moved to, unless you know what you are doing.
 
         :param d: The Direction the neighbor will be placed in.
         :param neighbor: The new neighbor
@@ -243,7 +243,7 @@ class Cell(BBoxObject):
         return self.type.guess_type()
 
     def has_type(self, *types: T, strict: bool = False) -> bool:
-        """ Check, if the Cell contains any of the types in its possible types.
+        """ Check if the Cell contains any of the types in its possible types.
 
         :param types: Any of these must be in the Cell's possible types.
         :param strict: If True, only the probable/inferred type is checked.

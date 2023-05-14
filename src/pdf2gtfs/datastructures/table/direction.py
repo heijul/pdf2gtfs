@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 class Direction(ABC):
     """ Represents a direction for the Table and Cells.
 
-    The private attribute names are the ones used
+    The private attribute names (starting with 'p_') are the ones used
     when getting/setting a property of the Table.
     """
 
@@ -57,7 +57,7 @@ class Direction(ABC):
     @property
     @abstractmethod
     def o(self) -> Orientation:
-        """ The obvious orientation, this direction is part of. """
+        """ The obvious orientation this direction is part of. """
 
     @property
     @abstractmethod
@@ -143,7 +143,7 @@ D = (N, W, S, E)
 
 
 class Orientation(ABC):
-    """ Reperesents the orientation of a line using two directions. """
+    """ Represents the orientation of objects using opposite directions. """
 
     __count = 0
 

@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 def merge_series(starter: C, d: Direction) -> None:
     """ Merge the row/col of the given Cell to the neighboring series.
 
-    :param starter: Used to get the series in the Directions'
-        Orientations' normal Orientation.
+    :param starter: Used to get the series in the Direction's
+        default Orientation's normal Orientation.
     :param d: The Cells row/col will be merged with
         their respective neighbors in this Direction.
     """
@@ -94,7 +94,7 @@ class Table:
 
     @staticmethod
     def from_data_cells(data_cells: Cs) -> Table:
-        """ Create a new Table from the given Cells.
+        """ Create a new Table from the given DataCells.
 
         :param data_cells: The Cells of Type Data used to construct the Table.
         :return: A new Table containing all the given Cells.
@@ -133,9 +133,9 @@ class Table:
         """ Update the end Cell in the given Direction
         to the farthest/last Cell in that Direction.
 
-        Always ensures that the end Cell in the lower Direction of an
+        Always ensures that the end Cell in the lower Direction of one
         Orientation is also the end Cell in the lower Direction of the
-        Orientation's normal Orientation.
+        other Orientation.
         That is, if d is N (i.e., V.lower), the end Cell is the same as it
         would be, if d were W (i.e., H.lower). Analogous for S/E.
 
@@ -143,17 +143,6 @@ class Table:
         :param start: The Cell to use to start looking for the end Cell in d.
         """
         self._set_end(d, start.get_last(d).get_last(d.normal_eqivalent))
-
-    def get_list(self, o: Orientation, cell: OC = None) -> list[C]:
-        """ Return the full list of Cells in the given Orientation.
-
-        :param o: The Orientation the Cells will be in.
-        :param cell: The Cell used to get a specific row/column.
-            If set to None, the first/top Cell will be used instead.
-        """
-        if not cell:
-            cell = self.get_end(o.lower)
-        return list(cell.iter(o=o))
 
     def insert(self, d: Direction, rel_cell: OC, new_cell: C) -> None:
         """ Inserts new_cell relative to the rel_cell in the given Direction.
@@ -176,7 +165,7 @@ class Table:
         # we need a row (i.e., horizontal) to get the first/last column.
         if rel_cell is None:
             rel_cell = self.get_end(normal.lower)
-        rel_cells = self.get_list(normal, rel_cell)
+        rel_cells = list(rel_cell.iter(o=normal))
 
         # Strict, to ensure the same number of Cells.
         for rel_cell, new_cell in zip(rel_cells, new_cells, strict=True):
@@ -196,7 +185,7 @@ class Table:
         # No need to cache a single BBox.
         if len(bboxes) == 1:
             return bboxes[0]
-        # If a bboxes' coordinates change, its hash changes as well.
+        # If a BBoxes' coordinates change, its hash changes as well.
         cell_hashes = sorted(map(hash, bboxes))
         cell_hash = hash("".join(map(str, cell_hashes)))
         if cell_hash not in self.bboxes:
@@ -420,11 +409,12 @@ class Table:
                        ) -> list[Table]:
         """ Split the Table at the given Cells.
 
+        The splitter will not be part of any Table.
+
         :param o: The Orientation to split the Table in.
         :param splitter: The Cells used to split the Table.
         :return: A list of Tables, where each Table contains only Cells
             that are between the given splitter.
-            The splitter will not be part of any Table.
         """
 
         def _split_at_splitter() -> list[Cs]:
@@ -509,7 +499,7 @@ class Table:
 
     def max_split(self, cells: Cs) -> list[Table]:
         """ Split the Table horizontally (if possible) using the given
-            Cells and then split each of those vertically (if possible).
+        Cells and then split each of those vertically (if possible).
 
         The current Table should not be used after it was split.
 
@@ -670,9 +660,9 @@ class Table:
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
     def cleanup(self, first_table: Table | None) -> None:
-        """ Infer the Cell types of all Cells.
+        """ Infer the CellTypes of all Cells.
 
-        This will infer the type multiple times,
+        This will infer the Type multiple times,
         to accomodate for changes in the type based on a previous inference.
 
         :param first_table: If None, the current Table is the first Table.
@@ -687,6 +677,9 @@ class Table:
             for changes in the type based on a previous inference.
             """
             # TODO: Test if it makes a difference, running this twice.
+            # TODO: Instead, we could try to store the Type of each Cell and
+            #  only stop inference, when they no longer change.
+            #  Should watch for loops then, though.
             for starter in self.left.row:
                 for cell in starter.col:
                     cell.type.infer_type_from_neighbors()
@@ -804,8 +797,8 @@ def group_cells_by(cells: Iterable[C],
     """ Group the given Cells using the given function.
 
     :param cells: The Cells that should be grouped.
-    :param same_group_func: A function that takes two Cells and returns True
-        if they are in the same group. False, otherwise.
+    :param same_group_func: A function that takes two Cells and
+        returns whether they are in the same group. False, otherwise.
     :param pre_sort_keys: Sort the Cells before grouping using this as key.
     :param group_sort_keys: Each group will be sorted using this as key.
     :return: A list of groups of Cells.
@@ -894,7 +887,7 @@ def unlink_cells(d: Direction, cells: Cs) -> None:
 def link_rows_and_cols(partial_rows: list[Cs], partial_cols: list[Cs]
                        ) -> tuple[list[Cs], list[Cs]]:
     """ Link the rows and columns, such that each Cell can be reached using
-        any other Cell's and the Cell's get_neighbor method.
+    any other Cell and the Cell's get_neighbor method.
 
     :param partial_rows: The list of Cells representing the rows.
     :param partial_cols: The list of Cells representing the cols.
@@ -934,7 +927,7 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
     """ Merge Cells that are overlapping with the same ref_cell.
 
     If two or more Cells are overlapping with the same ref_cell,
-    they (the Cells, not the ref_cell) are all merged into a single Cell.
+    the former are all merged into a single Cell.
 
     :param o: The Orientation used check for overlap.
     :param ref_cells: The Cells used as reference.
@@ -977,23 +970,22 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
     overlaps = {}
     start = 0
     # For each Cell find those ref_cells the Cell overlaps with.
-    # We use id(cell) here, because a Cell is not hashable.
     for cell in cells:
-        start, overlaps[id(cell)] = get_cell_overlaps(start, cell)
+        start, overlaps[cell] = get_cell_overlaps(start, cell)
 
     # Merge consecutive Cells, iff they are overlapping with the same ref_cell.
-    f1 = cells[0]
-    f2 = cells[1]
-    while f2:
-        has_same_overlap = any([overlap in overlaps[id(f1)]
-                                for overlap in overlaps[id(f2)]])
+    c1 = cells[0]
+    c2 = cells[1]
+    while c2:
+        has_same_overlap = any([overlap in overlaps[c1]
+                                for overlap in overlaps[c2]])
         if not has_same_overlap:
-            f1, f2 = f2, f2.get_neighbor(o.normal.upper)
+            c1, c2 = c2, c2.get_neighbor(o.normal.upper)
             continue
-        f1.merge(f2)
-        cells.remove(f2)
-        # f1 has all neighbors of f2 after merge.
-        f2 = f1.get_neighbor(o.normal.upper)
+        c1.merge(c2)
+        cells.remove(c2)
+        # c1 has all neighbors of c2 after merge.
+        c2 = c1.get_neighbor(o.normal.upper)
 
 
 def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
@@ -1008,7 +1000,7 @@ def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
     :return: The (possibly new, empty) first Cell.
     """
     def add_empty_cell(d: Direction, cell_: C, ref_cell_: C) -> EmptyCell:
-        """ Create a new EmtpyCell and add it as the neighbor of Cell.
+        """ Create a new EmptyCell and add it as the neighbor of Cell.
 
         :param d: The EmptyCell will be the Cell's neighbor in this Direction.
         :param cell_: The Cell the EmptyCell is inserted next to.

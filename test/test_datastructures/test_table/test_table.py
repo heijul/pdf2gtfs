@@ -201,7 +201,7 @@ class TestTable(TestCase):
 
     def test_get_col_left_of__existing_cells(self) -> None:
         table, *_ = self._create_tables(self.f_data, self.f_other)
-        cols = map(list, map(methodcaller("iter", S), table.get_list(H)))
+        cols = map(list, map(methodcaller("iter", S), table.top.row))
         for i, (col1, col2) in enumerate(pairwise(cols)):
             col1: list[Cell] = list(col1)
             col2: list[Cell] = list(col2)
@@ -219,7 +219,7 @@ class TestTable(TestCase):
                 for col_id, col in enumerate(map(table.get_col_left_of,
                                                  contained_cells)):
                     idx = left_cols_idx[i][col_id]
-                    table_col = table.get_list(H)[idx].col
+                    table_col = list(table.top.row)[idx].col
                     self.assertListEqual(list(table_col), list(col))
 
     def test_get_repeat_identifiers(self) -> None:

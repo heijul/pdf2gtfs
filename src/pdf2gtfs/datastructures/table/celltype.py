@@ -37,7 +37,7 @@ def get_argmax_key(dictionary: dict[A, Any]) -> A:
 
 
 class CellType:
-    """ Can be used to guess/infer the Type of a Cell. """
+    """ Can be used to guess and infer the Type of a Cell. """
     def __init__(self, cell: C) -> None:
         self.cell = cell
         # Probabilities for the different Types.
@@ -190,7 +190,7 @@ def is_wrapper(*args) -> AbsIndicatorFunc:
     """ Simple wrapper around is_any.
 
     :param args: Contains lists of strings or strings, used in is_any.
-    :return: Function, that takes only a Cell and checks if the
+    :return: Function that takes only a Cell and checks if the
         Cell's text is equal to any of the (collapsed) args.
     """
     def is_any(cell: C) -> bool:
@@ -239,9 +239,10 @@ def is_repeat_value(cell: C) -> bool:
         separated by a hyphen, or two numbers separated by a comma.
         False, otherwise.
     """
-    # For the hyphen case we need to check multiple different characters
+    # For the hyphen case, we need to check multiple different characters
     #  that look like hyphens. See https://jkorpela.fi/dashes.html
 
+    # TODO: Allow custom regex.
     patterns = (r"^\d+$",
                 r"^\d+\s?" + HYPHEN_LIKE_CHARS + r"\s?\d+$",
                 r"\d+\s?,\s?\d+$")
@@ -252,7 +253,7 @@ def is_repeat_value(cell: C) -> bool:
 
 
 def is_legend(cell: C) -> bool:
-    """ Checks if the Cell's text could be (part of) a legend.
+    """ Check if the Cell's text could be (part of) a legend.
 
     :param cell: The Cell in question.
     :return: True if the Cell contains a non-empty string,
@@ -341,12 +342,12 @@ def cell_neighbor_has_type(cell: C, typ: T, direct_neighbor: bool = False,
 
     :param cell: The Cell in question.
     :param typ: The Type we check the neighbors against.
-    :param direct_neighbor: Whether to only check direct neighbors, that is
-        neighbors that may be empty.
-        If False, get the first neighbor in each direction, that is not empty.
+    :param direct_neighbor: Whether to only check direct neighbors;
+        that is, neighbors that may be empty.
+        If False, get the first neighbor in each Direction that is not empty.
     :param directions: If given,
-        only the neighbors in these directions will be checked.
-    :return: True if any of the Cells neighbors is of the given Type.
+        only the neighbors in these Directions will be checked.
+    :return: True if any of the Cell's neighbors is of the given Type.
         False, otherwise.
     """
     func = cell_has_type_wrapper(typ)
@@ -375,7 +376,7 @@ def cell_is_between_type(cell: C, typ: T, direct: bool = False) -> bool:
     :param cell: The Cell in question
     :param typ: The Type the two opposite, direct neighbors should both have.
     :param direct: If True, only the direct neighbors will be checked,
-        even if they are None.
+        even if they are EmptyCells.
         If False, we look for the first neighbor on both sides
         that are not EmptyCells.
     :return: True, if any two opposite direct neighbors
@@ -440,8 +441,8 @@ def data_aligned_cells_are_non_empty(starter: C, o: Orientation,
     in the cols/rows where the data Cells are.
 
     :param starter: The row/col of this Cell will be checked.
-    :param o: The orientation of the series of starter. The normal
-        orientation to o will be used to check neighbors of each empty Cell.
+    :param o: Whether to check row or column of starter. The normal
+        Orientation to o will be used to check neighbors of each empty Cell.
     :param cell_type: The Type the aligned Cells should have.
     :param neighbor_type: The Type (other than T.Data) the neighbors of any
         encountered EmptyFields should have. If this is None, at least one
@@ -449,7 +450,7 @@ def data_aligned_cells_are_non_empty(starter: C, o: Orientation,
     :return: True if all Cells of the starter's col/row, which are within
         a row/col containing Cells of Type Data, are either non-empty Cells
         with Stop as possible Type, or are EmptyCells. The latter must either
-        be missing a neighbor in the normal orientation or such a neighbor
+        be missing a neighbor in the normal Orientation or such a neighbor
         has a different Type than Stop or Data. False, otherwise.
     """
     from pdf2gtfs.datastructures.table.cell import EmptyCell
@@ -465,8 +466,8 @@ def data_aligned_cells_are_non_empty(starter: C, o: Orientation,
             if not cell.has_type(cell_type):
                 return False
             continue
-        # The current cell may be part of an incomplete row/col, which will
-        # be merged to a proper Stop cell.
+        # The current Cell may be part of an incomplete row/col, which will
+        # be merged to a proper StopCell.
         neighbors = cell.get_neighbors(allow_none=True,
                                        allow_empty=False,
                                        directions=[n.lower, n.upper])
@@ -490,7 +491,7 @@ def series_is_aligned(starter: C, o: Orientation,
         a Cell's lower x-/y-coordinate (based on o) and
         the smallest x-/y-coordinate of all checked Cells.
     :return: True if the lower x-/y-coordinate of all checked Cells
-        differ at most by max_displacement. False, otherwise.
+        differs at most by max_displacement. False, otherwise.
     """
     bbox_attr = "x0" if o == V else "y0"
     lower_coords: list[float] = []
@@ -511,13 +512,14 @@ def rel_indicator_stop(cell: C) -> float:
     :return: A value between 0 and 2.5, representing change in probability,
         based on the funcs called.
     """
-    # Stops are never between the table's DataCells.
+    # Stops are never between the Table's DataCells.
     if cell_is_between_type(cell, T.Data):
         return 0
     col_contains_data = cell_col_contains_type(cell, T.Data)
     row_contains_data = cell_row_contains_type(cell, T.Data)
-    # We need exactly one of col/row to contain a DataCell. Otherwise, Cell
-    #  is either diagonal or inside the grid spanned by the Table's DataCells.
+    # We need exactly one of col/row to contain a DataCell.
+    # Otherwise, the Cell is either diagonal or
+    #  inside the grid spanned by the Table's DataCells.
     if (col_contains_data + row_contains_data) % 2 == 0:
         return 0
     score = 1
@@ -574,8 +576,8 @@ def rel_indicator_data_annot(cell: C) -> float:
     """ The relative indicator for T.DataAnnot.
 
     :param cell: The Cell that has its Type evaluated.
-    :return: 0, if the Cell either has no direct neighbor of Type Data or if
-        the Cell's fontsize is greater than the Data Cell's fontsize.
+    :return: 0, if the Cell either has no direct neighbor of Type Data,
+        or if the Cell's fontsize is greater than the Data Cell's fontsize.
         1, otherwise.
     """
     neighbor_of_data = cell_neighbor_has_type(cell, T.Data, True)
@@ -623,8 +625,8 @@ def rel_indicator_entry_annot_value(cell: C) -> float:
         based on the results of the functions called.
     """
     mod = 0
-    # It is less likely for a Cell to be an annotation, if the col that
-    # contains the annotation identifier also contains Stops.
+    # It is less likely for a Cell to be an annotation if the col, which
+    #  contains the annotation identifier, also contains Stops.
     if cell_col_contains_type(cell, T.EntryAnnotIdent):
         mod += (cell_row_contains_type(cell, T.Data)
                 - cell_col_contains_type(cell, T.Stop))
