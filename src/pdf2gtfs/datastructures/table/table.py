@@ -295,8 +295,11 @@ class Table:
 
         left_most_cell = min(top_cell.iter(S), key=attrgetter("bbox.x0"))
         col_right_of_cell = first_true(
-            self.left.row, default=self.left, pred=_is_right_of_cell)
-        # TODO NOW: Will fail if default.
+            self.left.row, default=None, pred=_is_right_of_cell)
+
+        if col_right_of_cell is None:
+            return []
+
         return col_right_of_cell.prev.col
 
     def insert_repeat_cells(self, cells: Cs) -> None:
@@ -322,8 +325,11 @@ class Table:
                 insert_cells_in_col(col, group)
                 continue
             col = list(self.get_col_left_of(group[0]))
+            insert_direction = E if col else W
+            if not col:
+                col = self.left.col
             head = insert_empty_cells_from_map(V, col, group)
-            self.insert(E, col[0], head)
+            self.insert(insert_direction, col[0], head)
 
     def get_repeat_identifiers(self, cells: Cs) -> Cs:
         """ Return those Cells that are RepeatIdents.
@@ -673,8 +679,7 @@ class Table:
             Otherwise, the first Table will be used to determine
             whether the Days, etc. are in the header or in the footer.
         """
-        # PR: Convoluted. Maybe split this?
-        #  This does more than simply inferring types
+
         def infer_cell_types() -> None:
             """ Infer the CellTypes of each Cell.
 
