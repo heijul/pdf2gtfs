@@ -369,24 +369,30 @@ def cell_neighbor_has_type_wrapper(typ: T, direct_neighbor: bool = False
     return _cell_neighbor_has_type
 
 
-def cell_is_between_type(cell: C, typ: T) -> bool:
+def cell_is_between_type(cell: C, typ: T, direct: bool = False) -> bool:
     """ Check if the Cell is 'sandwiched' between Cells of the given Type.
 
     :param cell: The Cell in question
     :param typ: The Type the two opposite, direct neighbors should both have.
-    :return: True if any two opposite, direct neighbors
+    :param direct: If True, only the direct neighbors will be checked,
+        even if they are None.
+        If False, we look for the first neighbor on both sides
+        that are not EmptyCells.
+    :return: True, if any two opposite direct neighbors
         are of the given Type. False, otherwise.
     """
     func = cell_has_type_wrapper(typ)
+    o: Orientation
     for o in (V, H):
-        lower = cell.get_neighbor(o.lower)
-        upper = cell.get_neighbor(o.upper)
+        lower, upper = cell.get_neighbors(allow_none=True,
+                                          allow_empty=not direct,
+                                          directions=[o.lower, o.upper])
         if lower and func(lower) and upper and func(upper):
             return True
     return False
 
 
-def cell_is_between_type_wrapper(typ: T) -> Callable[[C], bool]:
+def cell_is_between_type_wrapper(typ: T, **kwargs) -> Callable[[C], bool]:
     """ Simple wrapper around cell_is_between_type.
 
     :param typ: The Type passed to cell_is_between_type.
@@ -394,7 +400,7 @@ def cell_is_between_type_wrapper(typ: T) -> Callable[[C], bool]:
         Cell is 'sandwiched' between two Cells of the given Type.
     """
     def _cell_is_between_type(cell: C) -> bool:
-        return cell_is_between_type(cell, typ)
+        return cell_is_between_type(cell, typ, **kwargs)
 
     return _cell_is_between_type
 
@@ -589,7 +595,6 @@ def rel_indicator_repeat_ident(cell: C) -> float:
     :return: A value between 0 and 2, representing change in probability,
         based on the results of the functions called.
     """
-    # TODO: Check if we should be checking non-direct neighbors here as well.
     required = cell_is_between_type_wrapper(T.Data)
 
     if not required(cell):
