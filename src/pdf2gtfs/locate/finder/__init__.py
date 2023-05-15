@@ -145,8 +145,8 @@ def interpolate_missing_node_locations(all_nodes: list[Node]) -> None:
 
     # Cannot interpolate positions with less than two valid nodes.
     first_id = get_first_valid_node_id(all_nodes)
-    msg = ("Can not interpolate missing nodes' locations, because"
-           "at least two valid Nodes are required.")
+    msg = ("Can not interpolate the locations of the MissingNodes, "
+           "because at least two valid Nodes are required.")
     if first_id in [len(all_nodes) - 1, -1]:
         logger.info(msg)
         return

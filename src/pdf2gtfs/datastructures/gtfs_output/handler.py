@@ -384,7 +384,9 @@ class GTFSHandler:
         nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
         for stop_id, loc_node in locations.items():
             stop = self.stops.get_by_stop_id(stop_id)
-            ifopt = loc_node.extra_values.get("ifopt")
+            ifopt = loc_node.osm_node.ref_ifopt
+            if ifopt is None:
+                continue
             # Check if ID is already used elsewhere already.
             if not ifopt or UIDGenerator.is_used(ifopt):
                 continue
@@ -399,7 +401,9 @@ class GTFSHandler:
     def _add_wheelchair_boarding(self, locations: dict[str: Node]) -> None:
         for stop, loc_node in locations.items():
             stop = self.stops.get_by_stop_id(stop)
-            wheelchair = loc_node.extra_values.get("wheelchair")
+            wheelchair = loc_node.osm_node.wheelchair
+            if wheelchair is None:
+                continue
             try:
                 stop.wheelchair_boarding = WheelchairBoarding[wheelchair]
             except KeyError:
