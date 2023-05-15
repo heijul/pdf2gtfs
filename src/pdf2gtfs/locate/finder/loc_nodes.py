@@ -6,9 +6,11 @@ import logging
 import re
 import sys
 import webbrowser
+from dataclasses import dataclass
+
 from math import inf, log, sqrt
 from statistics import mean, StatisticsError
-from typing import Type
+from typing import Type, TypeAlias
 
 import folium
 import pandas as pd
@@ -18,10 +20,10 @@ from pdf2gtfs.locate.finder.cost import Cost, StartCost
 from pdf2gtfs.locate.finder.location import (
     DISTANCE_IN_M_PER_LAT_DEG, get_distance_per_lon_deg, Location)
 from pdf2gtfs.locate.finder.stops import Stop, Stops
-from pdf2gtfs.locate.finder.types import DF, StopPosition
 
 
 logger = logging.getLogger(__name__)
+DF: TypeAlias = pd.DataFrame
 
 
 def valid_ifopt(ifopt_str: str) -> bool:
@@ -39,25 +41,55 @@ def valid_ifopt(ifopt_str: str) -> bool:
     return re.match(regex, ifopt_str) is not None
 
 
+@dataclass
+class OSMNode:
+    """ Represents a node in OSM. Note that it only has a subset of keys. """
+    idx: int
+    stop_id: str
+    names: str
+    lat: float
+    lon: float
+    node_cost: float
+    name_cost: float
+    ref_ifopt: str = None
+    wheelchair: str = None
+
+
+# noinspection PyTypeChecker
+DummyOSMNode = OSMNode(None, None, None, None, None, None, None, None, None)
+
+
 class Node:
     """ Provide comparable Nodes, which combine stops, locs, and costs. """
     nodes: Nodes = None
 
     def __init__(self, stop: Stop, index: int, names: str,
-                 loc: Location, cost: Cost) -> None:
+                 loc: Location, cost: Cost, osm_node: OSMNode = None) -> None:
         self.stop = stop
         self.index = index
         self.names = names
+        self.osm_node = osm_node if osm_node else DummyOSMNode
         self.loc: Location = loc
         self.parent: Node | None = None
         self.has_children = False
         self.cost: Cost = cost
         self.visited = False
         self.stop.nodes.append(self)
-        self.extra_values = {}
         if Node.nodes is None:
             raise Exception("Node.nodes needs to be set, "
                             "before creating a Node.")
+
+    @staticmethod
+    def from_osm_node(stop: Stop, osm_node: OSMNode) -> Node:
+        """ Use the given OSMNode to construct a new Node.
+
+        :param stop: The stop of the node.
+        :param osm_node: The OSMNode.
+        :return: A new Node.
+        """
+        loc = Location(osm_node.lat, osm_node.lon)
+        cost = Cost(inf, osm_node.node_cost, osm_node.name_cost, None)
+        return Node(stop, osm_node.idx, osm_node.names, loc, cost, osm_node)
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Node) and
@@ -77,11 +109,6 @@ class Node:
 
     def __hash__(self) -> int:
         return id(self)
-
-    def set_extra_values(self, values: StopPosition) -> None:
-        if valid_ifopt(values.ref_ifopt):
-            self.extra_values["ifopt"] = values.ref_ifopt
-        self.extra_values["wheelchair"] = values.wheelchair
 
     def get_close_neighbors(self) -> list[Node]:
         """ Return all neighbors of node that are close to node. """
@@ -216,6 +243,12 @@ class MNode(Node):
         cost = Cost(parent_cost, Config.missing_node_cost, 0, 0)
         super().__init__(stop, index, names, loc, cost)
 
+    @staticmethod
+    def from_osm_node(stop: Stop, osm_node: OSMNode) -> MNode:
+        loc = Location(osm_node.lat, osm_node.lon)
+        node = MNode(stop, osm_node.idx, osm_node.names, loc, inf)
+        return node
+
     def __repr__(self) -> str:
         return "M" + super().__repr__()
 
@@ -303,27 +336,24 @@ class Nodes:
             return
 
         df = self.filter_df_by_stop(stop)
-        for values in df.itertuples(False, "StopPosition"):
-            values: StopPosition
-            if values.lat == 0 or values.lon == 0:
-                node = self.get_or_create_missing(stop, values)
+
+        for _, series in df.iterrows():
+            osm_node = OSMNode(**dict(series.items()))
+            if osm_node.lat == 0 or osm_node.lon == 0:
+                node = self.get_or_create_missing(stop, osm_node)
             else:
-                node = self.get_or_create(stop, values)
+                node = self.get_or_create(stop, osm_node)
             if stop.is_first:
                 node.cost = StartCost.from_cost(node.cost)
                 self._node_heap.update(node)
 
-    def _create_node(self, stop: Stop, values: StopPosition) -> Node:
-        loc = Location(values.lat, values.lon)
-        cost = Cost(inf, values.node_cost, values.name_cost, None)
-        node = Node(stop, values.idx, values.names, loc, cost)
-        node.set_extra_values(values)
+    def _create_node(self, stop: Stop, osm_node: OSMNode) -> Node:
+        node = Node.from_osm_node(stop, osm_node)
         self._add(node)
         return node
 
-    def _create_missing_node(self, stop: Stop, values: StopPosition) -> MNode:
-        loc = Location(values.lat, values.lon)
-        node = MNode(stop, values.idx, values.names, loc, inf)
+    def _create_missing_node(self, stop: Stop, osm_node: OSMNode) -> MNode:
+        node = MNode.from_osm_node(stop, osm_node)
         self._add(node)
         return node
 
@@ -334,31 +364,31 @@ class Nodes:
         self._add(node)
         return node
 
-    def get_or_create(self, stop: Stop, values: StopPosition) -> Node:
+    def get_or_create(self, stop: Stop, osm_node: OSMNode) -> Node:
         """ Checks if a Node with the given stop and values exist,
         and returns it. If it does not exist, it will first be created. """
-        node = self._node_map.get((stop, values.idx))
+        node = self._node_map.get((stop, osm_node.idx))
         if node is None:
-            node = self._create_node(stop, values)
+            node = self._create_node(stop, osm_node)
         return node
 
     def create_missing_neighbor_for_node(self, parent: Node) -> None:
         """ Create a MissingNode with parent_node as its parent. """
         stop: Stop = parent.stop.next
-        values: StopPosition = StopPosition(
+        osm_node: OSMNode = OSMNode(
             self.next_missing_node_idx, stop.name, stop.name,
             0, 0, Config.missing_node_cost, 0, "", "")
-        neighbor = self._create_missing_node(stop, values)
+        neighbor = self._create_missing_node(stop, osm_node)
         self.next_missing_node_idx -= 1
         neighbor.update_parent_if_better(parent)
         self._add(neighbor)
 
-    def get_or_create_missing(self, stop: Stop, values: StopPosition) -> MNode:
+    def get_or_create_missing(self, stop: Stop, osm_node: OSMNode) -> MNode:
         """ Checks if a MissingNode with the given stop and values exist,
         and returns it. If it does not exist, it will first be created. """
-        node = self._node_map.get((stop, values.idx))
+        node = self._node_map.get((stop, osm_node.idx))
         if node is None:
-            node = self._create_missing_node(stop, values)
+            node = self._create_missing_node(stop, osm_node)
         return node
 
     def filter_df_by_stop(self, stop: Stop) -> DF:

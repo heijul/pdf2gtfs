@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 from time import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias
+
+import pandas as pd
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.locate.finder.loc_nodes import display_nodes, MNode, Node, Nodes
 from pdf2gtfs.locate.finder.location import Location
 from pdf2gtfs.locate.finder.stops import Stop, Stops
-from pdf2gtfs.locate.finder.types import DF
 
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from pdf2gtfs.datastructures.gtfs_output.stop import GTFSStopEntry
 
 logger = logging.getLogger(__name__)
+DF: TypeAlias = pd.DataFrame
 
 
 class LocationFinder:
@@ -145,8 +147,8 @@ def interpolate_missing_node_locations(all_nodes: list[Node]) -> None:
 
     # Cannot interpolate positions with less than two valid nodes.
     first_id = get_first_valid_node_id(all_nodes)
-    msg = ("Can not interpolate missing nodes' locations, because"
-           "at least two valid Nodes are required.")
+    msg = ("Can not interpolate the locations of the MissingNodes, "
+           "because at least two valid Nodes are required.")
     if first_id in [len(all_nodes) - 1, -1]:
         logger.info(msg)
         return

@@ -4,8 +4,9 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.locate.finder import Stop, Stops
 from pdf2gtfs.locate.finder.cost import StartCost
 from pdf2gtfs.locate.finder.location import Location
-from pdf2gtfs.locate.finder.loc_nodes import HeapNode, Node, NodeHeap, Nodes
-from pdf2gtfs.locate.finder.types import StopPosition
+from pdf2gtfs.locate.finder.loc_nodes import (
+    OSMNode, HeapNode, Node, NodeHeap, Nodes,
+    )
 
 from test import P2GTestCase
 from test.test_locate.test_finder import (
@@ -13,7 +14,7 @@ from test.test_locate.test_finder import (
 
 
 def get_stop_positions(stops: Stops, num: int = 3
-                       ) -> dict[Stop: list[StopPosition]]:
+                       ) -> dict[Stop: list[OSMNode]]:
     stop_positions = {}
     idx = 0
     for stop_num, stop in enumerate(stops.stops):
@@ -26,7 +27,7 @@ def get_stop_positions(stops: Stops, num: int = 3
             lat += i / 10000
             lon += i / 10000
             stop_positions[stop].append(
-                StopPosition(idx, name, name, lat, lon, i * 2, i * 2, "", ""))
+                OSMNode(idx, name, name, lat, lon, i * 2, i * 2, "", ""))
             idx += 1
     return stop_positions
 
@@ -162,7 +163,7 @@ class TestNode(P2GTestCase):
         parent0.cost = StartCost.from_cost(parent0.cost)
         parent1 = self.nodes.get_or_create(stop, positions[stop][1])
         parent1.cost = StartCost.from_cost(parent1.cost)
-        loc = positions[stop][2][3:5]
+        loc = positions[stop][2].lat, positions[stop][2].lon
         parent2 = self.nodes._create_existing_node(stop, Location(*loc))
         parent2.cost = StartCost.from_cost(parent2.cost)
         stop = stop.next
@@ -197,7 +198,7 @@ class TestNode(P2GTestCase):
         node.cost = StartCost.from_cost(node.cost)
         m_node = self.nodes.get_or_create_missing(stop, positions[stop][1])
         m_node.cost = StartCost.from_cost(m_node.cost)
-        loc = positions[stop][2][3:5]
+        loc = positions[stop][2].lat, positions[stop][2].lon
         e_node = self.nodes._create_existing_node(stop, Location(*loc))
         e_node.cost = StartCost.from_cost(e_node.cost)
         self.assertEqual(e_node, Node.compare_node_type(e_node, node))
