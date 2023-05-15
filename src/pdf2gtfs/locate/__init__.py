@@ -251,7 +251,7 @@ def opt_keys_to_int(full_df: pd.DataFrame) -> pd.DataFrame:
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
     """ Calculate the integer score based on KEYS_OPTIONAL. """
     # Penalize nodes with fewer optional keys.
-    min_cat = full_df[CAT_KEYS].min(axis=1)
+    min_cat = full_df[list(CAT_KEYS)].min(axis=1)
     node_cost = (min_cat + full_df["opts_value"]) ** 2 // 20
     return node_cost
 
