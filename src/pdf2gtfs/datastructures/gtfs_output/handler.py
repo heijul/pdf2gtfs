@@ -379,37 +379,39 @@ class GTFSHandler:
         return sorted(route_ids, reverse=True,
                       key=lambda r: len(self.get_stops_of_route(r)))
 
-    def _add_ifopt_as_id(self, locations: dict[str: Node]) -> None:
+    def _add_ifopt_as_id(self, stop: GTFSStopEntry, node: Node) -> None:
         """ Update stops using the locations, such that each stop uses its
         nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
-        for stop_id, loc_node in locations.items():
-            stop = self.stops.get_by_stop_id(stop_id)
-            ifopt = loc_node.osm_node.ref_ifopt
-            if ifopt is None:
-                continue
-            # Check if ID is already used elsewhere already.
-            if not ifopt or UIDGenerator.is_used(ifopt):
-                continue
-            # Update stop_times.
-            for stop_time in self.stop_times:
-                if stop_time.stop_id == stop.id:
-                    stop_time.stop_id = ifopt
-            # Update stop.
-            stop.stop_id = ifopt
-            UIDGenerator.skip(ifopt)
+        ifopt = node.osm_node.ref_ifopt
+        if ifopt is None or stop.stop_id == ifopt:
+            return
+        # Check if ID is used for something else already.
+        if UIDGenerator.is_used(ifopt):
+            # TODO: This needs to print a warning
+            return
+        # Update stop_times.
+        for stop_time in self.stop_times:
+            if stop_time.stop_id == stop.id:
+                stop_time.stop_id = ifopt
+        # Update stop.
+        stop.stop_id = ifopt
+        UIDGenerator.skip(ifopt)
 
-    def _add_wheelchair_boarding(self, locations: dict[str: Node]) -> None:
-        for stop, loc_node in locations.items():
-            stop = self.stops.get_by_stop_id(stop)
-            wheelchair = loc_node.osm_node.wheelchair
-            if wheelchair is None:
-                continue
-            try:
-                stop.wheelchair_boarding = WheelchairBoarding[wheelchair]
-            except KeyError:
-                pass
+    @staticmethod
+    def _add_wheelchair_boarding(stop: GTFSStopEntry, node: Node) -> None:
+        wheelchair = node.osm_node.wheelchair
+        if wheelchair is None:
+            return
+        try:
+            stop.wheelchair_boarding = WheelchairBoarding[wheelchair]
+        except KeyError:
+            pass
 
-    def update_stop_ids(self, locations: dict[str: Node]) -> None:
+    def update_stops(self, locations: dict[str: Node]) -> None:
         """ Adds additional information to the stops, based on the nodes. """
-        self._add_wheelchair_boarding(locations)
-        self._add_ifopt_as_id(locations)
+        for stop_id, node in locations.items():
+            stop = self.stops.get_by_stop_id(stop_id)
+            self._add_wheelchair_boarding(stop, node)
+
+            # This needs to be the last function called by update_stops.
+            self._add_ifopt_as_id(stop, node)
