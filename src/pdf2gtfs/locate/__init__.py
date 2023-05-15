@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import re
+
+import yaml
 from math import inf
 from time import time
 from typing import TYPE_CHECKING, TypeAlias
@@ -15,7 +17,6 @@ from pdf2gtfs.datastructures.gtfs_output.stop import GTFSStopEntry
 from pdf2gtfs.locate.finder import (
     find_stop_nodes, interpolate_missing_node_locations)
 from pdf2gtfs.locate.finder.loc_nodes import display_nodes, MNode, Node
-from pdf2gtfs.locate.finder.osm_values import get_all_cat_scores
 from pdf2gtfs.locate.osm_fetcher import CAT_KEYS, OPT_KEYS, OSMFetcher
 from pdf2gtfs.utils import normalize_name
 
@@ -180,28 +181,53 @@ def prefilter_df(stops: list[str], full_df: DF) -> DF:
     return df.copy()
 
 
+Include: TypeAlias = dict[str, dict[str, int]]
+Exclude: TypeAlias = dict[str, list[str]]
+
+
+def read_osm_values_yaml() -> dict[str, tuple[Include, Exclude]]:
+    """
+
+    :return: A dict that contains the include key-score pairs and the
+        exclude keys for each routetype.
+    """
+    modes: dict[str, tuple[Include, Exclude]] = {}
+    path = Config.p2g_dir.joinpath("osm_scores.yaml")
+    inherits = {}
+    with open(path) as fil:
+        for mode_of_transport, values in yaml.safe_load(fil).items():
+            modes[mode_of_transport] = (values.get("include", {}),
+                                        values.get("exclude", {}))
+            if "inherit_from" in values:
+                inherits[mode_of_transport] = values["inherit_from"]
+    for mode_of_transport, inherits_from in inherits.items():
+        modes[mode_of_transport] = modes[inherits_from]
+
+    return modes
+
+
 def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     """ Translate the OSM-key columns to int.
 
-    Change the values of KEYS_OPTIONAL (i.e. the keys used to calculate
+    Change the values of KEYS_OPTIONAL (i.e., the keys used to calculate
     the node score) in df, with its integer value, depending on the routetype.
     """
 
     def _get_score(value: str) -> float:
-        if value in bad:
-            return bad_value
+        if value in exclude:
+            return exclude_value
         try:
-            return good[value] * 5
+            return include[value] * 5
         except KeyError:
             return 20
 
-    bad_value = inf
+    exclude_value = inf
     # Apply cat scores
-    goods, bads = get_all_cat_scores()
+    includes, excludes = read_osm_values_yaml()[Config.gtfs_routetype]
     df = raw_df.copy()
     for key in CAT_KEYS:
-        good = goods.get(key, {})
-        bad = bads.get(key, {})
+        include = includes.get(key, {})
+        exclude = excludes.get(key, {})
         df[key] = df[key].apply(_get_score)
 
     return df
