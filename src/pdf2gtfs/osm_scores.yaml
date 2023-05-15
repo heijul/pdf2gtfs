@@ -1,3 +1,6 @@
+# This file explains how the different routetypes should be scored,
+#  based on different OSM keys.
+
 Tram:
   include:
     "tram":
