@@ -6,7 +6,6 @@ import logging
 import re
 import sys
 import webbrowser
-from dataclasses import dataclass
 
 from math import inf, log, sqrt
 from statistics import mean, StatisticsError
@@ -41,22 +40,41 @@ def valid_ifopt(ifopt_str: str) -> bool:
     return re.match(regex, ifopt_str) is not None
 
 
-@dataclass
 class OSMNode:
     """ Represents a node in OSM. Note that it only has a subset of keys. """
-    idx: int
-    stop_id: str
-    names: str
-    lat: float
-    lon: float
-    node_cost: float
-    name_cost: float
-    ref_ifopt: str = None
-    wheelchair: str = None
+    optionals = ("ref_ifopt", "wheelchair")
+    _optionals_keys = {"ref_ifopt": "ref:ifopt"}
+
+    def __init__(self, idx: int, stop_id: str, names: str, lat: float,
+                 lon: float, node_cost: float, name_cost: float,
+                 **kwargs) -> None:
+        self.idx = idx
+        self.stop_id = stop_id
+        self.names = names
+        self.lat = lat
+        self.lon = lon
+        self.node_cost = node_cost
+        self.name_cost = name_cost
+        # Set the optional values.
+        assert all(kwarg in OSMNode.optionals for kwarg in kwargs)
+        self.ref_ifopt = kwargs.get("ref_ifopt", None)
+        self.wheelchair = kwargs.get("wheelchair", None)
+
+    @staticmethod
+    def get_optional_key(optional: str) -> str:
+        """ Get the OSM-key for an optional field.
+
+        This is necessary because some of the keys
+        are not valid python identifiers (e.g., "ref:ifopt").
+
+        :param optional: The optional field the key is requested for.
+        :return: The OSM-key of the given field.
+        """
+        return OSMNode._optionals_keys.get(optional, optional)
 
 
 # noinspection PyTypeChecker
-DummyOSMNode = OSMNode(None, None, None, None, None, None, None, None, None)
+DummyOSMNode = OSMNode(None, None, None, None, None, None, None)
 
 
 class Node:
@@ -377,7 +395,7 @@ class Nodes:
         stop: Stop = parent.stop.next
         osm_node: OSMNode = OSMNode(
             self.next_missing_node_idx, stop.name, stop.name,
-            0, 0, Config.missing_node_cost, 0, "", "")
+            0, 0, Config.missing_node_cost, 0)
         neighbor = self._create_missing_node(stop, osm_node)
         self.next_missing_node_idx -= 1
         neighbor.update_parent_if_better(parent)
@@ -394,14 +412,12 @@ class Nodes:
     def filter_df_by_stop(self, stop: Stop) -> DF:
         """ Return a dataframe containing only
         entries with the given stop's stop_id. """
-        from pdf2gtfs.locate import OPT_KEYS
-
         df = self.df.loc[self.df["stop_id"] == stop.stop_id]
         if df.empty:
             data = {"idx": self.next_missing_node_idx, "stop_id": stop.stop_id,
                     "names": stop.name, "lat": 0, "lon": 0,
                     "node_cost": 0, "name_cost": 0}
-            data.update({key: "" for key in OPT_KEYS})
+            data.update({key: "" for key in OSMNode.optionals})
             index = pd.Index([self.next_missing_node_idx])
             df = pd.DataFrame(data, index=index, columns=df.columns)
             self.next_missing_node_idx -= 1

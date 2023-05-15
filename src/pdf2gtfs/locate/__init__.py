@@ -16,8 +16,10 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.stop import GTFSStopEntry
 from pdf2gtfs.locate.finder import (
     find_stop_nodes, interpolate_missing_node_locations)
-from pdf2gtfs.locate.finder.loc_nodes import display_nodes, MNode, Node
-from pdf2gtfs.locate.osm_fetcher import CAT_KEYS, OPT_KEYS, OSMFetcher
+from pdf2gtfs.locate.finder.loc_nodes import (
+    display_nodes, MNode, Node, OSMNode,
+    )
+from pdf2gtfs.locate.osm_fetcher import CAT_KEYS, OSMFetcher
 from pdf2gtfs.utils import normalize_name
 
 
@@ -79,10 +81,11 @@ def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
     t = time()
     # Calculate node score.
     full_df = node_score_strings_to_int(df)
-    full_df["opts_value"] = opt_keys_to_int(full_df[OPT_KEYS])
+    full_df["opts_value"] = opt_keys_to_int(full_df[list(OSMNode.optionals)])
     df.loc[:, "node_cost"] = get_node_cost(full_df)
-    df = df.loc[:, ["lat", "lon", "names",
-                    "node_cost", "stop_id", "idx", "name_cost"] + OPT_KEYS]
+    cols = (("lat", "lon", "names", "node_cost", "stop_id", "idx", "name_cost")
+            + OSMNode.optionals)
+    df = df.loc[:, cols]
     logger.info(f"Done. Took {time() - t:.2f}s")
 
     return df
