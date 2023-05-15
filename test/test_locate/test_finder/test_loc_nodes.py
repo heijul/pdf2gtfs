@@ -4,8 +4,9 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.locate.finder import Stop, Stops
 from pdf2gtfs.locate.finder.cost import StartCost
 from pdf2gtfs.locate.finder.location import Location
-from pdf2gtfs.locate.finder.loc_nodes import HeapNode, Node, NodeHeap, Nodes
-from pdf2gtfs.locate.finder.types import OSMNode
+from pdf2gtfs.locate.finder.loc_nodes import (
+    OSMNode, HeapNode, Node, NodeHeap, Nodes,
+    )
 
 from test import P2GTestCase
 from test.test_locate.test_finder import (

@@ -6,9 +6,11 @@ import logging
 import re
 import sys
 import webbrowser
+from dataclasses import dataclass
+
 from math import inf, log, sqrt
 from statistics import mean, StatisticsError
-from typing import Type
+from typing import Type, TypeAlias
 
 import folium
 import pandas as pd
@@ -18,10 +20,10 @@ from pdf2gtfs.locate.finder.cost import Cost, StartCost
 from pdf2gtfs.locate.finder.location import (
     DISTANCE_IN_M_PER_LAT_DEG, get_distance_per_lon_deg, Location)
 from pdf2gtfs.locate.finder.stops import Stop, Stops
-from pdf2gtfs.locate.finder.types import DF, DummyOSMNode, OSMNode
 
 
 logger = logging.getLogger(__name__)
+DF: TypeAlias = pd.DataFrame
 
 
 def valid_ifopt(ifopt_str: str) -> bool:
@@ -37,6 +39,24 @@ def valid_ifopt(ifopt_str: str) -> bool:
     #     The first of the two has
     regex = r"^[a-z]{2,3}:?\d*:?\d*:?\d*:?\d*"
     return re.match(regex, ifopt_str) is not None
+
+
+@dataclass
+class OSMNode:
+    """ Represents a node in OSM. Note that it only has a subset of keys. """
+    idx: int
+    stop_id: str
+    names: str
+    lat: float
+    lon: float
+    node_cost: float
+    name_cost: float
+    ref_ifopt: str = None
+    wheelchair: str = None
+
+
+# noinspection PyTypeChecker
+DummyOSMNode = OSMNode(None, None, None, None, None, None, None, None, None)
 
 
 class Node:
@@ -316,8 +336,9 @@ class Nodes:
             return
 
         df = self.filter_df_by_stop(stop)
-        for values in df.itertuples(False, "StopPosition"):
-            osm_node = OSMNode.from_named_tuple(values)
+
+        for _, series in df.iterrows():
+            osm_node = OSMNode(**dict(series.items()))
             if osm_node.lat == 0 or osm_node.lon == 0:
                 node = self.get_or_create_missing(stop, osm_node)
             else:
