@@ -142,11 +142,10 @@ class GTFSHandler:
 
     def generate_stop_times(self, entries: list[TimeTableEntry]
                             ) -> list[GTFSStopTimes]:
-        """ Generate the full stoptimes of the given entries.
+        """ Generate the full StopTimes of the given entries.
 
-        Will remember the previous stoptimes created and use the previous and
-        current (i.e. stoptimes before and after the repeat column) to
-        generate the stoptimes for the repeat column.
+        Will remember the previous StopTimes created and use the previous and
+        current (i.e., StopTimes left and right) for the repeat column.
         """
 
         def create_calendar_entry() -> GTFSCalendarEntry:
@@ -154,63 +153,64 @@ class GTFSHandler:
             return self.calendar.add(entry.days.days, entry.annotations)
 
         def new_entry_is_on_new_service_day() -> bool:
-            """ Checks if the new entry is on the next service day. """
-            if not prev_calendar_entry:
+            """ Checks if the new entry is on the next ServiceDay. """
+            if not previous_calendar_entry:
                 return False
-            return not calendar_entry.same_days(prev_calendar_entry)
+            return not calendar_entry.same_days(previous_calendar_entry)
 
         def create_stop_times() -> GTFSStopTimes:
             """ Creates the StopTimes for the current entry. """
+
             trip = trip_factory()
             _stop_times = GTFSStopTimes(Path(self.temp_dir.name))
             _stop_times.add_multiple(
                 trip.trip_id, self.stops, service_day_offset, entry.values)
             return _stop_times
 
-        def end_of_day() -> bool:
+        def new_day() -> bool:
             """ Check if the current entry occurs before the previous one. """
-            return prev and prev > times
+            return previous and previous > current
 
         stop_times = []
-        prev = None
-        prev_calendar_entry = None
+        previous = None
+        previous_calendar_entry = None
         repeat = None
         service_day_offset = 0
         for entry in entries:
+            # We need the next entry if the current is a RepeatEntry.
             if isinstance(entry, TimeTableRepeatEntry):
                 repeat = entry if entry.intervals else None
                 continue
+            # Create the StopTimes for the current Entry.
             route_id = self.routes.get_from_entry(entry).route_id
-
             calendar_entry = create_calendar_entry()
             if new_entry_is_on_new_service_day():
                 service_day_offset = 0
-                prev = None
-
+                previous = None
             trip_factory = self.trips.get_factory(
                 calendar_entry.service_id, route_id)
-            times = create_stop_times()
+            current = create_stop_times()
 
-            if end_of_day():
-                times.shift(Time(24))
+            if new_day():
+                current.shift(Time(24))
                 service_day_offset += 1
 
-            stop_times.append(times)
-            prev_calendar_entry = calendar_entry
+            stop_times.append(current)
+            previous_calendar_entry = calendar_entry
 
             if not repeat:
-                prev = times
+                previous = current
                 continue
-
-            if prev is None:
+            # Check if we can create the RepeatEntry.
+            if previous is None:
                 logger.error("Encountered a repeat column, before a normal "
                              "column was added. Skipping repeat column...")
                 repeat = None
                 continue
 
-            # Create stoptimes between prev and times.
+            # Create StopTimes between previous and current.
             stop_times += GTFSStopTimes.add_repeat(
-                prev, times, repeat.intervals, trip_factory)
+                previous, current, repeat.intervals, trip_factory)
             repeat = None
 
         return stop_times

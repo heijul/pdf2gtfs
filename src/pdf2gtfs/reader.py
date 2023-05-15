@@ -11,16 +11,15 @@ from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import strptime, time
 from typing import (
-    Any, cast, Iterable, Iterator, Optional, Tuple, TypeAlias,
-    Union,
+    Any, cast, Iterable, Iterator, Optional, Tuple, TypeAlias, Union,
     )
 
 import pandas as pd
-from more_itertools import (
-    first_true, flatten, partition, peekable,
-    )
+from more_itertools import first_true, flatten, partition, peekable, prepend
 from pdfminer.high_level import extract_pages
-from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox, LTTextLine
+from pdfminer.layout import (
+    LAParams, LTChar, LTPage, LTText, LTTextBox, LTTextLine,
+    )
 from pdfminer.pdfcolor import PDFColorSpace
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdffont import PDFFont
@@ -159,16 +158,33 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
     :return: A list of words (= LTChar lists)
     :rtype: List[List[LTChar]]
     """
+    def different_font(char1: LTText | None, char2: LTChar) -> bool:
+        """ Check if the chars have different font properties. """
+        if char1 is None or not isinstance(char1, LTChar):
+            return True
+        if char1.fontname != char2.fontname:
+            return True
+        if char1.fontsize != char2.fontsize:
+            return True
+        if char1.font != char2.font:
+            return True
+        return False
+
+    def is_word_split(char1: LTChar) -> bool:
+        """ Check if the given char is a word split (i.e., whitespace). """
+        return char1.get_text() in (" ", "\n")
+
     words: list[list[LTChar]] = []
-    for char in line:
-        not_a_char = not isinstance(char, LTChar)
-        if char.get_text() in (" ", "\n") or not words or not_a_char:
+    # Do not prefilter line, because LTAnno may be used as word split.
+    for prev_char, char in pairwise(prepend(None, line)):
+        not_char = not isinstance(char, LTChar)
+        if not_char or is_word_split(char) or different_font(prev_char, char):
             words.append([])
-        if not_a_char:
+        if not_char:
             continue
         words[-1].append(char)
     # Drop empty words.
-    return [word for word in words if word]
+    return list(filter(bool, words))
 
 
 def word_contains_time_data(word: list[LTChar]) -> bool:

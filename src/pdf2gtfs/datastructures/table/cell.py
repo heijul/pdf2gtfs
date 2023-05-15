@@ -308,7 +308,6 @@ class Cell(BBoxObject):
         :return: True, if there is any overlap between the Cell and self.
             False, otherwise.
         """
-        # TODO: Use o.overlap_func (after moving it there from d) instead.
         if o is V:
             return self.bbox.v_overlap(cell) > 0
         return self.bbox.h_overlap(cell) > 0
