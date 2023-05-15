@@ -1,0 +1,138 @@
+Tram:
+  include:
+    "tram":
+      "yes": 0
+    "light_rail":
+      "yes": 1
+    "station":
+      "light_rail": 1
+    "railway":
+      "tram_stop": 0
+      "halt": 2
+      "station": 2
+      "platform": 2
+    "train":
+      "yes": 2
+  exclude:
+    "tram": ["no"]
+
+StreetCar:
+  inherit_from: "Tram"
+
+LightRail:
+  include:
+    "light_rail":
+      "yes": 0
+    "station":
+      "light_rail": 0
+    "tram":
+      "yes": 0
+    "railway":
+      "tram_stop": 0
+      "halt": 1
+      "station": 1
+      "platform": 1
+    "train":
+      "yes": 1
+  exclude:
+    "light_rail": ["no"]
+
+Subway:
+  include:
+    "subway":
+      "yes": 0
+    "train":
+      "yes": 1
+    "station":
+      "subway": 0
+      "train": 1
+    "railway":
+      "halt": 0
+      "station": 1
+      "platform": 1
+  exclude:
+    "subway": ["no"]
+
+Metro:
+  inherit_from: "Subway"
+
+Rail:
+  include:
+    "train":
+      "yes": 0
+    "station":
+      "train": 0
+    "railway":
+      "halt": 0
+      "station": 1
+      "platform": 1
+  exclude:
+    "train": ["no"]
+
+Bus:
+  include:
+    "bus":
+      "yes": 0
+    "amenity":
+      "bus_station": 0
+    "highway":
+      "bus_stop": 0
+      "platform": 1
+    "trolleybus":
+      "yes": 2
+  exclude:
+    "bus": ["no"]
+
+Ferry:
+  include:
+    "ferry":
+      "yes": 0
+    "amenity":
+      "ferry_terminal": 0
+  exclude:
+    "ferry": ["no"]
+
+CableTram:
+  include:
+    "tram":
+      "yes": 1
+    "light_rail":
+      "yes": 1
+    "train":
+      "yes": 2
+    "railway":
+      "tram_stop": 1
+      "halt": 2
+      "station": 2
+      "platform": 2
+    "station":
+      "light_rail": 3
+
+AerialLift: {}
+
+SuspendedCableCar: {}
+
+Funicular:
+  include:
+    "railway":
+      "funicular": 0
+      "light_rail": 1
+    "station":
+      "funicular": 0
+    "light_rail":
+      "yes": 2
+
+Monorail:
+  include:
+    "monorail":
+      "yes": 0
+    "station":
+      "monorail": 1
+    "railway":
+      "halt": 1
+      "platform": 1
+      "station": 2
+    "light_rail":
+      "yes": 2
+  exclude:
+    "monorail": ["no"]

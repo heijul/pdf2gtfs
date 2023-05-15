@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
+import yaml
+
 from pdf2gtfs.config import Config
 
 
@@ -15,6 +17,12 @@ BadValues: TypeAlias = dict[OSMKey: list[str]]
 
 
 def get_all_cat_scores() -> tuple[GoodValues, BadValues]:
+    """ Return all values, which make a node a good or bad match. """
+    osm_values = read_osm_values_yaml()[Config.gtfs_routetype]
+    return osm_values
+
+
+def get_all_cat_scores_old() -> tuple[GoodValues, BadValues]:
     """ Return all values, which make a node a good or bad match. """
     osm_value = get_osm_values()[Config.gtfs_routetype]()
     return osm_value.good_values, osm_value.bad_values
@@ -190,3 +198,23 @@ class Monorail(OSMValue):
                                         "station": 2},
                             "light_rail": {"yes": 2}}
         self.bad_values = {"monorail": ["no"]}
+
+
+Include: TypeAlias = dict[str, dict[str, int]]
+Exclude: TypeAlias = dict[str, list[str]]
+
+
+def read_osm_values_yaml() -> dict[str, tuple[Include, Exclude]]:
+    modes: dict[str, tuple[Include, Exclude]] = {}
+    path = Config.p2g_dir.joinpath("osm_scores.yaml")
+    inherits = {}
+    with open(path) as fil:
+        for mode_of_transport, values in yaml.safe_load(fil).items():
+            modes[mode_of_transport] = (values.get("include", {}),
+                                        values.get("exclude", {}))
+            if "inherit_from" in values:
+                inherits[mode_of_transport] = values["inherit_from"]
+    for mode_of_transport, inherits_from in inherits.items():
+        modes[mode_of_transport] = modes[inherits_from]
+
+    return modes

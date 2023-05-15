@@ -183,25 +183,25 @@ def prefilter_df(stops: list[str], full_df: DF) -> DF:
 def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     """ Translate the OSM-key columns to int.
 
-    Change the values of KEYS_OPTIONAL (i.e. the keys used to calculate
+    Change the values of KEYS_OPTIONAL (i.e., the keys used to calculate
     the node score) in df, with its integer value, depending on the routetype.
     """
 
     def _get_score(value: str) -> float:
-        if value in bad:
-            return bad_value
+        if value in exclude:
+            return exclude_value
         try:
-            return good[value] * 5
+            return include[value] * 5
         except KeyError:
             return 20
 
-    bad_value = inf
+    exclude_value = inf
     # Apply cat scores
-    goods, bads = get_all_cat_scores()
+    includes, excludes = get_all_cat_scores()
     df = raw_df.copy()
     for key in CAT_KEYS:
-        good = goods.get(key, {})
-        bad = bads.get(key, {})
+        include = includes.get(key, {})
+        exclude = excludes.get(key, {})
         df[key] = df[key].apply(_get_score)
 
     return df

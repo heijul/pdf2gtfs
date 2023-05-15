@@ -24,3 +24,13 @@ class TestOSMValues(P2GTestCase):
                     RouteType[name]
                 except KeyError:
                     self.fail(f"KeyError raised for {name}")
+
+    def test_new_osm_values(self) -> None:
+        for rt in ["Tram", "StreetCar", "LightRail", "Subway", "Metro", "Rail",
+                   "Bus", "Ferry", "CableTram", "AerialLift",
+                   "SuspendedCableCar", "Funicular", "Monorail"]:
+            Config.gtfs_routtype = rt
+            i1, e1 = osmv.get_all_cat_scores()
+            i2, e2 = osmv.get_all_cat_scores_old()
+            self.assertDictEqual(i1, i2)
+            self.assertDictEqual(e1, e2)
