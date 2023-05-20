@@ -53,7 +53,7 @@ def detect_locations(gtfs_handler: GTFSHandler) -> None:
         return
     locations = find_location_nodes(gtfs_handler) or []
     gtfs_handler.add_coordinates(locations)
-    gtfs_handler.update_stop_ids(locations)
+    gtfs_handler.update_stops(locations)
 
 
 def main() -> None:

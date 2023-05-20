@@ -13,19 +13,17 @@ import pandas as pd
 import requests
 
 from pdf2gtfs.config import Config
+from pdf2gtfs.locate.finder.loc_nodes import OSMNode
 from pdf2gtfs.utils import normalize_series
 
 
 logger = getLogger(__name__)
-KEYS = ["lat", "lon", "public_transport"]
+KEYS = ("lat", "lon", "public_transport")
 # Keys are case-sensitive.
-CAT_KEYS = ["railway", "bus", "tram",
-            "train", "subway", "monorail", "light_rail"]
-# Valid python identifiers for some keys.
-OPT_OSM_KEYS = {"ref_ifopt": "ref:IFOPT"}
-OPT_KEYS = ["ref_ifopt", "wheelchair"]
-NAME_KEYS = ["name", "alt_name", "ref_name",
-             "short_name", "official_name", "loc_name"]
+CAT_KEYS = ("railway", "bus", "tram",
+            "train", "subway", "monorail", "light_rail")
+NAME_KEYS = ("name", "alt_name", "ref_name",
+             "short_name", "official_name", "loc_name")
 
 
 class OSMFetcher:
@@ -237,7 +235,7 @@ def get_qlever_query() -> str:
 
     def get_selection() -> list[str]:
         """ Return the select clause. """
-        identifier = map(_to_identifier, KEYS + CAT_KEYS + OPT_KEYS)
+        identifier = map(_to_identifier, KEYS + CAT_KEYS + OSMNode.optionals)
         group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\"|\") AS ?names)"
         variables = " ".join(identifier) + group_concat
         return ["SELECT {} WHERE {{".format(variables)]
@@ -263,12 +261,14 @@ def get_qlever_query() -> str:
         """ Get the clause for all optional keys. """
         fmt = "OPTIONAL {{ ?stop osmkey:{} ?{} . }}"
         return ([fmt.format(key, key) for key in CAT_KEYS]
-                + [fmt.format(OPT_OSM_KEYS.get(k, k), k) for k in OPT_KEYS])
+                + [fmt.format(OSMNode.get_optional_key(k), k)
+                   for k in OSMNode.optionals])
 
     def get_group_by() -> list[str]:
         """ Group-by statement, grouping by optional and mandatory keys. """
         fmt = "GROUP BY {}"
-        identifier = " ".join(map(_to_identifier, KEYS + CAT_KEYS + OPT_KEYS))
+        identifier = " ".join(
+            map(_to_identifier, KEYS + CAT_KEYS + OSMNode.optionals))
         return [fmt.format(identifier)]
 
     pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
@@ -319,13 +319,13 @@ def read_data(path_or_stream: Path | BytesIO) -> pd.DataFrame:
 
     dtype = {"lat": float, "lon": float,
              "public_transport": str, "names": str}
-    for key in CAT_KEYS + OPT_KEYS:
+    for key in CAT_KEYS + OSMNode.optionals:
         dtype[key] = str
 
     return pd.read_csv(
         path_or_stream,
         sep="\t",
-        names=KEYS + CAT_KEYS + OPT_KEYS + ["names"],
+        names=KEYS + CAT_KEYS + OSMNode.optionals + ("names", ),
         dtype=dtype,
         keep_default_na=False,
         header=0,
