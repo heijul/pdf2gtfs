@@ -41,7 +41,21 @@ def valid_ifopt(ifopt_str: str) -> bool:
 
 
 class OSMNode:
-    """ Represents a node in OSM. Note that it only has a subset of keys. """
+    """ Represents a node in OSM. Note that it only has a subset of keys.
+
+
+    When adding a new optional key, the following needs to be done,
+    to properly use the optional keys:
+
+    1. Add a string that is a valid python identifier to `optionals`.
+    2. Add the key used by OSM (if it exists) to the `_optional_keys`.
+    3. Add a property to the OSMNode (with the same name as in 1.).
+    4. The GTFS object (e.g. GTFSStops) needs to get a new field (optional).
+    4. Add a function that updates the GTFS to the Handler
+    and call it in Handler.update_stops (optional).
+    5. Add a function to opt_keys_to_int,
+    if the optional key impacts the node score.
+    """
     optionals = ("ref_ifopt", "wheelchair")
     _optionals_keys = {"ref_ifopt": "ref:ifopt"}
 
