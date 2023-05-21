@@ -379,10 +379,9 @@ class GTFSHandler:
         return sorted(route_ids, reverse=True,
                       key=lambda r: len(self.get_stops_of_route(r)))
 
-    def _add_ifopt_as_id(self, stop: GTFSStopEntry, node: Node) -> None:
+    def _add_ifopt_as_id(self, stop: GTFSStopEntry, ifopt: int | None) -> None:
         """ Update stops using the locations, such that each stop uses its
         nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
-        ifopt = node.osm_node.ref_ifopt
         if ifopt is None or stop.stop_id == ifopt:
             return
         # Check if ID is used for something else already.
@@ -398,8 +397,8 @@ class GTFSHandler:
         UIDGenerator.skip(ifopt)
 
     @staticmethod
-    def _add_wheelchair_boarding(stop: GTFSStopEntry, node: Node) -> None:
-        wheelchair = node.osm_node.wheelchair
+    def _add_wheelchair_boarding(stop: GTFSStopEntry, wheelchair: str | None
+                                 ) -> None:
         if wheelchair is None:
             return
         try:
@@ -407,11 +406,18 @@ class GTFSHandler:
         except KeyError:
             pass
 
+    @staticmethod
+    def _use_osm_gtfs_name(stop: GTFSStopEntry, new_name: str | None) -> None:
+        if new_name is None:
+            return
+        stop.stop_name = new_name
+
     def update_stops(self, locations: dict[str: Node]) -> None:
         """ Adds additional information to the stops, based on the nodes. """
         for stop_id, node in locations.items():
             stop = self.stops.get_by_stop_id(stop_id)
-            self._add_wheelchair_boarding(stop, node)
+            self._add_wheelchair_boarding(stop, node.osm_node.wheelchair)
+            self._use_osm_gtfs_name(stop, node.osm_node.gtfs_name)
 
             # This needs to be the last function called by update_stops.
-            self._add_ifopt_as_id(stop, node)
+            self._add_ifopt_as_id(stop, node.osm_node.ref_ifopt)

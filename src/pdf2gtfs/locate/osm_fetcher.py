@@ -325,7 +325,7 @@ def read_data(path_or_stream: Path | BytesIO) -> pd.DataFrame:
     return pd.read_csv(
         path_or_stream,
         sep="\t",
-        names=KEYS + CAT_KEYS + OSMNode.optionals + ("names", ),
+        names=KEYS + ("names", ) + CAT_KEYS + OSMNode.optionals,
         dtype=dtype,
         keep_default_na=False,
         header=0,

@@ -56,8 +56,8 @@ class OSMNode:
     5. Add a function to opt_keys_to_int,
     if the optional key impacts the node score.
     """
-    optionals = ("ref_ifopt", "wheelchair")
-    _optionals_keys = {"ref_ifopt": "ref:ifopt"}
+    optionals = ("ref_ifopt", "wheelchair", "gtfs_name")
+    _optionals_keys = {"ref_ifopt": "ref:ifopt", "gtfs_name": "gtfs:name"}
 
     def __init__(self, idx: int, stop_id: str, names: str, lat: float,
                  lon: float, node_cost: float, name_cost: float,
@@ -73,6 +73,7 @@ class OSMNode:
         assert all(kwarg in OSMNode.optionals for kwarg in kwargs)
         self.ref_ifopt = kwargs.get("ref_ifopt", None)
         self.wheelchair = kwargs.get("wheelchair", None)
+        self.gtfs_name = kwargs.get("gtfs_name", None)
 
     @staticmethod
     def get_optional_key(optional: str) -> str:
