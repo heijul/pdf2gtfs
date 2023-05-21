@@ -308,28 +308,6 @@ class GTFSHandler:
             for path in self.get_gtfs_filepaths():
                 zip_file.write(path, arcname=path.name)
 
-    def add_coordinates(self, nodes: dict[str: Node]) -> None:
-        """ Add locations to the stops using the given nodes. """
-        if not nodes:
-            logger.warning("Could not found any locations for the given "
-                           "stops. Cannot add coordinates to stops.")
-            return
-        logger.info("Adding coordinates to stops.")
-        for stop_id, node in nodes.items():
-            stop = self.stops.get_by_stop_id(stop_id)
-            if stop.valid or isinstance(node, ENode):
-                continue
-            if isinstance(node, MNode):
-                msg = f"Could not find location for '{stop.stop_name}'."
-                if Config.interpolate_missing_locations and node.loc.is_valid:
-                    logger.info(msg + " Using the interpolated coordinates.")
-                else:
-                    msg += "You will have to manually add the coordinates."
-                    logger.warning(msg)
-                    continue
-            stop.set_location(*node.loc, isinstance(node, MNode))
-        logger.info("Done.")
-
     def get_stops_of_route(self, route_id: str) -> list[GTFSStopEntry]:
         """ Returns all stops of the given route. """
         trips = self.trips.get_with_route_id(route_id)
@@ -379,6 +357,25 @@ class GTFSHandler:
         return sorted(route_ids, reverse=True,
                       key=lambda r: len(self.get_stops_of_route(r)))
 
+    @staticmethod
+    def _add_coordinates(stop: GTFSStopEntry, node: Node) -> None:
+        """ Set the location for the given stop. """
+
+        if stop.valid or isinstance(node, ENode):
+            return
+        if isinstance(node, MNode):
+            msg = f"Could not find valid location for '{stop.stop_name}'."
+            if Config.interpolate_missing_locations and node.loc.is_valid:
+                logger.info(msg + " Using the interpolated coordinates.")
+            else:
+                msg += (" The interpolation of missing locations "
+                        "has either been disabled, or has failed. "
+                        "You will have to add the coordinates manually.")
+                logger.warning(msg)
+                return
+
+        stop.set_location(*node.loc, isinstance(node, MNode))
+
     def _add_ifopt_as_id(self, stop: GTFSStopEntry, ifopt: int | None) -> None:
         """ Update stops using the locations, such that each stop uses its
         nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
@@ -414,10 +411,18 @@ class GTFSHandler:
 
     def update_stops(self, locations: dict[str: Node]) -> None:
         """ Adds additional information to the stops, based on the nodes. """
+        if not locations:
+            logger.warning("Could not find any locations for the given "
+                           "stops. You will have to add the coordinates "
+                           "for each stop manually.")
+            return
+        logger.info("Adding coordinates and additional information to stops.")
         for stop_id, node in locations.items():
             stop = self.stops.get_by_stop_id(stop_id)
+            self._add_coordinates(stop, node)
             self._add_wheelchair_boarding(stop, node.osm_node.wheelchair)
             self._use_osm_gtfs_name(stop, node.osm_node.gtfs_name)
 
             # This needs to be the last function called by update_stops.
             self._add_ifopt_as_id(stop, node.osm_node.ref_ifopt)
+        logger.info("Done.")
