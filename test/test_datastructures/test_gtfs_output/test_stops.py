@@ -4,8 +4,7 @@ import pandas as pd
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.gtfs_output.stop import (
-    GTFSStopEntry, GTFSStops,
-    WHEELCHAIR_TO_INT, WheelchairBoarding)
+    GTFSStopEntry, GTFSStops, WheelchairBoarding)
 from test.test_datastructures.test_gtfs_output import GTFSOutputBaseClass
 
 
@@ -75,8 +74,8 @@ class TestGTFSStopEntry(GTFSOutputBaseClass):
         self.assertEqual(float(values[2]), entry.stop_lat)
         self.assertEqual(float(values[3]), entry.stop_lon)
         self.assertEqual(values[4], entry.stop_desc)
-        self.assertEqual(WHEELCHAIR_TO_INT[WheelchairBoarding.yes],
-                         int(entry.wheelchair_boarding))
+        self.assertEqual(WheelchairBoarding.yes.value,
+                         entry.wheelchair_boarding.value)
 
         values = ["stop_id_1", "stop 1", "", "", "", ""]
         entry = GTFSStopEntry.from_series(pd.Series(values, index=index))
@@ -85,7 +84,7 @@ class TestGTFSStopEntry(GTFSOutputBaseClass):
         self.assertEqual(None, entry.stop_lat)
         self.assertEqual(None, entry.stop_lon)
         self.assertEqual(values[4], entry.stop_desc)
-        self.assertEqual(0, WHEELCHAIR_TO_INT[entry.wheelchair_boarding])
+        self.assertEqual(0, entry.wheelchair_boarding.value)
 
 
 class TestGTFSStops(GTFSOutputBaseClass):

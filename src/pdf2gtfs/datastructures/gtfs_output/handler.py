@@ -23,7 +23,8 @@ from pdf2gtfs.datastructures.gtfs_output.calendar_dates import (
     )
 from pdf2gtfs.datastructures.gtfs_output.routes import GTFSRoutes
 from pdf2gtfs.datastructures.gtfs_output.stop import (
-    GTFSStopEntry, GTFSStops, WheelchairBoarding)
+    GTFSStopEntry, GTFSStops, PublicTransport, WheelchairBoarding,
+    )
 from pdf2gtfs.datastructures.gtfs_output.stop_times import (
     GTFSStopTimes, GTFSStopTimesEntry, Time)
 from pdf2gtfs.datastructures.gtfs_output.trips import GTFSTrips
@@ -361,20 +362,20 @@ class GTFSHandler:
     def _add_coordinates(stop: GTFSStopEntry, node: Node) -> None:
         """ Set the location for the given stop. """
 
-        if stop.valid or isinstance(node, ENode):
+        if not isinstance(node, MNode):
+            stop.set_location(*node.loc, False)
             return
-        if isinstance(node, MNode):
-            msg = f"Could not find valid location for '{stop.stop_name}'."
-            if Config.interpolate_missing_locations and node.loc.is_valid:
-                logger.info(msg + " Using the interpolated coordinates.")
-            else:
-                msg += (" The interpolation of missing locations "
-                        "has either been disabled, or has failed. "
-                        "You will have to add the coordinates manually.")
-                logger.warning(msg)
-                return
+        msg = f"Could not find valid location for '{stop.stop_name}'."
+        if Config.interpolate_missing_locations and node.loc.is_valid:
+            logger.info(msg + " Using the interpolated coordinates.")
+        else:
+            msg += (" The interpolation of missing locations "
+                    "has either been disabled, or has failed. "
+                    "You will have to add the coordinates manually.")
+            logger.warning(msg)
+            return
 
-        stop.set_location(*node.loc, isinstance(node, MNode))
+        stop.set_location(*node.loc, True)
 
     def _add_ifopt_as_id(self, stop: GTFSStopEntry, ifopt: int | None) -> None:
         """ Update stops using the locations, such that each stop uses its
@@ -398,10 +399,14 @@ class GTFSHandler:
                                  ) -> None:
         if wheelchair is None:
             return
-        try:
-            stop.wheelchair_boarding = WheelchairBoarding[wheelchair]
-        except KeyError:
-            pass
+        stop.wheelchair_boarding = WheelchairBoarding.from_name(wheelchair)
+
+    @staticmethod
+    def _add_public_transport(stop: GTFSStopEntry, public_transport: str | None
+                              ) -> None:
+        if public_transport is None:
+            return
+        stop.public_transport = PublicTransport.from_name(public_transport)
 
     @staticmethod
     def _use_osm_gtfs_name(stop: GTFSStopEntry, new_name: str | None) -> None:
@@ -418,8 +423,14 @@ class GTFSHandler:
             return
         logger.info("Adding coordinates and additional information to stops.")
         for stop_id, node in locations.items():
+            # We should not update existing nodes.
+            # TODO: Add config key for this.
+            if isinstance(node, ENode):
+                continue
+            node: Node
             stop = self.stops.get_by_stop_id(stop_id)
             self._add_coordinates(stop, node)
+            self._add_public_transport(stop, node.osm_node.public_transport)
             self._add_wheelchair_boarding(stop, node.osm_node.wheelchair)
             self._use_osm_gtfs_name(stop, node.osm_node.gtfs_name)
 

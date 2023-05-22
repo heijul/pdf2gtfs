@@ -18,20 +18,43 @@ MAX_EDIT_DISTANCE = 3
 logger = logging.getLogger(__name__)
 
 
-def get_wheelchair_boarding(value: str) -> WheelchairBoarding:
-    value = value.strip().lower()
-    try:
-        wheelchair = int(value)
-        for wc_b, wc_b_int in WHEELCHAIR_TO_INT.items():
-            if wc_b_int == wheelchair:
-                return wc_b
-    except ValueError:
-        pass
-    try:
-        return WheelchairBoarding[value]
-    except KeyError:
-        pass
-    return WheelchairBoarding.unknown
+class PublicTransport(IntEnum):
+    stop_position = 0
+    stop_area = 0
+    platform = 0
+    stop = 0
+    station = 1
+    train_station = 1
+    entrance = 2
+    entrance_pass = 2
+    generic_node = 3
+    boarding_area = 4
+
+    def to_output(self) -> str:
+        return str(self.value)
+
+    @staticmethod
+    def from_name(name: str) -> PublicTransport:
+        if not name:
+            return PublicTransport.stop_position
+        for public_transport in PublicTransport:
+            if public_transport.name.lower() == name.lower():
+                return public_transport
+        return PublicTransport.stop_position
+
+    @staticmethod
+    def from_value(value: int | str | None) -> PublicTransport:
+        default = PublicTransport.stop_position
+        if value is None:
+            return default
+        try:
+            int_value = int(value)
+        except (ValueError, TypeError):
+            return default
+        for public_transport in PublicTransport:
+            if public_transport.value == int_value:
+                return public_transport
+        return default
 
 
 class WheelchairBoarding(IntEnum):
@@ -41,11 +64,31 @@ class WheelchairBoarding(IntEnum):
     no = 2
 
     def to_output(self) -> str:
-        return str(WHEELCHAIR_TO_INT[self])
+        return str(self.value)
 
+    @staticmethod
+    def from_name(name: str) -> WheelchairBoarding:
+        default = WheelchairBoarding.unknown
+        if not name:
+            return default
+        for wheelchair_boarding in WheelchairBoarding:
+            if wheelchair_boarding.name.lower() == name.lower():
+                return wheelchair_boarding
+        return default
 
-WHEELCHAIR_TO_INT = {WheelchairBoarding.yes: 1, WheelchairBoarding.limited: 1,
-                     WheelchairBoarding.unknown: 0, WheelchairBoarding.no: 2}
+    @staticmethod
+    def from_value(value: int | str | None) -> WheelchairBoarding:
+        default = WheelchairBoarding.unknown
+        if value is None:
+            return default
+        try:
+            int_value = int(value)
+        except (ValueError, TypeError):
+            return default
+        for wheelchair_boarding in WheelchairBoarding:
+            if wheelchair_boarding.value == int_value:
+                return wheelchair_boarding
+        return default
 
 
 @dataclass(init=False)
@@ -57,6 +100,7 @@ class GTFSStopEntry(BaseDataClass):
     stop_lon: float | None
     stop_desc: str
     wheelchair_boarding: WheelchairBoarding
+    public_transport: PublicTransport
 
     def __init__(self, name: str, stop_id: str = None) -> None:
         super().__init__(stop_id)
@@ -68,6 +112,7 @@ class GTFSStopEntry(BaseDataClass):
         self.stop_desc = ""
         self.used_in_timetable = False
         self.wheelchair_boarding = WheelchairBoarding.unknown
+        self.public_transport = PublicTransport.stop_position
 
     @property
     def valid(self) -> bool:
@@ -108,8 +153,10 @@ class GTFSStopEntry(BaseDataClass):
             lon = None
         stop.set_location(lat, lon, False)
         stop.stop_desc = s.get("stop_desc")
-        stop.wheelchair_boarding = get_wheelchair_boarding(
+        stop.wheelchair_boarding = WheelchairBoarding.from_value(
             s.get("wheelchair_boarding"))
+        stop.public_transport = PublicTransport.from_value(
+            s.get("public_transport"))
         return stop
 
 
