@@ -18,6 +18,10 @@ MAX_EDIT_DISTANCE = 3
 logger = logging.getLogger(__name__)
 
 
+# TODO: Add docstrings.
+# TODO: If possible, add baseclass for PublicTransport/WheelchairBoarding
+
+
 class PublicTransport(IntEnum):
     stop_position = 0
     stop_area = 0
