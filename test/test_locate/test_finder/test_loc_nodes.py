@@ -27,7 +27,7 @@ def get_stop_positions(stops: Stops, num: int = 3
             lat += i / 10000
             lon += i / 10000
             stop_positions[stop].append(
-                OSMNode(idx, name, name, lat, lon, i * 2, i * 2))
+                OSMNode(idx, name, name, lat, lon, i * 2, i * 2, ""))
             idx += 1
     return stop_positions
 
