@@ -377,14 +377,17 @@ class GTFSHandler:
 
         stop.set_location(*node.loc, True)
 
-    def _add_ifopt_as_id(self, stop: GTFSStopEntry, ifopt: int | None) -> None:
+    def _add_ifopt_as_id(self, stop: GTFSStopEntry, ifopt: str | None) -> None:
         """ Update stops using the locations, such that each stop uses its
         nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
         if ifopt is None or stop.stop_id == ifopt:
             return
         # Check if ID is used for something else already.
         if UIDGenerator.is_used(ifopt):
-            # TODO: This needs to print a warning
+            msg = (f"Found a stop location for the stop '{stop.stop_name}' "
+                   f"that uses the same IFOPT '{ifopt}' as an already "
+                   f"existing stop.")
+            logger.warning(msg)
             return
         # Update stop_times.
         for stop_time in self.stop_times:
