@@ -18,11 +18,14 @@ MAX_EDIT_DISTANCE = 3
 logger = logging.getLogger(__name__)
 
 
-# TODO: Add docstrings.
 # TODO: If possible, add baseclass for PublicTransport/WheelchairBoarding
 
 
-class PublicTransport(IntEnum):
+class LocationType(IntEnum):
+    """ The type of the stop.
+
+    The names are the ones used by OSM, while the values are used by the GTFS.
+    """
     stop_position = 0
     stop_area = 0
     platform = 0
@@ -35,43 +38,52 @@ class PublicTransport(IntEnum):
     boarding_area = 4
 
     def to_output(self) -> str:
+        """ Return the value of the type as defined by the GTFS. """
         return str(self.value)
 
     @staticmethod
-    def from_name(name: str) -> PublicTransport:
+    def from_name(name: str) -> LocationType:
+        """ Given the name, return the LocationType that has that name. """
         if not name:
-            return PublicTransport.stop_position
-        for public_transport in PublicTransport:
+            return LocationType.stop_position
+        for public_transport in LocationType:
             if public_transport.name.lower() == name.lower():
                 return public_transport
-        return PublicTransport.stop_position
+        return LocationType.stop_position
 
     @staticmethod
-    def from_value(value: int | str | None) -> PublicTransport:
-        default = PublicTransport.stop_position
+    def from_value(value: int | str | None) -> LocationType:
+        """ Given the value, return the LocationType that has that value. """
+        default = LocationType.stop_position
         if value is None:
             return default
         try:
             int_value = int(value)
         except (ValueError, TypeError):
             return default
-        for public_transport in PublicTransport:
+        for public_transport in LocationType:
             if public_transport.value == int_value:
                 return public_transport
         return default
 
 
 class WheelchairBoarding(IntEnum):
+    """ Whether the stop is wheelchair-accessible or not.
+
+    The names are the ones used by OSM, while the values are used by the GTFS.
+    """
     unknown = 0
     yes = 1
     limited = 1
     no = 2
 
     def to_output(self) -> str:
+        """ Return the value of the type as defined by the GTFS. """
         return str(self.value)
 
     @staticmethod
     def from_name(name: str) -> WheelchairBoarding:
+        """ Return the WheelchairBoarding that has the given name. """
         default = WheelchairBoarding.unknown
         if not name:
             return default
@@ -82,6 +94,7 @@ class WheelchairBoarding(IntEnum):
 
     @staticmethod
     def from_value(value: int | str | None) -> WheelchairBoarding:
+        """ Return the WheelchairBoarding that has that value. """
         default = WheelchairBoarding.unknown
         if value is None:
             return default
@@ -103,8 +116,8 @@ class GTFSStopEntry(BaseDataClass):
     stop_lat: float | None
     stop_lon: float | None
     stop_desc: str
+    location_type: LocationType
     wheelchair_boarding: WheelchairBoarding
-    public_transport: PublicTransport
 
     def __init__(self, name: str, stop_id: str = None) -> None:
         super().__init__(stop_id)
@@ -115,8 +128,8 @@ class GTFSStopEntry(BaseDataClass):
         self.stop_lon = None
         self.stop_desc = ""
         self.used_in_timetable = False
+        self.location_type = LocationType.stop_position
         self.wheelchair_boarding = WheelchairBoarding.unknown
-        self.public_transport = PublicTransport.stop_position
 
     @property
     def valid(self) -> bool:
@@ -157,10 +170,10 @@ class GTFSStopEntry(BaseDataClass):
             lon = None
         stop.set_location(lat, lon, False)
         stop.stop_desc = s.get("stop_desc")
+        stop.location_type = LocationType.from_value(
+            s.get("location_type"))
         stop.wheelchair_boarding = WheelchairBoarding.from_value(
             s.get("wheelchair_boarding"))
-        stop.public_transport = PublicTransport.from_value(
-            s.get("public_transport"))
         return stop
 
 

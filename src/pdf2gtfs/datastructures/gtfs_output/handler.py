@@ -23,7 +23,7 @@ from pdf2gtfs.datastructures.gtfs_output.calendar_dates import (
     )
 from pdf2gtfs.datastructures.gtfs_output.routes import GTFSRoutes
 from pdf2gtfs.datastructures.gtfs_output.stop import (
-    GTFSStopEntry, GTFSStops, PublicTransport, WheelchairBoarding,
+    GTFSStopEntry, GTFSStops, LocationType, WheelchairBoarding,
     )
 from pdf2gtfs.datastructures.gtfs_output.stop_times import (
     GTFSStopTimes, GTFSStopTimesEntry, Time)
@@ -402,11 +402,11 @@ class GTFSHandler:
         stop.wheelchair_boarding = WheelchairBoarding.from_name(wheelchair)
 
     @staticmethod
-    def _add_public_transport(stop: GTFSStopEntry, public_transport: str | None
-                              ) -> None:
+    def _add_location_type(stop: GTFSStopEntry,
+                           public_transport: str | None) -> None:
         if public_transport is None:
             return
-        stop.public_transport = PublicTransport.from_name(public_transport)
+        stop.location_type = LocationType.from_name(public_transport)
 
     @staticmethod
     def _use_osm_gtfs_name(stop: GTFSStopEntry, new_name: str | None) -> None:
@@ -424,13 +424,12 @@ class GTFSHandler:
         logger.info("Adding coordinates and additional information to stops.")
         for stop_id, node in locations.items():
             # We should not update existing nodes.
-            # TODO: Add config key for this.
             if isinstance(node, ENode):
                 continue
             node: Node
             stop = self.stops.get_by_stop_id(stop_id)
             self._add_coordinates(stop, node)
-            self._add_public_transport(stop, node.osm_node.public_transport)
+            self._add_location_type(stop, node.osm_node.public_transport)
             self._add_wheelchair_boarding(stop, node.osm_node.wheelchair)
             self._use_osm_gtfs_name(stop, node.osm_node.gtfs_name)
 
