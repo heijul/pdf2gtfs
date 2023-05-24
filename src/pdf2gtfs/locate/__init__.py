@@ -83,8 +83,8 @@ def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
     full_df = node_score_strings_to_int(df)
     full_df["opts_value"] = opt_keys_to_int(full_df[list(OSMNode.optionals)])
     df.loc[:, "node_cost"] = get_node_cost(full_df)
-    cols = (("lat", "lon", "names", "node_cost", "stop_id", "idx", "name_cost")
-            + OSMNode.optionals)
+    cols = (("lat", "lon", "names", "node_cost", "stop_id", "idx",
+             "name_cost", "public_transport") + OSMNode.optionals)
     df = df.loc[:, cols]
     logger.info(f"Done. Took {time() - t:.2f}s")
 

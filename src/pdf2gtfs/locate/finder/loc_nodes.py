@@ -56,11 +56,12 @@ class OSMNode:
     5. Add a function to opt_keys_to_int,
     if the optional key impacts the node score.
     """
-    optionals = ("ref_ifopt", "wheelchair")
-    _optionals_keys = {"ref_ifopt": "ref:ifopt"}
+    optionals = ("ref_ifopt", "wheelchair", "gtfs_name")
+    _optionals_keys = {"ref_ifopt": "ref:ifopt", "gtfs_name": "gtfs:name"}
 
     def __init__(self, idx: int, stop_id: str, names: str, lat: float,
                  lon: float, node_cost: float, name_cost: float,
+                 public_transport: str,
                  **kwargs) -> None:
         self.idx = idx
         self.stop_id = stop_id
@@ -69,10 +70,12 @@ class OSMNode:
         self.lon = lon
         self.node_cost = node_cost
         self.name_cost = name_cost
+        self.public_transport = public_transport
         # Set the optional values.
         assert all(kwarg in OSMNode.optionals for kwarg in kwargs)
-        self.ref_ifopt = kwargs.get("ref_ifopt", None)
-        self.wheelchair = kwargs.get("wheelchair", None)
+        self.ref_ifopt = kwargs.get("ref_ifopt")
+        self.wheelchair = kwargs.get("wheelchair")
+        self.gtfs_name = kwargs.get("gtfs_name")
 
     @staticmethod
     def get_optional_key(optional: str) -> str:
@@ -88,7 +91,7 @@ class OSMNode:
 
 
 # noinspection PyTypeChecker
-DummyOSMNode = OSMNode(None, None, None, None, None, None, None)
+DummyOSMNode = OSMNode(None, None, None, None, None, None, None, None)
 
 
 class Node:
@@ -100,7 +103,7 @@ class Node:
         self.stop = stop
         self.index = index
         self.names = names
-        self.osm_node = osm_node if osm_node else DummyOSMNode
+        self.osm_node: OSMNode = osm_node if osm_node else DummyOSMNode
         self.loc: Location = loc
         self.parent: Node | None = None
         self.has_children = False
@@ -409,7 +412,7 @@ class Nodes:
         stop: Stop = parent.stop.next
         osm_node: OSMNode = OSMNode(
             self.next_missing_node_idx, stop.name, stop.name,
-            0, 0, Config.missing_node_cost, 0)
+            0, 0, Config.missing_node_cost, 0, "")
         neighbor = self._create_missing_node(stop, osm_node)
         self.next_missing_node_idx -= 1
         neighbor.update_parent_if_better(parent)
@@ -417,7 +420,7 @@ class Nodes:
 
     def get_or_create_missing(self, stop: Stop, osm_node: OSMNode) -> MNode:
         """ Checks if a MissingNode with the given stop and values exist,
-        and returns it. If it does not exist, it will first be created. """
+        and returns it. If it does not exist, it will be created. """
         node = self._node_map.get((stop, osm_node.idx))
         if node is None:
             node = self._create_missing_node(stop, osm_node)
@@ -430,7 +433,7 @@ class Nodes:
         if df.empty:
             data = {"idx": self.next_missing_node_idx, "stop_id": stop.stop_id,
                     "names": stop.name, "lat": 0, "lon": 0,
-                    "node_cost": 0, "name_cost": 0}
+                    "node_cost": 0, "name_cost": 0, "public_transport": ""}
             data.update({key: "" for key in OSMNode.optionals})
             index = pd.Index([self.next_missing_node_idx])
             df = pd.DataFrame(data, index=index, columns=df.columns)

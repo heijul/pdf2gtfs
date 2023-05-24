@@ -51,8 +51,7 @@ def detect_locations(gtfs_handler: GTFSHandler) -> None:
     if Config.disable_location_detection:
         logger.info("Skipping location detection, as requested.")
         return
-    locations = find_location_nodes(gtfs_handler) or []
-    gtfs_handler.add_coordinates(locations)
+    locations = find_location_nodes(gtfs_handler) or {}
     gtfs_handler.update_stops(locations)
 
 
