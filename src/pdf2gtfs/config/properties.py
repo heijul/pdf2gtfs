@@ -18,9 +18,10 @@ from custom_conf.properties.nested_property import NestedTypeProperty
 from pdf2gtfs.datastructures.gtfs_output.routes import (
     get_route_type, get_route_type_gtfs_value)
 from pdf2gtfs.config.errors import (
-    InvalidDateBoundsError, InvalidHeaderDaysError,
+    InvalidDateBoundsError, InvalidDirectionError, InvalidHeaderDaysError,
     InvalidHolidayCodeError, InvalidOutputPathError,
-    InvalidRepeatIdentifierError, InvalidRouteTypeValueError)
+    InvalidRepeatIdentifierError, InvalidRouteTypeValueError,
+    )
 
 
 if TYPE_CHECKING:
@@ -342,6 +343,18 @@ class DateBoundsProperty(Property):
 
     def __set__(self, obj, value: list[str | dt.date]):
         super().__set__(obj, self.clean_value(value))
+
+
+class DirectionProperty(Property):
+    def __init__(self, name: str) -> None:
+        super().__init__(name, str)
+
+    def validate(self, value: str) -> None:
+        super().validate(value)
+        value = "".join(set(value.upper()))
+        for char in value:
+            if char not in "NWSE":
+                raise InvalidDirectionError(prop=self, direction=char)
 
 
 class AbbrevProperty(NestedTypeProperty):

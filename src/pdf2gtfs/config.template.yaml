@@ -105,9 +105,9 @@ output_path: "./out"
 output_pp: True
 
 
-######################
-#  Table extraction  #
-######################
+################################
+#  Table detection/extraction  #
+################################
 
 # Which pages to consider for extraction. Defaults to 'all' for all pages.
 # Example: "1-3,6,8-9" extracts the tables from the pages 1, 2, 3, 6, 8, 9.
@@ -121,6 +121,17 @@ pages: "all"
 #
 # Type: bool
 preprocess: True
+
+# We create the table by using the data-cells as basis and expanding the table
+# using cells adjacent to those data-cells.
+# In most cases expanding only in the directions up (N) and left (W) is enough.
+# However, if the table contains information below (S) or right (E) of the
+# data-cells, these directions can be added here.
+#
+# Note: The expansion in the directions S and E is more error-prone.
+#
+# Type: String. Must be any combination of the directions "N", "W", "S", "E".
+table_expansion_directions: "NW"
 
 # The format of the times given in the table.
 #

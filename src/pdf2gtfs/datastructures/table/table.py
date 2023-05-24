@@ -10,6 +10,7 @@ from more_itertools import (
     always_iterable, collapse, first_true, peekable, split_when,
     )
 
+from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_cells
 from pdf2gtfs.datastructures.table.cell import (
@@ -232,7 +233,7 @@ class Table:
         while expanded:
             expanded = False
             for d in D:
-                if d in [S, E]:
+                if d.name not in Config.table_expansion_directions:
                     continue
                 expanded |= self.expand(d)
 

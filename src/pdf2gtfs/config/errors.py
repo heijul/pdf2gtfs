@@ -31,3 +31,23 @@ class InvalidRepeatIdentifierError(PropertyError):
     """ Raised, if the given repeat_identifier does not consist of lists
      of two strings. """
     pass
+
+
+class InvalidDirectionError(PropertyError):
+    def __init__(self, **kwargs) -> None:
+        """ Raised if any of the given directions is not a valid direction.
+
+        :keyword prop: The property that was created.
+        :type prop: Property
+        :keyword direction: The invalid direction char.
+        :type direction: str
+        """
+        if "prop" not in kwargs or "direction" not in kwargs:
+            super().__init__()
+            return
+        prop_name = kwargs["prop"].name
+        direction = kwargs["direction"]
+        msg = (f"Tried to use invalid direction '{direction}' for the "
+               f"property '{prop_name}'. Each direction needs to be one of "
+               f"'N', 'W', 'S' or 'E'.")
+        super().__init__(msg)

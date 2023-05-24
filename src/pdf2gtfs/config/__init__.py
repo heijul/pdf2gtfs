@@ -6,14 +6,17 @@ from pathlib import Path
 from custom_conf.config import BaseConfig
 from custom_conf.properties.property import Property
 from custom_conf.properties.bounded_property import (
-    FloatBoundedProperty, IntBoundedProperty)
+    FloatBoundedProperty, IntBoundedProperty,
+    )
 from custom_conf.properties.nested_property import NestedTypeProperty
 
 from pdf2gtfs.config.properties import (
-    AbbrevProperty, AverageSpeedProperty, DateBoundsProperty, FilenameProperty,
+    AbbrevProperty, AverageSpeedProperty, DateBoundsProperty,
+    DirectionProperty, FilenameProperty,
     HeaderValuesProperty, HolidayCodeProperty, InputProperty,
     OutputPathProperty, PagesProperty, RepeatIdentifierProperty,
-    RouteTypeProperty)
+    RouteTypeProperty,
+    )
 
 
 logger = logging.getLogger(__name__)
@@ -96,6 +99,8 @@ class P2GConfig(BaseConfig):
         self.cache_directory = Property("cache_directory", str)
         self.qlever_endpoint_url = Property("qlever_endpoint_url", str)
         self.input_files = InputProperty("input_files")
+        self.table_expansion_directions = \
+            DirectionProperty("table_expansion_directions")
 
         super()._initialize_config_properties()
 
