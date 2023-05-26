@@ -81,10 +81,11 @@ def prepare_df(gtfs_stops: list, raw_df: DF) -> DF:
     t = time()
     # Calculate node score.
     full_df = node_score_strings_to_int(df)
-    full_df["opts_value"] = opt_keys_to_int(full_df[list(OSMNode.optionals)])
+    full_df["opts_value"] = score_opt_tags(
+        full_df[list(OSMNode.optional_tags)])
     df.loc[:, "node_cost"] = get_node_cost(full_df)
     cols = (("lat", "lon", "names", "node_cost", "stop_id", "idx",
-             "name_cost", "public_transport") + OSMNode.optionals)
+             "name_cost", "public_transport") + OSMNode.optional_tags)
     df = df.loc[:, cols]
     logger.info(f"Done. Took {time() - t:.2f}s")
 
@@ -212,7 +213,7 @@ def read_osm_values_yaml() -> dict[str, tuple[Include, Exclude]]:
 def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     """ Translate the OSM-key columns to int.
 
-    Change the values of KEYS_OPTIONAL (i.e., the keys used to calculate
+    Change the values of the optional tags (i.e., the tags used to calculate
     the node score) in df, with its integer value, depending on the routetype.
     """
 
@@ -236,7 +237,7 @@ def node_score_strings_to_int(raw_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def opt_keys_to_int(full_df: pd.DataFrame) -> pd.DataFrame:
+def score_opt_tags(full_df: pd.DataFrame) -> pd.DataFrame:
     def evaluate_ifopt(value: str) -> int:
         return 5 * int(value == "")
 
@@ -249,8 +250,8 @@ def opt_keys_to_int(full_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_node_cost(full_df: pd.DataFrame) -> pd.DataFrame:
-    """ Calculate the integer score based on KEYS_OPTIONAL. """
-    # Penalize nodes with fewer optional keys.
+    """ Calculate the integer score based on the optional tags. """
+    # Penalize nodes with fewer optional tags.
     min_cat = full_df[list(CAT_KEYS)].min(axis=1)
     node_cost = (min_cat + full_df["opts_value"]) ** 2 // 20
     return node_cost

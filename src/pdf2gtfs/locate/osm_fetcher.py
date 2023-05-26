@@ -235,7 +235,8 @@ def get_qlever_query() -> str:
 
     def get_selection() -> list[str]:
         """ Return the select clause. """
-        identifier = map(_to_identifier, KEYS + CAT_KEYS + OSMNode.optionals)
+        identifier = map(_to_identifier,
+                         KEYS + CAT_KEYS + OSMNode.optional_tags)
         group_concat = " (GROUP_CONCAT(?name;SEPARATOR=\"|\") AS ?names)"
         variables = " ".join(identifier) + group_concat
         return ["SELECT {} WHERE {{".format(variables)]
@@ -250,7 +251,7 @@ def get_qlever_query() -> str:
         return transport.strip().split("\t")
 
     def get_names() -> list[str]:
-        """ Return a union of clauses, based on the different name keys. """
+        """ Return a union of clauses, based on the different name tags. """
         name_fmt = "?stop osmkey:{} ?name ."
         names = ""
         for name_key in NAME_KEYS:
@@ -258,17 +259,17 @@ def get_qlever_query() -> str:
         return names.strip().split("\t")
 
     def get_optionals() -> list[str]:
-        """ Get the clause for all optional keys. """
+        """ Get the clause for all optional tags. """
         fmt = "OPTIONAL {{ ?stop osmkey:{} ?{} . }}"
         return ([fmt.format(key, key) for key in CAT_KEYS]
-                + [fmt.format(OSMNode.get_optional_key(k), k)
-                   for k in OSMNode.optionals])
+                + [fmt.format(OSMNode.get_optional_tag(k), k)
+                   for k in OSMNode.optional_tags])
 
     def get_group_by() -> list[str]:
-        """ Group-by statement, grouping by optional and mandatory keys. """
+        """ Group by both optional and mandatory tags. """
         fmt = "GROUP BY {}"
         identifier = " ".join(
-            map(_to_identifier, KEYS + CAT_KEYS + OSMNode.optionals))
+            map(_to_identifier, KEYS + CAT_KEYS + OSMNode.optional_tags))
         return [fmt.format(identifier)]
 
     pre = ["PREFIX osmrel: <https://www.openstreetmap.org/relation/>",
@@ -319,13 +320,13 @@ def read_data(path_or_stream: Path | BytesIO) -> pd.DataFrame:
 
     dtype = {"lat": float, "lon": float,
              "public_transport": str, "names": str}
-    for key in CAT_KEYS + OSMNode.optionals:
+    for key in CAT_KEYS + OSMNode.optional_tags:
         dtype[key] = str
 
     return pd.read_csv(
         path_or_stream,
         sep="\t",
-        names=KEYS + CAT_KEYS + OSMNode.optionals + ("names", ),
+        names=KEYS + CAT_KEYS + OSMNode.optional_tags + ("names",),
         dtype=dtype,
         keep_default_na=False,
         header=0,

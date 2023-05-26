@@ -41,23 +41,25 @@ def valid_ifopt(ifopt_str: str) -> bool:
 
 
 class OSMNode:
-    """ Represents a node in OSM. Note that it only has a subset of keys.
+    """ Represents a node in OSM. Note that it only has a subset of tags.
 
 
-    When adding a new optional key, the following needs to be done,
-    to properly use the optional keys:
+    When adding a new optional tag, the following needs to be done,
+    to properly use the optional tags:
 
-    1. Add a string that is a valid python identifier to `optionals`.
-    2. Add the key used by OSM (if it exists) to the `_optional_keys`.
+    1. If the tagname is a valid python identifier, add it to optionals
+       and continue with step 3.
+    2. Create a name (valid python identifier) for the tag and
+       use the name/tag as key/value in the _osm_tag_names.
     3. Add a property to the OSMNode (with the same name as in 1.).
-    4. The GTFS object (e.g. GTFSStops) needs to get a new field (optional).
-    4. Add a function that updates the GTFS to the Handler
-    and call it in Handler.update_stops (optional).
-    5. Add a function to opt_keys_to_int,
-    if the optional key impacts the node score.
+    4. The GTFS object (e.g. GTFSStops) may need to get a new field (optional).
+    5. Add a function that updates the GTFS to the Handler
+       and call it in Handler.update_stops (optional).
+    6. Add a function to score_opt_tags, if the optional key
+       impacts the node score.
     """
-    optionals = ("ref_ifopt", "wheelchair", "gtfs_name")
-    _optionals_keys = {"ref_ifopt": "ref:ifopt", "gtfs_name": "gtfs:name"}
+    optional_tags = ("ref_ifopt", "wheelchair", "gtfs_name")
+    _osm_tag_names = {"ref_ifopt": "ref:ifopt", "gtfs_name": "gtfs:name"}
 
     def __init__(self, idx: int, stop_id: str, names: str, lat: float,
                  lon: float, node_cost: float, name_cost: float,
@@ -71,23 +73,23 @@ class OSMNode:
         self.node_cost = node_cost
         self.name_cost = name_cost
         self.public_transport = public_transport
-        # Set the optional values.
-        assert all(kwarg in OSMNode.optionals for kwarg in kwargs)
+        # Set the values of the optional tags.
+        assert all(kwarg in OSMNode.optional_tags for kwarg in kwargs)
         self.ref_ifopt = kwargs.get("ref_ifopt")
         self.wheelchair = kwargs.get("wheelchair")
         self.gtfs_name = kwargs.get("gtfs_name")
 
     @staticmethod
-    def get_optional_key(optional: str) -> str:
-        """ Get the OSM-key for an optional field.
+    def get_optional_tag(name: str) -> str:
+        """ Get the OSM tag that uses the given name.
 
-        This is necessary because some of the keys
+        This is necessary because some of the tags
         are not valid python identifiers (e.g., "ref:ifopt").
 
-        :param optional: The optional field the key is requested for.
-        :return: The OSM-key of the given field.
+        :param name: The name of the optional tag.
+        :return: The OSM tag of the given field.
         """
-        return OSMNode._optionals_keys.get(optional, optional)
+        return OSMNode._osm_tag_names.get(name, name)
 
 
 # noinspection PyTypeChecker
@@ -434,7 +436,7 @@ class Nodes:
             data = {"idx": self.next_missing_node_idx, "stop_id": stop.stop_id,
                     "names": stop.name, "lat": 0, "lon": 0,
                     "node_cost": 0, "name_cost": 0, "public_transport": ""}
-            data.update({key: "" for key in OSMNode.optionals})
+            data.update({key: "" for key in OSMNode.optional_tags})
             index = pd.Index([self.next_missing_node_idx])
             df = pd.DataFrame(data, index=index, columns=df.columns)
             self.next_missing_node_idx -= 1
