@@ -2,6 +2,7 @@ import os
 import logging
 import platform
 from pathlib import Path
+from tempfile import mkdtemp
 
 from custom_conf.config import BaseConfig
 from custom_conf.properties.property import Property
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class P2GConfig(BaseConfig):
     def __init__(self, load_default=True, load_all=True) -> None:
+        self._temp_dir: Path | None = None
         super().__init__(load_default, load_all)
 
     @property
@@ -52,6 +54,13 @@ class P2GConfig(BaseConfig):
     @property
     def default_config_path(self) -> Path:
         return self.p2g_dir.joinpath("config.template.yaml")
+
+    @property
+    def temp_dir(self) -> Path:
+        """ The path to the temporary directory used by pdf2gtfs. """
+        if not self._temp_dir:
+            self._temp_dir = Path(mkdtemp(prefix="pdf2gtfs-"))
+        return self._temp_dir
 
     def _initialize_config_properties(self) -> None:
         self.time_format = Property("time_format", str)
