@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from itertools import pairwise
 from operator import attrgetter, methodcaller
+from pathlib import Path
 from typing import Callable, Iterable, Iterator, TYPE_CHECKING
 
 from more_itertools import (
@@ -14,7 +15,7 @@ from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.bounds import select_adjacent_cells
 from pdf2gtfs.datastructures.table.cell import (
-    EmptyCell, C, Cs, OC,
+    Cell, EmptyCell, C, Cs, OC,
     )
 from pdf2gtfs.datastructures.table.celltype import T
 from pdf2gtfs.datastructures.table.direction import (
@@ -405,6 +406,26 @@ class Table:
             return c.get_type().name
 
         self._print(_get_type_name, col_count=col_count)
+
+    def to_file(self, fname: Path) -> None:
+        """ Export the Table to the given Path as .csv file. """
+        rows = []
+        first_col = self.left.col
+        bad_types = (T.Other, T.LegendIdent, T.LegendValue)
+        while True:
+            try:
+                cell: Cell = next(first_col)
+            except StopIteration:
+                break
+            texts = []
+            for cell in cell.row:
+                texts.append("" if cell.get_type() in bad_types else cell.text)
+            if not any(texts):
+                continue
+            rows.append(",".join(texts))
+        table_str = "\n".join(rows) + "\n"
+        with open(fname, "w") as fil:
+            fil.write(table_str)
 
     def split_at_cells(self, o: Orientation, splitter: list[Cs]
                        ) -> list[Table]:

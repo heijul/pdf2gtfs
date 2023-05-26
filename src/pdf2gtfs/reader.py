@@ -457,6 +457,22 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
     return timetables
 
 
+def tables_to_csv(page_id: int, tables: list[Table]) -> None:
+    """ Export the given tables to the temporary directory as .csv files.
+
+    :param page_id: The page_id of the page the tables come from.
+    :param tables: The tables we want to export.
+    """
+    page = Config.pages.page_num(page_id)
+    input_name = Path(Config.filename).stem
+    logger.info(f"Writing tables of page {page} "
+                f"as .csv to {Config.temp_dir}...")
+    for table_id, table in enumerate(tables):
+        fname = f"{page:02}-{table_id:02}-{input_name}.csv"
+        path = Config.temp_dir.joinpath(fname)
+        table.to_file(path)
+
+
 def page_to_timetables(
         page: LTPage,
         use_datafields: bool = True,
@@ -464,6 +480,7 @@ def page_to_timetables(
     """ Extract all timetables from the given page. """
     if use_datafields:
         cell_tables = create_tables_from_page(page)
+        tables_to_csv(page.pageid, cell_tables)
         time_tables = tables_to_timetables(cell_tables)
     else:
         char_df = get_chars_dataframe(page)
