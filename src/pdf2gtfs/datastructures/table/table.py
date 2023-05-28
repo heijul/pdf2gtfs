@@ -660,7 +660,8 @@ class Table:
 
         # Find the first valid days.
         valid_entries = list(entries[idx] for idx in valid_entry_ids)
-        previous_days = first_true(valid_entries, lambda e: e.days != [])
+        # Use all entries, in case the days are not defined within the table.
+        previous_days = first_true(entries, lambda e: e.days != []).days
 
         # Update the days for each entry and add the entries to the TimeTable.
         for entry in valid_entries:
