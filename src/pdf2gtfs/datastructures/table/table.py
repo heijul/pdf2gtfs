@@ -200,6 +200,14 @@ class Table:
         :param d: The Direction the expansion is done towards.
         :return: Whether any Cells were added.
         """
+
+        def merge_cells_of_same_row(cells: Cs) -> None:
+            rows: list[list[Cell]] = cells_to_rows(cells, link_rows=False)
+            for row in rows:
+                for row_cell in row[1:]:
+                    row[0].merge(row_cell)
+                    adjacent_cells.remove(row_cell)
+
         if self.potential_cells is None:
             raise Exception("Potential Cells must be added to this Table, "
                             "before trying to expand it.")
@@ -211,6 +219,8 @@ class Table:
         if not adjacent_cells:
             return False
 
+        if d in [W, E]:
+            merge_cells_of_same_row(adjacent_cells)
         link_cells(normal.upper, adjacent_cells)
         merge_small_cells(d.o, ref_cells, adjacent_cells)
 
@@ -872,7 +882,7 @@ def cells_to_rows(cells: Cs, *, link_rows: bool = True) -> list[Cs]:
         """ Two Cells are in the same row if they overlap vertically. """
         return not c1.bbox.is_v_overlap(c2.bbox)
 
-    rows = group_cells_by(cells, _same_row, "bbox.y0", "bbox.x0")
+    rows: list[Cs] = group_cells_by(cells, _same_row, "bbox.y0", "bbox.x0")
     if not link_rows:
         return rows
 

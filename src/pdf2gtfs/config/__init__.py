@@ -110,6 +110,7 @@ class P2GConfig(BaseConfig):
         self.input_files = InputProperty("input_files")
         self.table_expansion_directions = \
             DirectionProperty("table_expansion_directions")
+        self.extra_greedy = Property("extra_greedy", bool)
 
         super()._initialize_config_properties()
 
