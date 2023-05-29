@@ -9,6 +9,7 @@ from statistics import mean
 from time import strptime
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias, TypeVar
 
+from math import floor, log2
 from more_itertools import collapse
 
 from pdf2gtfs.config import Config
@@ -19,7 +20,6 @@ from pdf2gtfs.datastructures.table.direction import (
 
 if TYPE_CHECKING:
     from pdf2gtfs.datastructures.table.cell import Cell
-
 
 C: TypeAlias = "Cell"
 Cs: TypeAlias = list[C]
@@ -283,7 +283,6 @@ ABS_INDICATORS: dict[T: AbsIndicatorFunc] = {
     T.Data: is_time_data,
     T.Days: is_wrapper(Config.header_values),
     T.RepeatIdent: is_wrapper(Config.repeat_identifier),
-    T.RepeatValue: is_repeat_value,
     T.StopAnnot: is_wrapper(Config.arrival_identifier,
                             Config.departure_identifier),
     T.RouteAnnotIdent: is_wrapper(Config.route_identifier),
@@ -292,7 +291,8 @@ ABS_INDICATORS: dict[T: AbsIndicatorFunc] = {
     }
 # The fallback Types in case no absolute indicator function returned True.
 ABS_FALLBACK: list[T] = [
-    T.Stop, T.RouteAnnotValue, T.EntryAnnotValue, T.DataAnnot, T.LegendValue]
+    T.Stop, T.RouteAnnotValue, T.EntryAnnotValue, T.DataAnnot, T.LegendValue,
+    T.RepeatValue]
 
 
 RelIndicatorFunc: TypeAlias = Callable[[C], float]
@@ -522,6 +522,19 @@ def rel_indicator_stop(cell: C) -> float:
     #  inside the grid spanned by the Table's DataCells.
     if (col_contains_data + row_contains_data) % 2 == 0:
         return 0
+    o = H if col_contains_data else V
+    # TODO: Add the bounds to config.
+    # Stops are usually long (here, >= 8 chars on average).
+    mean_length = get_data_aligned_avg_text_length(cell, o)
+    # Normalize the length.
+    norm_length = floor(log2(mean_length))
+    if norm_length < 3:
+        return 0
+    # Stops have a high letter to non-letter ratio.
+    letter_ratio = get_data_aligned_letter_ratio(cell, o)
+    if letter_ratio < 0.8:
+        return 0
+
     score = 1
     if col_contains_data:
         # Every row that contains data must contain a Stop.
@@ -611,6 +624,8 @@ def rel_indicator_repeat_value(cell: C) -> float:
     :return: A value between 0 and 2, representing change in probability,
         based on the results of the functions called.
     """
+    if not is_repeat_value(cell):
+        return 0
     funcs = (cell_is_between_type_wrapper(T.Data),
              cell_is_between_type_wrapper(T.RepeatIdent))
     # Both are strictly required.
@@ -637,6 +652,83 @@ def rel_indicator_entry_annot_value(cell: C) -> float:
     return mod * 2
 
 
+def get_data_aligned_letter_ratio(starter: C, o: Orientation) -> float:
+    """ Calculate the ratio between letters and symbols in the Cell's row/col.
+
+    Only considers those Cells that are in a DataCell's row or col.
+    Symbols refers here to all characters that are not letters.
+
+    :param starter: This Cell's row/col will be used to calculate the ratio.
+    :param o: Whether to check the row or col of the Cell.
+    :return: The ratio between letters and non-letters in all of the starter's
+        row/col. 0 if no letters, 1 if no non-letters.
+    """
+    from pdf2gtfs.datastructures.table.cell import EmptyCell
+
+    # Get all cells of the Cell's row/col.
+    cells = starter.iter(o=o)
+    letter_count = 0
+    text_len = 0
+    for cell in cells:
+        if o == V and not cell_row_contains_type(cell, T.Data):
+            continue
+        if o == H and not cell_col_contains_type(cell, T.Data):
+            continue
+        if isinstance(cell, EmptyCell):
+            continue
+        letter_count += sum(c.isalpha() or c == " " for c in cell.text)
+        text_len += len(cell.text)
+    # Overall text length can not be 0 because starter is not an EmptyCell.
+    return letter_count / text_len
+
+
+def get_data_aligned_avg_text_length(starter: C, o: Orientation) -> float:
+    """ Calculate the average text length of starter's row/col.
+
+    Only considers those Cells that are in a DataCell's row or col.
+
+    :param starter: This Cell's row/col will be used to get the text length.
+    :param o: Whether to check the row or col of the Cell.
+    """
+    from pdf2gtfs.datastructures.table.cell import EmptyCell
+
+    cells = starter.iter(o=o)
+    text_lens = []
+    for cell in cells:
+        if o == V and not cell_row_contains_type(cell, T.Data):
+            continue
+        if o == H and not cell_col_contains_type(cell, T.Data):
+            continue
+        if isinstance(cell, EmptyCell):
+            continue
+        text_lens.append(len(cell.text))
+    return mean(text_lens)
+
+
+def rel_indicator_route_annot_value(cell: C) -> float:
+    """ The relative indicator for EntryAnnotValue.
+
+    :param cell: The Cell that has its Type evaluated.
+    :return: A value between 0 and 2, representing change in probability,
+        based on the results of the functions called.
+    """
+    data_col = cell_col_contains_type(cell, T.Data)
+    data_row = cell_row_contains_type(cell, T.Data)
+    # Route annotations exist outside, but aligned to, the data.
+    if (data_col + data_row) % 2 == 0:
+        return 0
+    if data_col and not cell_row_contains_type(cell, T.RouteAnnotIdent):
+        return 0
+    if data_row and not cell_col_contains_type(cell, T.RouteAnnotIdent):
+        return 0
+    o = H if data_col else V
+    # letter_ratio = get_data_aligned_letter_ratio(cell, o)
+    mean_length = get_data_aligned_avg_text_length(cell, o)
+    # Normalize the length.
+    norm_length = floor(log2(mean_length))
+    return norm_length < 3
+
+
 # The relative Type-indicator functions.
 REL_INDICATORS: dict[T: RelIndicatorFunc] = {
     T.Data: cell_neighbor_has_type_wrapper(T.Data),
@@ -644,6 +736,7 @@ REL_INDICATORS: dict[T: RelIndicatorFunc] = {
     T.StopAnnot: rel_indicator_stop_annot,
     T.DataAnnot: rel_indicator_data_annot,
     T.EntryAnnotValue: rel_indicator_entry_annot_value,
+    T.RouteAnnotValue: rel_indicator_route_annot_value,
     T.RepeatIdent: rel_indicator_repeat_ident,
     T.RepeatValue: rel_indicator_repeat_value,
     T.Other: lambda *_: 0.1,
