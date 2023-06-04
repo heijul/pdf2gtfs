@@ -140,6 +140,13 @@ table_expansion_directions: "NW"
 #  https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
 time_format: "%H.%M"
 
+# When expanding the table, be extra greedy with regards to whether cells are
+#  adjacent or not.
+# TODO: This needs a better explanation.
+#
+# Type: Boolean
+extra_greedy: True
+
 # The names of the "headers" of the table and their respective weekday index.
 #   Keys will be turned to all lowercase internally.
 #   Weekday index between "0" and "6", where "0" stands for monday.

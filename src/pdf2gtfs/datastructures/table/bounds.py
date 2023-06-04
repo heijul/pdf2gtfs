@@ -7,6 +7,7 @@ from _operator import attrgetter
 from itertools import cycle
 from typing import Callable, cast, Iterable, NamedTuple, Protocol, TypeVar
 
+from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.bbox import BBox
 from pdf2gtfs.datastructures.table.direction import Direction, E, N, S, W
 from pdf2gtfs.datastructures.table.cell import C, Cs
@@ -62,6 +63,22 @@ class Bounds:
                    e=get_limit_from_cells(bboxes, e))
 
     @classmethod
+    def overlaps_any(cls, cells: Cs, c2: C) -> bool:
+        """ Check if the given Cell overlaps with any of the given Cells.
+
+        The overlap function is determined by cls.
+
+        :param cells: Use these Cells to check overlap.
+        :param c2: The Cell that is checked.
+        :return: True if the Cell overlaps. False, otherwise.
+        """
+        func = getattr(c2.bbox, cls.d.o.overlap_func)
+        for c1 in cells:
+            if func(c1.bbox, 0.8):
+                return True
+        return False
+
+    @classmethod
     def select_adjacent_cells(cls, border: list[BBox], cells: Cs) -> Cs:
         """ Select those Cells that are adjacent to the border BBoxes.
 
@@ -70,38 +87,41 @@ class Bounds:
         :param cells: The Cells that are checked for adjacency.
         :return: Those Cells, which are adjacent to the Table.
         """
-        def within_min_cells(cell: C) -> bool:
-            """ Check if the given Cell overlaps with any min_cells.
+        def get_all_adjacent_cells() -> Cs:
+            """ Get Cells that fit only three bounds,
+            but are overlapping with Cells that overlap all four.
 
-            The overlap function is determined by cls.
-
-            :param cell: The Cell that is checked.
-            :return: True if the Cell overlaps. False, otherwise.
+            If we are extra_greedy, also get those cells that recursively
+            overlap with cells that overlap with other cells.
             """
-            func = getattr(cell.bbox, cls.d.o.overlap_func)
-            for min_cell in min_cells:
-                if func(min_cell.bbox, 0.8):
-                    return True
-            return False
+            # Need to shallow copy for overlap_cells to be different.
+            all_cells = list(min_cells)
+            overlap_cells = all_cells if Config.extra_greedy else min_cells
+            while True:
+                new_cells = [c for c in cells
+                             if cls.overlaps_any(overlap_cells, c)
+                             and c not in all_cells]
+                if not new_cells:
+                    break
+                all_cells += new_cells
+            return all_cells
 
         # Get the three basic bounds, which are created from the border.
         bounds = cls.from_bboxes(border)
         cells = list(filter(bounds.within_bounds, cells))
         if not cells:
-            return cells
+            return []
 
         bounds.update_missing_bound(cells)
 
         # These are the Cells that fit all bounds.
         min_cells = list(filter(bounds.within_bounds, cells))
 
-        # Also add Cells that fit only three bounds,
-        #  but are overlapping with Cells that fit all four.
-        within_bounds_cells = [c for c in cells if within_min_cells(c)]
+        adjacent_cells = get_all_adjacent_cells()
 
         # Sort columns by y0 and rows by x0.
         lower_coord = attrgetter(f"bbox.{cls.d.o.normal.lower.coordinate}")
-        return list(sorted(within_bounds_cells, key=lower_coord))
+        return list(sorted(adjacent_cells, key=lower_coord))
 
     @property
     def n(self) -> float | None:

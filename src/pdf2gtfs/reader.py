@@ -201,6 +201,7 @@ def merge_other_cells(cells: Iterator[Cell]) -> Cs:
         return not (cell1.fontname == cell2.fontname
                     and cell1.fontsize == cell2.fontsize)
 
+    # TODO: Clean this up.
     same_font_groups = group_cells_by(
         cells, _same_font, ("fontname", "fontsize"), None)
     merged = []
@@ -213,7 +214,7 @@ def merge_other_cells(cells: Iterator[Cell]) -> Cs:
             if not field_pairs.peek(None):
                 continue
             first = field_pairs.peek()[0]
-            # Same font/fontsize for each field in a row.
+            # Same font/font-size for each field in a row.
             space_width = first.font.string_width(" ".encode()) * 1.35
             space_width *= first.fontsize
 
@@ -254,15 +255,17 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
     # Create a Field/DataField, based on whether each word contains time data.
     page_height = page.y1
     cells = map(lambda chars: Cell.from_lt_chars(chars, page_height), words)
-    # Remove empty cells, i.e. cells that do not contain any visible text.
+    # Remove empty cells, i.e., cells that do not contain any visible text.
     cells = filter(lambda f: f.text, cells)
     # Split the cells based on their type.
     non_data_cells, data_cells = partition(
         lambda c: c.has_type(T.Data, strict=True), cells)
-    # Some text may not have been read properly.
+    # Some text may not have been read properly by pdfminer.
     non_data_cells, invalid_cells = partition(
         lambda c: c.text.startswith("(cid"), non_data_cells)
-    non_data_cells = merge_other_cells(non_data_cells)
+
+    # TODO: Add alternative_pre_merge to enable/disable this.
+    # non_data_cells = merge_other_cells(non_data_cells)
 
     return list(data_cells), list(non_data_cells), list(invalid_cells)
 
@@ -457,6 +460,22 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
     return timetables
 
 
+def tables_to_csv(page_id: int, tables: list[Table]) -> None:
+    """ Export the given tables to the temporary directory as .csv files.
+
+    :param page_id: The page_id of the page the tables come from.
+    :param tables: The tables we want to export.
+    """
+    page = Config.pages.page_num(page_id)
+    input_name = Path(Config.filename).stem
+    logger.info(f"Writing tables of page {page} "
+                f"as .csv to {Config.temp_dir}...")
+    for table_id, table in enumerate(tables):
+        fname = f"{page:02}-{table_id:02}-{input_name}.csv"
+        path = Config.temp_dir.joinpath(fname)
+        table.to_file(path)
+
+
 def page_to_timetables(
         page: LTPage,
         use_datafields: bool = True,
@@ -464,6 +483,7 @@ def page_to_timetables(
     """ Extract all timetables from the given page. """
     if use_datafields:
         cell_tables = create_tables_from_page(page)
+        tables_to_csv(page.pageid, cell_tables)
         time_tables = tables_to_timetables(cell_tables)
     else:
         char_df = get_chars_dataframe(page)
