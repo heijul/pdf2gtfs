@@ -2,7 +2,7 @@ pandas~=1.4.2
 ghostscript~=0.7
 holidays~=0.13
 folium~=0.12.1.post1
-requests~=2.27.1
+requests~=2.31.0
 pdfminer.six==20220319
 more_itertools~=9.1.0
 
