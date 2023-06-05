@@ -290,12 +290,28 @@ def get_qlever_query() -> str:
     return " \n".join(query_list)
 
 
+def validate_ifopt(ifopts: pd.Series) -> pd.Series:
+    """ Clean all those IFOPTs that are definitely not valid.
+
+    This may not match some invalid IFOPTs.
+    """
+    part = r":[\w\-]*"
+    c = r"{0,1}"
+    # This should match (a leading part of) a list of
+    # strings separated by colons.
+    regex = rf"^[a-zA-Z]{{2}}{part}(?:{part}(?:{part}(?:{part}){c}){c}){c}$"
+    ifopts[~ifopts.str.contains(regex)] = ""
+    return ifopts
+
+
 def raw_osm_data_to_dataframe(raw_data: bytes) -> pd.DataFrame:
     """ Reads the feed and normalizes the names. """
+
     t = time()
     logger.info("Normalizing the stop names...")
     df = read_data(BytesIO(raw_data))
     df["names"] = normalize_series(df["names"])
+    df["ref_ifopt"] = validate_ifopt(df["ref_ifopt"].copy())
     logger.info(f"Done. Took {time() - t:.2f}s.")
     return remove_entries_without_name(df)
 
