@@ -29,7 +29,7 @@ class TestTable(TestCase):
 
     @staticmethod
     def _create_tables(data_cells, other_cells) -> list[Table]:
-        t = Table.from_data_cells(data_cells)
+        t = Table.from_time_cells(data_cells)
         t.insert_repeat_cells(other_cells)
         tables = t.max_split(other_cells)
         assign_other_cells_to_tables(tables, other_cells)
@@ -75,7 +75,7 @@ class TestTable(TestCase):
             pass
         while t2.expand(E):
             pass
-        t1 = Table.from_data_cells(f_data)
+        t1 = Table.from_time_cells(f_data)
         for cf1, cf2 in zip(t1.top.row, t2.top.row, strict=True):
             for cell1, cell2 in zip(cf1.col, cf2.col, strict=True):
                 self.assertEqual(cell1.text, cell2.text)
@@ -145,7 +145,7 @@ class TestTable(TestCase):
         for i, (low, high) in enumerate(pairwise(self.idx)):
             with self.subTest(table_number=i, low=low, high=high):
                 table_data = f_data[low:high]
-                table = Table.from_data_cells(table_data)
+                table = Table.from_time_cells(table_data)
                 cells = table.get_contained_cells(self.f_other)
                 self.assertEqual(cell_counts[i], len(cells))
                 table_bbox = table.bbox
@@ -165,7 +165,7 @@ class TestTable(TestCase):
         for i, (low, high) in enumerate(pairwise(self.multi_idx)):
             with self.subTest(table_number=i, low=low, high=high):
                 table_data = f_data[low:high]
-                table = Table.from_data_cells(table_data)
+                table = Table.from_time_cells(table_data)
                 cells = table.get_contained_cells(self.f_other)
                 self.assertEqual(cell_counts[i], len(cells))
                 table_bbox = table.bbox
@@ -180,7 +180,7 @@ class TestTable(TestCase):
         f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
         # All tables as one.
         table_data = f_data[self.idx[0]:self.idx[-1]]
-        table = Table.from_data_cells(table_data)
+        table = Table.from_time_cells(table_data)
         cells = table.get_contained_cells(self.f_other)
         self.assertEqual(16, len(cells))
         table_bbox = table.bbox
@@ -212,7 +212,7 @@ class TestTable(TestCase):
     def test_get_col_left_of__new_cell(self) -> None:
         left_cols_idx = [[13, 13, 13], [13, 13, 13], [2, 2, 2, 9, 9, 9]]
         for i, (low, high) in enumerate(pairwise(self.idx)):
-            table = Table.from_data_cells(self.f_data[low:high])
+            table = Table.from_time_cells(self.f_data[low:high])
             contained_cells = table.get_contained_cells(self.f_other)
             contained_cells.sort(key=attrgetter("bbox.x0"))
             with self.subTest(i=i):
@@ -223,14 +223,14 @@ class TestTable(TestCase):
                     self.assertListEqual(list(table_col), list(col))
 
     def test_get_repeat_identifiers(self) -> None:
-        table = Table.from_data_cells(self.f_data)
+        table = Table.from_time_cells(self.f_data)
         repeat_idents = table.get_repeat_identifiers(self.f_other)
         self.assertEqual(8, len(repeat_idents))
         for ident in repeat_idents:
             self.assertIn(ident.text, ["alle", "Min."])
 
     def test_get_repeat_values(self) -> None:
-        table = Table.from_data_cells(self.f_data)
+        table = Table.from_time_cells(self.f_data)
         repeat_idents = table.get_repeat_identifiers(self.f_other)
         repeat_values = table.get_repeat_values(repeat_idents, self.f_other)
         self.assertEqual(4, len(repeat_values))
@@ -240,7 +240,7 @@ class TestTable(TestCase):
     def test_split_at_cells__horizontally(self) -> None:
         tables1 = self._create_tables([f.duplicate() for f in self.f_data],
                                       [f.duplicate() for f in self.f_other])
-        table = Table.from_data_cells(self.f_data)
+        table = Table.from_time_cells(self.f_data)
         assign_other_cells_to_tables([table], self.f_other)
         table.insert_repeat_cells(table.potential_cells)
         contained_cells = table.get_contained_cells(table.potential_cells)
@@ -256,7 +256,7 @@ class TestTable(TestCase):
         lengths = [2, 2, 3]
         col_counts = [[14, 5], [14, 5], [3, 7, 5]]
         for i, (low, high) in enumerate(pairwise(self.idx)):
-            table = Table.from_data_cells(self.f_data[low:high])
+            table = Table.from_time_cells(self.f_data[low:high])
             contained_cells = table.get_contained_cells(self.f_other)
             with self.subTest(i=i):
                 tables = table.split_at_cells(V, contained_cells)
@@ -281,7 +281,7 @@ class TestTable(TestCase):
         for i, (low, high) in enumerate(pairwise(self.idx)):
             with self.subTest(table_number=i, low=low, high=high):
                 table_data = f_data[low:high]
-                table = Table.from_data_cells(table_data)
+                table = Table.from_time_cells(table_data)
                 assign_other_cells_to_tables([table], self.f_other)
                 cells = table.get_contained_cells(table.potential_cells)
                 cols = table.get_splitting_cols(cells)
@@ -295,7 +295,7 @@ class TestTable(TestCase):
         for i, (low, high) in enumerate(pairwise(self.multi_idx)):
             with self.subTest(table_number=i, low=low, high=high):
                 table_data = f_data[low:high]
-                table = Table.from_data_cells(table_data)
+                table = Table.from_time_cells(table_data)
                 assign_other_cells_to_tables([table], self.f_other)
                 cells = table.get_contained_cells(table.potential_cells)
                 cols = table.get_splitting_cols(cells)
@@ -306,7 +306,7 @@ class TestTable(TestCase):
 
     def test_get_splitting_cols__all(self) -> None:
         f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
-        table = Table.from_data_cells(f_data)
+        table = Table.from_time_cells(f_data)
         assign_other_cells_to_tables([table], self.f_other)
         cells = table.get_contained_cells(table.potential_cells)
         cols = table.get_splitting_cols(cells)
@@ -324,7 +324,7 @@ class TestTable(TestCase):
         for i, (low, high) in enumerate(pairwise(self.idx)):
             with self.subTest(table_number=i, low=low, high=high):
                 table_data = f_data[low:high]
-                table = Table.from_data_cells(table_data)
+                table = Table.from_time_cells(table_data)
                 assign_other_cells_to_tables([table], self.f_other)
                 cells = table.get_contained_cells(table.potential_cells)
                 rows = table.get_splitting_rows(cells)
@@ -336,7 +336,7 @@ class TestTable(TestCase):
         for i, (low, high) in enumerate(pairwise(self.multi_idx)):
             with self.subTest(table_number=i, low=low, high=high):
                 table_data = f_data[low:high]
-                table = Table.from_data_cells(table_data)
+                table = Table.from_time_cells(table_data)
                 assign_other_cells_to_tables([table], self.f_other)
                 cells = table.get_contained_cells(table.potential_cells)
                 rows = table.get_splitting_rows(cells)
@@ -347,7 +347,7 @@ class TestTable(TestCase):
 
     def test_get_splitting_rows__all(self) -> None:
         f_data = sorted(self.f_data, key=attrgetter("bbox.y0"))
-        table = Table.from_data_cells(f_data)
+        table = Table.from_time_cells(f_data)
         assign_other_cells_to_tables([table], self.f_other)
         cells = table.get_contained_cells(table.potential_cells)
         rows = table.get_splitting_rows(cells)

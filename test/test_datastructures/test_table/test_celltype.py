@@ -7,7 +7,7 @@ from pdf2gtfs.datastructures.table.celltype import (
     ABS_FALLBACK, ABS_INDICATORS, false, cell_col_contains_type,
     cell_has_type_wrapper, cell_is_between_type, cell_neighbor_has_type,
     cell_neighbor_has_type_wrapper, cell_row_contains_type,
-    is_legend, is_repeat_value, is_time_data, is_wrapper, T, true,
+    is_legend, is_repeat_value, is_time, is_wrapper, T, true,
     )
 from pdf2gtfs.datastructures.table.table import Table
 
@@ -19,15 +19,15 @@ class AbsIndicatorTests(TestCase):
         non_time_data = ["", "a", "19:65", "13.33", "18: 42"]
         for t in time_data:
             with self.subTest(time_data=t):
-                self.assertTrue(is_time_data(Cell(t)))
+                self.assertTrue(is_time(Cell(t)))
         for t in non_time_data:
             with self.subTest(time_data=t):
-                self.assertFalse(is_time_data(Cell(t)))
+                self.assertFalse(is_time(Cell(t)))
         # Different format.
         Config.time_format = "%H.%M"
         for t in ["13.42", "03.2", "2.2"]:
             with self.subTest(time_data=t):
-                self.assertTrue(is_time_data(Cell(t)))
+                self.assertTrue(is_time(Cell(t)))
 
     def test_is_wrapper(self) -> None:
         f = Cell("Test")
@@ -97,13 +97,13 @@ class RelIndicatorTests(TestCase):
         f.next.next = Cell("c")
         f.type.possible_types = {a: 0.1 for a in ABS_FALLBACK}
         f.next.type.possible_types = {
-            T.StopAnnot: 0.333, T.DataAnnot: 0.1, T.Other: 0.333}
-        f.next.next.type.possible_types = {T.Data: 0.667, T.Other: 0.333}
+            T.StopAnnot: 0.333, T.TimeAnnot: 0.1, T.Other: 0.333}
+        f.next.next.type.possible_types = {T.Time: 0.667, T.Other: 0.333}
         Table(f, f.next.next)
-        self.assertTrue(cell_row_contains_type(f, T.Data))
+        self.assertTrue(cell_row_contains_type(f, T.Time))
         # Strict type checking.
         self.assertFalse(cell_row_contains_type(f, T.Other))
-        self.assertFalse(cell_row_contains_type(f, T.DataAnnot))
+        self.assertFalse(cell_row_contains_type(f, T.TimeAnnot))
 
         self.assertFalse(cell_row_contains_type(f, T.LegendIdent))
         self.assertFalse(cell_row_contains_type(f, T.Empty))
@@ -114,13 +114,13 @@ class RelIndicatorTests(TestCase):
         f.below.below = Cell("c")
         f.type.possible_types = {a: 0.1 for a in ABS_FALLBACK}
         f.below.type.possible_types = {
-            T.StopAnnot: 0.333, T.DataAnnot: 0.1, T.Other: 0.333}
-        f.below.below.type.possible_types = {T.Data: 0.667, T.Other: 0.333}
+            T.StopAnnot: 0.333, T.TimeAnnot: 0.1, T.Other: 0.333}
+        f.below.below.type.possible_types = {T.Time: 0.667, T.Other: 0.333}
         Table(f, f.below.below)
-        self.assertTrue(cell_col_contains_type(f, T.Data))
+        self.assertTrue(cell_col_contains_type(f, T.Time))
         # Strict type checking.
         self.assertFalse(cell_col_contains_type(f, T.Other))
-        self.assertFalse(cell_col_contains_type(f, T.DataAnnot))
+        self.assertFalse(cell_col_contains_type(f, T.TimeAnnot))
 
         self.assertFalse(cell_col_contains_type(f, T.LegendIdent))
         self.assertFalse(cell_col_contains_type(f, T.Empty))
@@ -129,14 +129,14 @@ class RelIndicatorTests(TestCase):
         a, b, c, d, e = create_cells(5)
         a.type.possible_types = {T.Stop: 1}
         b.type.possible_types = {T.StopAnnot: 1}
-        c.type.possible_types = {T.Data: 1}
-        d.type.possible_types = {T.DataAnnot: 1}
+        c.type.possible_types = {T.Time: 1}
+        d.type.possible_types = {T.TimeAnnot: 1}
         e.type.possible_types = {T.Other: 1}
         b.prev = a
         b.next = c
         b.above = d
         b.below = e
-        for typ in [T.Stop, T.Other, T.Data, T.DataAnnot]:
+        for typ in [T.Stop, T.Other, T.Time, T.TimeAnnot]:
             with self.subTest(type=typ):
                 self.assertTrue(
                     cell_neighbor_has_type(b, typ, direct_neighbor=True))
@@ -145,16 +145,16 @@ class RelIndicatorTests(TestCase):
         self.assertTrue(cell_neighbor_has_type(a, T.StopAnnot))
         b.next = EmptyCell()
         self.assertEqual(c, b.next.next)
-        self.assertFalse(cell_neighbor_has_type(b, T.Data, True))
-        self.assertTrue(cell_neighbor_has_type(b, T.Data, False))
+        self.assertFalse(cell_neighbor_has_type(b, T.Time, True))
+        self.assertTrue(cell_neighbor_has_type(b, T.Time, False))
 
     def test_cell_neighbor_has_type_wrapper(self) -> None:
         a, b, c, d, e = create_cells(5)
         a.type.possible_types = {T.Stop: 1}
         b.type.possible_types = {T.StopAnnot: 1}
         c.type.possible_types = {T.Other: 1}
-        d.type.possible_types = {T.DataAnnot: 1}
-        e.type.possible_types = {T.Data: 1}
+        d.type.possible_types = {T.TimeAnnot: 1}
+        e.type.possible_types = {T.Time: 1}
         b.prev = a
         b.next = c
         b.above = d
@@ -169,18 +169,18 @@ class RelIndicatorTests(TestCase):
         a.type.possible_types = {T.RepeatIdent: 1}
         b.type.possible_types = {T.RepeatValue: 1}
         c.type.possible_types = {T.RepeatIdent: 1}
-        d.type.possible_types = {T.Data: 1}
-        e.type.possible_types = {T.Data: 1}
+        d.type.possible_types = {T.Time: 1}
+        e.type.possible_types = {T.Time: 1}
         b.prev = a
         b.next = c
         b.above = d
         b.below = e
         self.assertTrue(cell_is_between_type(b, T.RepeatIdent))
-        self.assertTrue(cell_is_between_type(b, T.Data))
-        c.type.possible_types = {T.Data: 1}
+        self.assertTrue(cell_is_between_type(b, T.Time))
+        c.type.possible_types = {T.Time: 1}
         self.assertFalse(cell_is_between_type(b, T.RepeatIdent))
         b.below = EmptyCell()
-        self.assertFalse(cell_is_between_type(b, T.Data))
+        self.assertFalse(cell_is_between_type(b, T.Time))
 
     def test_rel_multiple_function_wrapper(self) -> None:
         self.skipTest("Check usage first!")
@@ -217,8 +217,8 @@ class TestFieldType(TestCase):
         self.assertEqual(T.Other, f.type.guess_type())
         Config.time_format = "%H.%M"
         f = Cell("09.33")
-        self.assertEqual(T.Data, f.type.guess_type())
-        self.assertDictEqual({T.Data: 0.667, T.Other: 0.333},
+        self.assertEqual(T.Time, f.type.guess_type())
+        self.assertDictEqual({T.Time: 0.667, T.Other: 0.333},
                              f.type.possible_types)
 
 

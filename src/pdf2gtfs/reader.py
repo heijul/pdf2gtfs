@@ -187,7 +187,7 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
     return list(filter(bool, words))
 
 
-def word_contains_time_data(word: list[LTChar]) -> bool:
+def word_contains_time(word: list[LTChar]) -> bool:
     word_text = "".join([char.get_text().strip() for char in word])
     try:
         strptime(word_text, Config.time_format)
@@ -239,8 +239,8 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
 
     :param page: A single page of a PDF.
     :type page: LTPage
-    :return: Two lists, where the first contains all data cells of the page
-     and the second contains all non-data cells of the page.
+    :return: Two lists, where the first contains all TimeCells of the page
+     and the second contains all Cells not containing a time of the page.
     :rtype: tuple[list[DataField], list[C]]
     """
     # Get all lines of the page that are LTTextLines.
@@ -252,22 +252,21 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
     # Get all words in the given page from its lines.
     text_lines = cast(Iterable[LTTextLine], text_lines)
     words = flatten(map(split_line_into_words, text_lines))
-    # Create a Field/DataField, based on whether each word contains time data.
     page_height = page.y1
     cells = map(lambda chars: Cell.from_lt_chars(chars, page_height), words)
-    # Remove empty cells, i.e., cells that do not contain any visible text.
+    # Remove Cells that do not contain any text.
     cells = filter(lambda f: f.text, cells)
     # Split the cells based on their type.
-    non_data_cells, data_cells = partition(
-        lambda c: c.has_type(T.Data, strict=True), cells)
+    non_time_cells, time_cells = partition(
+        lambda c: c.has_type(T.Time, strict=True), cells)
     # Some text may not have been read properly by pdfminer.
-    non_data_cells, invalid_cells = partition(
-        lambda c: c.text.startswith("(cid"), non_data_cells)
+    non_time_cells, invalid_cells = partition(
+        lambda c: c.text.startswith("(cid"), non_time_cells)
 
     # TODO: Add alternative_pre_merge to enable/disable this.
-    # non_data_cells = merge_other_cells(non_data_cells)
+    # non_time_cells = merge_other_cells(non_time_cells)
 
-    return list(data_cells), list(non_data_cells), list(invalid_cells)
+    return list(time_cells), list(non_time_cells), list(invalid_cells)
 
 
 def assign_other_cells_to_tables(tables: list[Table], cells: Cs) -> None:
@@ -277,8 +276,8 @@ def assign_other_cells_to_tables(tables: list[Table], cells: Cs) -> None:
     is between C and T1.
 
     :param tables: All tables of the page.
-    :param cells: All cells of the page, that are neither Data nor
-        Repeat cells.
+    :param cells: All cells of the page, that are neither
+     TimeCells nor RepeatCells.
     """
     def get_next_lower(sorted_tables: list[Table], axis: str) -> float | None:
         """ Return the upper bound of the next lower table, if it exists.
@@ -345,9 +344,9 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         the sense that no other cells exist on the page, that can be
         attributed to the table in a simple manner.
     """
-    data_cells, non_data_cells, invalid_cells = get_cells_from_page(page)
-    t = Table.from_data_cells(data_cells)
-    other_cells = non_data_cells
+    time_cells, non_time_cells, invalid_cells = get_cells_from_page(page)
+    t = Table.from_time_cells(time_cells)
+    other_cells = non_time_cells
     t.insert_repeat_cells(other_cells)
     t.print(None)
     tables = t.max_split(other_cells)
@@ -478,10 +477,10 @@ def tables_to_csv(page_id: int, tables: list[Table]) -> None:
 
 def page_to_timetables(
         page: LTPage,
-        use_datafields: bool = True,
+        use_cells: bool = True,
         ) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
-    if use_datafields:
+    if use_cells:
         cell_tables = create_tables_from_page(page)
         tables_to_csv(page.pageid, cell_tables)
         time_tables = tables_to_timetables(cell_tables)

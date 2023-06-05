@@ -132,8 +132,8 @@ class EmptyCellType(CellType):
 class T(Enum):
     """ The different possible Types a Cell could have. """
     # The value is used only for illustrative purposes, though that may change.
-    Data = 0.1
-    DataAnnot = 0.2
+    Time = 0.1
+    TimeAnnot = 0.2
     Stop = 1.1
     StopAnnot = 1.2
     Days = 2.
@@ -172,7 +172,7 @@ class T(Enum):
 AbsIndicatorFunc: TypeAlias = Callable[[C], bool]
 
 
-def is_time_data(cell: C) -> bool:
+def is_time(cell: C) -> bool:
     """  Check if the Cell contains text that can be converted to a time.
 
     :param cell: The Cell in question.
@@ -280,7 +280,7 @@ def false(*_) -> bool:
 
 # The absolute Type-indicator functions.
 ABS_INDICATORS: dict[T: AbsIndicatorFunc] = {
-    T.Data: is_time_data,
+    T.Time: is_time,
     T.Days: is_wrapper(Config.header_values),
     T.RepeatIdent: is_wrapper(Config.repeat_identifier),
     T.StopAnnot: is_wrapper(Config.arrival_identifier,
@@ -291,7 +291,7 @@ ABS_INDICATORS: dict[T: AbsIndicatorFunc] = {
     }
 # The fallback Types in case no absolute indicator function returned True.
 ABS_FALLBACK: list[T] = [
-    T.Stop, T.RouteAnnotValue, T.EntryAnnotValue, T.DataAnnot, T.LegendValue,
+    T.Stop, T.RouteAnnotValue, T.EntryAnnotValue, T.TimeAnnot, T.LegendValue,
     T.RepeatValue]
 
 
@@ -434,33 +434,33 @@ def series_contains_type(cell: C, o: Orientation, typ: T) -> bool:
     return cell_row_contains_type(cell, typ)
 
 
-def data_aligned_cells_are_non_empty(starter: C, o: Orientation,
+def time_aligned_cells_are_non_empty(starter: C, o: Orientation,
                                      cell_type: T, neighbor_type: T | None
                                      ) -> bool:
     """ Checks if the row/col of starter contains empty Cells
-    in the cols/rows where the data Cells are.
+    in the cols/rows where the TimeCells are.
 
     :param starter: The row/col of this Cell will be checked.
     :param o: Whether to check row or column of starter. The normal
         Orientation to o will be used to check neighbors of each empty Cell.
     :param cell_type: The Type the aligned Cells should have.
-    :param neighbor_type: The Type (other than T.Data) the neighbors of any
+    :param neighbor_type: The Type (other than T.Time) the neighbors of any
         encountered EmptyFields should have. If this is None, at least one
-        neighbor must be of Type `Data`. In either case, neighbors must exist.
+        neighbor must be of Type `Time`. In either case, neighbors must exist.
     :return: True if all Cells of the starter's col/row, which are within
-        a row/col containing Cells of Type Data, are either non-empty Cells
+        a row/col containing Cells of Type Time, are either non-empty Cells
         with Stop as possible Type, or are EmptyCells. The latter must either
         be missing a neighbor in the normal Orientation or such a neighbor
-        has a different Type than Stop or Data. False, otherwise.
+        has a different Type than Stop or Time. False, otherwise.
     """
     from pdf2gtfs.datastructures.table.cell import EmptyCell
 
     n = o.normal
-    neighbor_types = [T.Data]
+    neighbor_types = [T.Time]
     if neighbor_type is not None:
         neighbor_types.append(neighbor_type)
     for cell in starter.iter(o=o):
-        if not series_contains_type(cell, n, T.Data):
+        if not series_contains_type(cell, n, T.Time):
             continue
         if not isinstance(cell, EmptyCell):
             if not cell.has_type(cell_type):
@@ -496,8 +496,8 @@ def series_is_aligned(starter: C, o: Orientation,
     bbox_attr = "x0" if o == V else "y0"
     lower_coords: list[float] = []
     for cell in starter.iter(o=o):
-        # Only check data Cells.
-        if not series_contains_type(cell, o.normal, T.Data):
+        # Only check TimeCells.
+        if not series_contains_type(cell, o.normal, T.Time):
             continue
         lower_coords.append(getattr(cell.bbox, bbox_attr))
     lower_coords.sort()
@@ -512,43 +512,43 @@ def rel_indicator_stop(cell: C) -> float:
     :return: A value between 0 and 2.5, representing change in probability,
         based on the funcs called.
     """
-    # Stops are never between the Table's DataCells.
-    if cell_is_between_type(cell, T.Data):
+    # Stops are never between the Table's TimeCells.
+    if cell_is_between_type(cell, T.Time):
         return 0
-    col_contains_data = cell_col_contains_type(cell, T.Data)
-    row_contains_data = cell_row_contains_type(cell, T.Data)
-    # We need exactly one of col/row to contain a DataCell.
+    col_contains_time = cell_col_contains_type(cell, T.Time)
+    row_contains_time = cell_row_contains_type(cell, T.Time)
+    # We need exactly one of col/row to contain a TimeCell.
     # Otherwise, the Cell is either diagonal or
-    #  inside the grid spanned by the Table's DataCells.
-    if (col_contains_data + row_contains_data) % 2 == 0:
+    #  inside the grid spanned by the Table's TimeCells.
+    if (col_contains_time + row_contains_time) % 2 == 0:
         return 0
-    o = H if col_contains_data else V
+    o = H if col_contains_time else V
     # TODO: Add the bounds to config.
     # Stops are usually long (here, >= 8 chars on average).
-    mean_length = get_data_aligned_avg_text_length(cell, o)
+    mean_length = get_time_aligned_avg_text_length(cell, o)
     # Normalize the length.
     norm_length = floor(log2(mean_length))
     if norm_length < 3:
         return 0
     # Stops have a high letter to non-letter ratio.
-    letter_ratio = get_data_aligned_letter_ratio(cell, o)
+    letter_ratio = get_time_aligned_letter_ratio(cell, o)
     if letter_ratio < 0.8:
         return 0
 
     score = 1
-    if col_contains_data:
-        # Every row that contains data must contain a Stop.
-        if not data_aligned_cells_are_non_empty(cell, H, T.Stop, T.Stop):
+    if col_contains_time:
+        # Every row that contains a Time must contain a Stop.
+        if not time_aligned_cells_are_non_empty(cell, H, T.Stop, T.Stop):
             return 0
         # Stop columns are (generally) left aligned.
         score += series_is_aligned(cell, H)
-        # If the column contains Data, the row should contain Stops.
+        # If the column contains Time, the row should contain Stops.
         score += cell_row_contains_type(cell, T.Stop)
         score += cell_neighbor_has_type(
             cell, T.StopAnnot, directions=[N, S])
-    elif row_contains_data:
-        # Every col that contains Data must contain a Stop.
-        if not data_aligned_cells_are_non_empty(cell, V, T.Stop, T.Stop):
+    elif row_contains_time:
+        # Every col that contains Time must contain a Stop.
+        if not time_aligned_cells_are_non_empty(cell, V, T.Stop, T.Stop):
             return 0
         score += series_is_aligned(cell, V)
         score += cell_col_contains_type(cell, T.Stop)
@@ -565,19 +565,19 @@ def rel_indicator_stop_annot(cell: C) -> float:
     :return: A value between 0 and 1, representing change in probability,
         based on the results of the functions called.
     """
-    col_contains_data = cell_col_contains_type(cell, T.Data)
-    row_contains_data = cell_row_contains_type(cell, T.Data)
-    # Either the row or col has to contain Data, but never both.
-    if (col_contains_data + row_contains_data) % 2 == 0:
+    col_contains_time = cell_col_contains_type(cell, T.Time)
+    row_contains_time = cell_row_contains_type(cell, T.Time)
+    # Either the row or col has to contain Time, but never both.
+    if (col_contains_time + row_contains_time) % 2 == 0:
         return 0
     score = 1
-    if col_contains_data:
-        if not data_aligned_cells_are_non_empty(cell, H, T.StopAnnot, None):
+    if col_contains_time:
+        if not time_aligned_cells_are_non_empty(cell, H, T.StopAnnot, None):
             return 0
         score += cell_neighbor_has_type(cell, T.Stop, directions=[N, S])
         score += cell_neighbor_has_type(cell, T.StopAnnot, directions=[W, E])
-    elif row_contains_data:
-        if not data_aligned_cells_are_non_empty(cell, V, T.StopAnnot, None):
+    elif row_contains_time:
+        if not time_aligned_cells_are_non_empty(cell, V, T.StopAnnot, None):
             return 0
         score += cell_neighbor_has_type(cell, T.Stop, directions=[W, E])
         score += cell_neighbor_has_type(cell, T.StopAnnot, directions=[N, S])
@@ -585,22 +585,22 @@ def rel_indicator_stop_annot(cell: C) -> float:
     return score
 
 
-def rel_indicator_data_annot(cell: C) -> float:
-    """ The relative indicator for T.DataAnnot.
+def rel_indicator_time_annot(cell: C) -> float:
+    """ The relative indicator for T.TimeAnnot.
 
     :param cell: The Cell that has its Type evaluated.
-    :return: 0, if the Cell either has no direct neighbor of Type Data,
-        or if the Cell's fontsize is greater than the Data Cell's fontsize.
+    :return: 0, if the Cell either has no direct neighbor of Type Time,
+        or if the Cell's fontsize is greater than the TimeCell's fontsize.
         1, otherwise.
     """
-    neighbor_of_data = cell_neighbor_has_type(cell, T.Data, True)
-    if not neighbor_of_data:
+    neighbor_of_time = cell_neighbor_has_type(cell, T.Time, True)
+    if not neighbor_of_time:
         return 0
 
     neighbors = cell.get_neighbors(allow_none=False, allow_empty=False)
-    data_neighbors = [n for n in neighbors if n.has_type(T.Data, strict=True)]
-    mean_data_fontsize = mean(map(attrgetter("fontsize"), data_neighbors))
-    return cell.fontsize <= mean_data_fontsize
+    time_neighbors = [n for n in neighbors if n.has_type(T.Time, strict=True)]
+    mean_time_fontsize = mean(map(attrgetter("fontsize"), time_neighbors))
+    return cell.fontsize <= mean_time_fontsize
 
 
 def rel_indicator_repeat_ident(cell: C) -> float:
@@ -610,7 +610,7 @@ def rel_indicator_repeat_ident(cell: C) -> float:
     :return: A value between 0 and 2, representing change in probability,
         based on the results of the functions called.
     """
-    required = cell_is_between_type_wrapper(T.Data)
+    required = cell_is_between_type_wrapper(T.Time)
 
     if not required(cell):
         return 0.
@@ -626,7 +626,7 @@ def rel_indicator_repeat_value(cell: C) -> float:
     """
     if not is_repeat_value(cell):
         return 0
-    funcs = (cell_is_between_type_wrapper(T.Data),
+    funcs = (cell_is_between_type_wrapper(T.Time),
              cell_is_between_type_wrapper(T.RepeatIdent))
     # Both are strictly required.
     return (rel_multiple_function_wrapper(funcs)(cell) == 1.0) * 2
@@ -643,19 +643,19 @@ def rel_indicator_entry_annot_value(cell: C) -> float:
     # It is less likely for a Cell to be an annotation if the col, which
     #  contains the annotation identifier, also contains Stops.
     if cell_col_contains_type(cell, T.EntryAnnotIdent):
-        mod += (cell_row_contains_type(cell, T.Data)
+        mod += (cell_row_contains_type(cell, T.Time)
                 - cell_col_contains_type(cell, T.Stop))
     elif cell_row_contains_type(cell, T.EntryAnnotIdent):
-        mod += (cell_col_contains_type(cell, T.Data)
+        mod += (cell_col_contains_type(cell, T.Time)
                 - cell_row_contains_type(cell, T.Stop))
 
     return mod * 2
 
 
-def get_data_aligned_letter_ratio(starter: C, o: Orientation) -> float:
+def get_time_aligned_letter_ratio(starter: C, o: Orientation) -> float:
     """ Calculate the ratio between letters and symbols in the Cell's row/col.
 
-    Only considers those Cells that are in a DataCell's row or col.
+    Only considers those Cells that are in a TimeCell's row or col.
     Symbols refers here to all characters that are not letters.
 
     :param starter: This Cell's row/col will be used to calculate the ratio.
@@ -670,9 +670,9 @@ def get_data_aligned_letter_ratio(starter: C, o: Orientation) -> float:
     letter_count = 0
     text_len = 0
     for cell in cells:
-        if o == V and not cell_row_contains_type(cell, T.Data):
+        if o == V and not cell_row_contains_type(cell, T.Time):
             continue
-        if o == H and not cell_col_contains_type(cell, T.Data):
+        if o == H and not cell_col_contains_type(cell, T.Time):
             continue
         if isinstance(cell, EmptyCell):
             continue
@@ -682,10 +682,10 @@ def get_data_aligned_letter_ratio(starter: C, o: Orientation) -> float:
     return letter_count / text_len
 
 
-def get_data_aligned_avg_text_length(starter: C, o: Orientation) -> float:
+def get_time_aligned_avg_text_length(starter: C, o: Orientation) -> float:
     """ Calculate the average text length of starter's row/col.
 
-    Only considers those Cells that are in a DataCell's row or col.
+    Only considers those Cells that are in a TimeCell's row or col.
 
     :param starter: This Cell's row/col will be used to get the text length.
     :param o: Whether to check the row or col of the Cell.
@@ -695,9 +695,9 @@ def get_data_aligned_avg_text_length(starter: C, o: Orientation) -> float:
     cells = starter.iter(o=o)
     text_lens = []
     for cell in cells:
-        if o == V and not cell_row_contains_type(cell, T.Data):
+        if o == V and not cell_row_contains_type(cell, T.Time):
             continue
-        if o == H and not cell_col_contains_type(cell, T.Data):
+        if o == H and not cell_col_contains_type(cell, T.Time):
             continue
         if isinstance(cell, EmptyCell):
             continue
@@ -712,18 +712,18 @@ def rel_indicator_route_annot_value(cell: C) -> float:
     :return: A value between 0 and 2, representing change in probability,
         based on the results of the functions called.
     """
-    data_col = cell_col_contains_type(cell, T.Data)
-    data_row = cell_row_contains_type(cell, T.Data)
-    # Route annotations exist outside, but aligned to, the data.
-    if (data_col + data_row) % 2 == 0:
+    time_col = cell_col_contains_type(cell, T.Time)
+    time_row = cell_row_contains_type(cell, T.Time)
+    # Route annotations exist outside, but aligned to the TimeCells.
+    if (time_col + time_row) % 2 == 0:
         return 0
-    if data_col and not cell_row_contains_type(cell, T.RouteAnnotIdent):
+    if time_col and not cell_row_contains_type(cell, T.RouteAnnotIdent):
         return 0
-    if data_row and not cell_col_contains_type(cell, T.RouteAnnotIdent):
+    if time_row and not cell_col_contains_type(cell, T.RouteAnnotIdent):
         return 0
-    o = H if data_col else V
-    # letter_ratio = get_data_aligned_letter_ratio(cell, o)
-    mean_length = get_data_aligned_avg_text_length(cell, o)
+    o = H if time_col else V
+    # letter_ratio = get_time_aligned_letter_ratio(cell, o)
+    mean_length = get_time_aligned_avg_text_length(cell, o)
     # Normalize the length.
     norm_length = floor(log2(mean_length))
     return norm_length < 3
@@ -731,10 +731,10 @@ def rel_indicator_route_annot_value(cell: C) -> float:
 
 # The relative Type-indicator functions.
 REL_INDICATORS: dict[T: RelIndicatorFunc] = {
-    T.Data: cell_neighbor_has_type_wrapper(T.Data),
+    T.Time: cell_neighbor_has_type_wrapper(T.Time),
     T.Stop: rel_indicator_stop,
     T.StopAnnot: rel_indicator_stop_annot,
-    T.DataAnnot: rel_indicator_data_annot,
+    T.TimeAnnot: rel_indicator_time_annot,
     T.EntryAnnotValue: rel_indicator_entry_annot_value,
     T.RouteAnnotValue: rel_indicator_route_annot_value,
     T.RepeatIdent: rel_indicator_repeat_ident,

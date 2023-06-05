@@ -56,7 +56,11 @@ class TimeTableEntry:
 
 
 class TimeTableRepeatEntry(TimeTableEntry):
-    """ A repeating entry in a TimeTable. Does not contain time data. """
+    """ A repeating entry in a TimeTable.
+
+    Does not contain actual time data, but only the intervals the previous
+    route is repeated in.
+    """
 
     def __init__(self, header_text: str, intervals: list[str]) -> None:
         super().__init__(header_text)

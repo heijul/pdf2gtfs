@@ -95,14 +95,14 @@ class Table:
                                           self.right.col, self.bot.row)))
 
     @staticmethod
-    def from_data_cells(data_cells: Cs) -> Table:
-        """ Create a new Table from the given DataCells.
+    def from_time_cells(time_cells: Cs) -> Table:
+        """ Create a new Table from the given TimeCells.
 
-        :param data_cells: The Cells of Type Data used to construct the Table.
+        :param time_cells: The Cells of Type Time used to construct the Table.
         :return: A new Table containing all the given Cells.
         """
-        cols = cells_to_cols(data_cells)
-        rows = cells_to_rows(data_cells)
+        cols = cells_to_cols(time_cells)
+        rows = cells_to_rows(time_cells)
         cols, rows = link_rows_and_cols(rows, cols)
         t = Table(cols[0][0], rows[-1][-1])
         return t
@@ -396,12 +396,12 @@ class Table:
         :param col_count: The maximum number of columns that will be printed.
         """
         def get_text_align(c) -> str:
-            """ Right align all data Cells; left align everything else.
+            """ Right align all TimeCells; left align everything else.
 
             :param c: This Cell's text is checked.
             :return: The format character used for alignment.
             """
-            return ">" if c.has_type(T.Data, strict=True) else "<"
+            return ">" if c.has_type(T.Time, strict=True) else "<"
 
         self._print(attrgetter("text"), get_text_align, col_count)
 
@@ -602,8 +602,8 @@ class Table:
                     # Only Cells with a proper type are added.
                     # Stops were already added.
                     return
-                case T.Data:
-                    # Add the data to the entry
+                case T.Time:
+                    # Add the Time to the entry
                     #  and ensure the entry will be added to the TimeTable.
                     entries[e_id].set_value(
                         t.stops.get_from_id(stop_id), cell.text)
@@ -996,7 +996,7 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
                 break
         return start_, cell_overlaps
 
-    # TODO: Try to have ref_cells contain the maximum number of DataCells.
+    # TODO: Try to have ref_cells contain the maximum number of TimeCells.
     #  That way, Days columns, for example,  won't fuck up anything above them.
     if len(cells) < 2:
         return
