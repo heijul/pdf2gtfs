@@ -182,10 +182,11 @@ class TestTable(TestCase):
         table_data = f_data[self.idx[0]:self.idx[-1]]
         table = Table.from_time_cells(table_data)
         cells = table.get_contained_cells(self.f_other)
-        self.assertEqual(16, len(cells))
+        # Days rows count as 3 Cells each.
+        self.assertEqual(20, len(cells))
         table_bbox = table.bbox
         cell_texts = ["alle", "10", "15", "30", "Min.",
-                      "V", "*", "Sonn- und Feiertag"]
+                      "V", "*", "Sonn-", "und", "Feiertag"]
         for cell in cells:
             self.assertTrue(table_bbox.is_h_overlap(cell.bbox, 1))
             self.assertTrue(table_bbox.is_v_overlap(cell.bbox, 1))
@@ -352,8 +353,11 @@ class TestTable(TestCase):
         cells = table.get_contained_cells(table.potential_cells)
         rows = table.get_splitting_rows(cells)
         self.assertEqual(3, len(rows))
+        # Days were not merged yet.
         self.assertListEqual(
-            [["Sonn- und Feiertag"], ["Sonn- und Feiertag"], ["V", "V"]],
+            [["Sonn-", "und", "Feiertag"],
+             ["Sonn-", "und", "Feiertag"],
+             ["V", "V"]],
             [[f.text for f in row] for row in rows])
 
     def test_max_split(self) -> None:
