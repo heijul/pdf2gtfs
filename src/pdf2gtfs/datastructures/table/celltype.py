@@ -10,7 +10,7 @@ from time import strptime
 from typing import Any, Callable, TYPE_CHECKING, TypeAlias, TypeVar
 
 from math import floor, log2
-from more_itertools import collapse
+from more_itertools import collapse, substrings_indexes
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.table.direction import (
@@ -292,7 +292,7 @@ ABS_INDICATORS: dict[T: AbsIndicatorFunc] = {
 # The fallback Types in case no absolute indicator function returned True.
 ABS_FALLBACK: list[T] = [
     T.Stop, T.RouteAnnotValue, T.EntryAnnotValue, T.TimeAnnot, T.LegendValue,
-    T.RepeatValue]
+    T.RepeatValue, T.Days]
 
 
 RelIndicatorFunc: TypeAlias = Callable[[C], float]
@@ -729,9 +729,89 @@ def rel_indicator_route_annot_value(cell: C) -> float:
     return norm_length < 3
 
 
+def rel_indicator_days(cell: Cell) -> float:
+    def part_of_days_indexes(days_: str, text_: str
+                             ) -> tuple[str, int, int] | None:
+        # Split at any whitespace character.
+        days_list = days.split()
+        days_substrings = substrings_indexes(days_list)
+        # Reverse, because we only want the longest substring match.
+        for substring, s_start, s_end in reversed(list(days_substrings)):
+            if text_ != " ".join(substring):
+                continue
+            # Need to convert between substring list index and string index.
+            return (days_,
+                    sum([len(s) + 1 for i, s in enumerate(days_list)
+                         if i < s_start]),
+                    sum([len(s) + 1 for i, s in enumerate(days_list)
+                         if i < s_end]) - 1)
+        return None
+
+    def next_neighbor(c: Cell, d: Direction) -> Cell | None:
+        neighbors = c.get_neighbors(directions=[d], allow_empty=False)
+        if not neighbors:
+            return None
+        return neighbors[0]
+
+    text = cell.text.lower()
+    if text in Config.negative_header_values:
+        return 0
+    # If this Cells' text is a header value,
+    # we can be almost certain that it is a day.
+    if text in Config.header_values:
+        return 10
+    # Otherwise, the days info might be split into multiple Cells.
+    # Try to merge this cell with neighbors, if all cells together form a day
+    possible_days: list[tuple[str, int, int]] = []
+    for days in Config.header_values:
+        indexes = part_of_days_indexes(days, text)
+        if not indexes:
+            continue
+        possible_days.append(indexes)
+
+    # This Cells' text is not a word of any days value.
+    if not possible_days:
+        return 0
+
+    for days, start, end in possible_days:
+        neighbor = cell
+        valid = True
+        while start > 0:
+            neighbor = next_neighbor(neighbor, W)
+            if not neighbor:
+                valid = False
+                break
+            indexes = part_of_days_indexes(days[:start], neighbor.text.lower())
+            # No index or the new end is not 'adjacent' to the current start.
+            if not indexes or indexes[2] != start - 1:
+                valid = False
+                break
+            start = indexes[1]
+        if not valid:
+            continue
+        neighbor = cell
+        while end < len(days) - 1:
+            neighbor = next_neighbor(neighbor, E)
+            if not neighbor:
+                valid = False
+                break
+            indexes = part_of_days_indexes(days[end:], neighbor.text.lower())
+            # No index or the new start is not 'adjacent' to the current end.
+            if not indexes or indexes[1] != end + 1:
+                valid = False
+                break
+            end = indexes[2]
+        if not valid:
+            continue
+        # Days match was found using the neighbors.
+        return 10
+    return 0
+
+
 # The relative Type-indicator functions.
 REL_INDICATORS: dict[T: RelIndicatorFunc] = {
     T.Time: cell_neighbor_has_type_wrapper(T.Time),
+    T.Days: rel_indicator_days,
     T.Stop: rel_indicator_stop,
     T.StopAnnot: rel_indicator_stop_annot,
     T.TimeAnnot: rel_indicator_time_annot,

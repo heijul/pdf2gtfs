@@ -739,8 +739,26 @@ class Table:
                     f"Found two consecutive stop {series}. Merging...")
                 merge_series(stop, o.normal.upper)
 
+        def merge_consecutive_days() -> None:
+            """ Merge multi-word DaysCells that were split. """
+            first_col = self.left.col
+            for row_starter in first_col:
+                for cell in row_starter.row:
+                    if not cell.has_type(T.Days, strict=True):
+                        continue
+                    neighbors = cell.get_neighbors(directions=[E],
+                                                   allow_empty=False)
+                    while (neighbors
+                           and neighbors[0].has_type(T.Days, strict=True)
+                           and cell.text.lower() not in Config.header_values):
+                        cell.text += " " + neighbors[0].text
+                        self.replace_cell(neighbors[0], EmptyCell())
+                        neighbors = cell.get_neighbors(directions=[E],
+                                                       allow_empty=False)
+
         infer_cell_types()
         merge_stops(*self.find_stops())
+        merge_consecutive_days()
         self.remove_duplicate_days(H, first_table)
 
     def remove_duplicate_days(self, o: Orientation, ref_table: Table) -> None:
@@ -821,6 +839,16 @@ class Table:
             if single and cells_of_type:
                 return cells_of_type
         return cells_of_type
+
+    def replace_cell(self, cell: Cell, new_cell: Cell) -> None:
+        if cell.prev:
+            cell.prev.next = new_cell
+        if cell.next:
+            cell.next.prev = new_cell
+        if cell.above:
+            cell.above.below = new_cell
+        if cell.below:
+            cell.below.above = new_cell
 
 
 def group_cells_by(cells: Iterable[C],
