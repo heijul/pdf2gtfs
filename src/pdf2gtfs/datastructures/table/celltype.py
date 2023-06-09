@@ -730,8 +730,15 @@ def rel_indicator_route_annot_value(cell: C) -> float:
 
 
 def rel_indicator_days(cell: Cell) -> float:
+    """ Relative indicator for Days.
+
+    :returns: 10 if the given Cell contains a complete Days string,
+    or if we can use the Cells' neighbors to construct a Days string.
+    0 otherwise.
+    """
     def part_of_days_indexes(days_: str, text_: str
                              ) -> tuple[str, int, int] | None:
+        """ Get the days and indices, this cell may be a part of. """
         # Split at any whitespace character.
         days_list = days.split()
         days_substrings = substrings_indexes(days_list)
@@ -748,10 +755,39 @@ def rel_indicator_days(cell: Cell) -> float:
         return None
 
     def next_neighbor(c: Cell, d: Direction) -> Cell | None:
+        """ Get the next non-empty neighbor of c in Direction d or None. """
         neighbors = c.get_neighbors(directions=[d], allow_empty=False)
         if not neighbors:
             return None
         return neighbors[0]
+
+    def check_left_neighbors(neighbor: Cell, start_: int) -> bool:
+        """ Check if the neighbors left of the cell complete a days text. """
+        while start_ > 0:
+            neighbor = next_neighbor(neighbor, W)
+            if not neighbor or not neighbor.has_type(T.Days):
+                return False
+            neighbor_indexes = part_of_days_indexes(
+                days[:start_], neighbor.text.lower())
+            # No index or the new end is not 'adjacent' to the current start.
+            if not neighbor_indexes or neighbor_indexes[2] != start_ - 1:
+                return False
+            start_ = neighbor_indexes[1]
+        return True
+
+    def check_right_neighbors(neighbor: Cell, /, end_: int) -> bool:
+        """ Check if the neighbors right of the cell complete a days text. """
+        while end_ < len(days) - 1:
+            neighbor = next_neighbor(neighbor, E)
+            if not neighbor or not neighbor.has_type(T.Days):
+                return False
+            neighbor_indexes = part_of_days_indexes(
+                days[end_:], neighbor.text.lower())
+            # No index or the new start is not 'adjacent' to the current end.
+            if not neighbor_indexes or neighbor_indexes[1] != end_ + 1:
+                return False
+            end_ = neighbor_indexes[2]
+        return True
 
     text = cell.text.lower()
     if text in Config.negative_header_values:
@@ -772,35 +808,11 @@ def rel_indicator_days(cell: Cell) -> float:
     # This Cells' text is not a word of any days value.
     if not possible_days:
         return 0
-
     for days, start, end in possible_days:
-        neighbor = cell
-        valid = True
-        while start > 0:
-            neighbor = next_neighbor(neighbor, W)
-            if not neighbor:
-                valid = False
-                break
-            indexes = part_of_days_indexes(days[:start], neighbor.text.lower())
-            # No index or the new end is not 'adjacent' to the current start.
-            if not indexes or indexes[2] != start - 1:
-                valid = False
-                break
-            start = indexes[1]
+        valid = check_left_neighbors(cell, start)
         if not valid:
             continue
-        neighbor = cell
-        while end < len(days) - 1:
-            neighbor = next_neighbor(neighbor, E)
-            if not neighbor:
-                valid = False
-                break
-            indexes = part_of_days_indexes(days[end:], neighbor.text.lower())
-            # No index or the new start is not 'adjacent' to the current end.
-            if not indexes or indexes[1] != end + 1:
-                valid = False
-                break
-            end = indexes[2]
+        valid = check_right_neighbors(cell, end)
         if not valid:
             continue
         # Days match was found using the neighbors.
