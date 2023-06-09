@@ -1084,7 +1084,11 @@ def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
             break
         cell_count += 1
         cell = cells[idx]
-        if ref_cell.is_overlap(o, cell, 0.8):
+        if ref_cell.table:
+            bbox = ref_cell.table.get_bbox_of(ref_cell.iter(o=o.normal))
+        else:
+            bbox = ref_cell.bbox
+        if bbox.is_overlap(o.name.lower(), cell.bbox, 0.8):
             idx += 1
             continue
         add_empty_cell(o.lower, cell, ref_cell)
