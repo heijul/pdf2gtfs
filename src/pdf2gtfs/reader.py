@@ -11,11 +11,13 @@ from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import strptime, time
 from typing import (
-    Any, cast, Iterable, Iterator, Optional, Tuple, TypeAlias, Union,
+    cast, Iterator, Optional, Tuple, TypeAlias, Union,
     )
 
 import pandas as pd
-from more_itertools import first_true, flatten, partition, peekable, prepend
+from more_itertools import (
+    first_true, flatten, partition, peekable, prepend, collapse,
+    )
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import (
     LAParams, LTChar, LTPage, LTText, LTTextBox, LTTextLine,
@@ -243,14 +245,7 @@ def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
      and the second contains all Cells not containing a time of the page.
     :rtype: tuple[list[DataField], list[C]]
     """
-    # Get all lines of the page that are LTTextLines.
-    text_boxes = filter(lambda box: isinstance(box, LTTextBox), page)
-    text_boxes = cast(Iterable[Iterable[Any]], text_boxes)
-    text_lines = filter(lambda line: isinstance(line, LTTextLine),
-                        flatten(text_boxes))
-
-    # Get all words in the given page from its lines.
-    text_lines = cast(Iterable[LTTextLine], text_lines)
+    text_lines = collapse(page, base_type=LTTextLine)
     words = flatten(map(split_line_into_words, text_lines))
     page_height = page.y1
     cells = map(lambda chars: Cell.from_lt_chars(chars, page_height), words)
@@ -384,7 +379,7 @@ def sniff_page_count(file: str | Path) -> int:
 def get_pages(file: str | Path) -> Iterator[LTPage]:
     """ Return the lazy iterator over the selected pages. """
     # Disable advanced layout analysis.
-    laparams = LAParams(boxes_flow=None)
+    laparams = LAParams(boxes_flow=None, all_texts=True)
     return extract_pages(
         file, laparams=laparams, page_numbers=Config.pages.page_ids)
 
