@@ -388,7 +388,7 @@ class Table:
                       for i, f in enumerate(row)][:col_count]
             lines += [delim.lstrip() + delim.join(values) + delim.rstrip()]
 
-        print("\n".join(lines) + "\n")
+        logger.info("\n" + "\n".join(lines))
 
     def print(self, col_count: int | None = 8) -> None:
         """ Print the Table to stdout.
