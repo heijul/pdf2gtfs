@@ -186,7 +186,9 @@ min_connection_count: 1
 # Identifies rows, which add special meaning to some columns.
 #
 # Type: List of strings
-annot_identifier: [ "Verkehrshinweis", "Verkehrsbeschränkung" ]
+annot_identifier: [ "Verkehrshinweis",
+                    "Verkehrsbeschränkung",
+                    "Verkehrshinweise"]
 
 # Identifies rows, which hold information about the specific route the
 #   column is part of.
@@ -194,7 +196,9 @@ annot_identifier: [ "Verkehrshinweis", "Verkehrsbeschränkung" ]
 #   data columns with the entries of that row.
 #
 # Type: List of strings
-route_identifier: [ "Linie", "Zugnummer" ]
+route_identifier: [ "Linie",
+                    "Zugnummer",
+                    "Fahrtnummer"]
 
 # If a column does not hold any time data and contains the given identifier,
 #   try to expand the repeat interval.
