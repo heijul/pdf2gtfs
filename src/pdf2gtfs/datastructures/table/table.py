@@ -5,7 +5,7 @@ import logging
 from itertools import pairwise
 from operator import attrgetter, methodcaller
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, TYPE_CHECKING
+from typing import Callable, Iterable, Iterator, TYPE_CHECKING, TypeAlias
 
 from more_itertools import (
     always_iterable, collapse, first_true, peekable, split_when,
@@ -28,6 +28,9 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+TMap: TypeAlias = list[tuple[Cell | None, Cell | None]]
 
 
 def merge_series(starter: C, d: Direction) -> None:
@@ -692,6 +695,23 @@ class Table:
         h_stops = _find_stops(H)
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
+    def infer_cell_types(self) -> None:
+        """ Infer the CellTypes of each Cell.
+
+        This will infer the type multiple times, to accomodate
+        for changes in the type based on a previous inference.
+        """
+        # TODO: Test if it makes a difference, running this twice.
+        # TODO: Instead, we could try to store the Type of each Cell and
+        #  only stop inference, when they no longer change.
+        #  Should watch for loops then, though.
+        for starter in self.left.row:
+            for cell in starter.col:
+                cell.type.infer_type_from_neighbors()
+        for starter in self.left.row:
+            for cell in starter.col:
+                cell.type.infer_type_from_neighbors()
+
     def cleanup(self, first_table: Table | None) -> None:
         """ Infer the CellTypes of all Cells.
 
@@ -702,23 +722,6 @@ class Table:
             Otherwise, the first Table will be used to determine
             whether the Days, etc. are in the header or in the footer.
         """
-
-        def infer_cell_types() -> None:
-            """ Infer the CellTypes of each Cell.
-
-            This will infer the type multiple times, to accomodate
-            for changes in the type based on a previous inference.
-            """
-            # TODO: Test if it makes a difference, running this twice.
-            # TODO: Instead, we could try to store the Type of each Cell and
-            #  only stop inference, when they no longer change.
-            #  Should watch for loops then, though.
-            for starter in self.left.row:
-                for cell in starter.col:
-                    cell.type.infer_type_from_neighbors()
-            for starter in self.left.row:
-                for cell in starter.col:
-                    cell.type.infer_type_from_neighbors()
 
         def merge_stops(o: Orientation, stops: list[tuple[int, C]]) -> None:
             """ Merge consecutive Cells of Type Stop. """
@@ -756,7 +759,7 @@ class Table:
                         neighbors = cell.get_neighbors(directions=[E],
                                                        allow_empty=False)
 
-        infer_cell_types()
+        self.infer_cell_types()
         merge_stops(*self.find_stops())
         merge_consecutive_days()
         self.remove_duplicate_days(H, first_table)
@@ -849,6 +852,47 @@ class Table:
             cell.above.below = new_cell
         if cell.below:
             cell.below.above = new_cell
+
+    def merge(self, o: Orientation, table: Table, tmap: TMap) -> None:
+        """ Merge the given table into this one.
+
+        :param o: The orientation of the merge.
+        If H, the Cells of table will end up right of the last column;
+        If V, the Cells of table will end up below the last row;
+        :param table: The cells of this table will be merged into self.
+        :param tmap: A mapping between the border cells of each table.
+        """
+        def create_empty_cells(n: int, /) -> list[EmptyCell]:
+            e_cells = [EmptyCell() for _ in range(n)]
+            link_cells(o.upper, e_cells)
+            return e_cells
+
+        # Insert missing cells in either table.
+        rel_cell_1 = list(self.left.iter(o=o))[-1]
+        rel_cell_2 = table.left
+        n1 = len(list(self.left.iter(o=o)))
+        n2 = len(list(table.left.iter(o=o)))
+        insert_d = o.normal.lower
+        for i, (c1, c2) in enumerate(list(tmap)):
+            if c1 is None:
+                cell = create_empty_cells(n1)[-1]
+                self.insert(insert_d, rel_cell_1, cell)
+                tmap[i] = cell, c2
+            if c2 is None:
+                cell = create_empty_cells(n2)[0]
+                table.insert(insert_d, rel_cell_2, cell)
+                tmap[i] = c1, cell
+            rel_cell_1, rel_cell_2 = tmap[i]
+            insert_d = o.normal.upper
+        # Actual merging.
+        for c1, c2 in tmap:
+            assert c1.get_neighbor(o.upper) is None
+            assert c2.get_neighbor(o.lower) is None
+            for c in c2.iter(o=o):
+                c.table = self
+            c1.set_neighbor(o.upper, c2)
+        # Need to rerun the type inference.
+        self.infer_cell_types()
 
 
 def group_cells_by(cells: Iterable[C],
@@ -1136,3 +1180,85 @@ def insert_cells_in_col(col: Cs, cells: Cs) -> None:
             replace_cell(col_cell, cell)
             last_id = i + 1
             break
+
+
+def find_time_aligned_cell(table: Table, *,
+                           first: bool = False, last: bool = False) -> Cell:
+    assert first + last == 1
+
+    cell = table.left
+    # Find the first cell that has a column that contains a TimeCell.
+    while True:
+        for c in cell.col:
+            if not c.has_type(T.Time, strict=True):
+                continue
+            break
+        else:
+            cell = cell.next
+            continue
+
+        cell = c
+        break
+    # Find the first row of the cell that contains a TimeCell.
+    while True:
+        for c in cell.row:
+            if not c.has_type(T.Time, strict=True):
+                continue
+            break
+        else:
+            cell = cell.below
+            continue
+        cell = c
+        break
+    if first:
+        return cell
+
+
+def map_tables(t1: Table, t2: Table, o: Orientation) -> TMap:
+    # We need the last column/row of the first table for the seen_time-check.
+    c1 = list(t1.left.iter(o=o.normal))[-1]
+    c2 = t2.left
+    cmap = []
+    bbox_attr = attrgetter("bbox.y0") if o == V else attrgetter("bbox.x0")
+    while True:
+        # At least one of the two tables has no more Cells.
+        if not c1 or not c2:
+            return cmap
+        # The Cells are aligned and can be mapped.
+        if c1.is_overlap(o, c2):
+            cmap.append((c1, c2))
+            c1 = c1.get_neighbor(o.upper)
+            c2 = c2.get_neighbor(o.upper)
+            continue
+        # Advance only the left/upper table, if no mapping can be made.
+        if bbox_attr(c1) < bbox_attr(c2):
+            cmap.append((c1, None))
+            c1 = c1.get_neighbor(o.upper)
+            continue
+        if bbox_attr(c1) > bbox_attr(c2):
+            cmap.append((None, c2))
+            c2 = c2.get_neighbor(o.upper)
+            continue
+        # This should™ never happen.
+        break
+    return []
+
+
+def merge_tables(tables: list[Table]) -> list[Table]:
+    tables = sorted(tables, key=attrgetter("bbox.y0", "bbox.x0"))
+    t1, t2 = 0, 1
+    while True:
+        assert t1 < t2
+        if t1 >= len(tables) or t2 >= len(tables):
+            break
+        tmap = map_tables(tables[t1], tables[t2], V)
+        if not tmap:
+            t2 += 1
+            if t2 >= len(tables):
+                t1 += 1
+                t2 = t1 + 1
+            continue
+
+        tables[t1].merge(H, tables[t2], tmap)
+        tables.remove(tables[t2])
+    return tables
