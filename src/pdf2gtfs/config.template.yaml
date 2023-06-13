@@ -290,6 +290,20 @@ repeat_strategy: "cycle"
 # Type: Float between 0. and 1.
 min_cell_overlap: 0.8
 
+# Sometimes tables are split because of Time annotations; that is, annotations
+#  next to Time Cells, that modifies the specific route at the specific stop
+#  (e.g., "not on new years eve").
+# Setting this to True, will cause pdf2gtfs to try to merge _any_
+#  tables that were split, by aligning two neighboring tables and inserting
+#  empty rows/cols, in case alignment can't be done perfectly.
+# This may work better or worse based on some config settings and the specific
+#  tables that are being merged.
+# For example, when setting table_expansion_directions to NSWE, the merging
+# will result in duplicate rows or columns.
+#
+# Type: Boolean
+merge_split_tables: False
+
 
 #######################
 # Cell type detection #

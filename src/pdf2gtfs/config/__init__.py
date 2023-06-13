@@ -118,6 +118,7 @@ class P2GConfig(BaseConfig):
             "stop_letter_ratio", 0., 1.)
         self.min_cell_overlap = FloatBoundedProperty(
             "min_cell_overlap", 0., 1.)
+        self.merge_split_tables = Property("merge_split_tables", bool)
 
         super()._initialize_config_properties()
 

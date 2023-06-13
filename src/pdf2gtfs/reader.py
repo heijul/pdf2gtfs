@@ -312,7 +312,8 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         t.cleanup(tables[0] if t != tables[0] else None)
         logger.info("With the following types:")
         t.print_types()
-    tables = merge_tables(tables)
+    if Config.merge_split_tables:
+        tables = merge_tables(tables)
     return tables
 
 
