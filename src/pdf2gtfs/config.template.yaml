@@ -285,6 +285,11 @@ min_connection_count: 1
 # Type: String. Either "cycle" or "mean".
 repeat_strategy: "cycle"
 
+# How much two Cells can overlap to be considered on the same row or column.
+#
+# Type: Float between 0. and 1.
+min_cell_overlap: 0.8
+
 
 #######################
 # Cell type detection #

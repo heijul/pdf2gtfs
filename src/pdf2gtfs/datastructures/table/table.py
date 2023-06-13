@@ -256,8 +256,8 @@ class Table:
             that is contained in the Tables BBox.
         """
         def _both_overlap(cell: C) -> bool:
-            return (self.bbox.is_v_overlap(cell.bbox, 0.8) and
-                    self.bbox.is_h_overlap(cell.bbox, 0.8))
+            return (self.bbox.is_v_overlap(cell.bbox) and
+                    self.bbox.is_h_overlap(cell.bbox))
 
         cells = list(filter(_both_overlap, cells))
         return cells
@@ -270,7 +270,7 @@ class Table:
             or None if no such column exists.
         """
         for col_cell in self.left.iter(E):
-            if col_cell.is_overlap(H, cell, 0.8):
+            if col_cell.is_overlap(H, cell):
                 return list(col_cell.col)
         return None
 
@@ -352,17 +352,17 @@ class Table:
         :param cells: The Cells that are evaluated.
         :return: Those Cells that are RepeatValues.
         """
-        contained_cells = self.get_contained_cells(cells)
+        contained_cells: Cs = self.get_contained_cells(cells)
         values = []
         repeat_groups = cells_to_cols(identifiers + values, link_cols=False)
         for group in repeat_groups:
-            for i1, i2 in pairwise(group):
-                overlaps = [f for f in contained_cells
-                            if f.is_overlap(H, i1, 0.8)
-                            and f.has_type(T.RepeatValue)]
+            for interval1, interval2 in pairwise(group):
+                overlaps = [c for c in contained_cells
+                            if c.is_overlap(H, interval1)
+                            and c.has_type(T.RepeatValue)]
                 # Only a single value is needed/possible.
                 for value in overlaps:
-                    if i1.bbox.y0 < value.bbox.y0 < i2.bbox.y0:
+                    if interval1.bbox.y0 < value.bbox.y0 < interval2.bbox.y0:
                         values.append(value)
                         break
         return values
@@ -495,10 +495,10 @@ class Table:
         for group in grouped_cells:
             group_bbox = BBox.from_bboxes([f.bbox for f in group])
             for i, table_cell in enumerate(table_cells[idx:], idx):
-                table_bbox = self.get_bbox_of(table_cell.iter(o=o))
-                # Cells that are overlapping in the given Orientation
-                #  can not split the Table.
-                if table_bbox.is_overlap(normal.name.lower(), group_bbox):
+                table_bbox: BBox = self.get_bbox_of(table_cell.iter(o=o))
+                # Cells that are overlapping more than 50%
+                # in the given Orientation can not split the Table.
+                if table_bbox.is_overlap(normal.name.lower(), group_bbox, 0.5):
                     idx = i
                     break
                 # We can be sure the group splits the Table,
@@ -1090,11 +1090,12 @@ def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
             break
         cell_count += 1
         cell = cells[idx]
+        bbox: BBox
         if ref_cell.table:
             bbox = ref_cell.table.get_bbox_of(ref_cell.iter(o=o.normal))
         else:
             bbox = ref_cell.bbox
-        if bbox.is_overlap(o.name.lower(), cell.bbox, 0.8):
+        if bbox.is_overlap(o.name.lower(), cell.bbox):
             idx += 1
             continue
         add_empty_cell(o.lower, cell, ref_cell)
@@ -1136,9 +1137,9 @@ def insert_cells_in_col(col: Cs, cells: Cs) -> None:
     last_id = 0
     for cell in cells:
         for i, col_cell in enumerate(col[last_id:], last_id):
-            if not col_cell.is_overlap(V, cell, 0.8):
+            if not col_cell.is_overlap(V, cell):
                 continue
-            assert col_cell.is_overlap(H, cell, 0.8)
+            assert col_cell.is_overlap(H, cell)
             replace_cell(col_cell, cell)
             last_id = i + 1
             break

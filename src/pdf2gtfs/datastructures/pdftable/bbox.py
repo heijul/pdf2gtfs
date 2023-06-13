@@ -120,7 +120,9 @@ class BBox:
         return self._overlap(other, "x")
 
     def is_h_overlap(self, other: BBox | BBoxObject,
-                     relative_amount: float = 0.5) -> bool:
+                     relative_amount: float = None) -> bool:
+        if relative_amount is None:
+            relative_amount = Config.min_cell_overlap
         max_overlap = min((self.size[0], other.size[0]))
         return self.h_overlap(other) >= relative_amount * max_overlap
 
@@ -129,7 +131,9 @@ class BBox:
         return self._overlap(other, "y")
 
     def is_v_overlap(self, other: BBox | BBoxObject,
-                     relative_amount: float = 0.5) -> bool:
+                     relative_amount: float = None) -> bool:
+        if relative_amount is None:
+            relative_amount = Config.min_cell_overlap
         max_overlap = min((self.size[1], other.size[1]))
         return self.v_overlap(other) >= relative_amount * max_overlap
 
@@ -140,6 +144,7 @@ class BBox:
             return self.is_v_overlap(*args, **kwargs)
         return self.is_h_overlap(*args, **kwargs)
 
+    # TODO: Unused functions.
     def relative_pos_v(self, other: BBox) -> int:
         """ Basically does compare(self.x0, other.x0). """
         return (self.x0 < other.x0) - (self.x0 > other.x0)

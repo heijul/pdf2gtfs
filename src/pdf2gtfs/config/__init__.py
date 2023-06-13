@@ -116,6 +116,8 @@ class P2GConfig(BaseConfig):
             IntBoundedProperty("stop_min_mean_normed_length", 0)
         self.stop_letter_ratio = FloatBoundedProperty(
             "stop_letter_ratio", 0., 1.)
+        self.min_cell_overlap = FloatBoundedProperty(
+            "min_cell_overlap", 0., 1.)
 
         super()._initialize_config_properties()
 
