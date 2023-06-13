@@ -144,21 +144,6 @@ class BBox:
             return self.is_v_overlap(*args, **kwargs)
         return self.is_h_overlap(*args, **kwargs)
 
-    # TODO: Unused functions.
-    def relative_pos_v(self, other: BBox) -> int:
-        """ Basically does compare(self.x0, other.x0). """
-        return (self.x0 < other.x0) - (self.x0 > other.x0)
-
-    def relative_pos_h(self, other: BBox) -> int:
-        """ Basically does compare(self.y0, other.y0). """
-        return (self.y0 < other.y0) - (self.y0 > other.y0)
-
-    def relative_pos(self, orientation: str, *args, **kwargs) -> int:
-        assert orientation in "vh"
-        if orientation == "v":
-            return self.relative_pos_v(*args, **kwargs)
-        return self.relative_pos_h(*args, **kwargs)
-
     def __hash__(self) -> int:
         return hash(f"{self.x0},{self.y0},{self.x1},{self.y1}")
 

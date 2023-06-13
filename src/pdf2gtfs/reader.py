@@ -16,7 +16,7 @@ from typing import (
 
 import pandas as pd
 from more_itertools import (
-    first_true, flatten, partition, peekable, prepend, collapse,
+    first_true, flatten, partition, prepend, collapse,
     )
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import (
@@ -35,9 +35,7 @@ from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
 from pdf2gtfs.datastructures.table.bounds import Bounds
 from pdf2gtfs.datastructures.table.cell import C, Cell, Cs
 from pdf2gtfs.datastructures.table.celltype import T
-from pdf2gtfs.datastructures.table.table import (
-    cells_to_rows, group_cells_by, Table,
-    )
+from pdf2gtfs.datastructures.table.table import Table
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables,
     )
@@ -193,44 +191,6 @@ def word_contains_time(word: list[LTChar]) -> bool:
     except ValueError:
         return False
     return True
-
-
-def merge_other_cells(cells: Iterator[Cell]) -> Cs:
-    def _same_font(cell1: C, cell2: C) -> bool:
-        return not (cell1.fontname == cell2.fontname
-                    and cell1.fontsize == cell2.fontsize)
-
-    # TODO: Clean this up.
-    same_font_groups = group_cells_by(
-        cells, _same_font, ("fontname", "fontsize"), None)
-    merged = []
-    for same_font_group in same_font_groups:
-        rows = cells_to_rows(same_font_group, link_rows=False)
-        for row in rows:
-            if len(row) == 1:
-                merged.append(row[0])
-            field_pairs = peekable(pairwise(row))
-            if not field_pairs.peek(None):
-                continue
-            first = field_pairs.peek()[0]
-            # Same font/font-size for each field in a row.
-            space_width = first.font.string_width(" ".encode()) * 1.35
-            space_width *= first.fontsize
-
-            for f1, f2 in field_pairs:
-                if abs(f1.bbox.x1 - f2.bbox.x0) > space_width:
-                    merged.append(f1)
-                    if not field_pairs.peek(None):
-                        merged.append(f2)
-                    continue
-                f1.merge(f2)
-                try:
-                    _, f2 = next(field_pairs)
-                except StopIteration:
-                    merged.append(f1)
-                    break
-                field_pairs.prepend((f1, f2))
-    return merged
 
 
 def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
