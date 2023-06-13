@@ -111,6 +111,7 @@ class P2GConfig(BaseConfig):
         self.table_expansion_directions = \
             DirectionProperty("table_expansion_directions")
         self.extra_greedy = Property("extra_greedy", bool)
+        self.use_legacy_extraction = Property("use_legacy_extraction", bool)
 
         super()._initialize_config_properties()
 

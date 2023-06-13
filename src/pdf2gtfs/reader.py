@@ -469,20 +469,18 @@ def tables_to_csv(page_id: int, tables: list[Table] | list[PDFTable]) -> None:
         table.to_file(path)
 
 
-def page_to_timetables(
-        page: LTPage,
-        use_cells: bool = True,
-        ) -> list[TimeTable]:
+def page_to_timetables(page: LTPage) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
-    if use_cells:
-        cell_tables = create_tables_from_page(page)
-        tables_to_csv(page.pageid, cell_tables)
-        time_tables = tables_to_timetables(cell_tables)
-    else:
+    if Config.use_legacy_extraction:
+        logger.info("Using legacy extraction algorithm.")
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)
         tables_to_csv(page.pageid, pdf_tables)
         time_tables = pdf_tables_to_timetables(pdf_tables)
+    else:
+        cell_tables = create_tables_from_page(page)
+        tables_to_csv(page.pageid, cell_tables)
+        time_tables = tables_to_timetables(cell_tables)
 
     logger.info(f"Number of tables found: {len(time_tables)}")
     return time_tables

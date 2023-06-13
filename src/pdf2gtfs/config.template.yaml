@@ -54,6 +54,12 @@ display_route: 1
 # Type: Non-negative int
 stale_cache_days: 7
 
+# Use the old table extraction algorithm.
+# Note: The old algorithm will probably be removed in the future.
+#
+# Type: Boolean
+use_legacy_extraction: False
+
 
 ####################
 #  Input / Output  #
