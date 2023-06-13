@@ -242,7 +242,6 @@ def is_repeat_value(cell: C) -> bool:
     # For the hyphen case, we need to check multiple different characters
     #  that look like hyphens. See https://jkorpela.fi/dashes.html
 
-    # TODO: Allow custom regex.
     patterns = (r"^\d+$",
                 r"^\d+\s?" + HYPHEN_LIKE_CHARS + r"\s?\d+$",
                 r"\d+\s?,\s?\d+$")

@@ -707,13 +707,9 @@ class Table:
         This will infer the type multiple times, to accomodate
         for changes in the type based on a previous inference.
         """
-        # TODO: Test if it makes a difference, running this twice.
         # TODO: Instead, we could try to store the Type of each Cell and
         #  only stop inference, when they no longer change.
         #  Should watch for loops then, though.
-        for starter in self.left.row:
-            for cell in starter.col:
-                cell.type.infer_type_from_neighbors()
         for starter in self.left.row:
             for cell in starter.col:
                 cell.type.infer_type_from_neighbors()
