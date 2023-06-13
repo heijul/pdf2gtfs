@@ -35,7 +35,9 @@ from pdf2gtfs.datastructures.pdftable.field import Field as PDFField
 from pdf2gtfs.datastructures.table.bounds import Bounds
 from pdf2gtfs.datastructures.table.cell import C, Cell, Cs
 from pdf2gtfs.datastructures.table.celltype import T
-from pdf2gtfs.datastructures.table.table import Table
+from pdf2gtfs.datastructures.table.table import (
+    merge_tables, Table,
+    )
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables,
     )
@@ -310,6 +312,7 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         t.cleanup(tables[0] if t != tables[0] else None)
         logger.info("With the following types:")
         t.print_types()
+    tables = merge_tables(tables)
     return tables
 
 
