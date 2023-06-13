@@ -501,7 +501,7 @@ class Table:
                 table_bbox: BBox = self.get_bbox_of(table_cell.iter(o=o))
                 # Cells that are overlapping more than 50%
                 # in the given Orientation can not split the Table.
-                if table_bbox.is_overlap(normal.name.lower(), group_bbox, 0.5):
+                if table_bbox.is_overlap(normal.name, group_bbox, 0.5):
                     idx = i
                     break
                 # We can be sure the group splits the Table,
@@ -1139,7 +1139,7 @@ def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
             bbox = ref_cell.table.get_bbox_of(ref_cell.iter(o=o.normal))
         else:
             bbox = ref_cell.bbox
-        if bbox.is_overlap(o.name.lower(), cell.bbox):
+        if bbox.is_overlap(o.name, cell.bbox):
             idx += 1
             continue
         add_empty_cell(o.lower, cell, ref_cell)

@@ -374,7 +374,7 @@ def select_adjacent_cells(d: Direction, bboxes: list[BBox], cells: Cs) -> Cs:
     starter_id = 0
     for adj_cell in adjacent_cells:
         for i, bbox in enumerate(bboxes[starter_id:], starter_id):
-            if adj_cell.bbox.is_overlap(normal.name.lower(), bbox):
+            if adj_cell.bbox.is_overlap(normal.name, bbox):
                 break
         else:
             adjacent_cells.remove(adj_cell)
