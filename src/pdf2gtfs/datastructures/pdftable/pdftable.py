@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import logging
 from operator import attrgetter
+from pathlib import Path
 from typing import Callable, TypeAlias
+
+from more_itertools import peekable
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.container import (
@@ -177,6 +180,67 @@ class PDFTable:
                 table.rows = rows
 
         return self._split_at(self.rows.of_type(RowType.HEADER), splitter)
+
+    def to_file(self, fname: Path) -> None:
+        """ Export the PDFTable to the given path in the csv format. """
+        def escape_field_text(text: str) -> str:
+            """ Wrap field text that contains a comma in quotes.
+
+            Also removes any existing quotes.
+            """
+            text = text.replace('"', "").strip()
+            if "," in text:
+                return f'"{text}"'
+            return text
+
+        def get_prepend_count() -> int:
+            """ Get the number of empty fields to prepend to the row. """
+            try:
+                return self.columns.index(row.fields[0].column)
+            except ValueError:
+                return 0
+
+        def get_insert_count() -> int:
+            """ Get the number of empty fields to insert
+            between the current and next field.
+            """
+            try:
+                field_col_idx = self.columns.index(field.column)
+                next_field_col_idx = self.columns.index(next_field.column)
+                return next_field_col_idx - field_col_idx - 1
+            except ValueError:
+                return 0
+
+        def get_append_count() -> int:
+            """ Get the number of empty fields to append to the row. """
+            try:
+                col_id = self.columns.index(row.fields[-1].column)
+                return len(self.columns) - (col_id + 1)
+            except ValueError:
+                return 0
+
+        row_strings = []
+        for row in self.rows:
+            row_string = []
+            # Prepend empty strings if the first fields' column is not first.
+            row_string += [""] * get_prepend_count()
+            peekable_row = peekable(row)
+            for field in peekable_row:
+                row_string.append(escape_field_text(field.text))
+                next_field = peekable_row.peek(None)
+                if not peekable_row:
+                    continue
+                # Add empty strings between non-neighbor fields.
+                row_string += [""] * get_insert_count()
+
+            # Append empty strings if the last fields' column is not last.
+            row_string += [""] * get_append_count()
+
+            row_strings.append(",".join(row_string))
+
+        table_str = "\n".join(row_strings) + "\n"
+        with open(fname, "w") as fil:
+            fil.write(table_str)
 
 
 def split_rows_into_tables(rows: Rows) -> Tables:

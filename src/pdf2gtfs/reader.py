@@ -20,7 +20,7 @@ from more_itertools import (
     )
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import (
-    LAParams, LTChar, LTPage, LTText, LTTextBox, LTTextLine,
+    LAParams, LTChar, LTPage, LTText, LTTextLine,
     )
 from pdfminer.pdfcolor import PDFColorSpace
 from pdfminer.pdfdocument import PDFDocument
@@ -124,10 +124,7 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
                   (df["y0"] >= page.y0) & (df["y1"] <= page.y1)]
 
     char_list = []
-    text_boxes = [box for box in page if isinstance(box, LTTextBox)]
-    text_lines = [line for text_box in text_boxes for line in text_box
-                  if isinstance(line, LTTextLine)]
-    text_chars = [char for line in text_lines for char in line
+    text_chars = [char for char in collapse(page, base_type=LTChar)
                   if isinstance(char, LTChar)]
     for text_char in text_chars:
         char = lt_char_to_dict(text_char, page.y1)
@@ -438,7 +435,12 @@ def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
 def get_pdf_tables_from_df(char_df: pd.DataFrame) -> list[PDFTable]:
     """ Create PDFTables using the char_df. """
     rows = dataframe_to_rows(char_df)
-    pdf_tables = cleanup_tables(split_rows_into_tables(rows))
+    pdf_tables = []
+    for table in cleanup_tables(split_rows_into_tables(rows)):
+        if table.empty:
+            continue
+        table.fix_split_stopnames()
+        pdf_tables.append(table)
     return pdf_tables
 
 
@@ -446,15 +448,12 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
     """ Create TimeTables using the PDFTables"""
     timetables = []
     for table in pdf_tables:
-        if table.empty:
-            continue
-        table.fix_split_stopnames()
         timetable = table.to_timetable()
         timetables.append(timetable)
     return timetables
 
 
-def tables_to_csv(page_id: int, tables: list[Table]) -> None:
+def tables_to_csv(page_id: int, tables: list[Table] | list[PDFTable]) -> None:
     """ Export the given tables to the temporary directory as .csv files.
 
     :param page_id: The page_id of the page the tables come from.
@@ -482,6 +481,7 @@ def page_to_timetables(
     else:
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)
+        tables_to_csv(page.pageid, pdf_tables)
         time_tables = pdf_tables_to_timetables(pdf_tables)
 
     logger.info(f"Number of tables found: {len(time_tables)}")

@@ -419,17 +419,23 @@ class Table:
 
     def to_file(self, fname: Path) -> None:
         """ Export the Table to the given Path as .csv file. """
+        def wrap_cell_text(cell: Cell) -> str:
+            """ Wrap cell text that contains a comma in quotes.
+
+            Also removes any existing quotes.
+            """
+            if cell.has_type(*bad_types, strict=True):
+                return ""
+            text = cell.text.replace('"', "")
+            if "," in text:
+                return f'"{text}"'
+            return text
+
         rows = []
-        first_col = self.left.col
+        first_col = list(self.left.col)
         bad_types = (T.Other, T.LegendIdent, T.LegendValue)
-        while True:
-            try:
-                cell: Cell = next(first_col)
-            except StopIteration:
-                break
-            texts = []
-            for cell in cell.row:
-                texts.append("" if cell.get_type() in bad_types else cell.text)
+        for row_starter in first_col:
+            texts = list(map(wrap_cell_text, row_starter.row))
             if not any(texts):
                 continue
             rows.append(",".join(texts))
