@@ -523,16 +523,15 @@ def rel_indicator_stop(cell: C) -> float:
     if (col_contains_time + row_contains_time) % 2 == 0:
         return 0
     o = H if col_contains_time else V
-    # TODO: Add the bounds to config.
     # Stops are usually long (here, >= 8 chars on average).
     mean_length = get_time_aligned_avg_text_length(cell, o)
     # Normalize the length.
     norm_length = floor(log2(mean_length))
-    if norm_length < 3:
+    if norm_length < Config.stop_min_mean_normed_length:
         return 0
     # Stops have a high letter to non-letter ratio.
     letter_ratio = get_time_aligned_letter_ratio(cell, o)
-    if letter_ratio < 0.8:
+    if letter_ratio < Config.stop_letter_ratio:
         return 0
 
     score = 1

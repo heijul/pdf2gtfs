@@ -286,6 +286,33 @@ min_connection_count: 1
 repeat_strategy: "cycle"
 
 
+#######################
+# Cell type detection #
+#######################
+
+# When checking whether a Cell is a stop, we use the length of the
+# cell text as measure.
+# Basically, we use `floor(log2(mean_length_of_cells_in_col_or_row)` to
+# determine if a cell could be a Stop.
+#
+# Example: The default of 3 will prevent rows/cols that contain text that is
+# on average shorter than 8 (=2**3) characters from having cells of type Stop.
+#
+# Type: Non-negative int
+stop_min_mean_normed_length: 3
+
+# When checking whether a Cell is a stop, we use the ratio of
+# letters vs. non-letter-characters of the Cells' text as measure.
+# Any Cells that contain too few letters will not be of type Stop.
+#
+# Example: With the default ratio of 0.8, a cell with the contents "ABC12"
+# will be of type Stop, because the letter-to-length-ratio of its text
+# is 3/5=0.6 (which is less than 0.8).
+#
+# Type: Float between 0 and 1.
+stop_letter_ratio: 0.8
+
+
 ####################################
 # Legacy extraction algorithm keys #
 ####################################

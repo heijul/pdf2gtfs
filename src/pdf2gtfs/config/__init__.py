@@ -112,6 +112,10 @@ class P2GConfig(BaseConfig):
             DirectionProperty("table_expansion_directions")
         self.extra_greedy = Property("extra_greedy", bool)
         self.use_legacy_extraction = Property("use_legacy_extraction", bool)
+        self.stop_min_mean_normed_length = \
+            IntBoundedProperty("stop_min_mean_normed_length", 0)
+        self.stop_letter_ratio = FloatBoundedProperty(
+            "stop_letter_ratio", 0., 1.)
 
         super()._initialize_config_properties()
 
