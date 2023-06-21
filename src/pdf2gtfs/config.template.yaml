@@ -246,6 +246,13 @@ pages: "all"
 # Type: bool
 preprocess: True
 
+# Split the initial table in the given directions.
+# If only both directions are given, split horizontally first, and then vertically.
+# You should only set this to "" if you are sure there is only a single table per page.
+#
+# Type: String. One of "", "V", "H", "VH"
+split_orientations: "VH"
+
 # We create the table by using the data-cells as basis and expanding the table
 # using cells adjacent to those data-cells.
 # In most cases expanding only in the directions up (N) and left (W) is enough.

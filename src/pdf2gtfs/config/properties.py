@@ -19,7 +19,7 @@ from pdf2gtfs.datastructures.gtfs_output.routes import (
     get_route_type, get_route_type_gtfs_value)
 from pdf2gtfs.config.errors import (
     InvalidDateBoundsError, InvalidDirectionError, InvalidHeaderDaysError,
-    InvalidHolidayCodeError, InvalidOutputPathError,
+    InvalidHolidayCodeError, InvalidOrientationError, InvalidOutputPathError,
     InvalidRepeatIdentifierError, InvalidRouteTypeValueError,
     )
 
@@ -355,6 +355,18 @@ class DirectionProperty(Property):
         for char in value:
             if char not in "NWSE":
                 raise InvalidDirectionError(prop=self, direction=char)
+
+
+class SplitOrientationsProperty(Property):
+    def __init__(self, name: str) -> None:
+        super().__init__(name, str)
+
+    def validate(self, value: str) -> None:
+        super().validate(value)
+        value = "".join(set(value.upper()))
+        for char in value:
+            if char not in "VH":
+                raise InvalidOrientationError(prop=self, orientation=char)
 
 
 class AbbrevProperty(NestedTypeProperty):

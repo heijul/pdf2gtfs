@@ -16,7 +16,7 @@ from pdf2gtfs.config.properties import (
     DirectionProperty, FilenameProperty,
     HeaderValuesProperty, HolidayCodeProperty, InputProperty,
     OutputPathProperty, PagesProperty, RepeatIdentifierProperty,
-    RouteTypeProperty,
+    RouteTypeProperty, SplitOrientationsProperty,
     )
 
 
@@ -119,6 +119,8 @@ class P2GConfig(BaseConfig):
         self.min_cell_overlap = FloatBoundedProperty(
             "min_cell_overlap", 0., 1.)
         self.merge_split_tables = Property("merge_split_tables", bool)
+        self.split_orientations = SplitOrientationsProperty(
+            "split_orientations")
 
         super()._initialize_config_properties()
 

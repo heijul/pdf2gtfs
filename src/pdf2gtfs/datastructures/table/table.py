@@ -547,20 +547,34 @@ class Table:
         :param cells: The Cells that may split the Table in either Direction.
         :return: The list of Tables.
         """
+        if Config.split_orientations == "":
+            return [self]
+        tables = [self]
+        if "H" in Config.split_orientations:
+            tables = self.split_horizontally(cells)
+        if "V" in Config.split_orientations:
+            tables = [table.split_vertically(cells) for table in tables]
+        return list(collapse(tables, base_type=Table))
+
+    def split_vertically(self, cells: Cs) -> list[Table]:
+        """ Split the table vertically at those
+        of the given cells that split the table.
+        """
         contained_cells = self.get_contained_cells(cells)
         if not contained_cells:
             return [self]
+        splitter = self.get_splitting_cols(contained_cells)
+        return self.split_at_cells(V, splitter)
 
-        row_splitter = self.get_splitting_cols(contained_cells)
-        tables = []
-        for table in self.split_at_cells(H, row_splitter):
-            contained_in_table = table.get_contained_cells(cells)
-            if not contained_in_table:
-                tables.append(table)
-                continue
-            table_col_splitter = table.get_splitting_rows(contained_in_table)
-            tables += table.split_at_cells(V, table_col_splitter)
-        return list(collapse(tables, base_type=Table))
+    def split_horizontally(self, cells: Cs) -> list[Table]:
+        """ Split the table horizontally at those
+        of the given cells that split the table.
+        """
+        contained_cells = self.get_contained_cells(cells)
+        if not contained_cells:
+            return [self]
+        splitter = self.get_splitting_rows(contained_cells)
+        return self.split_at_cells(H, splitter)
 
     def _remove_empty_series(self, o: Orientation) -> None:
         n = o.normal
