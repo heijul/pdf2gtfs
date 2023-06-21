@@ -380,7 +380,7 @@ class GTFSHandler:
     def _add_ifopt_as_id(self, stop: GTFSStopEntry, ifopt: str | None) -> None:
         """ Update stops using the locations, such that each stop uses its
         nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
-        if ifopt is None or stop.stop_id == ifopt:
+        if not ifopt or stop.stop_id == ifopt:
             return
         # Check if ID is used for something else already.
         if UIDGenerator.is_used(ifopt):
