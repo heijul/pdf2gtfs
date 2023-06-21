@@ -336,7 +336,8 @@ class GTFSHandler:
         trip_ids = [t.trip_id for t in self.trips.get_with_route_id(route_id)]
         stop_times1 = self.stop_times.get_with_stop_id(trip_ids, stop_id1)
         stop_times2 = self.stop_times.get_with_stop_id(trip_ids, stop_id2)
-        assert _aligned_stop_times(stop_times1, stop_times2)
+        if not _aligned_stop_times(stop_times1, stop_times2):
+            return Time()
 
         times = []
         for s1, s2 in zip(stop_times1, stop_times2):
