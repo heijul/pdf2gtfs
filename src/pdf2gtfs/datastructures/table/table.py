@@ -550,15 +550,17 @@ class Table:
         contained_cells = self.get_contained_cells(cells)
         if not contained_cells:
             return [self]
-        col_splitter = self.get_splitting_cols(contained_cells)
-        row_splitter = self.get_splitting_rows(contained_cells)
 
-        col_tables = self.split_at_cells(V, col_splitter)
+        row_splitter = self.get_splitting_cols(contained_cells)
         tables = []
-        for table in col_tables:
-            tables += table.split_at_cells(H, row_splitter)
-
-        return list(collapse(tables))
+        for table in self.split_at_cells(H, row_splitter):
+            contained_in_table = table.get_contained_cells(cells)
+            if not contained_in_table:
+                tables.append(table)
+                continue
+            table_col_splitter = table.get_splitting_rows(contained_in_table)
+            tables += table.split_at_cells(V, table_col_splitter)
+        return list(collapse(tables, base_type=Table))
 
     def _remove_empty_series(self, o: Orientation) -> None:
         n = o.normal
