@@ -21,6 +21,10 @@ from pdf2gtfs.datastructures.table.celltype import T
 from pdf2gtfs.datastructures.table.direction import (
     D, Direction, E, H, N, Orientation, S, V, W,
     )
+from pdf2gtfs.utils import (
+    bbox_is_indented, get_stop_base_name,
+    text_starts_with_delimiter,
+    )
 
 
 if TYPE_CHECKING:
@@ -49,6 +53,17 @@ def merge_series(starter: C, d: Direction) -> None:
     neighbors = list(neighbor.iter(o=normal))
     for f1, f2 in zip(series, neighbors, strict=True):
         f1.merge(f2, ignore_neighbors=[normal.lower, normal.upper])
+
+
+def fix_stop_abbreviation(ref_stop: Cell, stop: Cell) -> bool:
+    """ Fix stop names that were split. """
+    starts_with_delim = text_starts_with_delimiter(stop.text)
+    is_indented = bbox_is_indented(ref_stop.bbox, stop.bbox)
+    if not starts_with_delim and not is_indented:
+        return False
+    text = stop.text[1:].strip() if starts_with_delim else stop.text
+    stop.text = get_stop_base_name(ref_stop.text) + text
+    return True
 
 
 class Table:
@@ -760,6 +775,15 @@ class Table:
                     f"Found two consecutive stop {series}. Merging...")
                 merge_series(stop, o.normal.upper)
 
+        def fix_stop_abbreviations(stops: list[Cell]) -> None:
+            if not stops:
+                return
+            ref_stop = stops[0]
+            for stop in stops[1:]:
+                if fix_stop_abbreviation(ref_stop, stop):
+                    continue
+                ref_stop = stop
+
         def merge_consecutive_days() -> None:
             """ Merge multi-word DaysCells that were split. """
             first_col = self.left.col
@@ -779,6 +803,7 @@ class Table:
 
         self.infer_cell_types()
         merge_stops(*self.find_stops())
+        fix_stop_abbreviations([c for (_, c) in self.find_stops()[1]])
         merge_consecutive_days()
         self.remove_duplicate_days(H, first_table)
 

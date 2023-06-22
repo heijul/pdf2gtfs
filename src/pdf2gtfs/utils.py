@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import functools
 import re
-from typing import TypeAlias, TypeVar
+from typing import TYPE_CHECKING, TypeAlias, TypeVar
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from pdf2gtfs.datastructures.pdftable.bbox import BBox
 
 
 class _UIDGenerator:
@@ -151,3 +154,35 @@ def normalize_series(raw_series: pd.Series) -> pd.Series:
 def normalize_name(name: str) -> str:
     """ Normalize the given name. Simple wrapper function for a single str. """
     return normalize_series(pd.Series([name])).iloc[0]
+
+
+def get_stop_base_name(stop_name: str) -> str:
+    """ Find the most likely base name of a stop.
+
+    E.g., if the stop_name is "Frankfurt, Hauptbahnhof"
+    returns "Frankfurt". Works by splitting the text at common delimiters.
+    """
+    split_chars = [",", "-", " "]
+    merge_chars = {",": ", ", "-": " - ", " ": " "}
+    for split_char in split_chars:
+        split_text = stop_name.split(split_char, 1)
+        if len(split_text) <= 1:
+            continue
+        return split_text[0].strip() + merge_chars[split_char]
+    # If we can't determine a base name, the whole name is.
+    return stop_name.strip()
+
+
+def text_starts_with_delimiter(text: str) -> bool:
+    """ Check if the given text starts with any of the delimiters. """
+    for char in ["-", ","]:
+        if text.startswith(char):
+            return True
+    return False
+
+
+def bbox_is_indented(ref_bbox: "BBox", bbox: "BBox") -> bool:
+    """ Checks if the bbox is indented compared to the given ref_bbox. """
+    min_indention_in_pts = 3
+    dist = bbox.x0 - ref_bbox.x0
+    return dist >= min_indention_in_pts

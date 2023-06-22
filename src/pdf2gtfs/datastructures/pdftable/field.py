@@ -12,6 +12,10 @@ from pdf2gtfs.datastructures.pdftable.container import (
     Column, FieldColumnReference, FieldRowReference, Row)
 from pdf2gtfs.datastructures.pdftable.enums import (
     ColumnType, FieldType, FieldValue, RowType)
+from pdf2gtfs.utils import (
+    bbox_is_indented, get_stop_base_name,
+    text_starts_with_delimiter,
+    )
 
 
 class Field(BBoxObject):
@@ -107,33 +111,9 @@ class Field(BBoxObject):
          followed by a stop B with text "- Friedhof", then the text of B
          will be changed to "Frankfurt - Friedhof". """
 
-        def get_base_name(ref_text: str) -> str:
-            """ Find the most likely base_text ('Frankfurt' in the example)
-            of a given text, by splitting the text at common delimiters. """
-            split_chars = [",", "-", " "]
-            merge_chars = {",": ", ", "-": " - ", " ": " "}
-            for split_char in split_chars:
-                split_text = ref_text.split(split_char, 1)
-                if len(split_text) <= 1:
-                    continue
-                return split_text[0].strip() + merge_chars[split_char]
-            # If we can't determine a base name, the whole name is.
-            return ref_text.strip()
-
-        def _starts_with_delim() -> bool:
-            for char in ["-", ","]:
-                if self.text.startswith(char):
-                    return True
-            return False
-
-        def _is_indented() -> bool:
-            min_indention_in_pts = 3
-            dist = self.bbox.x0 - ref_field.bbox.x0
-            return dist >= min_indention_in_pts
-
         # Order is important, because we want to strip delim even if indented.
-        starts_with_delim = _starts_with_delim()
-        is_indented = _is_indented()
+        starts_with_delim = text_starts_with_delimiter(self.text)
+        is_indented = bbox_is_indented(ref_field.bbox, self.bbox)
         if not starts_with_delim and not is_indented:
             return False
         # Same name, but ours is split.
@@ -141,7 +121,7 @@ class Field(BBoxObject):
             self.text = ref_field.text
             return True
         text = self.text[1:].strip() if starts_with_delim else self.text
-        self.text = get_base_name(ref_field.text) + text
+        self.text = get_stop_base_name(ref_field.text) + text
         return True
 
     def __str__(self) -> str:
