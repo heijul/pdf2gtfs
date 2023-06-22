@@ -414,7 +414,7 @@ class GTFSHandler:
 
     @staticmethod
     def _use_osm_gtfs_name(stop: GTFSStopEntry, new_name: str | None) -> None:
-        if new_name is None:
+        if not new_name:
             return
         stop.stop_name = new_name
 
