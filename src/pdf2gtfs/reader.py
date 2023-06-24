@@ -427,10 +427,10 @@ def tables_to_csv(page_id: int, tables: list[Table] | list[PDFTable]) -> None:
     input_name = Path(Config.filename).stem
     logger.info(f"Writing tables of page {page} "
                 f"as .csv to {Config.temp_dir}...")
-    for table_id, table in enumerate(tables):
+    for table_id, table in enumerate(tables, 1):
         legacy = "-legacy" if Config.use_legacy_extraction else ""
         fname = f"{page:02}-{table_id:02}{legacy}-{input_name}.csv"
-        path = Config.temp_dir.joinpath(fname)
+        path = Config.output_dir.joinpath(fname)
         table.to_file(path)
 
 
