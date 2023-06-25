@@ -2,11 +2,12 @@ import sys
 import traceback
 from argparse import ArgumentParser
 from glob import glob
+from io import StringIO
 from pathlib import Path
+from contextlib import redirect_stdout
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.main import main
-from pdf2gtfs.p2g_logging import initialize_logging
 
 
 def get_configs(pdf_file: Path) -> list[str]:
@@ -29,24 +30,31 @@ def run_all():
     """ Run pdf2gtfs on all PDFs in the given directory. """
     batch_args = batch_arg_parser().parse_args()
     p2g_arg = str(Config.p2g_dir.joinpath("main.py"))
-    pdf_dir = Path(batch_args.pdf_dir)
-    out_dir = Path(batch_args.out_dir)
+    pdf_dir = Path(batch_args.pdf_dir).resolve(strict=True)
+    out_dir = Path(batch_args.out_dir).resolve(strict=True)
     out_dir_args = ["--output_path", str(out_dir)]
-    # Disable logging.
-    initialize_logging(100)
-    for pdf_file in glob("*.pdf", root_dir=batch_args.pdf_dir):
+    for pdf_file in glob("*.pdf", root_dir=pdf_dir):
         pdf_path = pdf_dir.joinpath(pdf_file)
         configs = get_configs(pdf_path)
         sys.argv = [p2g_arg] + configs + out_dir_args + [str(pdf_path)]
         print(f"Running pdf2gtfs on '{pdf_file}'.", end=" ")
+        log_file = out_dir.joinpath(pdf_path.stem + ".log")
+        err = None
+        stream = StringIO()
         try:
-            main()
-            print("Done. No errors occurred.")
+            with redirect_stdout(stream):
+                main()
         except Exception as e:
-            log_file = out_dir.joinpath(pdf_path.stem + ".log")
-            with open(log_file, "w") as fil:
-                traceback.print_exception(e, file=fil)
+            stream.write("\n")
+            traceback.print_exception(e, file=stream)
+        stream.seek(0)
+        with open(log_file, "w") as fil:
+            fil.write(stream.read())
+
+        if err:
             print(f"Errors occurred. See the log file '{log_file.name}'.")
+        else:
+            print("Done. No errors occurred.")
 
 
 def batch_arg_parser():
