@@ -1,13 +1,15 @@
+""" Runs pdf2gtfs on all files in the given directory. """
+
+import logging
 import sys
 import traceback
 from argparse import ArgumentParser
 from glob import glob
-from io import StringIO
 from pathlib import Path
-from contextlib import redirect_stdout
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.main import main
+from pdf2gtfs.p2g_logging import initialize_logging
 
 
 def get_configs(pdf_file: Path) -> list[str]:
@@ -26,7 +28,7 @@ def get_configs(pdf_file: Path) -> list[str]:
     return configs
 
 
-def run_all():
+def run_all() -> None:
     """ Run pdf2gtfs on all PDFs in the given directory. """
     batch_args = batch_arg_parser().parse_args()
     p2g_arg = str(Config.p2g_dir.joinpath("main.py"))
@@ -38,26 +40,27 @@ def run_all():
         configs = get_configs(pdf_path)
         sys.argv = [p2g_arg] + configs + out_dir_args + [str(pdf_path)]
         print(f"Running pdf2gtfs on '{pdf_file}'.", end=" ")
-        log_file = out_dir.joinpath(pdf_path.stem + ".log")
-        err = None
-        stream = StringIO()
+        legacy = "-legacy" if Config.use_legacy_extraction else ""
+        log_file = out_dir.joinpath(pdf_path.stem + f"{legacy}.log")
         try:
-            with redirect_stdout(stream):
-                main()
-        except Exception as e:
-            stream.write("\n")
-            traceback.print_exception(e, file=stream)
-        stream.seek(0)
-        with open(log_file, "w") as fil:
-            fil.write(stream.read())
-
-        if err:
-            print(f"Errors occurred. See the log file '{log_file.name}'.")
-        else:
+            log_handler = logging.FileHandler(str(log_file), mode="w")
+            initialize_logging(0, force=True, handlers=[log_handler])
+            main()
+            log_handler.close()
             print("Done. No errors occurred.")
+        except Exception as e:
+            with open(log_file, "a") as fil:
+                fil.write("\n\n")
+                traceback.print_exception(e, file=fil)
+            print(f"Errors occurred. See the log file '{log_file.name}'.")
 
 
-def batch_arg_parser():
+def batch_arg_parser() -> ArgumentParser:
+    """ Parse the arguments.
+
+    The first argument is the directory containing the input and config files.
+    The second argument is the output directory.
+    """
     parser = ArgumentParser("pdf2gtfs-batch")
     text = ("The directory that contains the PDF files and the config files"
             "that should be used when running pdf2gtfs.")
