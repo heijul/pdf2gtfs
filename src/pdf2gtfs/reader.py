@@ -92,6 +92,7 @@ def _fix_cid_text(text: str) -> str:
     except (ValueError, TypeError):
         logger.info(f"Encountered charcode '{text}' with length "
                     f"{len(text)}, but could not convert it to char.")
+    return text
 
 
 def lt_char_to_dict(lt_char: LTChar, page_height: float
@@ -426,11 +427,12 @@ def tables_to_csv(page_id: int, tables: list[Table] | list[PDFTable]) -> None:
     page = Config.pages.page_num(page_id)
     input_name = Path(Config.filename).stem
     logger.info(f"Writing tables of page {page} "
-                f"as .csv to {Config.temp_dir}...")
+                f"as .csv to {Config.output_dir}...")
     for table_id, table in enumerate(tables, 1):
         legacy = "-legacy" if Config.use_legacy_extraction else ""
         fname = f"{input_name}-{page:02}-{table_id:02}{legacy}.csv"
         path = Config.output_dir.joinpath(fname)
+        table: PDFTable | Table
         table.to_file(path)
 
 
