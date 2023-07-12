@@ -246,6 +246,12 @@ pages: "all"
 # Type: bool
 preprocess: True
 
+# Whether to output the detected tables as .csv file.
+# This might be helpful for debugging, or when evaluating pdf2gtfs.
+#
+# Type: bool
+output_tables_as_csv: False
+
 # Split the initial table in the given directions.
 # If only both directions are given, split horizontally first, and then vertically.
 # You should only set this to "" if you are sure there is only a single table per page.

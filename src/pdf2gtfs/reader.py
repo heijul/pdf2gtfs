@@ -425,6 +425,7 @@ def tables_to_csv(page_id: int, tables: list[Table] | list[PDFTable]) -> None:
     :param tables: The tables we want to export.
     """
     page = Config.pages.page_num(page_id)
+    Config.output_dir.mkdir(parents=True, exist_ok=True)
     input_name = Path(Config.filename).stem
     logger.info(f"Writing tables of page {page} "
                 f"as .csv to {Config.output_dir}...")
@@ -442,11 +443,13 @@ def page_to_timetables(page: LTPage) -> list[TimeTable]:
         logger.info("Using legacy extraction algorithm.")
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)
-        tables_to_csv(page.pageid, pdf_tables)
+        if Config.output_tables_as_csv:
+            tables_to_csv(page.pageid, pdf_tables)
         time_tables = pdf_tables_to_timetables(pdf_tables)
     else:
         cell_tables = create_tables_from_page(page)
-        tables_to_csv(page.pageid, cell_tables)
+        if Config.output_tables_as_csv:
+            tables_to_csv(page.pageid, cell_tables)
         time_tables = tables_to_timetables(cell_tables)
 
     logger.info(f"Number of tables found: {len(time_tables)}")

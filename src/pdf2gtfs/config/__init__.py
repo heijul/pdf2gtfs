@@ -121,6 +121,8 @@ class P2GConfig(BaseConfig):
         self.merge_split_tables = Property("merge_split_tables", bool)
         self.split_orientations = SplitOrientationsProperty(
             "split_orientations")
+        self.output_tables_as_csv = Property(
+            "output_tables_as_csv", bool)
 
         super()._initialize_config_properties()
 
