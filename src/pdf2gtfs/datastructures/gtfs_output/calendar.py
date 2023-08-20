@@ -30,6 +30,9 @@ class DayIsActive:
     def __repr__(self) -> str:
         return self.to_output()
 
+    def __hash__(self) -> int:
+        return id(self)
+
 
 class ServiceDay:
     """ Service day as defined by the gtfs (can have morethan 24 hours). """
