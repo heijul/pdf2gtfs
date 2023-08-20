@@ -61,17 +61,15 @@ def batch_arg_parser() -> ArgumentParser:
     The first argument is the directory containing the input and config files.
     The second argument is the output directory.
     """
-    parser = ArgumentParser("pdf2gtfs-batch")
-    text = ("The directory that contains the PDF files and the config files"
+    parser = ArgumentParser("pdf2gtfs-batched")
+    parser.description = "Run pdf2gtfs on multiple PDF files."
+    text = ("The directory that contains the PDF files and the config files "
             "that should be used when running pdf2gtfs.")
     parser.add_argument("pdf_dir", type=str, help=text)
-    text = "The output directory for the GTFS feeds"
+    text = "The output directory for the GTFS feeds."
     parser.add_argument("out_dir", type=str, help=text)
     return parser
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        sys.argv += [str(Config.p2g_dir.parents[1].joinpath("examples2")),
-                     str(Config.p2g_dir.parents[1].joinpath("out2"))]
     run_all()

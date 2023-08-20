@@ -1,0 +1,50 @@
+[tool.poetry]
+name = "pdf2gtfs"
+version = "0.1.0"
+description = "Convert PDF timetables to GTFS format"
+readme = "README.md"
+license = "Apache-2.0"
+authors = ["Julius Heinzinger <julius.heinzinger@gmail.com>"]
+classifiers=[
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Text Processing :: Markup :: PDF",
+    "Topic :: Utilities",
+]
+repository = "https://github.com/heijul/pdf2gtfs"
+keywords = ["GTFS", "PDF Extraction", "Table Extraction"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^1.4.2"
+ghostscript = "^0.7"
+holidays = "^0.13"
+folium = "^0.12.1.post1"
+requests = "^2.27.1"
+"pdfminer.six" = "^20220319"
+more_itertools = "^9.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+flake8 = "^6.1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+pdf2gtfs = "pdf2gtfs.main:main"
+pdf2gtfs-batched = "pdf2gtfs.scripts.batched:run_all"
+
+[tool.poetry.dependencies.custom_conf]
+git = "https://github.com/heijul/custom_conf.git"
+rev = "master"
+
+[build-system.git-submodules]
+path = "./custom_conf"
