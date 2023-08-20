@@ -11,7 +11,7 @@ if [ -z "${staged_py_files[*]}" ]; then
   exit 0
 fi
 
-if ! flake8 "${staged_py_files[@]}"; then
+if ! python -m flake8 "${staged_py_files[@]}"; then
   echo "$msg"
   exit 1
 fi
