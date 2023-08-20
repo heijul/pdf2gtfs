@@ -11,14 +11,16 @@ from shutil import copyfile
 from tempfile import NamedTemporaryFile
 from time import strptime, time
 from typing import (
-    Any, cast, Iterable, Iterator, Optional, Tuple, TypeAlias, Union,
+    cast, Iterator, Optional, Tuple, TypeAlias, Union,
     )
 
 import pandas as pd
-from more_itertools import first_true, flatten, partition, peekable, prepend
+from more_itertools import (
+    first_true, flatten, partition, prepend, collapse,
+    )
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import (
-    LAParams, LTChar, LTPage, LTText, LTTextBox, LTTextLine,
+    LAParams, LTChar, LTPage, LTText, LTTextLine,
     )
 from pdfminer.pdfcolor import PDFColorSpace
 from pdfminer.pdfdocument import PDFDocument
@@ -34,7 +36,7 @@ from pdf2gtfs.datastructures.table.bounds import Bounds
 from pdf2gtfs.datastructures.table.cell import C, Cell, Cs
 from pdf2gtfs.datastructures.table.celltype import T
 from pdf2gtfs.datastructures.table.table import (
-    cells_to_rows, group_cells_by, Table,
+    merge_tables, Table,
     )
 from pdf2gtfs.datastructures.pdftable.pdftable import (
     cleanup_tables, PDFTable, Row, split_rows_into_tables,
@@ -87,9 +89,10 @@ def _fix_cid_text(text: str) -> str:
     try:
         # Broken chars have this format: 'cid(x)' where x is a number.
         return chr(int(text[5:-1]))
-    except TypeError:
-        logger.debug(f"Encountered charcode '{text}' with length "
-                     f"{len(text)}, but could not convert it to char.")
+    except (ValueError, TypeError):
+        logger.info(f"Encountered charcode '{text}' with length "
+                    f"{len(text)}, but could not convert it to char.")
+    return text
 
 
 def lt_char_to_dict(lt_char: LTChar, page_height: float
@@ -122,10 +125,7 @@ def get_chars_dataframe(page: LTPage) -> pd.DataFrame:
                   (df["y0"] >= page.y0) & (df["y1"] <= page.y1)]
 
     char_list = []
-    text_boxes = [box for box in page if isinstance(box, LTTextBox)]
-    text_lines = [line for text_box in text_boxes for line in text_box
-                  if isinstance(line, LTTextLine)]
-    text_chars = [char for line in text_lines for char in line
+    text_chars = [char for char in collapse(page, base_type=LTChar)
                   if isinstance(char, LTChar)]
     for text_char in text_chars:
         char = lt_char_to_dict(text_char, page.y1)
@@ -187,7 +187,7 @@ def split_line_into_words(line: LTTextLine) -> list[list[LTChar]]:
     return list(filter(bool, words))
 
 
-def word_contains_time_data(word: list[LTChar]) -> bool:
+def word_contains_time(word: list[LTChar]) -> bool:
     word_text = "".join([char.get_text().strip() for char in word])
     try:
         strptime(word_text, Config.time_format)
@@ -196,78 +196,32 @@ def word_contains_time_data(word: list[LTChar]) -> bool:
     return True
 
 
-def merge_other_cells(cells: Iterator[Cell]) -> Cs:
-    def _same_font(cell1: C, cell2: C) -> bool:
-        return not (cell1.fontname == cell2.fontname
-                    and cell1.fontsize == cell2.fontsize)
-
-    # TODO: Clean this up.
-    same_font_groups = group_cells_by(
-        cells, _same_font, ("fontname", "fontsize"), None)
-    merged = []
-    for same_font_group in same_font_groups:
-        rows = cells_to_rows(same_font_group, link_rows=False)
-        for row in rows:
-            if len(row) == 1:
-                merged.append(row[0])
-            field_pairs = peekable(pairwise(row))
-            if not field_pairs.peek(None):
-                continue
-            first = field_pairs.peek()[0]
-            # Same font/font-size for each field in a row.
-            space_width = first.font.string_width(" ".encode()) * 1.35
-            space_width *= first.fontsize
-
-            for f1, f2 in field_pairs:
-                if abs(f1.bbox.x1 - f2.bbox.x0) > space_width:
-                    merged.append(f1)
-                    if not field_pairs.peek(None):
-                        merged.append(f2)
-                    continue
-                f1.merge(f2)
-                try:
-                    _, f2 = next(field_pairs)
-                except StopIteration:
-                    merged.append(f1)
-                    break
-                field_pairs.prepend((f1, f2))
-    return merged
-
-
 def get_cells_from_page(page: LTPage) -> tuple[list[C], list[C], list[C]]:
     """ Create an object for each word on the page.
 
     :param page: A single page of a PDF.
     :type page: LTPage
-    :return: Two lists, where the first contains all data cells of the page
-     and the second contains all non-data cells of the page.
+    :return: Two lists, where the first contains all TimeCells of the page
+     and the second contains all Cells not containing a time of the page.
     :rtype: tuple[list[DataField], list[C]]
     """
-    # Get all lines of the page that are LTTextLines.
-    text_boxes = filter(lambda box: isinstance(box, LTTextBox), page)
-    text_boxes = cast(Iterable[Iterable[Any]], text_boxes)
-    text_lines = filter(lambda line: isinstance(line, LTTextLine),
-                        flatten(text_boxes))
-
-    # Get all words in the given page from its lines.
-    text_lines = cast(Iterable[LTTextLine], text_lines)
+    text_lines = collapse(page, base_type=LTTextLine)
     words = flatten(map(split_line_into_words, text_lines))
-    # Create a Field/DataField, based on whether each word contains time data.
     page_height = page.y1
     cells = map(lambda chars: Cell.from_lt_chars(chars, page_height), words)
-    # Remove empty cells, i.e., cells that do not contain any visible text.
+    # Remove Cells that do not contain any text.
     cells = filter(lambda f: f.text, cells)
     # Split the cells based on their type.
-    non_data_cells, data_cells = partition(
-        lambda c: c.has_type(T.Data, strict=True), cells)
+    non_time_cells, time_cells = partition(
+        lambda c: c.has_type(T.Time, strict=True), cells)
     # Some text may not have been read properly by pdfminer.
-    non_data_cells, invalid_cells = partition(
-        lambda c: c.text.startswith("(cid"), non_data_cells)
+    non_time_cells, invalid_cells = partition(
+        lambda c: c.text.startswith("(cid"), non_time_cells)
 
     # TODO: Add alternative_pre_merge to enable/disable this.
-    # non_data_cells = merge_other_cells(non_data_cells)
+    # non_time_cells = merge_other_cells(non_time_cells)
 
-    return list(data_cells), list(non_data_cells), list(invalid_cells)
+    return list(time_cells), list(non_time_cells), list(invalid_cells)
 
 
 def assign_other_cells_to_tables(tables: list[Table], cells: Cs) -> None:
@@ -277,8 +231,8 @@ def assign_other_cells_to_tables(tables: list[Table], cells: Cs) -> None:
     is between C and T1.
 
     :param tables: All tables of the page.
-    :param cells: All cells of the page, that are neither Data nor
-        Repeat cells.
+    :param cells: All cells of the page, that are neither
+     TimeCells nor RepeatCells.
     """
     def get_next_lower(sorted_tables: list[Table], axis: str) -> float | None:
         """ Return the upper bound of the next lower table, if it exists.
@@ -345,9 +299,9 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         the sense that no other cells exist on the page, that can be
         attributed to the table in a simple manner.
     """
-    data_cells, non_data_cells, invalid_cells = get_cells_from_page(page)
-    t = Table.from_data_cells(data_cells)
-    other_cells = non_data_cells
+    time_cells, non_time_cells, invalid_cells = get_cells_from_page(page)
+    t = Table.from_time_cells(time_cells)
+    other_cells = non_time_cells
     t.insert_repeat_cells(other_cells)
     t.print(None)
     tables = t.max_split(other_cells)
@@ -359,6 +313,8 @@ def create_tables_from_page(page: LTPage) -> list[Table]:
         t.cleanup(tables[0] if t != tables[0] else None)
         logger.info("With the following types:")
         t.print_types()
+    if Config.merge_split_tables:
+        tables = merge_tables(tables)
     return tables
 
 
@@ -385,7 +341,7 @@ def sniff_page_count(file: str | Path) -> int:
 def get_pages(file: str | Path) -> Iterator[LTPage]:
     """ Return the lazy iterator over the selected pages. """
     # Disable advanced layout analysis.
-    laparams = LAParams(boxes_flow=None)
+    laparams = LAParams(boxes_flow=None, all_texts=True)
     return extract_pages(
         file, laparams=laparams, page_numbers=Config.pages.page_ids)
 
@@ -444,7 +400,12 @@ def dataframe_to_rows(char_df: pd.DataFrame) -> list[Row]:
 def get_pdf_tables_from_df(char_df: pd.DataFrame) -> list[PDFTable]:
     """ Create PDFTables using the char_df. """
     rows = dataframe_to_rows(char_df)
-    pdf_tables = cleanup_tables(split_rows_into_tables(rows))
+    pdf_tables = []
+    for table in cleanup_tables(split_rows_into_tables(rows)):
+        if table.empty:
+            continue
+        table.fix_split_stopnames()
+        pdf_tables.append(table)
     return pdf_tables
 
 
@@ -452,43 +413,44 @@ def pdf_tables_to_timetables(pdf_tables: list[PDFTable]) -> list[TimeTable]:
     """ Create TimeTables using the PDFTables"""
     timetables = []
     for table in pdf_tables:
-        if table.empty:
-            continue
-        table.fix_split_stopnames()
         timetable = table.to_timetable()
         timetables.append(timetable)
     return timetables
 
 
-def tables_to_csv(page_id: int, tables: list[Table]) -> None:
+def tables_to_csv(page_id: int, tables: list[Table] | list[PDFTable]) -> None:
     """ Export the given tables to the temporary directory as .csv files.
 
     :param page_id: The page_id of the page the tables come from.
     :param tables: The tables we want to export.
     """
     page = Config.pages.page_num(page_id)
+    Config.output_dir.mkdir(parents=True, exist_ok=True)
     input_name = Path(Config.filename).stem
     logger.info(f"Writing tables of page {page} "
-                f"as .csv to {Config.temp_dir}...")
-    for table_id, table in enumerate(tables):
-        fname = f"{page:02}-{table_id:02}-{input_name}.csv"
-        path = Config.temp_dir.joinpath(fname)
+                f"as .csv to {Config.output_dir}...")
+    for table_id, table in enumerate(tables, 1):
+        legacy = "-legacy" if Config.use_legacy_extraction else ""
+        fname = f"{input_name}-{page:02}-{table_id:02}{legacy}.csv"
+        path = Config.output_dir.joinpath(fname)
+        table: PDFTable | Table
         table.to_file(path)
 
 
-def page_to_timetables(
-        page: LTPage,
-        use_datafields: bool = True,
-        ) -> list[TimeTable]:
+def page_to_timetables(page: LTPage) -> list[TimeTable]:
     """ Extract all timetables from the given page. """
-    if use_datafields:
-        cell_tables = create_tables_from_page(page)
-        tables_to_csv(page.pageid, cell_tables)
-        time_tables = tables_to_timetables(cell_tables)
-    else:
+    if Config.use_legacy_extraction:
+        logger.info("Using legacy extraction algorithm.")
         char_df = get_chars_dataframe(page)
         pdf_tables = get_pdf_tables_from_df(char_df)
+        if Config.output_tables_as_csv:
+            tables_to_csv(page.pageid, pdf_tables)
         time_tables = pdf_tables_to_timetables(pdf_tables)
+    else:
+        cell_tables = create_tables_from_page(page)
+        if Config.output_tables_as_csv:
+            tables_to_csv(page.pageid, cell_tables)
+        time_tables = tables_to_timetables(cell_tables)
 
     logger.info(f"Number of tables found: {len(time_tables)}")
     return time_tables

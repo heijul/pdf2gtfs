@@ -51,3 +51,23 @@ class InvalidDirectionError(PropertyError):
                f"property '{prop_name}'. Each direction needs to be one of "
                f"'N', 'W', 'S' or 'E'.")
         super().__init__(msg)
+
+
+class InvalidOrientationError(PropertyError):
+    def __init__(self, **kwargs) -> None:
+        """ Raised if any of the given orientation is not a valid orientation.
+
+        :keyword prop: The property that was created.
+        :type prop: Property
+        :keyword orientation: The invalid orientation char.
+        :type orientation: str
+        """
+        if "prop" not in kwargs or "orientation" not in kwargs:
+            super().__init__()
+            return
+        prop_name = kwargs["prop"].name
+        direction = kwargs["orientation"]
+        msg = (f"Tried to use invalid orientation '{direction}' for the "
+               f"property '{prop_name}'. Each orientation needs to be either "
+               f"'V' or 'H'")
+        super().__init__(msg)

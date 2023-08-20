@@ -16,7 +16,7 @@ from pdf2gtfs.config.properties import (
     DirectionProperty, FilenameProperty,
     HeaderValuesProperty, HolidayCodeProperty, InputProperty,
     OutputPathProperty, PagesProperty, RepeatIdentifierProperty,
-    RouteTypeProperty,
+    RouteTypeProperty, SplitOrientationsProperty,
     )
 
 
@@ -111,6 +111,18 @@ class P2GConfig(BaseConfig):
         self.table_expansion_directions = \
             DirectionProperty("table_expansion_directions")
         self.extra_greedy = Property("extra_greedy", bool)
+        self.use_legacy_extraction = Property("use_legacy_extraction", bool)
+        self.stop_min_mean_normed_length = \
+            IntBoundedProperty("stop_min_mean_normed_length", 0)
+        self.stop_letter_ratio = FloatBoundedProperty(
+            "stop_letter_ratio", 0., 1.)
+        self.min_cell_overlap = FloatBoundedProperty(
+            "min_cell_overlap", 0., 1.)
+        self.merge_split_tables = Property("merge_split_tables", bool)
+        self.split_orientations = SplitOrientationsProperty(
+            "split_orientations")
+        self.output_tables_as_csv = Property(
+            "output_tables_as_csv", bool)
 
         super()._initialize_config_properties()
 

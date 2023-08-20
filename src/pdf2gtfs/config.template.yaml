@@ -23,6 +23,13 @@
 # Type: str or int
 gtfs_routetype: "Tram"
 
+# The format of the times given in the table.
+#
+# Type: String in strftime format
+# For more info:
+#  https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+time_format: "%H.%M"
+
 # Disable interactive mode. This will result in no user
 #   interaction necessary and may be useful, when run in a script.
 #
@@ -47,12 +54,17 @@ gtfs_date_bounds: ""
 # Type: int between 0 and 7
 display_route: 1
 
-# Days after which the cache should be marked as stale, forcing its rebuild.
-# Note: The cache will be rebuilt regardless of this setting,
-#   if the value of name_abbreviations or allowed_stop_chars is changed.
+# The country + subdivision (state/province) code used to get the holidays.
+# See https://pypi.org/project/holidays/ for a list of possible values.
+# If no subdivision exists for a country, simply do not set subdivision or
+#    set it to the empty string.
+# If you don't wish to automatically change service on holidays, simply
+#    set this to an empty dictionary.
 #
-# Type: Non-negative int
-stale_cache_days: 7
+# Type: dict of string to string
+holiday_code:
+  country: "DE"
+  subdivision: "BW"
 
 
 ####################
@@ -105,47 +117,9 @@ output_path: "./out"
 output_pp: True
 
 
-################################
-#  Table detection/extraction  #
-################################
-
-# Which pages to consider for extraction. Defaults to 'all' for all pages.
-# Example: "1-3,6,8-9" extracts the tables from the pages 1, 2, 3, 6, 8, 9.
-#
-# Type: String of comma-separated ints or ranges of ints, or 'all'.
-pages: "all"
-
-# Whether or not the pdf should be preprocessed. This will remove all objects
-#   from the pdf, which are not text (i.e. all images and vector graphics).
-#   Greatly reduces processing time, but may alter the pdf in some unexpected ways.
-#
-# Type: bool
-preprocess: True
-
-# We create the table by using the data-cells as basis and expanding the table
-# using cells adjacent to those data-cells.
-# In most cases expanding only in the directions up (N) and left (W) is enough.
-# However, if the table contains information below (S) or right (E) of the
-# data-cells, these directions can be added here.
-#
-# Note: The expansion in the directions S and E is more error-prone.
-#
-# Type: String. Must be any combination of the directions "N", "W", "S", "E".
-table_expansion_directions: "NW"
-
-# The format of the times given in the table.
-#
-# Type: String in strftime format
-# For more info:
-#  https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
-time_format: "%H.%M"
-
-# When expanding the table, be extra greedy with regards to whether cells are
-#  adjacent or not.
-# TODO: This needs a better explanation.
-#
-# Type: Boolean
-extra_greedy: True
+##########################################################
+# Keywords used to determine content type of table cells #
+##########################################################
 
 # The names of the "headers" of the table and their respective weekday index.
 #   Keys will be turned to all lowercase internally.
@@ -170,23 +144,12 @@ header_values: {
 # Type: List of string
 negative_header_values: [":", "="]
 
-# Set the minimum number of stops for a cycle to be recognized as connection.
-# Usually, any stops between two stops A and B are not added to the output,
-#   iff A and B have the same name and A/B are not the start/end of the route.
-#   This may however result in valid stops being discarded,
-#   if the route serves the same stop multiple times.
-# Setting this to 0 disables the detection of connections entirely.
-# Example: Given a route with the stops [A, B, C, A, D], the stops B and C in
-#   the cycle A-B-C-A would be detected as connections if this setting was
-#   set to 1 or 2, but not if it was set to 0 or any number higher than 2.
-#
-# Type: int
-min_connection_count: 1
-
 # Identifies rows, which add special meaning to some columns.
 #
 # Type: List of strings
-annot_identifier: [ "Verkehrshinweis", "Verkehrsbeschränkung" ]
+annot_identifier: [ "Verkehrshinweis",
+                    "Verkehrsbeschränkung",
+                    "Verkehrshinweise"]
 
 # Identifies rows, which hold information about the specific route the
 #   column is part of.
@@ -194,7 +157,9 @@ annot_identifier: [ "Verkehrshinweis", "Verkehrsbeschränkung" ]
 #   data columns with the entries of that row.
 #
 # Type: List of strings
-route_identifier: [ "Linie", "Zugnummer" ]
+route_identifier: [ "Linie",
+                    "Zugnummer",
+                    "Fahrtnummer"]
 
 # If a column does not hold any time data and contains the given identifier,
 #   try to expand the repeat interval.
@@ -225,17 +190,105 @@ repeat_identifier: [
 arrival_identifier: [ "an" ]
 departure_identifier: [ "ab" ]
 
-# The country + subdivision (state/province) code used to get the holidays.
-# See https://pypi.org/project/holidays/ for a list of possible values.
-# If no subdivision exists for a country, simply do not set subdivision or
-#    set it to the empty string.
-# If you don't wish to automatically change service on holidays, simply
-#    set this to an empty dictionary.
+# When searching for the stop locations, the abbreviations listed here will be
+#   replaced by their respective full form, when searching for stop locations.
+#   This may help with finding the proper location for a stop, in case the
+#   transit agency uses names with these abbreviations.
+#
+# Essentially the following regex is created for keys not ending with a dot:
+#     "(\bstr\.)|(\bstr\b)"
+#  If the key ends with a dot, the regex instead looks like this:
+#     "(\bstr\.)|(\bstr\b)|(str\.)"
+#
+# Example:
+#   - Given the following name_abbreviations:
+#       "str.": "strasse"
+#       "bf.": "BAHNHOF"
+#       "HBF": "hauptbahnhof"
+#   - would result in the following changes to some example stop names:
+#       "hbf"             ->  "hauptbahnhof"
+#       "hbf."            ->  "hauptbahnhof"
+#       "Frankfurthbf."   ->  "frankfurthbahnhof" (!)
+#       "Bahnhofsstr."    ->  "bahnhofsstrasse"
+#   Note the line with (!): The "[...]hbf." is replaced by "[...]hbahnhof"
+#   instead of "hauptbahnhof", because the key "hbf" does not end with a dot.
+#
+# Notes:
+# - This will not affect the stop_name in the 'stops.txt'.
+# - All keys/values will be .lower()ed and .casefold()ed.
 #
 # Type: dict of string to string
-holiday_code:
-  country: "DE"
-  subdivision: "BW"
+name_abbreviations:
+  "a.": "am"
+  "rh.": "rhein"
+  "ffm": "frankfurt"
+  "st.": "sankt"
+  "hbf": "hauptbahnhof"
+  "bf": "bahnhof"
+  "str.": "strasse"
+  "ka": "karlsruhe"
+
+
+################################
+#  Table detection/extraction  #
+################################
+
+# Which pages to consider for extraction. Defaults to 'all' for all pages.
+# Example: "1-3,6,8-9" extracts the tables from the pages 1, 2, 3, 6, 8, 9.
+#
+# Type: String of comma-separated ints or ranges of ints, or 'all'.
+pages: "all"
+
+# Whether or not the pdf should be preprocessed. This will remove all objects
+#   from the pdf, which are not text (i.e. all images and vector graphics).
+#   Greatly reduces processing time, but may alter the pdf in some unexpected ways.
+#
+# Type: bool
+preprocess: True
+
+# Whether to output the detected tables as .csv file.
+# This might be helpful for debugging, or when evaluating pdf2gtfs.
+#
+# Type: bool
+output_tables_as_csv: False
+
+# Split the initial table in the given directions.
+# If only both directions are given, split horizontally first, and then vertically.
+# You should only set this to "" if you are sure there is only a single table per page.
+#
+# Type: String. One of "", "V", "H", "VH"
+split_orientations: "VH"
+
+# We create the table by using the data-cells as basis and expanding the table
+# using cells adjacent to those data-cells.
+# In most cases expanding only in the directions up (N) and left (W) is enough.
+# However, if the table contains information below (S) or right (E) of the
+# data-cells, these directions can be added here.
+#
+# Note: The expansion in the directions S and E is more error-prone.
+#
+# Type: String. Must be any combination of the directions "N", "W", "S", "E".
+table_expansion_directions: "NW"
+
+# When expanding the table, be extra greedy with regards to whether cells are
+#  adjacent or not.
+# TODO: This needs a better explanation.
+#
+# Type: Boolean
+extra_greedy: True
+
+# Set the minimum number of stops for a cycle to be recognized as connection.
+# Usually, any stops between two stops A and B are not added to the output,
+#   iff A and B have the same name and A/B are not the start/end of the route.
+#   This may however result in valid stops being discarded,
+#   if the route serves the same stop multiple times.
+# Setting this to 0 disables the detection of connections entirely.
+# Example: Given a route with the stops [A, B, C, A, D], the stops B and C in
+#   the cycle A-B-C-A would be detected as connections if this setting was
+#   set to 1 or 2, but not if it was set to 0 or any number higher than 2.
+#
+# Type: int
+min_connection_count: 1
 
 # How to expand the repeating column, if the repeating times occur in a range.
 # Example: Given a repeat column with the content "Alle 7-8 min." and strategy
@@ -244,6 +297,63 @@ holiday_code:
 #
 # Type: String. Either "cycle" or "mean".
 repeat_strategy: "cycle"
+
+# How much two Cells can overlap to be considered on the same row or column.
+#
+# Type: Float between 0. and 1.
+min_cell_overlap: 0.8
+
+# Sometimes tables are split because of Time annotations; that is, annotations
+#  next to Time Cells, that modifies the specific route at the specific stop
+#  (e.g., "not on new years eve").
+# Setting this to True, will cause pdf2gtfs to try to merge _any_
+#  tables that were split, by aligning two neighboring tables and inserting
+#  empty rows/cols, in case alignment can't be done perfectly.
+# This may work better or worse based on some config settings and the specific
+#  tables that are being merged.
+# For example, when setting table_expansion_directions to NSWE, the merging
+# will result in duplicate rows or columns.
+#
+# Type: Boolean
+merge_split_tables: False
+
+
+#######################
+# Cell type detection #
+#######################
+
+# When checking whether a Cell is a stop, we use the length of the
+# cell text as measure.
+# Basically, we use `floor(log2(mean_length_of_cells_in_col_or_row)` to
+# determine if a cell could be a Stop.
+#
+# Example: The default of 3 will prevent rows/cols that contain text that is
+# on average shorter than 8 (=2**3) characters from having cells of type Stop.
+#
+# Type: Non-negative int
+stop_min_mean_normed_length: 3
+
+# When checking whether a Cell is a stop, we use the ratio of
+# letters vs. non-letter-characters of the Cells' text as measure.
+# Any Cells that contain too few letters will not be of type Stop.
+#
+# Example: With the default ratio of 0.8, a cell with the contents "ABC12"
+# will be of type Stop, because the letter-to-length-ratio of its text
+# is 3/5=0.6 (which is less than 0.8).
+#
+# Type: Float between 0 and 1.
+stop_letter_ratio: 0.8
+
+
+####################################
+# Legacy extraction algorithm keys #
+####################################
+
+# Use the old table extraction algorithm.
+# Note: The old algorithm will probably be removed in the future.
+#
+# Type: Boolean
+use_legacy_extraction: False
 
 # Maximum vertical distance in points between two rows, to be considered on
 #   the same table. Basically checks if (with origin being the top-left corner):
@@ -292,44 +402,6 @@ average_speed: 0
 #
 # Type: list of str
 allowed_stop_chars: [ " " ]  # ["-", "/", ".", " "]
-
-# When searching for the stop locations, the abbreviations listed here will be
-#   replaced by their respective full form, when searching for stop locations.
-#   This may help with finding the proper location for a stop, in case the
-#   transit agency uses names with these abbreviations.
-#
-# Essentially the following regex is created for keys not ending with a dot:
-#     "(\bstr\.)|(\bstr\b)"
-#  If the key ends with a dot, the regex instead looks like this:
-#     "(\bstr\.)|(\bstr\b)|(str\.)"
-#
-# Example:
-#   - Given the following name_abbreviations:
-#       "str.": "strasse"
-#       "bf.": "BAHNHOF"
-#       "HBF": "hauptbahnhof"
-#   - would result in the following changes to some example stop names:
-#       "hbf"             ->  "hauptbahnhof"
-#       "hbf."            ->  "hauptbahnhof"
-#       "Frankfurthbf."   ->  "frankfurthbahnhof" (!)
-#       "Bahnhofsstr."    ->  "bahnhofsstrasse"
-#   Note the line with (!): The "[...]hbf." is replaced by "[...]hbahnhof"
-#   instead of "hauptbahnhof", because the key "hbf" does not end with a dot.
-#
-# Notes:
-# - This will not affect the stop_name in the 'stops.txt'.
-# - All keys/values will be .lower()ed and .casefold()ed.
-#
-# Type: dict of string to string
-name_abbreviations:
-  "a.": "am"
-  "rh.": "rhein"
-  "ffm": "frankfurt"
-  "st.": "sankt"
-  "hbf": "hauptbahnhof"
-  "bf": "bahnhof"
-  "str.": "strasse"
-  "ka": "karlsruhe"
 
 # Disable the detection of the stop locations.
 #
@@ -398,6 +470,13 @@ disable_close_node_check: False
 #
 # Type: str
 cache_directory: ""
+
+# Days after which the cache should be marked as stale, forcing its rebuild.
+# Note: The cache will be rebuilt regardless of this setting,
+#   if the value of name_abbreviations or allowed_stop_chars is changed.
+#
+# Type: Non-negative int
+stale_cache_days: 7
 
 # The full url to the QLever endpoint.
 # Note: Set this to e.g. https://qlever.cs.uni-freiburg.de/api/osm-planet/?

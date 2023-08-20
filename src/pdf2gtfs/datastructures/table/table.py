@@ -5,7 +5,7 @@ import logging
 from itertools import pairwise
 from operator import attrgetter, methodcaller
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, TYPE_CHECKING
+from typing import Callable, Iterable, Iterator, TYPE_CHECKING, TypeAlias
 
 from more_itertools import (
     always_iterable, collapse, first_true, peekable, split_when,
@@ -21,6 +21,10 @@ from pdf2gtfs.datastructures.table.celltype import T
 from pdf2gtfs.datastructures.table.direction import (
     D, Direction, E, H, N, Orientation, S, V, W,
     )
+from pdf2gtfs.utils import (
+    bbox_is_indented, get_stop_base_name,
+    text_starts_with_delimiter,
+    )
 
 
 if TYPE_CHECKING:
@@ -28,6 +32,9 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+TMap: TypeAlias = list[tuple[Cell | None, Cell | None]]
 
 
 def merge_series(starter: C, d: Direction) -> None:
@@ -46,6 +53,17 @@ def merge_series(starter: C, d: Direction) -> None:
     neighbors = list(neighbor.iter(o=normal))
     for f1, f2 in zip(series, neighbors, strict=True):
         f1.merge(f2, ignore_neighbors=[normal.lower, normal.upper])
+
+
+def fix_stop_abbreviation(ref_stop: Cell, stop: Cell) -> bool:
+    """ Fix stop names that were split. """
+    starts_with_delim = text_starts_with_delimiter(stop.text)
+    is_indented = bbox_is_indented(ref_stop.bbox, stop.bbox)
+    if not starts_with_delim and not is_indented:
+        return False
+    text = stop.text[1:].strip() if starts_with_delim else stop.text
+    stop.text = get_stop_base_name(ref_stop.text) + text
+    return True
 
 
 class Table:
@@ -95,14 +113,14 @@ class Table:
                                           self.right.col, self.bot.row)))
 
     @staticmethod
-    def from_data_cells(data_cells: Cs) -> Table:
-        """ Create a new Table from the given DataCells.
+    def from_time_cells(time_cells: Cs) -> Table:
+        """ Create a new Table from the given TimeCells.
 
-        :param data_cells: The Cells of Type Data used to construct the Table.
+        :param time_cells: The Cells of Type Time used to construct the Table.
         :return: A new Table containing all the given Cells.
         """
-        cols = cells_to_cols(data_cells)
-        rows = cells_to_rows(data_cells)
+        cols = cells_to_cols(time_cells)
+        rows = cells_to_rows(time_cells)
         cols, rows = link_rows_and_cols(rows, cols)
         t = Table(cols[0][0], rows[-1][-1])
         return t
@@ -256,8 +274,8 @@ class Table:
             that is contained in the Tables BBox.
         """
         def _both_overlap(cell: C) -> bool:
-            return (self.bbox.is_v_overlap(cell.bbox, 0.8) and
-                    self.bbox.is_h_overlap(cell.bbox, 0.8))
+            return (self.bbox.is_v_overlap(cell.bbox) and
+                    self.bbox.is_h_overlap(cell.bbox))
 
         cells = list(filter(_both_overlap, cells))
         return cells
@@ -270,7 +288,7 @@ class Table:
             or None if no such column exists.
         """
         for col_cell in self.left.iter(E):
-            if col_cell.is_overlap(H, cell, 0.8):
+            if col_cell.is_overlap(H, cell):
                 return list(col_cell.col)
         return None
 
@@ -352,17 +370,17 @@ class Table:
         :param cells: The Cells that are evaluated.
         :return: Those Cells that are RepeatValues.
         """
-        contained_cells = self.get_contained_cells(cells)
+        contained_cells: Cs = self.get_contained_cells(cells)
         values = []
         repeat_groups = cells_to_cols(identifiers + values, link_cols=False)
         for group in repeat_groups:
-            for i1, i2 in pairwise(group):
-                overlaps = [f for f in contained_cells
-                            if f.is_overlap(H, i1, 0.8)
-                            and f.has_type(T.RepeatValue)]
+            for interval1, interval2 in pairwise(group):
+                overlaps = [c for c in contained_cells
+                            if c.is_overlap(H, interval1)
+                            and c.has_type(T.RepeatValue)]
                 # Only a single value is needed/possible.
                 for value in overlaps:
-                    if i1.bbox.y0 < value.bbox.y0 < i2.bbox.y0:
+                    if interval1.bbox.y0 < value.bbox.y0 < interval2.bbox.y0:
                         values.append(value)
                         break
         return values
@@ -388,7 +406,7 @@ class Table:
                       for i, f in enumerate(row)][:col_count]
             lines += [delim.lstrip() + delim.join(values) + delim.rstrip()]
 
-        print("\n".join(lines) + "\n")
+        logger.info("\n" + "\n".join(lines))
 
     def print(self, col_count: int | None = 8) -> None:
         """ Print the Table to stdout.
@@ -396,12 +414,12 @@ class Table:
         :param col_count: The maximum number of columns that will be printed.
         """
         def get_text_align(c) -> str:
-            """ Right align all data Cells; left align everything else.
+            """ Right align all TimeCells; left align everything else.
 
             :param c: This Cell's text is checked.
             :return: The format character used for alignment.
             """
-            return ">" if c.has_type(T.Data, strict=True) else "<"
+            return ">" if c.has_type(T.Time, strict=True) else "<"
 
         self._print(attrgetter("text"), get_text_align, col_count)
 
@@ -419,17 +437,23 @@ class Table:
 
     def to_file(self, fname: Path) -> None:
         """ Export the Table to the given Path as .csv file. """
+        def wrap_cell_text(cell: Cell) -> str:
+            """ Wrap cell text that contains a comma in quotes.
+
+            Also removes any existing quotes.
+            """
+            if cell.has_type(*bad_types, strict=True):
+                return ""
+            text = cell.text.replace('"', "")
+            if "," in text:
+                return f'"{text}"'
+            return text
+
         rows = []
-        first_col = self.left.col
+        first_col = list(self.left.col)
         bad_types = (T.Other, T.LegendIdent, T.LegendValue)
-        while True:
-            try:
-                cell: Cell = next(first_col)
-            except StopIteration:
-                break
-            texts = []
-            for cell in cell.row:
-                texts.append("" if cell.get_type() in bad_types else cell.text)
+        for row_starter in first_col:
+            texts = list(map(wrap_cell_text, row_starter.row))
             if not any(texts):
                 continue
             rows.append(",".join(texts))
@@ -489,10 +513,10 @@ class Table:
         for group in grouped_cells:
             group_bbox = BBox.from_bboxes([f.bbox for f in group])
             for i, table_cell in enumerate(table_cells[idx:], idx):
-                table_bbox = self.get_bbox_of(table_cell.iter(o=o))
-                # Cells that are overlapping in the given Orientation
-                #  can not split the Table.
-                if table_bbox.is_overlap(normal.name.lower(), group_bbox):
+                table_bbox: BBox = self.get_bbox_of(table_cell.iter(o=o))
+                # Cells that are overlapping more than 50%
+                # in the given Orientation can not split the Table.
+                if table_bbox.is_overlap(normal.name, group_bbox, 0.5):
                     idx = i
                     break
                 # We can be sure the group splits the Table,
@@ -538,18 +562,34 @@ class Table:
         :param cells: The Cells that may split the Table in either Direction.
         :return: The list of Tables.
         """
+        if Config.split_orientations == "":
+            return [self]
+        tables = [self]
+        if "H" in Config.split_orientations:
+            tables = self.split_horizontally(cells)
+        if "V" in Config.split_orientations:
+            tables = [table.split_vertically(cells) for table in tables]
+        return list(collapse(tables, base_type=Table))
+
+    def split_vertically(self, cells: Cs) -> list[Table]:
+        """ Split the table vertically at those
+        of the given cells that split the table.
+        """
         contained_cells = self.get_contained_cells(cells)
         if not contained_cells:
             return [self]
-        col_splitter = self.get_splitting_cols(contained_cells)
-        row_splitter = self.get_splitting_rows(contained_cells)
+        splitter = self.get_splitting_cols(contained_cells)
+        return self.split_at_cells(V, splitter)
 
-        col_tables = self.split_at_cells(V, col_splitter)
-        tables = []
-        for table in col_tables:
-            tables += table.split_at_cells(H, row_splitter)
-
-        return list(collapse(tables))
+    def split_horizontally(self, cells: Cs) -> list[Table]:
+        """ Split the table horizontally at those
+        of the given cells that split the table.
+        """
+        contained_cells = self.get_contained_cells(cells)
+        if not contained_cells:
+            return [self]
+        splitter = self.get_splitting_rows(contained_cells)
+        return self.split_at_cells(H, splitter)
 
     def _remove_empty_series(self, o: Orientation) -> None:
         n = o.normal
@@ -602,8 +642,8 @@ class Table:
                     # Only Cells with a proper type are added.
                     # Stops were already added.
                     return
-                case T.Data:
-                    # Add the data to the entry
+                case T.Time:
+                    # Add the Time to the entry
                     #  and ensure the entry will be added to the TimeTable.
                     entries[e_id].set_value(
                         t.stops.get_from_id(stop_id), cell.text)
@@ -692,6 +732,19 @@ class Table:
         h_stops = _find_stops(H)
         return (V, v_stops) if len(v_stops) > len(h_stops) else (H, h_stops)
 
+    def infer_cell_types(self) -> None:
+        """ Infer the CellTypes of each Cell.
+
+        This will infer the type multiple times, to accomodate
+        for changes in the type based on a previous inference.
+        """
+        # TODO: Instead, we could try to store the Type of each Cell and
+        #  only stop inference, when they no longer change.
+        #  Should watch for loops then, though.
+        for starter in self.left.row:
+            for cell in starter.col:
+                cell.type.infer_type_from_neighbors()
+
     def cleanup(self, first_table: Table | None) -> None:
         """ Infer the CellTypes of all Cells.
 
@@ -702,23 +755,6 @@ class Table:
             Otherwise, the first Table will be used to determine
             whether the Days, etc. are in the header or in the footer.
         """
-
-        def infer_cell_types() -> None:
-            """ Infer the CellTypes of each Cell.
-
-            This will infer the type multiple times, to accomodate
-            for changes in the type based on a previous inference.
-            """
-            # TODO: Test if it makes a difference, running this twice.
-            # TODO: Instead, we could try to store the Type of each Cell and
-            #  only stop inference, when they no longer change.
-            #  Should watch for loops then, though.
-            for starter in self.left.row:
-                for cell in starter.col:
-                    cell.type.infer_type_from_neighbors()
-            for starter in self.left.row:
-                for cell in starter.col:
-                    cell.type.infer_type_from_neighbors()
 
         def merge_stops(o: Orientation, stops: list[tuple[int, C]]) -> None:
             """ Merge consecutive Cells of Type Stop. """
@@ -739,8 +775,36 @@ class Table:
                     f"Found two consecutive stop {series}. Merging...")
                 merge_series(stop, o.normal.upper)
 
-        infer_cell_types()
+        def fix_stop_abbreviations(stops: list[Cell]) -> None:
+            if not stops:
+                return
+            ref_stop = stops[0]
+            for stop in stops[1:]:
+                if fix_stop_abbreviation(ref_stop, stop):
+                    continue
+                ref_stop = stop
+
+        def merge_consecutive_days() -> None:
+            """ Merge multi-word DaysCells that were split. """
+            first_col = self.left.col
+            for row_starter in first_col:
+                for cell in row_starter.row:
+                    if not cell.has_type(T.Days, strict=True):
+                        continue
+                    neighbors = cell.get_neighbors(directions=[E],
+                                                   allow_empty=False)
+                    while (neighbors
+                           and neighbors[0].has_type(T.Days, strict=True)
+                           and cell.text.lower() not in Config.header_values):
+                        cell.text += " " + neighbors[0].text
+                        self.replace_cell(neighbors[0], EmptyCell())
+                        neighbors = cell.get_neighbors(directions=[E],
+                                                       allow_empty=False)
+
+        self.infer_cell_types()
         merge_stops(*self.find_stops())
+        fix_stop_abbreviations([c for (_, c) in self.find_stops()[1]])
+        merge_consecutive_days()
         self.remove_duplicate_days(H, first_table)
 
     def remove_duplicate_days(self, o: Orientation, ref_table: Table) -> None:
@@ -821,6 +885,57 @@ class Table:
             if single and cells_of_type:
                 return cells_of_type
         return cells_of_type
+
+    def replace_cell(self, cell: Cell, new_cell: Cell) -> None:
+        if cell.prev:
+            cell.prev.next = new_cell
+        if cell.next:
+            cell.next.prev = new_cell
+        if cell.above:
+            cell.above.below = new_cell
+        if cell.below:
+            cell.below.above = new_cell
+
+    def merge(self, o: Orientation, table: Table, tmap: TMap) -> None:
+        """ Merge the given table into this one.
+
+        :param o: The orientation of the merge.
+        If H, the Cells of table will end up right of the last column;
+        If V, the Cells of table will end up below the last row;
+        :param table: The cells of this table will be merged into self.
+        :param tmap: A mapping between the border cells of each table.
+        """
+        def create_empty_cells(n: int, /) -> list[EmptyCell]:
+            e_cells = [EmptyCell() for _ in range(n)]
+            link_cells(o.upper, e_cells)
+            return e_cells
+
+        # Insert missing cells in either table.
+        rel_cell_1 = list(self.left.iter(o=o))[-1]
+        rel_cell_2 = table.left
+        n1 = len(list(self.left.iter(o=o)))
+        n2 = len(list(table.left.iter(o=o)))
+        insert_d = o.normal.lower
+        for i, (c1, c2) in enumerate(list(tmap)):
+            if c1 is None:
+                cell = create_empty_cells(n1)[-1]
+                self.insert(insert_d, rel_cell_1, cell)
+                tmap[i] = cell, c2
+            if c2 is None:
+                cell = create_empty_cells(n2)[0]
+                table.insert(insert_d, rel_cell_2, cell)
+                tmap[i] = c1, cell
+            rel_cell_1, rel_cell_2 = tmap[i]
+            insert_d = o.normal.upper
+        # Actual merging.
+        for c1, c2 in tmap:
+            assert c1.get_neighbor(o.upper) is None
+            assert c2.get_neighbor(o.lower) is None
+            for c in c2.iter(o=o):
+                c.table = self
+            c1.set_neighbor(o.upper, c2)
+        # Need to rerun the type inference.
+        self.infer_cell_types()
 
 
 def group_cells_by(cells: Iterable[C],
@@ -996,7 +1111,7 @@ def merge_small_cells(o: Orientation, ref_cells: Cs, cells: Cs) -> None:
                 break
         return start_, cell_overlaps
 
-    # TODO: Try to have ref_cells contain the maximum number of DataCells.
+    # TODO: Try to have ref_cells contain the maximum number of TimeCells.
     #  That way, Days columns, for example,  won't fuck up anything above them.
     if len(cells) < 2:
         return
@@ -1056,7 +1171,12 @@ def insert_empty_cells_from_map(o: Orientation, ref_cells: Cs, cells: Cs) -> C:
             break
         cell_count += 1
         cell = cells[idx]
-        if ref_cell.is_overlap(o, cell, 0.8):
+        bbox: BBox
+        if ref_cell.table:
+            bbox = ref_cell.table.get_bbox_of(ref_cell.iter(o=o.normal))
+        else:
+            bbox = ref_cell.bbox
+        if bbox.is_overlap(o.name, cell.bbox):
             idx += 1
             continue
         add_empty_cell(o.lower, cell, ref_cell)
@@ -1098,9 +1218,91 @@ def insert_cells_in_col(col: Cs, cells: Cs) -> None:
     last_id = 0
     for cell in cells:
         for i, col_cell in enumerate(col[last_id:], last_id):
-            if not col_cell.is_overlap(V, cell, 0.8):
+            if not col_cell.is_overlap(V, cell):
                 continue
-            assert col_cell.is_overlap(H, cell, 0.8)
+            assert col_cell.is_overlap(H, cell)
             replace_cell(col_cell, cell)
             last_id = i + 1
             break
+
+
+def find_time_aligned_cell(table: Table, *,
+                           first: bool = False, last: bool = False) -> Cell:
+    assert first + last == 1
+
+    cell = table.left
+    # Find the first cell that has a column that contains a TimeCell.
+    while True:
+        for c in cell.col:
+            if not c.has_type(T.Time, strict=True):
+                continue
+            break
+        else:
+            cell = cell.next
+            continue
+
+        cell = c
+        break
+    # Find the first row of the cell that contains a TimeCell.
+    while True:
+        for c in cell.row:
+            if not c.has_type(T.Time, strict=True):
+                continue
+            break
+        else:
+            cell = cell.below
+            continue
+        cell = c
+        break
+    if first:
+        return cell
+
+
+def map_tables(t1: Table, t2: Table, o: Orientation) -> TMap:
+    # We need the last column/row of the first table for the seen_time-check.
+    c1 = list(t1.left.iter(o=o.normal))[-1]
+    c2 = t2.left
+    cmap = []
+    bbox_attr = attrgetter("bbox.y0") if o == V else attrgetter("bbox.x0")
+    while True:
+        # At least one of the two tables has no more Cells.
+        if not c1 or not c2:
+            return cmap
+        # The Cells are aligned and can be mapped.
+        if c1.is_overlap(o, c2):
+            cmap.append((c1, c2))
+            c1 = c1.get_neighbor(o.upper)
+            c2 = c2.get_neighbor(o.upper)
+            continue
+        # Advance only the left/upper table, if no mapping can be made.
+        if bbox_attr(c1) < bbox_attr(c2):
+            cmap.append((c1, None))
+            c1 = c1.get_neighbor(o.upper)
+            continue
+        if bbox_attr(c1) > bbox_attr(c2):
+            cmap.append((None, c2))
+            c2 = c2.get_neighbor(o.upper)
+            continue
+        # This should™ never happen.
+        break
+    return []
+
+
+def merge_tables(tables: list[Table]) -> list[Table]:
+    tables = sorted(tables, key=attrgetter("bbox.y0", "bbox.x0"))
+    t1, t2 = 0, 1
+    while True:
+        assert t1 < t2
+        if t1 >= len(tables) or t2 >= len(tables):
+            break
+        tmap = map_tables(tables[t1], tables[t2], V)
+        if not tmap:
+            t2 += 1
+            if t2 >= len(tables):
+                t1 += 1
+                t2 = t1 + 1
+            continue
+
+        tables[t1].merge(H, tables[t2], tmap)
+        tables.remove(tables[t2])
+    return tables

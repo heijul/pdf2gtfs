@@ -13,6 +13,9 @@ old/
 # drawio backups
 *.bkp
 
+# Libreoffice files
+*.ods
+
 # Build/Setup
 **/build/
 **/*.egg-info/

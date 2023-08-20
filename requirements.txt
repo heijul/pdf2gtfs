@@ -1,3 +1,4 @@
+flake8
 pandas~=1.4.2
 ghostscript~=0.7
 holidays~=0.13

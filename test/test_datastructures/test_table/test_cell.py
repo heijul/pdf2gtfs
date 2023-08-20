@@ -40,8 +40,8 @@ class TestField(TestCase):
 
         Config.time_format = "%H:%M"
         f2 = Cell("13:37", None)
-        self.assertEqual(T.Data, f2.get_type())
-        self.assertListEqual([T.Data, T.LegendIdent, T.Other],
+        self.assertEqual(T.Time, f2.get_type())
+        self.assertListEqual([T.Time, T.LegendIdent, T.Other],
                              list(f2.type.possible_types))
 
     def test_has_type(self) -> None:

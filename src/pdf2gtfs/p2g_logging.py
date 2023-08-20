@@ -22,11 +22,13 @@ def disable_pdfminer_logger() -> None:
         logging.getLogger(name).addFilter(pdfminer_filter)
 
 
-def initialize_logging(level: int):
+def initialize_logging(level: int, *,
+                       force: bool = False, handlers: list = None) -> None:
     """ Reduce the pdfminer output and setup basic logging. """
     disable_pdfminer_logger()
-    stdout_handler = logging.StreamHandler(stream=sys.stdout)
-    logging.basicConfig(level=level, handlers=[stdout_handler])
+    if handlers is None:
+        handlers = [logging.StreamHandler(stream=sys.stdout)]
+    logging.basicConfig(level=level, force=force, handlers=handlers)
 
 
 def flush_all_loggers() -> None:

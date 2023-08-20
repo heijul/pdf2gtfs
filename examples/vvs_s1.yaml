@@ -1,0 +1,4 @@
+gtfs_routetype: "Rail"
+time_format: "%H.%M"
+simple_travel_cost_calculation: True
+average_travel_distance_offset: 5

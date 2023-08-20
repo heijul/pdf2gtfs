@@ -59,7 +59,7 @@ class OSMNode:
        impacts the node score.
     """
     optional_tags = ("ref_ifopt", "wheelchair", "gtfs_name")
-    _osm_tag_names = {"ref_ifopt": "ref:ifopt", "gtfs_name": "gtfs:name"}
+    _osm_tag_names = {"ref_ifopt": "ref:IFOPT", "gtfs_name": "gtfs:name"}
 
     def __init__(self, idx: int, stop_id: str, names: str, lat: float,
                  lon: float, node_cost: float, name_cost: float,

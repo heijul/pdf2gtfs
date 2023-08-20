@@ -5,12 +5,16 @@ from __future__ import annotations
 
 import logging
 from operator import attrgetter
+from pathlib import Path
 from typing import Callable, TypeAlias
 
 from pdf2gtfs.config import Config
 from pdf2gtfs.datastructures.pdftable.container import (
     Column, FieldContainer, Row)
-from pdf2gtfs.datastructures.pdftable.enums import ColumnType, RowType
+from pdf2gtfs.datastructures.pdftable.enums import (
+    ColumnType, FieldType,
+    RowType,
+    )
 from pdf2gtfs.datastructures.pdftable.lists import ColumnList, RowList
 from pdf2gtfs.datastructures.timetable.table import TimeTable
 
@@ -177,6 +181,57 @@ class PDFTable:
                 table.rows = rows
 
         return self._split_at(self.rows.of_type(RowType.HEADER), splitter)
+
+    def to_file(self, fname: Path) -> None:
+        """ Export the PDFTable to the given path in the csv format. """
+        def escape_field_text(text: str) -> str:
+            """ Wrap field text that contains a comma in quotes.
+
+            Also removes any existing quotes.
+            """
+            text = text.replace('"', "").strip()
+            if "," in text:
+                return f'"{text}"'
+            return text
+
+        def get_header_row_column_idx(idx: int = 0, *, row_field=None) -> int:
+            """ Get the column index of the fields of a header row. """
+            if not row_field:
+                row_field = row.fields[idx]
+            for i, col_ in enumerate(self.columns):
+                if col_.bbox.x0 > row_field.bbox.x0:
+                    return i
+            # Last column.
+            return len(self.columns) - 1
+
+        row_strings = [[] for _ in self.rows]
+        seen_fields = []
+        for col in self.columns:
+            last_row_id = -1
+            for field in col:
+                row_id = field.row.index
+                for row in self.rows.objects[last_row_id + 1: row_id]:
+                    row_strings[row.index].append("")
+                row_strings[row_id].append(escape_field_text(field.text))
+                seen_fields.append(field)
+                last_row_id = row_id
+            # Fix missing trailing commas.
+            for row_string in row_strings:
+                while len(row_string) < self.columns.index(col) + 1:
+                    row_string.append("")
+        # Add fields without a column.
+        for row in self.rows:
+            for field in row:
+                if field.type != FieldType.HEADER or field in seen_fields:
+                    continue
+                idx = get_header_row_column_idx(row_field=field)
+                row_strings[row.index][idx] = field.text
+        # Export.
+        table_str = "\n".join(
+            [",".join(row_string) for row_string in row_strings
+             if any(row_string)]) + "\n"
+        with open(fname, "w") as fil:
+            fil.write(table_str)
 
 
 def split_rows_into_tables(rows: Rows) -> Tables:

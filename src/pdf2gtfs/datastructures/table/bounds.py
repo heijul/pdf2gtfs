@@ -193,7 +193,7 @@ class Bounds:
         :param bbox: The BBox that is checked.
         :return: True if the BBox is within Bounds. False, otherwise.
         """
-        if self.hbox and self.hbox.is_h_overlap(bbox):
+        if self.hbox and self.hbox.is_h_overlap(bbox, 0.5):
             return True
         if self.hbox:
             return False
@@ -209,7 +209,7 @@ class Bounds:
         :param bbox: The BBox that is checked.
         :return: True if the BBox is within Bounds. False, otherwise.
         """
-        if self.vbox and self.vbox.is_v_overlap(bbox):
+        if self.vbox and self.vbox.is_v_overlap(bbox, 0.5):
             return True
         if self.vbox:
             return False
@@ -367,14 +367,14 @@ def select_adjacent_cells(d: Direction, bboxes: list[BBox], cells: Cs) -> Cs:
     """
     bound_cls = {N: NBounds, W: WBounds, S: SBounds, E: EBounds}[d]
 
-    adjacent_cells = bound_cls.select_adjacent_cells(bboxes, cells)
+    adjacent_cells: Cs = bound_cls.select_adjacent_cells(bboxes, cells)
 
     normal = d.o.normal
     # Remove Cells that are not overlapping with any reference Cell.
     starter_id = 0
     for adj_cell in adjacent_cells:
         for i, bbox in enumerate(bboxes[starter_id:], starter_id):
-            if adj_cell.bbox.is_overlap(normal.name.lower(), bbox, 0.8):
+            if adj_cell.bbox.is_overlap(normal.name, bbox):
                 break
         else:
             adjacent_cells.remove(adj_cell)

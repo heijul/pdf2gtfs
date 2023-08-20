@@ -336,7 +336,8 @@ class GTFSHandler:
         trip_ids = [t.trip_id for t in self.trips.get_with_route_id(route_id)]
         stop_times1 = self.stop_times.get_with_stop_id(trip_ids, stop_id1)
         stop_times2 = self.stop_times.get_with_stop_id(trip_ids, stop_id2)
-        assert _aligned_stop_times(stop_times1, stop_times2)
+        if not _aligned_stop_times(stop_times1, stop_times2):
+            return Time()
 
         times = []
         for s1, s2 in zip(stop_times1, stop_times2):
@@ -380,7 +381,7 @@ class GTFSHandler:
     def _add_ifopt_as_id(self, stop: GTFSStopEntry, ifopt: str | None) -> None:
         """ Update stops using the locations, such that each stop uses its
         nodes' IFOPT, if it exists and is not used elsewhere in the feed. """
-        if ifopt is None or stop.stop_id == ifopt:
+        if not ifopt or stop.stop_id == ifopt:
             return
         # Check if ID is used for something else already.
         if UIDGenerator.is_used(ifopt):
@@ -413,7 +414,7 @@ class GTFSHandler:
 
     @staticmethod
     def _use_osm_gtfs_name(stop: GTFSStopEntry, new_name: str | None) -> None:
-        if new_name is None:
+        if not new_name:
             return
         stop.stop_name = new_name
 

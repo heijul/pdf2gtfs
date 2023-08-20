@@ -215,7 +215,9 @@ class Cell(BBoxObject):
         :return: A new Cell that contains the text of all given chars
             and a minimal BBox that contains all given chars.
         """
-        text = "".join([c.get_text() for c in lt_chars]).strip()
+        from pdf2gtfs.reader import _fix_cid_text
+
+        text = "".join([_fix_cid_text(c.get_text()) for c in lt_chars]).strip()
         bbox = get_bbox_from_chars(lt_chars, page_height)
         font = lt_chars[0].font if lt_chars else None
         fontname = font.fontname if font else None
