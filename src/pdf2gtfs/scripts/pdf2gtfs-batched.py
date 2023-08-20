@@ -34,17 +34,17 @@ def run_all() -> None:
     p2g_arg = str(Config.p2g_dir.joinpath("main.py"))
     pdf_dir = Path(batch_args.pdf_dir).resolve(strict=True)
     out_dir = Path(batch_args.out_dir).resolve(strict=True)
-    out_dir_args = ["--output_path", str(out_dir)]
     for pdf_file in glob("*.pdf", root_dir=pdf_dir):
         pdf_path = pdf_dir.joinpath(pdf_file)
         configs = get_configs(pdf_path)
-        sys.argv = [p2g_arg] + configs + out_dir_args + [str(pdf_path)]
+        sys.argv = [p2g_arg] + configs + [str(pdf_path)]
         print(f"Running pdf2gtfs on '{pdf_file}'.", end=" ")
         legacy = "-legacy" if Config.use_legacy_extraction else ""
         log_file = out_dir.joinpath(pdf_path.stem + f"{legacy}.log")
         try:
             log_handler = logging.FileHandler(str(log_file), mode="w")
             initialize_logging(0, force=True, handlers=[log_handler])
+            Config.output_path = out_dir.joinpath(f"{pdf_path.stem}.zip")
             main()
             log_handler.close()
             print("Done. No errors occurred.")
