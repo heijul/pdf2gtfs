@@ -44,7 +44,7 @@ pdf2gtfs-batched = "pdf2gtfs.scripts.batched:run_all"
 
 [tool.poetry.dependencies.custom_conf]
 git = "https://github.com/heijul/custom_conf.git"
-rev = "master"
+tag = "v0.1.0"
 
 [build-system.git-submodules]
 path = "./custom_conf"
