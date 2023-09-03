@@ -6,7 +6,7 @@ and turn it into valid [GTFS](https://developers.google.com/transit/gtfs).
 It was created as a Bachelor's project + thesis at the chair of 'Algorithms and
 Datastructures' of the Freiburg University.
 
-The Bachelor's thesis, which goes into more detail and adds an evaluation, can be found 
+The Bachelor's thesis, which goes into more detail and adds an evaluation, can be found
 [here](https://ad-publications.informatik.uni-freiburg.de/theses/Bachelor_Julius_Heinzinger_2023.pdf).
 A (shorter) blogpost detailing its usage can be found
 [here](https://ad-blog.informatik.uni-freiburg.de/post/transform-pdf-timetables-into-gtfs),
@@ -25,23 +25,27 @@ Older versions may work as well, but only the versions given above are officiall
 
 ### Installation and Usage
 
-Note that using pip won't install the dependencies required only for development.
+>**Note:** Using pip won't install those dependencies that are required only for development.
 
-#### 1. Clone the repository: 
+#### 1. Clone the repository (with submodules):
    ```shell
-   git clone https://github.com/heijul/pdf2gtfs.git
+   git clone --recursive https://github.com/heijul/pdf2gtfs.git
    cd pdf2gtfs
    ```
 #### 2. (Optional) Create a venv and activate it [(more info)](https://docs.python.org/3/library/venv.html):
    ```shell
    python3.11 -m venv venv
    source venv/bin/activate
-   ``` 
+   ```
    Under Windows, you have to activate the venv using ´./venv/bin/activate´.
 
 #### 3. Install pdf2gtfs using pip or poetry.
-   Note: With pip you will have to manually install the development requirements 
-   (Defined in [pyproject.toml](pyproject.toml)).
+   >**Note:** With pip you will have to manually install the development requirements
+   >(Defined in [pyproject.toml](pyproject.toml)).
+
+   >**Note:** If pip/poetry complains that no pyproject.toml exists for custom_conf,
+   >you forgot to add the `--recursive` flag.
+   >To fix this, simply run `git submodule update --init --recursive`.
 
    Using pip:
    ```shell
@@ -49,7 +53,7 @@ Note that using pip won't install the dependencies required only for development
    ```
    Using poetry (requires poetry, of course):
    ```shell
-   poetry install 
+   poetry install
    ```
    Using poetry, but also install the development requirements:
    ```shell
@@ -59,7 +63,7 @@ Note that using pip won't install the dependencies required only for development
 #### 4. (Optional) Run the tests.
    Using unittest:
    ```shell
-   python -m unittest discover test 
+   python -m unittest discover test
    ```
    Using pytest:
    ```shell
@@ -86,7 +90,7 @@ For more information on the config keys and their possible values, check out the
 
 ## Examples
 
-TODO: Some issues, not sure everything works with the new algorithm 
+TODO: Some issues, not sure everything works with the new algorithm
 (See [Issue #58](https://github.com/heijul/pdf2gtfs/issues/58))
 
 The following examples can be run from the `examples` directory and show
@@ -141,8 +145,8 @@ In principle, pdf2gtfs works in 3 steps:
 
 Finally, the GTFS feed is saved on disk, after adding the locations.
 
-In the following are some rough descriptions 
-on how each of the previously mentioned steps is performed. 
+In the following are some rough descriptions
+on how each of the previously mentioned steps is performed.
 
 ### Extract the timetable data from the PDF
 
@@ -152,7 +156,7 @@ on how each of the previously mentioned steps is performed.
    to extract the text from the PDF
 3. Split the LTTextLine objects of pdfminer.six into words
 4. Detect the words that are times using the `time_format` config-key
-5. Define the body of the table using the times 
+5. Define the body of the table using the times
 6. Add cells to the table that overlap with its rows/columns
 
 ### Create the GTFS in memory
@@ -170,7 +174,7 @@ on how each of the previously mentioned steps is performed.
 5. Iterate through the TimeTableEntries of all TimeTables and create a new entry
    data to the `stop_times.txt`.
 
-### Detect the locations of the stops using the stop names and their order 
+### Detect the locations of the stops using the stop names and their order
 
 This is only done, if there is no `stops.txt` input file, or if the given file
 does not contain all necessary stops.
@@ -180,20 +184,20 @@ attributes from [OpenStreetMap (OSM)](https://www.openstreetmap.org)
 using [QLever](https://github.com/ad-freiburg/qlever).
 2. Normalize the names of the nodes by stripping any non-letter symbols
 and expanding any abbreviations
-3. For each stop of the detected tables, find those nodes that contain 
+3. For each stop of the detected tables, find those nodes that contain
 every word of the (normalized) stop name.
 4. Add basic costs:
-   * Name costs, based on the difference in length between a stops name 
+   * Name costs, based on the difference in length between a stops name
    and any of the node's names. (This works, because of the normalization)
    * Node costs, based on the selected gtfs_routetype and the attributes of
    the node.
 5. Use Dijkstra's algorithm, to find the nodes with the lowest cost. The cost
    of a node, is simply the sum of its name-, node- and travel cost. The travel
-   cost is calculated using either a "closer-is-better" approach 
+   cost is calculated using either a "closer-is-better" approach
    or a "closer-to-expected-distance-is-better" approach.
 6. If any of the stops was found in the `stops.txt` file (if given), it's
    location will be used instead of checking the OSM data.
-7. If the location of a stop was not found, it is interpolated 
+7. If the location of a stop was not found, it is interpolated
    using the surrounding stop locations.
 
 The first two steps are generally the slowest steps of the location detection.

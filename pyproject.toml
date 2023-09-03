@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pdf2gtfs"
-version = "0.1.0"
+version = "0.2.0-alpha"
 description = "Convert PDF timetables to GTFS format"
 readme = "README.md"
 license = "Apache-2.0"
@@ -29,6 +29,7 @@ folium = "^0.12.1.post1"
 requests = "^2.27.1"
 "pdfminer.six" = "^20220319"
 more_itertools = "^9.1.0"
+custom_conf = { path = "./custom_conf" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
@@ -41,10 +42,3 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 pdf2gtfs = "pdf2gtfs.main:main"
 pdf2gtfs-batched = "pdf2gtfs.scripts.batched:run_all"
-
-[tool.poetry.dependencies.custom_conf]
-git = "https://github.com/heijul/custom_conf.git"
-tag = "v0.1.0"
-
-[build-system.git-submodules]
-path = "./custom_conf"
