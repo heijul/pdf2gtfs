@@ -196,7 +196,7 @@ def read_osm_values_yaml() -> dict[str, tuple[Include, Exclude]]:
         exclude keys for each routetype.
     """
     modes: dict[str, tuple[Include, Exclude]] = {}
-    path = Config.p2g_dir.joinpath("osm_scores.yaml")
+    path = Config.source_dir.joinpath("osm_scores.yaml")
     inherits = {}
     with open(path) as fil:
         for mode_of_transport, values in yaml.safe_load(fil).items():

@@ -45,15 +45,15 @@ class P2GConfig(BaseConfig):
                 os.path.expandvars("%PROGRAMDATA%/pdf2gtfs/")).resolve()
         logger.warning("Currently only windows and linux are fully "
                        "supported.")
-        return self.p2g_dir
+        return self.source_dir
 
     @property
-    def p2g_dir(self) -> Path:
+    def source_dir(self) -> Path:
         return Path(__file__).parents[1]
 
     @property
     def default_config_path(self) -> Path:
-        return self.p2g_dir.joinpath("config.template.yaml")
+        return self.source_dir.joinpath("config.template.yaml")
 
     @property
     def temp_dir(self) -> Path:

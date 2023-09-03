@@ -197,7 +197,7 @@ def get_and_create_cache_dir() -> Path:
     If this fails at any point, the src directory will be used as fallback.
     """
 
-    fallback_dir = Config.p2g_dir
+    fallback_dir = Config.source_dir
     path = get_cache_dir(fallback_dir)
     path = create_cache_dir(path, fallback_dir)
     return path

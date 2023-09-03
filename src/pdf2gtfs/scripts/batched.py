@@ -31,7 +31,7 @@ def get_configs(pdf_file: Path) -> list[str]:
 def run_all() -> None:
     """ Run pdf2gtfs on all PDFs in the given directory. """
     batch_args = batch_arg_parser().parse_args()
-    p2g_arg = str(Config.p2g_dir.joinpath("main.py"))
+    p2g_arg = str(Config.source_dir.joinpath("main.py"))
     pdf_dir = Path(batch_args.pdf_dir).resolve(strict=True)
     out_dir = Path(batch_args.out_dir).resolve(strict=True)
     for pdf_file in glob("*.pdf", root_dir=pdf_dir):
