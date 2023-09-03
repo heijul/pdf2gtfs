@@ -14,7 +14,6 @@ classifiers=[
     "License :: OSI Approved :: Apache Software License",
     "Topic :: Scientific/Engineering :: GIS",
     "Topic :: Scientific/Engineering :: Information Analysis",
-    "Topic :: Text Processing :: Markup :: PDF",
     "Topic :: Utilities",
 ]
 repository = "https://github.com/heijul/pdf2gtfs"
