@@ -19,3 +19,4 @@ old/
 # Build/Setup
 **/build/
 **/*.egg-info/
+poetry.lock
