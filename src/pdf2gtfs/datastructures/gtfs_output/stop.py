@@ -212,9 +212,9 @@ class GTFSStops(BaseContainer):
         raise KeyError(f"No stop with stop_id '{stop_id}'.")
 
     def get_existing_stops(self, stop_ids: list[str]
-                           ) -> dict[str: tuple[float, float]]:
+                           ) -> dict[str, tuple[float, float]]:
         """ Return the locations of any existing stops of route. """
-        existing_locs: dict[str: tuple[float, float]] = {}
+        existing_locs: dict[str, tuple[float, float]] = {}
 
         for stop_id in stop_ids:
             try:

@@ -418,7 +418,7 @@ class GTFSHandler:
             return
         stop.stop_name = new_name
 
-    def update_stops(self, locations: dict[str: Node]) -> None:
+    def update_stops(self, locations: dict[str, Node]) -> None:
         """ Adds additional information to the stops, based on the nodes. """
         if not locations:
             logger.warning("Could not find any locations for the given "

@@ -165,7 +165,7 @@ def interpolate_missing_node_locations(all_nodes: list[Node]) -> None:
 
 def find_stop_nodes(handler: GTFSHandler, route_id: str,
                     route: list[GTFSStopEntry], df: DF
-                    ) -> dict[str: Node]:
+                    ) -> dict[str, Node]:
     """ Return the Nodes mapped to the stop ids for a list of routes. """
     msg = (f"Starting location detection for the route from "
            f"'{route[0].stop_name}' to '{route[-1].stop_name}'...")

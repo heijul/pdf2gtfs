@@ -13,7 +13,6 @@ from holidays.utils import list_supported_countries
 
 from custom_conf.properties.property import CType, Property
 from custom_conf.properties.bounded_property import IntBoundedProperty
-from custom_conf.properties.nested_property import NestedTypeProperty
 
 from pdf2gtfs.datastructures.gtfs_output.routes import (
     get_route_type, get_route_type_gtfs_value)
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class RepeatIdentifierProperty(NestedTypeProperty):
+class RepeatIdentifierProperty(Property):
     """ Property for the repeat_identifier. """
 
     def __init__(self, name: str) -> None:
@@ -50,11 +49,11 @@ class RepeatIdentifierProperty(NestedTypeProperty):
                 raise InvalidRepeatIdentifierError
 
 
-class HeaderValuesProperty(NestedTypeProperty):
+class HeaderValuesProperty(Property):
     """ Property for the header_values. """
 
     def __init__(self, name: str) -> None:
-        super().__init__(name, dict[str: str | list[str]])
+        super().__init__(name, dict[str, str | list[str]])
 
     def validate(self, value: Any):
         """ Validates the given value.
@@ -65,7 +64,7 @@ class HeaderValuesProperty(NestedTypeProperty):
         super().validate(value)
         self._validate_header_values(value)
 
-    def _validate_header_values(self, value: dict[str: str | list[str]]
+    def _validate_header_values(self, value: dict[str, str | list[str]]
                                 ) -> None:
         def _raise_invalid_header_error() -> None:
             logger.error(
@@ -93,11 +92,11 @@ class HeaderValuesProperty(NestedTypeProperty):
         setattr(obj, self.attr, value)
 
 
-class HolidayCodeProperty(NestedTypeProperty):
+class HolidayCodeProperty(Property):
     """ Property for the holiday code. """
 
     def __init__(self, name) -> None:
-        super().__init__(name, dict[str: str])
+        super().__init__(name, dict[str, str])
 
     def validate(self, value: dict[str, str]):
         """ Checks if the holidays library knows the given
@@ -369,14 +368,14 @@ class SplitOrientationsProperty(Property):
                 raise InvalidOrientationError(prop=self, orientation=char)
 
 
-class AbbrevProperty(NestedTypeProperty):
+class AbbrevProperty(Property):
     """ Property used by the abbreviations. """
 
     def __init__(self, name) -> None:
-        super().__init__(name, dict[str: str])
+        super().__init__(name, dict[str, str])
 
     @staticmethod
-    def clean_value(value: dict[str: str]) -> dict[str: str]:
+    def clean_value(value: dict[str, str]) -> dict[str, str]:
         """ Sort the abbreviations by length and normalize them. """
 
         def _clean(string: str) -> str:
@@ -411,12 +410,12 @@ class AverageSpeedProperty(IntBoundedProperty):
         return defaults[get_route_type_gtfs_value(routetype)]
 
 
-class InputProperty(NestedTypeProperty):
+class InputProperty(Property):
     """ Property for providing GTFS-feeds or files. """
 
     def __init__(self, name: str) -> None:
         self.temp_dir = None
-        super().__init__(name, dict[str: list[Path]])
+        super().__init__(name, dict[str, list[Path]])
 
     def __del__(self) -> None:
         if self.temp_dir is None:

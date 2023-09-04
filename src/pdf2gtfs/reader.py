@@ -96,7 +96,7 @@ def _fix_cid_text(text: str) -> str:
 
 
 def lt_char_to_dict(lt_char: LTChar, page_height: float
-                    ) -> dict[str: str | float]:
+                    ) -> dict[str, str | float]:
     char = {"x0": round(lt_char.x0, 2), "x1": round(lt_char.x1, 2),
             "y0": round(page_height - lt_char.y1, 2),
             "y1": round(page_height - lt_char.y1 + lt_char.height, 2),

@@ -92,7 +92,7 @@ class TimeTableRepeatEntry(TimeTableEntry):
               x + 1 < y. E.g. "7-9" returns [7, 8, 9]
             - Otherwise it returns a single element list of int(value_str)
         """
-        values: dict[str: list[int]] = {",": [], "-": []}
+        values: dict[str, list[int]] = {",": [], "-": []}
         for char in values:
             values[char] = []
             try:

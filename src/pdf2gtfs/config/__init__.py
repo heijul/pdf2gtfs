@@ -9,7 +9,6 @@ from custom_conf.properties.property import Property
 from custom_conf.properties.bounded_property import (
     FloatBoundedProperty, IntBoundedProperty,
     )
-from custom_conf.properties.nested_property import NestedTypeProperty
 
 from pdf2gtfs.config.properties import (
     AbbrevProperty, AverageSpeedProperty, DateBoundsProperty,
@@ -66,7 +65,7 @@ class P2GConfig(BaseConfig):
         self.time_format = Property("time_format", str)
         self.header_values = HeaderValuesProperty("header_values")
         self.negative_header_values = \
-            NestedTypeProperty("negative_header_values", list[str])
+            Property("negative_header_values", list[str])
         self.holiday_code = HolidayCodeProperty("holiday_code")
         self.repeat_identifier = RepeatIdentifierProperty("repeat_identifier")
         self.repeat_strategy = Property("repeat_strategy", str)
@@ -90,10 +89,8 @@ class P2GConfig(BaseConfig):
         self.disable_location_detection = \
             Property("disable_location_detection", bool)
         self.min_connection_count = Property("min_connection_count", int)
-        self.arrival_identifier = \
-            NestedTypeProperty("arrival_identifier", list[str])
-        self.departure_identifier = \
-            NestedTypeProperty("departure_identifier", list[str])
+        self.arrival_identifier = Property("arrival_identifier", list[str])
+        self.departure_identifier = Property("departure_identifier", list[str])
         self.interpolate_missing_locations = \
             Property("interpolate_missing_locations", bool)
         self.min_travel_distance = IntBoundedProperty("min_travel_distance", 0)
@@ -114,15 +111,14 @@ class P2GConfig(BaseConfig):
         self.use_legacy_extraction = Property("use_legacy_extraction", bool)
         self.stop_min_mean_normed_length = \
             IntBoundedProperty("stop_min_mean_normed_length", 0)
-        self.stop_letter_ratio = FloatBoundedProperty(
-            "stop_letter_ratio", 0., 1.)
-        self.min_cell_overlap = FloatBoundedProperty(
-            "min_cell_overlap", 0., 1.)
+        self.stop_letter_ratio = \
+            FloatBoundedProperty("stop_letter_ratio", 0., 1.)
+        self.min_cell_overlap = \
+            FloatBoundedProperty("min_cell_overlap", 0., 1.)
         self.merge_split_tables = Property("merge_split_tables", bool)
-        self.split_orientations = SplitOrientationsProperty(
-            "split_orientations")
-        self.output_tables_as_csv = Property(
-            "output_tables_as_csv", bool)
+        self.split_orientations = \
+            SplitOrientationsProperty("split_orientations")
+        self.output_tables_as_csv = Property("output_tables_as_csv", bool)
 
         super()._initialize_config_properties()
 

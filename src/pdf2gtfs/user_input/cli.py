@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 CheckType: TypeAlias = list[str] | Callable[[str], bool]
-AnnotException: TypeAlias = dict[str: tuple[bool, list[datetime.date]]]
+AnnotException: TypeAlias = dict[str, tuple[bool, list[datetime.date]]]
 
 
 def _get_input(prompt: str, check: CheckType, msg: str = "") -> str:
