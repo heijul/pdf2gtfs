@@ -19,4 +19,10 @@ old/
 # Build/Setup
 **/build/
 **/*.egg-info/
+
+# Venv
+venv
+venv/
+
+# Poetry
 poetry.lock
