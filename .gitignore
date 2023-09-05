@@ -18,6 +18,7 @@ old/
 
 # Build/Setup
 **/build/
+**/dist/
 **/*.egg-info/
 
 # Venv
