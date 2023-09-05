@@ -90,15 +90,12 @@ For more information on the config keys and their possible values, check out the
 
 ## Examples
 
-TODO: Some issues, not sure everything works with the new algorithm
-(See [Issue #58](https://github.com/heijul/pdf2gtfs/issues/58))
-
 The following examples can be run from the `examples` directory and show
 how some config values change the accuracy of the detected locations, as well
 as whether the pdf can be read at all. The `base.yaml` config only contains
 some basic output settings, used by all examples.
 
-**Before you run these, switch to the `examples` directory: `cd examples`**
+>**Before you run these, switch to the `examples` directory: `cd examples`**
 
 #### Example 1: Tram Line 1 of the [VAG](https://www.vag-freiburg.de/)
 
@@ -116,6 +113,8 @@ The `max_row_distance` needs to be adjusted, to read this PDF properly.
 
 The `close_node_check`, needs to be disabled, because it incorrectly disregards
 valid locations, that seem too far away.
+> **Note:** This example uses the legacy table extraction,
+because the new one (currently) results in errors.
 
 `pdf2gtfs --config=base.yaml --config=gvh_re2_re3.yaml gvh_re2_re3.pdf`
 
@@ -124,6 +123,8 @@ valid locations, that seem too far away.
 Here, disabling the `close_node_check` leads to far better results as well.
 Note that the config also contains some other settings, which lead to a
 similar result.
+> **Note:** This example uses the legacy table extraction,
+because the new one (currently) results in errors.
 
 `pdf2gtfs --config=base.yaml --config=havelbus_680.yaml havelbus_680.pdf`
 
