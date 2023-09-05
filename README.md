@@ -15,9 +15,13 @@ though some parts are outdated.
 
 ## Getting started
 
+The master branch contains all the latest changes and is unstable.
+The release branch usually points to the latest tag, though it may contain
+some additional fixes.
+
 ### Prerequisites
 
-- Linux or Windows
+- Linux (Windows should work as well, but I currently do not test this)
 - python3.10 or higher (required)
 - [ghostscript](https://www.ghostscript.com/) >= 9.56.1-1 (recommended)
 
